@@ -100,7 +100,7 @@ export async function cadastroClienteAction(formData: FormData) {
   if (clienteError) {
     // Rollback: remover usuário criado
     await supabase.auth.admin?.deleteUser(authData.user.id)
-    return { error: 'Erro ao salvar dados. CPF ou e-mail já cadastrado.' }
+    return { error: 'Erro ao salvar dados: ' + clienteError.message }
   }
 
   revalidatePath('/', 'layout')
@@ -158,7 +158,7 @@ export async function cadastroLojistaAction(formData: FormData) {
   })
 
   if (lojistaError) {
-    return { error: 'Erro ao salvar dados do estabelecimento.' }
+    return { error: 'Erro ao salvar dados do estabelecimento: ' + lojistaError.message }
   }
 
   revalidatePath('/', 'layout')
