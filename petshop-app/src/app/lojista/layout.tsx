@@ -14,7 +14,23 @@ export default async function LojistaLayout({
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
-  if (user.user_metadata?.role !== 'lojista') redirect('/cliente/dashboard')
+
+  // Verifica role: user_metadata primeiro, depois tabela lojista como fallback
+  // Isso evita loop de redirect quando user_metadata.role não está definido
+  const metaRole = user.user_metadata?.role
+  let isLojista = metaRole === 'lojista'
+
+  if (!isLojista && metaRole !== 'cliente') {
+    // role indefinido — consulta o banco como fonte de verdade
+    const { data: lojistaRow } = await supabase
+      .from('lojista')
+      .select('id_lojista')
+      .eq('id_lojista', user.id)
+      .maybeSingle()
+    isLojista = !!lojistaRow
+  }
+
+  if (!isLojista) redirect('/cliente/dashboard')
 
   const { data: lojista } = await supabase
     .from('lojista')

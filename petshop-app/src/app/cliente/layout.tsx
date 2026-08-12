@@ -14,7 +14,23 @@ export default async function ClienteLayout({
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
-  if (user.user_metadata?.role !== 'cliente') redirect('/lojista/dashboard')
+
+  // Verifica role: user_metadata primeiro, depois tabela cliente como fallback
+  // Isso evita loop de redirect quando user_metadata.role não está definido
+  const metaRole = user.user_metadata?.role
+  let isCliente = metaRole === 'cliente'
+
+  if (!isCliente && metaRole !== 'lojista') {
+    // role indefinido — consulta o banco como fonte de verdade
+    const { data: clienteRow } = await supabase
+      .from('cliente')
+      .select('id_cliente')
+      .eq('id_cliente', user.id)
+      .maybeSingle()
+    isCliente = !!clienteRow
+  }
+
+  if (!isCliente) redirect('/lojista/dashboard')
 
   const { data: cliente } = await supabase
     .from('cliente')

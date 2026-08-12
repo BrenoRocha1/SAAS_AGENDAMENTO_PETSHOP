@@ -990,6 +990,106 @@ VARIAVEL DE AMBIENTE PENDENTE:
   e o cadastro continuara falhando (com mensagem diferente).
   PRIORIDADE: adicionar antes de qualquer novo teste de cadastro.
 
+--- BUG #002 | Data: 2026-08-12 | Status: CORRIGIDO ---
+
+TITULO: Build falha na Vercel com erro TypeScript TS18047 (adminClient possibly null)
+
+ARQUIVO AFETADO: src/lib/actions.ts (funcao cadastroClienteAction)
+
+ERRO EXIBIDO NO BUILD:
+  src/lib/actions.ts(95,41): error TS18047: 'adminClient' is possibly 'null'.
+
+CAUSA RAIZ:
+  Quando createAdminClient() foi alterado para retornar null em vez de lancar
+  excecao (correcao do BUG #001), o tipo de retorno passou a ser SupabaseClient|null.
+  A funcao cadastroLojistaAction recebeu o null check corretamente, mas a funcao
+  cadastroClienteAction foi esquecida. O TypeScript detecta o problema em build time
+  e recusa compilar.
+
+CORRECAO:
+  Adicionado null check identico em cadastroClienteAction:
+    const adminClient = createAdminClient()
+    if (!adminClient) {
+      return { error: 'Servico temporariamente indisponivel...' }
+    }
+  Alem disso, o rollback de deleteUser foi corrigido para usar adminClient
+  em vez de supabase.auth.admin (que e undefined no client SSR normal).
+
+--- BUG #003 | Data: 2026-08-12 | Status: CORRIGIDO ---
+
+TITULO: Login redireciona lojista para /cliente/dashboard
+
+ARQUIVO AFETADO:
+  src/lib/actions.ts (loginAction)
+  src/proxy.ts (arquivo renomeado para middleware.ts)
+
+CAUSA RAIZ - PARTE 1 (arquivo com nome errado):
+  O middleware de protecao de rotas estava no arquivo src/proxy.ts com a funcao
+  exportada como proxy(). O Next.js exige que o arquivo se chame middleware.ts
+  e que a funcao exportada se chame middleware(). Com o nome errado, o middleware
+  NUNCA era executado em nenhuma requisicao.
+
+CAUSA RAIZ - PARTE 2 (role nao disponivel):
+  Mesmo com o middleware correto, o loginAction lia user_metadata.role para
+  decidir o redirecionamento. Se o campo nao estivesse disponivel (timing de auth
+  ou contas antigas), role seria undefined e a comparacao role==='lojista' retornaria
+  false, mandando o lojista para /cliente/dashboard.
+
+CORRECAO:
+  src/proxy.ts renomeado para src/middleware.ts
+  Funcao proxy() renomeada para middleware()
+  loginAction agora usa cadeia de fallbacks:
+    1. user_metadata.role (JWT, sem custo de rede)
+    2. tabela perfil_usuario (banco)
+    3. tabela lojista (verifica se o usuario existe la)
+
+--- BUG #004 | Data: 2026-08-12 | Status: CORRIGIDO ---
+
+TITULO: ERR_TOO_MANY_REDIRECTS ao acessar qualquer pagina logado
+
+ARQUIVO AFETADO: src/middleware.ts
+
+ERRO EXIBIDO NO BROWSER:
+  ERR_TOO_MANY_REDIRECTS / "Redirecionamento em excesso"
+
+CAUSA RAIZ:
+  O middleware verificava o role para protecao cross-role, mas os destinos dos
+  redirecionamentos estavam INVERTIDOS por erro de digitacao:
+
+    ERRADO (causava loop):
+      if (pathname.startsWith('/lojista') && role !== 'lojista') {
+        url.pathname = '/lojista/dashboard'  <- MESMO URL = loop infinito!
+      }
+      if (pathname.startsWith('/cliente') && role !== 'cliente') {
+        url.pathname = '/cliente/dashboard'  <- MESMO URL = loop infinito!
+      }
+
+    CORRETO:
+      if (pathname.startsWith('/lojista') && role !== 'lojista') {
+        url.pathname = '/cliente/dashboard'  <- redireciona para FORA da area
+      }
+      if (pathname.startsWith('/cliente') && role !== 'cliente') {
+        url.pathname = '/lojista/dashboard'  <- redireciona para FORA da area
+      }
+
+  Alem disso, o middleware chamava resolveRole() duas vezes por requisicao
+  (duplicacao desnecessaria de queries ao banco).
+
+CORRECAO:
+  Middleware reescrito do zero com logica clara em 4 etapas comentadas:
+    1. Sem sessao em rota protegida -> /login
+    2. Resolver role (user_metadata -> perfil_usuario -> tabela lojista)
+    3. Logado em pagina de auth -> dashboard correto
+    4. Cross-role: redireciona para a area CERTA do usuario
+  resolveRole() executado uma vez por requisicao.
+  Destinos de redirecionamento corretos e verificados.
+
+LICAO APRENDIDA:
+  Ao implementar protecao cross-role, sempre verificar:
+    "Se NAO e lojista e esta em /lojista -> redireciona para /CLIENTE"
+    "Se NAO e cliente e esta em /cliente -> redireciona para /LOJISTA"
+  O destino deve ser o OPOSTO da area que esta bloqueando.
+
 ================================================================================
   FIM DO REGISTRO DE BUGS
 ================================================================================
