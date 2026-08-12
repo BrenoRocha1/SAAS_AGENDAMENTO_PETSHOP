@@ -30,19 +30,14 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // CRÍTICO: usar getUser() não getSession() — previne replay attacks
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  // CRÍTICO: usar getUser() não getSession() — previne ataques de replay de token
+  const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
-  // Rotas que precisam de autenticação
-  const rotasProtegidas = ['/dashboard', '/cliente', '/lojista']
-  const rotasPublicas = ['/login', '/cadastro', '/cadastro/lojista', '/']
-  const isRotaProtegida = rotasProtegidas.some(r => pathname.startsWith(r))
+  const isRotaProtegida = pathname.startsWith('/cliente') || pathname.startsWith('/lojista')
+  const isRotaAuth = pathname === '/login' || pathname.startsWith('/cadastro')
 
-  // Sem usuário tentando acessar rota protegida → redireciona para login
+  // ── 1. Sem sessão tentando acessar rota protegida → login ──────────────────
   if (!user && isRotaProtegida) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
@@ -50,64 +45,53 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Resolução do role com cadeia de fallbacks para evitar loop de redirecionamento
-  // quando user_metadata.role não está definido
-  async function resolveRole(): Promise<string | null> {
-    if (!user) return null
+  // ── 2. Usuário logado → resolver role ──────────────────────────────────────
+  if (user) {
+    // Tenta user_metadata primeiro (JWT, sem custo de rede)
+    let role = user.user_metadata?.role as string | undefined
 
-    // 1° tentativa: user_metadata (mais rápido, no JWT)
-    const metaRole = user.user_metadata?.role as string | undefined
-    if (metaRole === 'lojista' || metaRole === 'cliente') return metaRole
-
-    // 2° tentativa: tabela perfil_usuario
-    try {
+    // Fallback 1: perfil_usuario
+    if (role !== 'lojista' && role !== 'cliente') {
       const { data: perfil } = await supabase
         .from('perfil_usuario')
         .select('role')
         .eq('id', user.id)
         .maybeSingle()
-      if (perfil?.role === 'lojista' || perfil?.role === 'cliente') return perfil.role
-    } catch { /* continua */ }
+      role = perfil?.role as string | undefined
+    }
 
-    // 3° tentativa: verifica se existe na tabela lojista
-    try {
+    // Fallback 2: tabela lojista (detecta lojistas sem perfil_usuario)
+    if (role !== 'lojista' && role !== 'cliente') {
       const { data: lojista } = await supabase
         .from('lojista')
         .select('id_lojista')
         .eq('id_lojista', user.id)
         .maybeSingle()
-      if (lojista) return 'lojista'
-      return 'cliente'
-    } catch { /* continua */ }
+      role = lojista ? 'lojista' : 'cliente'
+    }
 
-    return null // role desconhecido — não redireciona para evitar loop
-  }
-
-  // Usuário autenticado tentando acessar rotas de auth → redireciona para dashboard correto
-  if (user && rotasPublicas.includes(pathname) && pathname !== '/') {
-    const role = await resolveRole()
-    if (role) {
+    // ── 3. Logado acessando página de auth → dashboard correto ───────────────
+    if (isRotaAuth) {
+      const dest = role === 'lojista' ? '/lojista/dashboard' : '/cliente/dashboard'
       const url = request.nextUrl.clone()
-      url.pathname = role === 'lojista' ? '/lojista/dashboard' : '/cliente/dashboard'
+      url.pathname = dest
       return NextResponse.redirect(url)
     }
-  }
 
-  // Verificar acesso cross-role (lojista tentando acessar área de cliente e vice-versa)
-  // Só redireciona se o role for definitivamente conhecido — evita loop quando role=null
-  if (user) {
-    const role = await resolveRole()
-    if (role) {
-      if (pathname.startsWith('/lojista') && role !== 'lojista') {
-        const url = request.nextUrl.clone()
-        url.pathname = '/lojista/dashboard'
-        return NextResponse.redirect(url)
-      }
-      if (pathname.startsWith('/cliente') && role !== 'cliente') {
-        const url = request.nextUrl.clone()
-        url.pathname = '/cliente/dashboard'
-        return NextResponse.redirect(url)
-      }
+    // ── 4. Cross-role: cliente tentando acessar área de lojista ──────────────
+    //      (e vice-versa) — só redireciona para a área CORRETA do usuário
+    if (pathname.startsWith('/lojista') && role !== 'lojista') {
+      // Não é lojista → manda para área do cliente
+      const url = request.nextUrl.clone()
+      url.pathname = '/cliente/dashboard'
+      return NextResponse.redirect(url)
+    }
+
+    if (pathname.startsWith('/cliente') && role !== 'cliente') {
+      // Não é cliente → manda para área do lojista
+      const url = request.nextUrl.clone()
+      url.pathname = '/lojista/dashboard'
+      return NextResponse.redirect(url)
     }
   }
 
