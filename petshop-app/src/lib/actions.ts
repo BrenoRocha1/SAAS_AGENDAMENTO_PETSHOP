@@ -129,6 +129,20 @@ export async function cadastroLojistaAction(formData: FormData) {
     return { error: parsed.error.issues[0].message }
   }
 
+  const adminClient = createAdminClient()
+
+  // Verificar se email já existe na tabela lojista ANTES de criar o usuário Auth
+  // Isso evita criar usuários Auth "órfãos" quando o email já está cadastrado
+  const { data: existente } = await adminClient
+    .from('lojista')
+    .select('id_lojista')
+    .eq('email', parsed.data.email)
+    .maybeSingle()
+
+  if (existente) {
+    return { error: 'Este e-mail já está cadastrado. Acesse a tela de login para entrar na sua conta.' }
+  }
+
   const supabase = await createClient()
 
   const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -140,17 +154,33 @@ export async function cadastroLojistaAction(formData: FormData) {
   })
 
   if (authError) {
-    if (authError.message.includes('already registered')) {
-      return { error: 'Este e-mail já está cadastrado' }
+    // Log técnico apenas no servidor — nunca exposto ao usuário
+    console.error('[cadastroLojistaAction] Supabase signUp error:', {
+      message: authError.message,
+      status: authError.status,
+      code: (authError as unknown as { code?: string }).code,
+    })
+
+    const msg = authError.message.toLowerCase()
+    if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('email address') || authError.status === 422) {
+      return { error: 'Este e-mail já está cadastrado. Acesse a tela de login para entrar na sua conta.' }
     }
-    return { error: 'Erro ao criar conta. Tente novamente.' }
+    if (msg.includes('password') || msg.includes('weak')) {
+      return { error: 'Senha inválida. Use pelo menos 8 caracteres com maiúscula, número e símbolo.' }
+    }
+    if (msg.includes('rate limit') || authError.status === 429) {
+      return { error: 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.' }
+    }
+    return { error: 'Não foi possível criar a conta. Verifique os dados e tente novamente.' }
   }
 
-  if (!authData.user) return { error: 'Não foi possível criar a conta. Tente novamente.' }
+  // Supabase retorna user com identities vazias quando email já existe e confirmação está ativa
+  if (!authData.user || !authData.user.id) {
+    return { error: 'Este e-mail pode já estar cadastrado. Tente fazer login ou recuperar sua senha.' }
+  }
 
   // Inserir na tabela lojista usando admin client (bypassa RLS pois a sessão
   // ainda não foi propagada imediatamente após o signUp)
-  const adminClient = createAdminClient()
   const { error: lojistaError } = await adminClient.from('lojista').insert({
     id_lojista: authData.user.id,
     nome_loja: parsed.data.nome_loja,
@@ -164,14 +194,21 @@ export async function cadastroLojistaAction(formData: FormData) {
   })
 
   if (lojistaError) {
-    // Rollback: remover usuário criado
-    await adminClient.auth.admin?.deleteUser(authData.user.id)
-    return { error: 'Não foi possível salvar os dados do estabelecimento. Tente novamente ou entre em contato com o suporte.' }
+    // Rollback: remover usuário Auth criado para não deixar registro órfão
+    console.error('[cadastroLojistaAction] Insert lojista error:', lojistaError.message)
+    await adminClient.auth.admin.deleteUser(authData.user.id)
+
+    if (lojistaError.code === '23505') {
+      // Unique violation — email ou id já existe na tabela
+      return { error: 'Este e-mail já está cadastrado. Acesse a tela de login para entrar na sua conta.' }
+    }
+    return { error: 'Não foi possível salvar os dados do estabelecimento. Tente novamente.' }
   }
 
   revalidatePath('/', 'layout')
   redirect('/lojista/dashboard')
 }
+
 
 // ============================================================
 // PET ACTIONS
