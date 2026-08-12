@@ -129,7 +129,12 @@ export async function cadastroLojistaAction(formData: FormData) {
     return { error: parsed.error.issues[0].message }
   }
 
+  // Admin client usa service_role key para bypassar RLS nos inserts pós-signUp
   const adminClient = createAdminClient()
+  if (!adminClient) {
+    // Variável SUPABASE_SERVICE_ROLE_KEY não configurada na Vercel/ambiente
+    return { error: 'Serviço temporariamente indisponível. Tente novamente em alguns minutos.' }
+  }
 
   // Verificar se email já existe na tabela lojista ANTES de criar o usuário Auth
   // Isso evita criar usuários Auth "órfãos" quando o email já está cadastrado
