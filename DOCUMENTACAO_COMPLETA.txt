@@ -911,3 +911,85 @@ JORNADA DO CLIENTE:
 ================================================================================
   FIM DA DOCUMENTACAO - PETSHOP AGENDA SAAS
 ================================================================================
+
+================================================================================
+  BUGS ENCONTRADOS E CORRECOES APLICADAS
+================================================================================
+
+--- BUG #001 | Data: 2026-08-12 | Status: CORRIGIDO ---
+
+TITULO: Cadastro de lojista falha com erro de RLS ao inserir na tabela lojista
+
+ARQUIVO AFETADO: src/lib/actions.ts (funcao cadastroLojistaAction)
+TAMBEM AFETADO: src/lib/actions.ts (funcao cadastroClienteAction, mesmo problema)
+
+ERRO EXIBIDO NO BROWSER:
+  "Erro ao salvar dados do estabelecimento: new row violates row-level security
+   policy for table 'lojista'"
+
+CAUSA RAIZ:
+  O fluxo de cadastro faz:
+    1. supabase.auth.signUp() -> cria o usuario no Supabase Auth
+    2. supabase.from('lojista').insert() -> tenta inserir o perfil na tabela
+
+  O problema: apos o signUp(), a sessao do novo usuario NAO esta disponivel
+  imediatamente no servidor. O cookie de autenticacao ainda nao foi escrito
+  ou propagado no contexto da Server Action.
+
+  Resultado: o insert na etapa 2 e feito com a anon key sem JWT valido,
+  ou seja, o Supabase trata como usuario ANONIMO (nao autenticado).
+
+  A politica RLS de INSERT na tabela lojista exige:
+    WITH CHECK (id_lojista = auth.uid())
+  Como auth.uid() retorna NULL (anonimo), a policy bloqueia o insert.
+
+  Isso vale identicamente para a tabela cliente no cadastroClienteAction.
+
+ARQUIVOS CRIADOS NA CORRECAO:
+  src/lib/supabase/admin.ts [NOVO]
+    - Cria um Supabase client usando a SUPABASE_SERVICE_ROLE_KEY
+    - A service_role key bypassa completamente o RLS
+    - Usada SOMENTE em Server Actions (nunca no browser)
+    - Variavel sem prefixo NEXT_PUBLIC_ = nunca exposta ao cliente
+
+ALTERACOES EM ARQUIVOS EXISTENTES:
+  src/lib/actions.ts
+    - Import de createAdminClient de '@/lib/supabase/admin'
+    - cadastroClienteAction: insert na tabela cliente agora usa adminClient
+    - cadastroLojistaAction: insert na tabela lojista agora usa adminClient
+    - Adicionado rollback (deleteUser) tambem no lojista se insert falhar
+
+  petshop-app/.env.local
+    - Adicionada linha: SUPABASE_SERVICE_ROLE_KEY=COLE_AQUI_SUA_SERVICE_ROLE_KEY
+    - ACAO NECESSARIA: substituir pelo valor real em Project Settings > API
+    - Tambem adicionar essa variavel na Vercel em Environment Variables
+
+MENSAGENS DE ERRO MELHORADAS:
+  Antes: "Erro ao salvar dados do estabelecimento: new row violates row-level
+          security policy for table 'lojista'"
+  Depois: "Nao foi possivel salvar os dados do estabelecimento. Tente novamente
+           ou entre em contato com o suporte."
+
+  Antes: "Erro ao salvar dados: [mensagem tecnica do banco]"
+  Depois: "Nao foi possivel finalizar o cadastro. Tente novamente ou entre em
+           contato com o suporte."
+
+  Antes: "Erro interno."
+  Depois: "Nao foi possivel criar a conta. Tente novamente."
+
+OBSERVACAO IMPORTANTE PARA O FUTURO:
+  Qualquer operacao que precise acontecer IMEDIATAMENTE apos um signUp(),
+  antes da sessao do usuario estar disponivel, DEVE usar o adminClient.
+  Exemplos: insert de perfil, criacao de registro inicial, etc.
+  Operacoes de usuarios JA LOGADOS devem continuar usando o supabase normal
+  (com cookies) para que o RLS funcione corretamente como camada de seguranca.
+
+VARIAVEL DE AMBIENTE PENDENTE:
+  SUPABASE_SERVICE_ROLE_KEY ainda tem valor placeholder no .env.local.
+  Sem ela, o servidor vai lancar uma excecao ao tentar criar o adminClient
+  e o cadastro continuara falhando (com mensagem diferente).
+  PRIORIDADE: adicionar antes de qualquer novo teste de cadastro.
+
+================================================================================
+  FIM DO REGISTRO DE BUGS
+================================================================================

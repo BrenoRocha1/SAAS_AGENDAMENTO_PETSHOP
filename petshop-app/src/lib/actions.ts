@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import {
@@ -88,8 +89,10 @@ export async function cadastroClienteAction(formData: FormData) {
     return { error: 'Erro interno. Tente novamente.' }
   }
 
-  // Inserir na tabela cliente
-  const { error: clienteError } = await supabase.from('cliente').insert({
+  // Inserir na tabela cliente usando admin client (bypassa RLS pois a sessão
+  // ainda não foi propagada imediatamente após o signUp)
+  const adminClient = createAdminClient()
+  const { error: clienteError } = await adminClient.from('cliente').insert({
     id_cliente: authData.user.id,
     nome: parsed.data.nome,
     cpf: parsed.data.cpf,
@@ -100,7 +103,7 @@ export async function cadastroClienteAction(formData: FormData) {
   if (clienteError) {
     // Rollback: remover usuário criado
     await supabase.auth.admin?.deleteUser(authData.user.id)
-    return { error: 'Erro ao salvar dados: ' + clienteError.message }
+    return { error: 'Não foi possível finalizar o cadastro. Tente novamente ou entre em contato com o suporte.' }
   }
 
   revalidatePath('/', 'layout')
@@ -143,9 +146,12 @@ export async function cadastroLojistaAction(formData: FormData) {
     return { error: 'Erro ao criar conta. Tente novamente.' }
   }
 
-  if (!authData.user) return { error: 'Erro interno.' }
+  if (!authData.user) return { error: 'Não foi possível criar a conta. Tente novamente.' }
 
-  const { error: lojistaError } = await supabase.from('lojista').insert({
+  // Inserir na tabela lojista usando admin client (bypassa RLS pois a sessão
+  // ainda não foi propagada imediatamente após o signUp)
+  const adminClient = createAdminClient()
+  const { error: lojistaError } = await adminClient.from('lojista').insert({
     id_lojista: authData.user.id,
     nome_loja: parsed.data.nome_loja,
     email: parsed.data.email,
@@ -158,7 +164,9 @@ export async function cadastroLojistaAction(formData: FormData) {
   })
 
   if (lojistaError) {
-    return { error: 'Erro ao salvar dados do estabelecimento: ' + lojistaError.message }
+    // Rollback: remover usuário criado
+    await adminClient.auth.admin?.deleteUser(authData.user.id)
+    return { error: 'Não foi possível salvar os dados do estabelecimento. Tente novamente ou entre em contato com o suporte.' }
   }
 
   revalidatePath('/', 'layout')
