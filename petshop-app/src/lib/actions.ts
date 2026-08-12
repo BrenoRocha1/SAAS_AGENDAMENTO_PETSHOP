@@ -40,7 +40,28 @@ export async function loginAction(formData: FormData) {
   }
 
   const { data: { user } } = await supabase.auth.getUser()
-  const role = user?.user_metadata?.role
+  let role = user?.user_metadata?.role
+
+  // Fallback: se o role não estiver no metadata (contas antigas ou timing de auth),
+  // busca da tabela perfil_usuario que é a fonte de verdade
+  if (!role && user) {
+    const { data: perfil } = await supabase
+      .from('perfil_usuario')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+    role = perfil?.role
+
+    // Fallback final: verifica diretamente nas tabelas lojista/cliente
+    if (!role) {
+      const { data: lojista } = await supabase
+        .from('lojista')
+        .select('id_lojista')
+        .eq('id_lojista', user.id)
+        .maybeSingle()
+      role = lojista ? 'lojista' : 'cliente'
+    }
+  }
 
   revalidatePath('/', 'layout')
   redirect(role === 'lojista' ? '/lojista/dashboard' : '/cliente/dashboard')
