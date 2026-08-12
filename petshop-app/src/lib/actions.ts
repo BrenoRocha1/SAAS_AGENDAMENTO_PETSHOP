@@ -92,6 +92,10 @@ export async function cadastroClienteAction(formData: FormData) {
   // Inserir na tabela cliente usando admin client (bypassa RLS pois a sessão
   // ainda não foi propagada imediatamente após o signUp)
   const adminClient = createAdminClient()
+  if (!adminClient) {
+    return { error: 'Serviço temporariamente indisponível. Tente novamente em alguns minutos.' }
+  }
+
   const { error: clienteError } = await adminClient.from('cliente').insert({
     id_cliente: authData.user.id,
     nome: parsed.data.nome,
@@ -102,7 +106,7 @@ export async function cadastroClienteAction(formData: FormData) {
 
   if (clienteError) {
     // Rollback: remover usuário criado
-    await supabase.auth.admin?.deleteUser(authData.user.id)
+    await adminClient.auth.admin.deleteUser(authData.user.id)
     return { error: 'Não foi possível finalizar o cadastro. Tente novamente ou entre em contato com o suporte.' }
   }
 
