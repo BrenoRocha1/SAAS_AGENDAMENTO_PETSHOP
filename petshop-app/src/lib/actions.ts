@@ -154,16 +154,15 @@ export async function cadastroLojistaAction(formData: FormData) {
     return { error: parsed.error.issues[0].message }
   }
 
-  // Admin client usa service_role key para bypassar RLS nos inserts pós-signUp
+  // Admin client — opcional: usado somente para rollback (deletar usuário Auth
+  // órfão se o INSERT falhar). Não é mais o caminho crítico do cadastro.
   const adminClient = createAdminClient()
-  if (!adminClient) {
-    // Variável SUPABASE_SERVICE_ROLE_KEY não configurada na Vercel/ambiente
-    return { error: 'Serviço temporariamente indisponível. Tente novamente em alguns minutos.' }
-  }
 
   // Verificar se email já existe na tabela lojista ANTES de criar o usuário Auth
-  // Isso evita criar usuários Auth "órfãos" quando o email já está cadastrado
-  const { data: existente } = await adminClient
+  // Usa adminClient se disponível (bypassa RLS); caso contrário usa anon client
+  // com consulta pública (lojistas ativos são visíveis via RLS).
+  const checkClient = adminClient ?? await createClient()
+  const { data: existente } = await checkClient
     .from('lojista')
     .select('id_lojista')
     .eq('email', parsed.data.email)
@@ -175,6 +174,7 @@ export async function cadastroLojistaAction(formData: FormData) {
 
   const supabase = await createClient()
 
+  // Criar usuário no Supabase Auth
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.senha,
@@ -209,28 +209,47 @@ export async function cadastroLojistaAction(formData: FormData) {
     return { error: 'Este e-mail pode já estar cadastrado. Tente fazer login ou recuperar sua senha.' }
   }
 
-  // Inserir na tabela lojista usando admin client (bypassa RLS pois a sessão
-  // ainda não foi propagada imediatamente após o signUp)
-  const { error: lojistaError } = await adminClient.from('lojista').insert({
-    id_lojista: authData.user.id,
-    nome_loja: parsed.data.nome_loja,
-    email: parsed.data.email,
-    telefone: parsed.data.telefone,
-    descricao: parsed.data.descricao,
-    endereco: parsed.data.endereco,
-    cidade: parsed.data.cidade,
-    estado: parsed.data.estado,
-    cep: parsed.data.cep,
+  // ──────────────────────────────────────────────────────────────────────────
+  // INSERT via RPC fn_registrar_lojista (SECURITY DEFINER)
+  //
+  // Esta função roda no banco com privilégios elevados mas valida que
+  // auth.uid() == p_id_lojista antes de qualquer escrita — impossível forjar.
+  // Isso elimina a dependência da service_role key para o INSERT principal.
+  // ──────────────────────────────────────────────────────────────────────────
+  const { error: rpcError } = await supabase.rpc('fn_registrar_lojista', {
+    p_id_lojista: authData.user.id,
+    p_nome_loja:  parsed.data.nome_loja,
+    p_email:      parsed.data.email,
+    p_telefone:   parsed.data.telefone,
+    p_descricao:  parsed.data.descricao  ?? null,
+    p_endereco:   parsed.data.endereco   ?? null,
+    p_cidade:     parsed.data.cidade     ?? null,
+    p_estado:     parsed.data.estado     ?? null,
+    p_cep:        parsed.data.cep        ?? null,
   })
 
-  if (lojistaError) {
+  if (rpcError) {
     // Rollback: remover usuário Auth criado para não deixar registro órfão
-    console.error('[cadastroLojistaAction] Insert lojista error:', lojistaError.message)
-    await adminClient.auth.admin.deleteUser(authData.user.id)
+    console.error('[cadastroLojistaAction] RPC fn_registrar_lojista error:', rpcError.message)
 
-    if (lojistaError.code === '23505') {
-      // Unique violation — email ou id já existe na tabela
+    if (adminClient) {
+      await adminClient.auth.admin.deleteUser(authData.user.id)
+    } else {
+      // Sem adminClient não é possível deletar o usuário Auth —
+      // logar para monitoramento; o usuário poderá tentar novamente.
+      console.error(
+        '[cadastroLojistaAction] AVISO: usuário Auth criado mas INSERT falhou e ' +
+        'SUPABASE_SERVICE_ROLE_KEY não está configurada — não foi possível fazer rollback. ' +
+        'User ID órfão:', authData.user.id
+      )
+    }
+
+    const msg = rpcError.message ?? ''
+    if (msg.includes('email_already_exists') || msg.includes('23505')) {
       return { error: 'Este e-mail já está cadastrado. Acesse a tela de login para entrar na sua conta.' }
+    }
+    if (msg.includes('não autenticado') || msg.includes('uid divergente')) {
+      return { error: 'Erro de autenticação. Recarregue a página e tente novamente.' }
     }
     return { error: 'Não foi possível salvar os dados do estabelecimento. Tente novamente.' }
   }
