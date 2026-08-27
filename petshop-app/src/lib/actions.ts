@@ -289,6 +289,15 @@ export async function cadastroLojistaAction(formData: FormData) {
     password: parsed.data.senha,
   })
 
+  // Log para debug: informa qual cliente será usado no RPC
+  const usingAdminClient = !!signInError
+  console.log('[cadastroLojistaAction] signIn pós-signUp:', {
+    sucesso: !signInError,
+    erro: signInError?.message ?? null,
+    usandoAdminClient: usingAdminClient,
+    userId: authData.user.id,
+  })
+
   // ──────────────────────────────────────────────────────────────────────────
   // INSERT via RPC fn_registrar_lojista (SECURITY DEFINER)
   //
@@ -315,30 +324,35 @@ export async function cadastroLojistaAction(formData: FormData) {
   })
 
   if (rpcError) {
-    // Rollback: remover usuário Auth criado para não deixar registro órfão
-    console.error('[cadastroLojistaAction] RPC fn_registrar_lojista error:', rpcError.message, rpcError)
+    // Log completo para debug
+    console.error('[cadastroLojistaAction] RPC fn_registrar_lojista FALHOU:', {
+      message: rpcError.message,
+      code: (rpcError as unknown as { code?: string }).code,
+      details: (rpcError as unknown as { details?: string }).details,
+      hint: (rpcError as unknown as { hint?: string }).hint,
+      signInErro: signInError?.message ?? null,
+      clienteUsado: usingAdminClient ? 'adminClient (service_role)' : 'supabase (anon/session)',
+    })
 
-    // adminClient é garantido como não-null aqui (validação antecipada)
+    // Rollback: remover usuário Auth criado para não deixar registro órfão
     await adminClient.auth.admin.deleteUser(authData.user.id)
 
-    const msg = rpcError.message ?? ''
-    if (msg.includes('email_already_exists') || msg.includes('23505')) {
-      return { error: 'Este e-mail já está cadastrado. Acesse a tela de login para entrar na sua conta.' }
+    // Retorna o erro RAW completo para facilitar o debug
+    const rawCode = (rpcError as unknown as { code?: string }).code ?? ''
+    const rawDetails = (rpcError as unknown as { details?: string }).details ?? ''
+    const rawHint = (rpcError as unknown as { hint?: string }).hint ?? ''
+    const clienteUsado = usingAdminClient ? 'adminClient/service_role' : 'supabase/session'
+
+    return {
+      error: [
+        `[DEBUG] RPC falhou usando: ${clienteUsado}`,
+        `Mensagem: ${rpcError.message || '(vazia)'}`,
+        rawCode ? `Código: ${rawCode}` : null,
+        rawDetails ? `Detalhes: ${rawDetails}` : null,
+        rawHint ? `Dica: ${rawHint}` : null,
+        signInError ? `signIn pós-signUp falhou: ${signInError.message}` : 'signIn pós-signUp: OK',
+      ].filter(Boolean).join(' | ')
     }
-    if (msg.includes('não autenticado') || msg.includes('uid divergente')) {
-      return { error: 'Não foi possível realizar seu cadastro (erro de autenticação: sessão não foi estabelecida). Recarregue a página e tente novamente.' }
-    }
-    if (msg.includes('permission denied') || msg.includes('42501')) {
-      return { error: 'Não foi possível realizar seu cadastro (permissão negada no banco de dados). Entre em contato com o suporte.' }
-    }
-    if (msg.includes('does not exist') || msg.includes('42883')) {
-      return { error: 'Não foi possível realizar seu cadastro (função fn_registrar_lojista não encontrada no banco). Execute as migrations do Supabase.' }
-    }
-    if (msg.includes('could not find') || msg.includes('connection') || msg.includes('timeout')) {
-      return { error: 'Não foi possível realizar seu cadastro (sem conexão com o banco de dados). Verifique sua internet e tente novamente.' }
-    }
-    // Fallback genérico com o detalhe técnico do erro
-    return { error: `Não foi possível realizar seu cadastro (erro no banco de dados: ${msg || 'erro desconhecido'}). Tente novamente ou entre em contato com o suporte.` }
   }
 
   // Se o signIn pós-signUp falhou mas o RPC funcionou via adminClient,
