@@ -32,12 +32,18 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_jwt_role TEXT;
 BEGIN
-  -- Garantia de segurança: somente o próprio usuário autenticado
-  -- pode registrar seu próprio perfil de lojista.
-  -- EXCEÇÃO: chamadas via service_role (adminClient) bypassam este check
-  -- pois a Server Action já validou a identidade antes de chamar.
-  IF current_setting('role') != 'service_role' THEN
+  -- Lê o role do JWT (forma correta no Supabase/PostgREST)
+  -- current_setting('role') não retorna 'service_role' de forma confiável
+  v_jwt_role := COALESCE(
+    current_setting('request.jwt.claims', true)::jsonb->>'role',
+    ''
+  );
+
+  -- Se não for service_role, valida que é o próprio usuário autenticado
+  IF v_jwt_role != 'service_role' THEN
     IF auth.uid() IS NULL THEN
       RAISE EXCEPTION 'Usuário não autenticado';
     END IF;
@@ -95,6 +101,7 @@ BEGIN
 END;
 $$;
 
--- Garantir que somente usuários autenticados possam chamar a função
+-- Somente usuários autenticados e service_role podem chamar a função
 REVOKE ALL ON FUNCTION fn_registrar_lojista(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, CHAR(2), TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION fn_registrar_lojista(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, CHAR(2), TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION fn_registrar_lojista(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, CHAR(2), TEXT) TO service_role;
