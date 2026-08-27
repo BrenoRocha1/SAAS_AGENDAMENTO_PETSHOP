@@ -203,29 +203,18 @@ export async function cadastroLojistaAction(formData: FormData) {
     return { error: parsed.error.issues[0].message }
   }
 
-  // Admin client — usado para:
-  // 1. Fallback de INSERT via RPC (bypassa timing de sessão)
-  // 2. Rollback (deletar usuário Auth órfão se o INSERT falhar)
+  // Admin client — obrigatório para:
+  // 1. Criar o usuário Auth via admin API (evita ID fake do signUp normal)
+  // 2. Chamar o RPC sem depender do JWT da sessão atual
+  // 3. Rollback (deletar usuário Auth órfão se o INSERT falhar)
   const adminClient = createAdminClient()
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // VALIDAÇÃO ANTECIPADA: verificar se a service_role key está configurada
-  // ANTES de criar o usuário Auth. Sem ela, se o signIn pós-signUp falhar
-  // (ex: email confirmation ativo), não haverá como inserir o lojista no banco
-  // nem fazer rollback do usuário Auth — resultando em usuário órfão.
-  // ──────────────────────────────────────────────────────────────────────────
   if (!adminClient) {
-    console.error(
-      '[cadastroLojistaAction] SUPABASE_SERVICE_ROLE_KEY não configurada ou inválida. ' +
-      'O cadastro de lojista requer esta chave como fallback de segurança.'
-    )
     return {
-      error: 'Não foi possível realizar seu cadastro (erro de configuração do servidor: SUPABASE_SERVICE_ROLE_KEY ausente). ' +
-             'Entre em contato com o suporte técnico.'
+      error: 'Serviço indisponível: chave de servidor não configurada (SUPABASE_SERVICE_ROLE_KEY). Entre em contato com o suporte.'
     }
   }
 
-  // Verificar se email já existe na tabela lojista ANTES de criar o usuário Auth
+  // ── PASSO 1: Verificar duplicata de e-mail na tabela lojista ──────────────
   const { data: existente } = await adminClient
     .from('lojista')
     .select('id_lojista')
@@ -233,63 +222,43 @@ export async function cadastroLojistaAction(formData: FormData) {
     .maybeSingle()
 
   if (existente) {
-    return { error: 'Este e-mail já está cadastrado. Acesse a tela de login para entrar na sua conta.' }
+    return { error: 'Este e-mail já está cadastrado como lojista. Acesse a tela de login.' }
   }
 
-  const supabase = await createClient()
-
-  // Criar usuário no Supabase Auth
-  const { data: authData, error: authError } = await supabase.auth.signUp({
+  // ── PASSO 2: Criar usuário em auth.users via Admin API ────────────────────
+  // Por que admin.createUser e não supabase.auth.signUp?
+  // • signUp com email já existente retorna um ID *fake* (prevenção de enumeração)
+  //   → esse ID não existe em auth.users → viola a FK da tabela lojista
+  // • admin.createUser falha explicitamente se o email já existir
+  // • email_confirm:true pula a etapa de confirmação → signIn funciona imediatamente
+  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
     email: parsed.data.email,
     password: parsed.data.senha,
-    options: {
-      data: { role: 'lojista', nome_loja: parsed.data.nome_loja },
-    },
+    email_confirm: true,
+    user_metadata: { role: 'lojista', nome_loja: parsed.data.nome_loja },
   })
 
   if (authError) {
-    // Log técnico apenas no servidor — nunca exposto ao usuário
-    console.error('[cadastroLojistaAction] Supabase signUp error:', {
-      message: authError.message,
-      status: authError.status,
-      code: (authError as unknown as { code?: string }).code,
-    })
-
+    console.error('[cadastroLojistaAction] admin.createUser error:', authError)
     const msg = authError.message.toLowerCase()
-    if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('email address') || authError.status === 422) {
+    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate') || msg.includes('registered')) {
       return { error: 'Este e-mail já está cadastrado. Acesse a tela de login para entrar na sua conta.' }
     }
     if (msg.includes('password') || msg.includes('weak')) {
       return { error: 'Senha inválida. Use pelo menos 8 caracteres com maiúscula, número e símbolo.' }
     }
-    if (msg.includes('rate limit') || authError.status === 429) {
+    if (msg.includes('rate limit')) {
       return { error: 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.' }
     }
-    if (msg.includes('network') || msg.includes('fetch') || msg.includes('econnrefused')) {
-      return { error: 'Não foi possível realizar seu cadastro (sem conexão com o banco de dados). Verifique sua internet e tente novamente.' }
-    }
-    return { error: `Não foi possível criar a conta (erro de autenticação: ${authError.message}). Verifique os dados e tente novamente.` }
+    return { error: `Não foi possível criar a conta: ${authError.message}. Verifique os dados e tente novamente.` }
   }
 
-  // Supabase retorna user com identities vazias quando email já existe e confirmação está ativa
-  if (!authData.user || !authData.user.id) {
-    return { error: 'Este e-mail pode já estar cadastrado. Tente fazer login ou recuperar sua senha.' }
+  if (!authData.user?.id) {
+    return { error: 'Erro interno ao criar conta. Tente novamente.' }
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // INSERT via RPC usando SEMPRE adminClient (service_role)
-  //
-  // Por que adminClient e não supabase client?
-  // O Supabase SSR client, mesmo após signInWithPassword, ainda envia o JWT
-  // antigo na mesma requisição — então auth.uid() no Postgres não reflete o
-  // novo usuário e o check "uid divergente" falha.
-  //
-  // Segurança garantida por:
-  //   1. p_id_lojista = authData.user.id — vem do signUp, jamais forjável pelo browser
-  //   2. Esta é uma Server Action (código corre no servidor, nunca no browser)
-  //   3. A service_role key NUNCA é enviada ao cliente
-  //   4. A própria função SQL valida unicidade de email e integridade dos dados
-  // ──────────────────────────────────────────────────────────────────────────
+  // ── PASSO 3: Inserir na tabela lojista via RPC (sempre com adminClient) ───
+  // adminClient usa service_role → não depende de JWT/sessão ativa
   const { error: rpcError } = await adminClient.rpc('fn_registrar_lojista', {
     p_id_lojista: authData.user.id,
     p_nome_loja: parsed.data.nome_loja,
@@ -303,33 +272,34 @@ export async function cadastroLojistaAction(formData: FormData) {
   })
 
   if (rpcError) {
-    console.error('[cadastroLojistaAction] RPC fn_registrar_lojista error:', rpcError)
-    // Rollback: remover usuário Auth para não deixar registro órfão
+    console.error('[cadastroLojistaAction] RPC error:', rpcError)
+    // Rollback: remove o usuário Auth para não deixar registro órfão
     await adminClient.auth.admin.deleteUser(authData.user.id)
 
     const msg = rpcError.message ?? ''
     if (msg.includes('email_already_exists') || msg.includes('23505')) {
-      return { error: 'Este e-mail já está cadastrado. Acesse a tela de login para entrar na sua conta.' }
+      return { error: 'Este e-mail já está cadastrado. Acesse a tela de login.' }
     }
-    if (msg.includes('does not exist') || msg.includes('42883') || msg.includes('Could not find')) {
-      return { error: 'Erro de configuração: a função de cadastro não existe no banco. Execute as migrations do Supabase e tente novamente.' }
+    if (msg.includes('Could not find') || msg.includes('does not exist') || msg.includes('42883')) {
+      return { error: 'Erro de configuração: função fn_registrar_lojista não encontrada no banco. Execute as migrations.' }
     }
     if (msg.includes('permission denied') || msg.includes('42501')) {
       return { error: 'Permissão negada no banco de dados. Verifique as configurações do Supabase.' }
     }
-    return { error: `Não foi possível salvar os dados do estabelecimento: ${msg || 'erro desconhecido'}. Tente novamente.` }
+    return { error: `Não foi possível salvar os dados: ${msg || 'erro desconhecido'}. Tente novamente.` }
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Cadastro salvo com sucesso — agora estabelece a sessão para o redirect
-  // ──────────────────────────────────────────────────────────────────────────
+  // ── PASSO 4: Estabelecer sessão para o redirect ───────────────────────────
+  // O adminClient não lida com cookies/sessão do browser.
+  // Usamos o supabase client normal para fazer signIn e gravar o JWT nos cookies.
+  const supabase = await createClient()
   const { error: signInError } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
     password: parsed.data.senha,
   })
 
   if (signInError) {
-    // Dados salvos com sucesso, mas sessão não estabelecida.
+    // Cadastro salvo com sucesso, mas sessão não foi estabelecida.
     // Redireciona para login para o usuário entrar manualmente.
     console.error('[cadastroLojistaAction] signIn pós-cadastro falhou:', signInError.message)
     redirect('/login')
@@ -338,6 +308,7 @@ export async function cadastroLojistaAction(formData: FormData) {
   revalidatePath('/', 'layout')
   redirect('/lojista/dashboard')
 }
+
 
 
 // ============================================================
