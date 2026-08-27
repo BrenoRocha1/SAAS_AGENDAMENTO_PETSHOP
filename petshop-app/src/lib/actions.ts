@@ -208,6 +208,23 @@ export async function cadastroLojistaAction(formData: FormData) {
   // 2. Rollback (deletar usuário Auth órfão se o INSERT falhar)
   const adminClient = createAdminClient()
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // VALIDAÇÃO ANTECIPADA: verificar se a service_role key está configurada
+  // ANTES de criar o usuário Auth. Sem ela, se o signIn pós-signUp falhar
+  // (ex: email confirmation ativo), não haverá como inserir o lojista no banco
+  // nem fazer rollback do usuário Auth — resultando em usuário órfão.
+  // ──────────────────────────────────────────────────────────────────────────
+  if (!adminClient) {
+    console.error(
+      '[cadastroLojistaAction] SUPABASE_SERVICE_ROLE_KEY não configurada ou inválida. ' +
+      'O cadastro de lojista requer esta chave como fallback de segurança.'
+    )
+    return {
+      error: 'Não foi possível realizar seu cadastro (erro de configuração do servidor: SUPABASE_SERVICE_ROLE_KEY ausente). ' +
+             'Entre em contato com o suporte técnico.'
+    }
+  }
+
   // Verificar se email já existe na tabela lojista ANTES de criar o usuário Auth
   // Usa adminClient se disponível (bypassa RLS); caso contrário usa anon client
   // com consulta pública (lojistas ativos são visíveis via RLS).
@@ -251,7 +268,10 @@ export async function cadastroLojistaAction(formData: FormData) {
     if (msg.includes('rate limit') || authError.status === 429) {
       return { error: 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.' }
     }
-    return { error: 'Não foi possível criar a conta. Verifique os dados e tente novamente.' }
+    if (msg.includes('network') || msg.includes('fetch') || msg.includes('econnrefused')) {
+      return { error: 'Não foi possível realizar seu cadastro (sem conexão com o banco de dados). Verifique sua internet e tente novamente.' }
+    }
+    return { error: `Não foi possível criar a conta (erro de autenticação: ${authError.message}). Verifique os dados e tente novamente.` }
   }
 
   // Supabase retorna user com identities vazias quando email já existe e confirmação está ativa
@@ -275,19 +295,12 @@ export async function cadastroLojistaAction(formData: FormData) {
   // ESTRATÉGIA DUPLA:
   // 1. Se signIn funcionou → usa supabase client (auth.uid() válido)
   // 2. Se signIn falhou → usa adminClient como fallback (service_role bypassa uid check)
+  //
+  // NOTA: adminClient já é garantido como não-null (validação antecipada acima)
   // ──────────────────────────────────────────────────────────────────────────
   const rpcClient = signInError
     ? adminClient  // Fallback: service_role
     : supabase     // Normal: sessão autenticada
-
-  if (!rpcClient) {
-    // signIn falhou E adminClient não disponível — não há como inserir
-    console.error('[cadastroLojistaAction] signIn falhou e adminClient não disponível')
-    if (adminClient) {
-      await adminClient.auth.admin.deleteUser(authData.user.id)
-    }
-    return { error: 'Erro de configuração do servidor. Entre em contato com o suporte.' }
-  }
 
   const { error: rpcError } = await rpcClient.rpc('fn_registrar_lojista', {
     p_id_lojista: authData.user.id,
@@ -303,26 +316,29 @@ export async function cadastroLojistaAction(formData: FormData) {
 
   if (rpcError) {
     // Rollback: remover usuário Auth criado para não deixar registro órfão
-    console.error('[cadastroLojistaAction] RPC fn_registrar_lojista error:', rpcError.message)
+    console.error('[cadastroLojistaAction] RPC fn_registrar_lojista error:', rpcError.message, rpcError)
 
-    if (adminClient) {
-      await adminClient.auth.admin.deleteUser(authData.user.id)
-    } else {
-      console.error(
-        '[cadastroLojistaAction] AVISO: usuário Auth criado mas INSERT falhou e ' +
-        'SUPABASE_SERVICE_ROLE_KEY não está configurada — não foi possível fazer rollback. ' +
-        'User ID órfão:', authData.user.id
-      )
-    }
+    // adminClient é garantido como não-null aqui (validação antecipada)
+    await adminClient.auth.admin.deleteUser(authData.user.id)
 
     const msg = rpcError.message ?? ''
     if (msg.includes('email_already_exists') || msg.includes('23505')) {
       return { error: 'Este e-mail já está cadastrado. Acesse a tela de login para entrar na sua conta.' }
     }
     if (msg.includes('não autenticado') || msg.includes('uid divergente')) {
-      return { error: 'Erro de autenticação. Recarregue a página e tente novamente.' }
+      return { error: 'Não foi possível realizar seu cadastro (erro de autenticação: sessão não foi estabelecida). Recarregue a página e tente novamente.' }
     }
-    return { error: 'Não foi possível salvar os dados do estabelecimento. Tente novamente.' }
+    if (msg.includes('permission denied') || msg.includes('42501')) {
+      return { error: 'Não foi possível realizar seu cadastro (permissão negada no banco de dados). Entre em contato com o suporte.' }
+    }
+    if (msg.includes('does not exist') || msg.includes('42883')) {
+      return { error: 'Não foi possível realizar seu cadastro (função fn_registrar_lojista não encontrada no banco). Execute as migrations do Supabase.' }
+    }
+    if (msg.includes('could not find') || msg.includes('connection') || msg.includes('timeout')) {
+      return { error: 'Não foi possível realizar seu cadastro (sem conexão com o banco de dados). Verifique sua internet e tente novamente.' }
+    }
+    // Fallback genérico com o detalhe técnico do erro
+    return { error: `Não foi possível realizar seu cadastro (erro no banco de dados: ${msg || 'erro desconhecido'}). Tente novamente ou entre em contato com o suporte.` }
   }
 
   // Se o signIn pós-signUp falhou mas o RPC funcionou via adminClient,
