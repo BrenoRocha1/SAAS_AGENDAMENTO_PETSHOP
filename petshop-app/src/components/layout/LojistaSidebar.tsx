@@ -11,6 +11,7 @@ const navItems = [
   { href: '/lojista/servicos',      icon: '✂️',  label: 'Serviços' },
   { href: '/lojista/horarios',      icon: '⏰', label: 'Horários' },
   { href: '/lojista/clientes',      icon: '👥', label: 'Clientes' },
+  { href: '/lojista/funcionarios',  icon: '👷', label: 'Funcionários' },
   { href: '/lojista/perfil',        icon: '🏪', label: 'Perfil da Loja' },
 ]
 

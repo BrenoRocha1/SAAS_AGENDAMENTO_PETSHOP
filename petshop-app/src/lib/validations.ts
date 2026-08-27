@@ -103,6 +103,37 @@ export const agendamentoSchema = z.object({
   obs: z.string().max(500).optional(),
 })
 
+export const funcionarioSchema = z.object({
+  nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(120),
+  email: z.string().email('E-mail inválido'),
+  telefone: z
+    .string()
+    .regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
+  cargo: z.string().max(100).optional(),
+  senha: z
+    .string()
+    .min(8, 'Senha deve ter no mínimo 8 caracteres')
+    .regex(/[A-Z]/, 'Deve conter ao menos uma letra maiúscula')
+    .regex(/[0-9]/, 'Deve conter ao menos um número')
+    .regex(/[^A-Za-z0-9]/, 'Deve conter ao menos um caractere especial'),
+  confirmaSenha: z.string(),
+  pode_gerenciar_agenda: z.boolean().default(true),
+  pode_gerenciar_servicos: z.boolean().default(false),
+}).refine(d => d.senha === d.confirmaSenha, {
+  message: 'Senhas não conferem',
+  path: ['confirmaSenha'],
+})
+
+export const editarFuncionarioSchema = z.object({
+  nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(120),
+  telefone: z
+    .string()
+    .regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
+  cargo: z.string().max(100).optional(),
+  pode_gerenciar_agenda: z.boolean().default(true),
+  pode_gerenciar_servicos: z.boolean().default(false),
+})
+
 // ============================================================
 // Validação de CPF (algoritmo oficial)
 // ============================================================
@@ -132,3 +163,5 @@ export type PetData = z.infer<typeof petSchema>
 export type ServicoData = z.infer<typeof servicoSchema>
 export type HorarioData = z.infer<typeof horarioSchema>
 export type AgendamentoData = z.infer<typeof agendamentoSchema>
+export type FuncionarioData = z.infer<typeof funcionarioSchema>
+export type EditarFuncionarioData = z.infer<typeof editarFuncionarioSchema>

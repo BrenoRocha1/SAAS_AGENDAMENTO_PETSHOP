@@ -1,5 +1,5 @@
 -- ============================================================
--- PETSHOP SaaS - Migration 004: fn_registrar_lojista
+-- PETSHOP SaaS - Migration 004: fn_registrar_lojista (v2)
 -- ============================================================
 -- Função RPC SECURITY DEFINER que insere o registro na tabela
 -- lojista logo após o auth.signUp().
@@ -12,6 +12,8 @@
 --      alterar registros de outros lojistas.
 --   4. Chamada apenas de Server Actions (contexto servidor Next.js),
 --      nunca exposta diretamente ao browser.
+--   5. Aceita chamadas via service_role (adminClient) como fallback
+--      para evitar problemas de timing de sessão pós-signUp.
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION fn_registrar_lojista(
@@ -33,12 +35,16 @@ AS $$
 BEGIN
   -- Garantia de segurança: somente o próprio usuário autenticado
   -- pode registrar seu próprio perfil de lojista.
-  IF auth.uid() IS NULL THEN
-    RAISE EXCEPTION 'Usuário não autenticado';
-  END IF;
+  -- EXCEÇÃO: chamadas via service_role (adminClient) bypassam este check
+  -- pois a Server Action já validou a identidade antes de chamar.
+  IF current_setting('role') != 'service_role' THEN
+    IF auth.uid() IS NULL THEN
+      RAISE EXCEPTION 'Usuário não autenticado';
+    END IF;
 
-  IF auth.uid() != p_id_lojista THEN
-    RAISE EXCEPTION 'Acesso não autorizado: uid divergente';
+    IF auth.uid() != p_id_lojista THEN
+      RAISE EXCEPTION 'Acesso não autorizado: uid divergente';
+    END IF;
   END IF;
 
   -- Validações básicas (defense-in-depth além do Zod no servidor)
