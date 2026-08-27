@@ -226,10 +226,7 @@ export async function cadastroLojistaAction(formData: FormData) {
   }
 
   // Verificar se email já existe na tabela lojista ANTES de criar o usuário Auth
-  // Usa adminClient se disponível (bypassa RLS); caso contrário usa anon client
-  // com consulta pública (lojistas ativos são visíveis via RLS).
-  const checkClient = adminClient ?? await createClient()
-  const { data: existente } = await checkClient
+  const { data: existente } = await adminClient
     .from('lojista')
     .select('id_lojista')
     .eq('email', parsed.data.email)
@@ -280,38 +277,20 @@ export async function cadastroLojistaAction(formData: FormData) {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // FIX: Estabelecer sessão nos cookies ANTES de chamar o RPC.
-  // O signUp cria o usuário mas NÃO propaga o JWT nos cookies do response.
-  // Sem este signIn, auth.uid() retorna NULL no Postgres e o RPC falha.
-  // ──────────────────────────────────────────────────────────────────────────
-  const { error: signInError } = await supabase.auth.signInWithPassword({
-    email: parsed.data.email,
-    password: parsed.data.senha,
-  })
-
-  // Log para debug: informa qual cliente será usado no RPC
-  const usingAdminClient = !!signInError
-  console.log('[cadastroLojistaAction] signIn pós-signUp:', {
-    sucesso: !signInError,
-    erro: signInError?.message ?? null,
-    usandoAdminClient: usingAdminClient,
-    userId: authData.user.id,
-  })
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // INSERT via RPC fn_registrar_lojista (SECURITY DEFINER)
+  // INSERT via RPC usando SEMPRE adminClient (service_role)
   //
-  // ESTRATÉGIA DUPLA:
-  // 1. Se signIn funcionou → usa supabase client (auth.uid() válido)
-  // 2. Se signIn falhou → usa adminClient como fallback (service_role bypassa uid check)
+  // Por que adminClient e não supabase client?
+  // O Supabase SSR client, mesmo após signInWithPassword, ainda envia o JWT
+  // antigo na mesma requisição — então auth.uid() no Postgres não reflete o
+  // novo usuário e o check "uid divergente" falha.
   //
-  // NOTA: adminClient já é garantido como não-null (validação antecipada acima)
+  // Segurança garantida por:
+  //   1. p_id_lojista = authData.user.id — vem do signUp, jamais forjável pelo browser
+  //   2. Esta é uma Server Action (código corre no servidor, nunca no browser)
+  //   3. A service_role key NUNCA é enviada ao cliente
+  //   4. A própria função SQL valida unicidade de email e integridade dos dados
   // ──────────────────────────────────────────────────────────────────────────
-  const rpcClient = signInError
-    ? adminClient  // Fallback: service_role
-    : supabase     // Normal: sessão autenticada
-
-  const { error: rpcError } = await rpcClient.rpc('fn_registrar_lojista', {
+  const { error: rpcError } = await adminClient.rpc('fn_registrar_lojista', {
     p_id_lojista: authData.user.id,
     p_nome_loja: parsed.data.nome_loja,
     p_email: parsed.data.email,
@@ -324,50 +303,36 @@ export async function cadastroLojistaAction(formData: FormData) {
   })
 
   if (rpcError) {
-    // Log completo para debug
-    console.error('[cadastroLojistaAction] RPC fn_registrar_lojista FALHOU:', {
-      message: rpcError.message,
-      code: (rpcError as unknown as { code?: string }).code,
-      details: (rpcError as unknown as { details?: string }).details,
-      hint: (rpcError as unknown as { hint?: string }).hint,
-      signInErro: signInError?.message ?? null,
-      clienteUsado: usingAdminClient ? 'adminClient (service_role)' : 'supabase (anon/session)',
-    })
-
-    // Rollback: remover usuário Auth criado para não deixar registro órfão
+    console.error('[cadastroLojistaAction] RPC fn_registrar_lojista error:', rpcError)
+    // Rollback: remover usuário Auth para não deixar registro órfão
     await adminClient.auth.admin.deleteUser(authData.user.id)
 
-    // Retorna o erro RAW completo para facilitar o debug
-    const rawCode = (rpcError as unknown as { code?: string }).code ?? ''
-    const rawDetails = (rpcError as unknown as { details?: string }).details ?? ''
-    const rawHint = (rpcError as unknown as { hint?: string }).hint ?? ''
-    const clienteUsado = usingAdminClient ? 'adminClient/service_role' : 'supabase/session'
-
-    return {
-      error: [
-        `[DEBUG] RPC falhou usando: ${clienteUsado}`,
-        `Mensagem: ${rpcError.message || '(vazia)'}`,
-        rawCode ? `Código: ${rawCode}` : null,
-        rawDetails ? `Detalhes: ${rawDetails}` : null,
-        rawHint ? `Dica: ${rawHint}` : null,
-        signInError ? `signIn pós-signUp falhou: ${signInError.message}` : 'signIn pós-signUp: OK',
-      ].filter(Boolean).join(' | ')
+    const msg = rpcError.message ?? ''
+    if (msg.includes('email_already_exists') || msg.includes('23505')) {
+      return { error: 'Este e-mail já está cadastrado. Acesse a tela de login para entrar na sua conta.' }
     }
+    if (msg.includes('does not exist') || msg.includes('42883') || msg.includes('Could not find')) {
+      return { error: 'Erro de configuração: a função de cadastro não existe no banco. Execute as migrations do Supabase e tente novamente.' }
+    }
+    if (msg.includes('permission denied') || msg.includes('42501')) {
+      return { error: 'Permissão negada no banco de dados. Verifique as configurações do Supabase.' }
+    }
+    return { error: `Não foi possível salvar os dados do estabelecimento: ${msg || 'erro desconhecido'}. Tente novamente.` }
   }
 
-  // Se o signIn pós-signUp falhou mas o RPC funcionou via adminClient,
-  // tentar fazer signIn novamente para estabelecer a sessão antes do redirect
+  // ──────────────────────────────────────────────────────────────────────────
+  // Cadastro salvo com sucesso — agora estabelece a sessão para o redirect
+  // ──────────────────────────────────────────────────────────────────────────
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.senha,
+  })
+
   if (signInError) {
-    const { error: retrySignIn } = await supabase.auth.signInWithPassword({
-      email: parsed.data.email,
-      password: parsed.data.senha,
-    })
-    if (retrySignIn) {
-      // Cadastro salvo com sucesso, mas sessão não estabelecida.
-      // Redirecionar para login para o usuário entrar manualmente.
-      console.error('[cadastroLojistaAction] signIn retry falhou:', retrySignIn.message)
-      redirect('/login')
-    }
+    // Dados salvos com sucesso, mas sessão não estabelecida.
+    // Redireciona para login para o usuário entrar manualmente.
+    console.error('[cadastroLojistaAction] signIn pós-cadastro falhou:', signInError.message)
+    redirect('/login')
   }
 
   revalidatePath('/', 'layout')
