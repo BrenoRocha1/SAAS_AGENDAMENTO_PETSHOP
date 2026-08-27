@@ -12,6 +12,8 @@ import {
   servicoSchema,
   horarioSchema,
   agendamentoSchema,
+  funcionarioSchema,
+  editarFuncionarioSchema,
 } from '@/lib/validations'
 
 // ============================================================
@@ -52,19 +54,49 @@ export async function loginAction(formData: FormData) {
       .maybeSingle()
     role = perfil?.role
 
-    // Fallback final: verifica diretamente nas tabelas lojista/cliente
+    // Fallback final: verifica diretamente nas tabelas lojista/cliente/funcionario
     if (!role) {
       const { data: lojista } = await supabase
         .from('lojista')
         .select('id_lojista')
         .eq('id_lojista', user.id)
         .maybeSingle()
-      role = lojista ? 'lojista' : 'cliente'
+      if (lojista) {
+        role = 'lojista'
+      } else {
+        const { data: funcionario } = await supabase
+          .from('funcionario')
+          .select('id_funcionario')
+          .eq('id_funcionario', user.id)
+          .eq('ativo', true)
+          .maybeSingle()
+        if (funcionario) {
+          role = 'funcionario'
+        } else {
+          role = 'cliente'
+        }
+      }
+    }
+  }
+
+  // Verificar se funcionário está ativo
+  if (role === 'funcionario') {
+    const { data: func } = await supabase
+      .from('funcionario')
+      .select('ativo')
+      .eq('id_funcionario', user!.id)
+      .maybeSingle()
+    if (!func?.ativo) {
+      await supabase.auth.signOut()
+      return { error: 'Sua conta de funcionário foi desativada. Entre em contato com o responsável pelo petshop.' }
     }
   }
 
   revalidatePath('/', 'layout')
-  redirect(role === 'lojista' ? '/lojista/dashboard' : '/cliente/dashboard')
+
+  if (role === 'lojista') redirect('/lojista/dashboard')
+  if (role === 'funcionario') redirect('/funcionario/dashboard')
+  redirect('/cliente/dashboard')
 }
 
 export async function logoutAction() {
@@ -131,6 +163,23 @@ export async function cadastroClienteAction(formData: FormData) {
     return { error: 'Não foi possível finalizar o cadastro. Tente novamente ou entre em contato com o suporte.' }
   }
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // FIX: Estabelecer sessão nos cookies ANTES do redirect.
+  // O signUp cria o usuário mas não propaga o JWT nos cookies do response.
+  // Sem este signIn, o middleware bloqueará o acesso ao dashboard.
+  // ──────────────────────────────────────────────────────────────────────────
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.senha,
+  })
+
+  if (signInError) {
+    // O cadastro foi feito com sucesso, mas não conseguimos logar automaticamente.
+    // Redirecionar para login para o usuário entrar manualmente.
+    console.error('[cadastroClienteAction] signIn pós-cadastro falhou:', signInError.message)
+    redirect('/login')
+  }
+
   revalidatePath('/', 'layout')
   redirect('/cliente/dashboard')
 }
@@ -154,8 +203,9 @@ export async function cadastroLojistaAction(formData: FormData) {
     return { error: parsed.error.issues[0].message }
   }
 
-  // Admin client — opcional: usado somente para rollback (deletar usuário Auth
-  // órfão se o INSERT falhar). Não é mais o caminho crítico do cadastro.
+  // Admin client — usado para:
+  // 1. Fallback de INSERT via RPC (bypassa timing de sessão)
+  // 2. Rollback (deletar usuário Auth órfão se o INSERT falhar)
   const adminClient = createAdminClient()
 
   // Verificar se email já existe na tabela lojista ANTES de criar o usuário Auth
@@ -210,22 +260,45 @@ export async function cadastroLojistaAction(formData: FormData) {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  // FIX: Estabelecer sessão nos cookies ANTES de chamar o RPC.
+  // O signUp cria o usuário mas NÃO propaga o JWT nos cookies do response.
+  // Sem este signIn, auth.uid() retorna NULL no Postgres e o RPC falha.
+  // ──────────────────────────────────────────────────────────────────────────
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.senha,
+  })
+
+  // ──────────────────────────────────────────────────────────────────────────
   // INSERT via RPC fn_registrar_lojista (SECURITY DEFINER)
   //
-  // Esta função roda no banco com privilégios elevados mas valida que
-  // auth.uid() == p_id_lojista antes de qualquer escrita — impossível forjar.
-  // Isso elimina a dependência da service_role key para o INSERT principal.
+  // ESTRATÉGIA DUPLA:
+  // 1. Se signIn funcionou → usa supabase client (auth.uid() válido)
+  // 2. Se signIn falhou → usa adminClient como fallback (service_role bypassa uid check)
   // ──────────────────────────────────────────────────────────────────────────
-  const { error: rpcError } = await supabase.rpc('fn_registrar_lojista', {
+  const rpcClient = signInError
+    ? adminClient  // Fallback: service_role
+    : supabase     // Normal: sessão autenticada
+
+  if (!rpcClient) {
+    // signIn falhou E adminClient não disponível — não há como inserir
+    console.error('[cadastroLojistaAction] signIn falhou e adminClient não disponível')
+    if (adminClient) {
+      await adminClient.auth.admin.deleteUser(authData.user.id)
+    }
+    return { error: 'Erro de configuração do servidor. Entre em contato com o suporte.' }
+  }
+
+  const { error: rpcError } = await rpcClient.rpc('fn_registrar_lojista', {
     p_id_lojista: authData.user.id,
-    p_nome_loja:  parsed.data.nome_loja,
-    p_email:      parsed.data.email,
-    p_telefone:   parsed.data.telefone,
-    p_descricao:  parsed.data.descricao  ?? null,
-    p_endereco:   parsed.data.endereco   ?? null,
-    p_cidade:     parsed.data.cidade     ?? null,
-    p_estado:     parsed.data.estado     ?? null,
-    p_cep:        parsed.data.cep        ?? null,
+    p_nome_loja: parsed.data.nome_loja,
+    p_email: parsed.data.email,
+    p_telefone: parsed.data.telefone,
+    p_descricao: parsed.data.descricao ?? null,
+    p_endereco: parsed.data.endereco ?? null,
+    p_cidade: parsed.data.cidade ?? null,
+    p_estado: parsed.data.estado ?? null,
+    p_cep: parsed.data.cep ?? null,
   })
 
   if (rpcError) {
@@ -235,8 +308,6 @@ export async function cadastroLojistaAction(formData: FormData) {
     if (adminClient) {
       await adminClient.auth.admin.deleteUser(authData.user.id)
     } else {
-      // Sem adminClient não é possível deletar o usuário Auth —
-      // logar para monitoramento; o usuário poderá tentar novamente.
       console.error(
         '[cadastroLojistaAction] AVISO: usuário Auth criado mas INSERT falhou e ' +
         'SUPABASE_SERVICE_ROLE_KEY não está configurada — não foi possível fazer rollback. ' +
@@ -252,6 +323,21 @@ export async function cadastroLojistaAction(formData: FormData) {
       return { error: 'Erro de autenticação. Recarregue a página e tente novamente.' }
     }
     return { error: 'Não foi possível salvar os dados do estabelecimento. Tente novamente.' }
+  }
+
+  // Se o signIn pós-signUp falhou mas o RPC funcionou via adminClient,
+  // tentar fazer signIn novamente para estabelecer a sessão antes do redirect
+  if (signInError) {
+    const { error: retrySignIn } = await supabase.auth.signInWithPassword({
+      email: parsed.data.email,
+      password: parsed.data.senha,
+    })
+    if (retrySignIn) {
+      // Cadastro salvo com sucesso, mas sessão não estabelecida.
+      // Redirecionar para login para o usuário entrar manualmente.
+      console.error('[cadastroLojistaAction] signIn retry falhou:', retrySignIn.message)
+      redirect('/login')
+    }
   }
 
   revalidatePath('/', 'layout')
@@ -486,9 +572,10 @@ export async function criarAgendamentoAction(formData: FormData) {
   })
 
   if (error) {
-    return { error: error.message.includes('Horário não disponível')
-      ? 'Horário não disponível. Escolha outro horário.'
-      : 'Erro ao criar agendamento. Tente novamente.'
+    return {
+      error: error.message.includes('Horário não disponível')
+        ? 'Horário não disponível. Escolha outro horário.'
+        : 'Erro ao criar agendamento. Tente novamente.'
     }
   }
 
@@ -554,11 +641,11 @@ export async function atualizarPerfilLojistaAction(formData: FormData) {
   const nome_loja = (formData.get('nome_loja') as string)?.trim()
   const telefone = (formData.get('telefone') as string)?.replace(/\D/g, '')
   const descricao = (formData.get('descricao') as string)?.trim() || null
-  const endereco  = (formData.get('endereco') as string)?.trim()  || null
-  const cidade    = (formData.get('cidade') as string)?.trim()    || null
-  const estado    = (formData.get('estado') as string)?.trim().toUpperCase().slice(0, 2) || null
-  const cepRaw    = (formData.get('cep') as string)?.replace(/\D/g, '')
-  const cep       = cepRaw?.length === 8 ? cepRaw : null
+  const endereco = (formData.get('endereco') as string)?.trim() || null
+  const cidade = (formData.get('cidade') as string)?.trim() || null
+  const estado = (formData.get('estado') as string)?.trim().toUpperCase().slice(0, 2) || null
+  const cepRaw = (formData.get('cep') as string)?.replace(/\D/g, '')
+  const cep = cepRaw?.length === 8 ? cepRaw : null
 
   if (!nome_loja || nome_loja.length < 2) return { error: 'Nome da loja inválido' }
   if (!telefone || !/^\d{10,11}$/.test(telefone)) return { error: 'Telefone inválido' }
@@ -571,5 +658,147 @@ export async function atualizarPerfilLojistaAction(formData: FormData) {
   if (error) return { error: 'Erro ao atualizar perfil.' }
 
   revalidatePath('/lojista/perfil')
+  return { success: true }
+}
+
+// ============================================================
+// FUNCIONÁRIO ACTIONS (Lojista)
+// ============================================================
+
+export async function cadastrarFuncionarioAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const raw = {
+    nome: formData.get('nome') as string,
+    email: formData.get('email') as string,
+    telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
+    cargo: formData.get('cargo') as string,
+    senha: formData.get('senha') as string,
+    confirmaSenha: formData.get('confirmaSenha') as string,
+    pode_gerenciar_agenda: formData.get('pode_gerenciar_agenda') === 'true',
+    pode_gerenciar_servicos: formData.get('pode_gerenciar_servicos') === 'true',
+  }
+
+  const parsed = funcionarioSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  // Admin client é obrigatório para criar conta Auth para o funcionário
+  // (o lojista logado não pode usar signUp — isso deslogaria ele)
+  const adminClient = createAdminClient()
+  if (!adminClient) {
+    return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+  }
+
+  // Criar conta Auth para o funcionário via admin API
+  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+    email: parsed.data.email,
+    password: parsed.data.senha,
+    email_confirm: true, // Confirma email automaticamente (funcionário convidado pelo lojista)
+    user_metadata: {
+      role: 'funcionario',
+      nome: parsed.data.nome,
+      id_lojista: user.id,
+    },
+  })
+
+  if (authError) {
+    console.error('[cadastrarFuncionarioAction] createUser error:', authError.message)
+    const msg = authError.message.toLowerCase()
+    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate')) {
+      return { error: 'Este e-mail já está cadastrado no sistema.' }
+    }
+    return { error: 'Não foi possível criar a conta do funcionário. Tente novamente.' }
+  }
+
+  if (!authData.user) {
+    return { error: 'Erro interno ao criar conta. Tente novamente.' }
+  }
+
+  // Inserir na tabela funcionario via RPC (SECURITY DEFINER)
+  const { error: rpcError } = await supabase.rpc('fn_registrar_funcionario', {
+    p_id_funcionario: authData.user.id,
+    p_id_lojista: user.id,
+    p_nome: parsed.data.nome,
+    p_email: parsed.data.email,
+    p_telefone: parsed.data.telefone,
+    p_cargo: parsed.data.cargo ?? null,
+    p_pode_agenda: parsed.data.pode_gerenciar_agenda,
+    p_pode_servicos: parsed.data.pode_gerenciar_servicos,
+  })
+
+  if (rpcError) {
+    // Rollback: remover conta Auth criada
+    console.error('[cadastrarFuncionarioAction] RPC error:', rpcError.message)
+    await adminClient.auth.admin.deleteUser(authData.user.id)
+
+    const msg = rpcError.message ?? ''
+    if (msg.includes('email_already_exists')) {
+      return { error: 'Este e-mail já está cadastrado como funcionário, lojista ou cliente.' }
+    }
+    return { error: 'Não foi possível cadastrar o funcionário. Tente novamente.' }
+  }
+
+  revalidatePath('/lojista/funcionarios')
+  return { success: true }
+}
+
+export async function editarFuncionarioAction(id_funcionario: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const raw = {
+    nome: formData.get('nome') as string,
+    telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
+    cargo: formData.get('cargo') as string,
+    pode_gerenciar_agenda: formData.get('pode_gerenciar_agenda') === 'true',
+    pode_gerenciar_servicos: formData.get('pode_gerenciar_servicos') === 'true',
+  }
+
+  const parsed = editarFuncionarioSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase
+    .from('funcionario')
+    .update({
+      nome: parsed.data.nome,
+      telefone: parsed.data.telefone,
+      cargo: parsed.data.cargo ?? null,
+      pode_gerenciar_agenda: parsed.data.pode_gerenciar_agenda,
+      pode_gerenciar_servicos: parsed.data.pode_gerenciar_servicos,
+    })
+    .eq('id_funcionario', id_funcionario)
+    .eq('id_lojista', user.id) // Garante que é funcionário do SEU petshop
+
+  if (error) return { error: 'Erro ao atualizar funcionário.' }
+
+  revalidatePath('/lojista/funcionarios')
+  return { success: true }
+}
+
+export async function toggleFuncionarioAction(id_funcionario: string, ativo: boolean) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const { error } = await supabase
+    .from('funcionario')
+    .update({ ativo })
+    .eq('id_funcionario', id_funcionario)
+    .eq('id_lojista', user.id)
+
+  if (error) return { error: ativo ? 'Erro ao reativar funcionário.' : 'Erro ao desativar funcionário.' }
+
+  revalidatePath('/lojista/funcionarios')
   return { success: true }
 }
