@@ -17,7 +17,7 @@ export default async function PerfilLojistaPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Perfil da Loja 🏪</h1>
+        <h1 className="page-title">Perfil da Loja</h1>
         <p className="page-subtitle">Atualize as informações do seu estabelecimento</p>
       </div>
       <PerfilLojistaForm lojista={lojista} />

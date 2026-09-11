@@ -6,6 +6,19 @@ import {
   editarFuncionarioAction,
   toggleFuncionarioAction,
 } from '@/lib/actions'
+import {
+  IconAlert,
+  IconCalendar,
+  IconCheck,
+  IconClose,
+  IconLock,
+  IconPencil,
+  IconPlus,
+  IconScissors,
+  IconShield,
+  IconUnlock,
+  IconUserBadge,
+} from '@/components/icons'
 
 interface Funcionario {
   id_funcionario: string
@@ -98,14 +111,14 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
     <>
       {success && (
         <div className="alert alert-success" style={{ marginBottom: 'var(--space-4)' }}>
-          <span>✅</span>
+          <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
           <span>{success}</span>
         </div>
       )}
 
       {error && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
-          <span>⚠️</span>
+          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
           <span>{error}</span>
         </div>
       )}
@@ -117,14 +130,14 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
           className="btn btn-primary"
           id="btn-novo-funcionario"
         >
-          + Cadastrar Funcionário
+          <IconPlus style={{ width: 16, height: 16 }} /> Cadastrar Funcionário
         </button>
       </div>
 
       {/* Lista de funcionários ativos */}
       {ativos.length === 0 && inativos.length === 0 ? (
         <div className="empty-state card">
-          <div className="empty-state-icon">👷</div>
+          <IconUserBadge style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
           <div className="empty-state-title">Nenhum funcionário cadastrado</div>
           <p style={{ marginBottom: 'var(--space-5)' }}>
             Cadastre funcionários para ajudar na gestão do seu petshop
@@ -209,21 +222,25 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
                 fontWeight: 700,
                 color: 'var(--gray-100)',
                 fontFamily: 'var(--font-heading)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
               }}>
-                {editId ? '✏️ Editar Funcionário' : '👷 Novo Funcionário'}
+                {editId ? <IconPencil style={{ width: 18, height: 18 }} /> : <IconUserBadge style={{ width: 18, height: 18 }} />}
+                {editId ? 'Editar Funcionário' : 'Novo Funcionário'}
               </h2>
               <button
                 onClick={closeModal}
                 className="btn btn-ghost btn-sm"
-                style={{ fontSize: '1.2rem', padding: 'var(--space-1)' }}
+                aria-label="Fechar"
               >
-                ✕
+                <IconClose style={{ width: 15, height: 15 }} />
               </button>
             </div>
 
             {error && (
               <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
-                <span>⚠️</span>
+                <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
                 <span>{error}</span>
               </div>
             )}
@@ -320,8 +337,11 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
                   fontWeight: 600,
                   color: 'var(--gray-200)',
                   marginBottom: 'var(--space-3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-2)',
                 }}>
-                  🔐 Permissões
+                  <IconShield style={{ width: 16, height: 16 }} /> Permissões
                 </h3>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -346,7 +366,9 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
                     />
                     <input type="hidden" id="func-pode-agenda" name="pode_gerenciar_agenda" defaultValue={String(editFunc?.pode_gerenciar_agenda ?? true)} />
                     <div>
-                      <div style={{ fontWeight: 500, color: 'var(--gray-100)' }}>📅 Gerenciar Agenda</div>
+                      <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <IconCalendar style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Agenda
+                      </div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
                         Visualizar e alterar status de agendamentos
                       </div>
@@ -374,7 +396,9 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
                     />
                     <input type="hidden" id="func-pode-servicos" name="pode_gerenciar_servicos" defaultValue={String(editFunc?.pode_gerenciar_servicos ?? false)} />
                     <div>
-                      <div style={{ fontWeight: 500, color: 'var(--gray-100)' }}>✂️ Gerenciar Serviços</div>
+                      <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <IconScissors style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Serviços
+                      </div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
                         Cadastrar e editar serviços do petshop
                       </div>
@@ -488,8 +512,11 @@ function FuncCard({
               borderRadius: 'var(--radius-sm)',
               background: 'var(--info-900)',
               color: 'var(--info-400)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
             }}>
-              📅 Agenda
+              <IconCalendar style={{ width: 11, height: 11 }} /> Agenda
             </span>
           )}
           {func.pode_gerenciar_servicos && (
@@ -499,8 +526,11 @@ function FuncCard({
               borderRadius: 'var(--radius-sm)',
               background: 'var(--success-900)',
               color: 'var(--success-400)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
             }}>
-              ✂️ Serviços
+              <IconScissors style={{ width: 11, height: 11 }} /> Serviços
             </span>
           )}
         </div>
@@ -512,7 +542,7 @@ function FuncCard({
           className="btn btn-ghost btn-sm"
           title="Editar"
         >
-          ✏️
+          <IconPencil style={{ width: 14, height: 14 }} />
         </button>
         <button
           onClick={() => onToggle(func.id_funcionario, !func.ativo)}
@@ -520,7 +550,7 @@ function FuncCard({
           disabled={isPending}
           title={func.ativo ? 'Desativar' : 'Reativar'}
         >
-          {func.ativo ? '🔒' : '🔓'}
+          {func.ativo ? <IconLock style={{ width: 14, height: 14 }} /> : <IconUnlock style={{ width: 14, height: 14 }} />}
         </button>
       </div>
     </div>

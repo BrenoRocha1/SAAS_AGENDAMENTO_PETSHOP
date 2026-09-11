@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { criarServicoAction, editarServicoAction } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
+import { IconAlert, IconClose, IconPencil, IconPlus, IconScissors } from '@/components/icons'
 
 interface Servico {
   id_servico: string
@@ -60,13 +61,13 @@ export default function ServicosList({ servicos: inicial }: Props) {
     <>
       <div className="flex justify-end" style={{ marginBottom: 'var(--space-5)' }}>
         <button className="btn btn-primary" onClick={abrirNovo} id="btn-novo-servico">
-          + Novo Serviço
+          <IconPlus style={{ width: 16, height: 16 }} /> Novo Serviço
         </button>
       </div>
 
       {servicos.length === 0 ? (
         <div className="empty-state card">
-          <div className="empty-state-icon">✂️</div>
+          <IconScissors style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
           <div className="empty-state-title">Nenhum serviço cadastrado</div>
           <p style={{ marginBottom: 'var(--space-4)' }}>Cadastre seus serviços para que os clientes possam agendar</p>
           <button className="btn btn-primary" onClick={abrirNovo}>Cadastrar primeiro serviço</button>
@@ -102,7 +103,7 @@ export default function ServicosList({ servicos: inicial }: Props) {
                       className="btn btn-ghost btn-sm"
                       onClick={() => abrirEditar(s)}
                     >
-                      ✏️ Editar
+                      <IconPencil style={{ width: 14, height: 14 }} /> Editar
                     </button>
                   </td>
                 </tr>
@@ -118,14 +119,16 @@ export default function ServicosList({ servicos: inicial }: Props) {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">{editando ? 'Editar Serviço' : 'Novo Serviço'}</h3>
-              <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
+              <button className="modal-close" onClick={() => setShowModal(false)} aria-label="Fechar">
+                <IconClose style={{ width: 15, height: 15 }} />
+              </button>
             </div>
 
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
                 {error && (
                   <div className="alert alert-error">
-                    <span>⚠️</span><span>{error}</span>
+                    <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{error}</span>
                   </div>
                 )}
 

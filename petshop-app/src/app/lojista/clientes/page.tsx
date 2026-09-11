@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { IconUsers } from '@/components/icons'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Clientes' }
@@ -38,13 +39,13 @@ export default async function ClientesLojistaPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Clientes 👥</h1>
+        <h1 className="page-title">Clientes</h1>
         <p className="page-subtitle">Clientes que já agendaram no seu petshop</p>
       </div>
 
       {clientes.length === 0 ? (
         <div className="empty-state card">
-          <div className="empty-state-icon">👥</div>
+          <IconUsers style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
           <div className="empty-state-title">Nenhum cliente ainda</div>
           <p>Seus clientes aparecerão aqui após o primeiro agendamento</p>
         </div>

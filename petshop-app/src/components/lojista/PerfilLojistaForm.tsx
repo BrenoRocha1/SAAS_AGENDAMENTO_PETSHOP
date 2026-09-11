@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { atualizarPerfilLojistaAction } from '@/lib/actions'
+import { IconAlert, IconCheck, IconSave } from '@/components/icons'
 
 interface Lojista {
   id_lojista: string
@@ -43,7 +44,7 @@ export default function PerfilLojistaForm({ lojista }: Props) {
   if (!lojista) {
     return (
       <div className="empty-state card">
-        <div className="empty-state-icon">⚠️</div>
+        <IconAlert style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
         <div className="empty-state-title">Perfil não encontrado</div>
         <p>Erro ao carregar dados da loja.</p>
       </div>
@@ -54,13 +55,13 @@ export default function PerfilLojistaForm({ lojista }: Props) {
     <div className="card" style={{ maxWidth: 700 }}>
       {error && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-5)' }}>
-          <span>⚠️</span>
+          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
           <span>{error}</span>
         </div>
       )}
       {success && (
         <div className="alert alert-success" style={{ marginBottom: 'var(--space-5)' }}>
-          <span>✅</span>
+          <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
           <span>Perfil atualizado com sucesso!</span>
         </div>
       )}
@@ -177,7 +178,7 @@ export default function PerfilLojistaForm({ lojista }: Props) {
             className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
             disabled={isPending}
           >
-            {isPending ? 'Salvando...' : '💾 Salvar alterações'}
+            {isPending ? 'Salvando...' : (<><IconSave style={{ width: 15, height: 15 }} /> Salvar alterações</>)}
           </button>
         </div>
       </form>

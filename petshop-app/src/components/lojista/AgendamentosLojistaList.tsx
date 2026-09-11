@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
+import { atualizarStatusAgendamentoAction } from '@/lib/actions'
+import { IconAlert, IconCalendar, IconCheck, IconClose } from '@/components/icons'
 
 const statusConfig: Record<string, { label: string; cls: string }> = {
   Pendente:   { label: 'Pendente',   cls: 'badge-pendente' },
@@ -62,13 +63,13 @@ export default function AgendamentosLojistaList({ agendamentos: inicial }: Props
 
       {error && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
-          <span>⚠️</span><span>{error}</span>
+          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{error}</span>
         </div>
       )}
 
       {filtrados.length === 0 ? (
         <div className="empty-state card">
-          <div className="empty-state-icon">📅</div>
+          <IconCalendar style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
           <div className="empty-state-title">Nenhum agendamento encontrado</div>
         </div>
       ) : (
@@ -122,15 +123,17 @@ export default function AgendamentosLojistaList({ agendamentos: inicial }: Props
                             className="btn btn-success btn-sm"
                             onClick={() => atualizarStatus(ag.id_agendamento, 'Confirmado')}
                             disabled={isPending}
+                            aria-label="Confirmar"
                           >
-                            ✓
+                            <IconCheck style={{ width: 14, height: 14 }} />
                           </button>
                           <button
                             className="btn btn-danger btn-sm"
                             onClick={() => atualizarStatus(ag.id_agendamento, 'Cancelado')}
                             disabled={isPending}
+                            aria-label="Cancelar"
                           >
-                            ✗
+                            <IconClose style={{ width: 14, height: 14 }} />
                           </button>
                         </>
                       )}

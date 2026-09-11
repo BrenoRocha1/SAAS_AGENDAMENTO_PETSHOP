@@ -327,7 +327,7 @@ export default function DashboardClient({
       <div className="grid-4" style={{ marginBottom: 'var(--space-8)' }}>
         <div className="stat-card animate-slide-up">
           <div className="flex items-center justify-between">
-            <div className="stat-card-icon" style={{ background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.25)', color: 'var(--primary-400)' }}>
+            <div className="stat-card-icon" style={{ background: 'var(--primary-soft-bg)', border: '1px solid var(--primary-soft-border)', color: 'var(--primary-400)' }}>
               <IconCalendar style={{ width: 20, height: 20 }} />
             </div>
             <DeltaTag atual={stats.agendamentosHoje} anterior={stats.agendamentosOntem} sufixo="vs ontem" />

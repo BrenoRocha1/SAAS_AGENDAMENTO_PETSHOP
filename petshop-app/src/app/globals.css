@@ -88,6 +88,18 @@
   --shadow-glow: 0 0 30px rgba(124, 58, 237, 0.35);
   --shadow-glow-sm: 0 0 12px rgba(124, 58, 237, 0.25);
 
+  /* Tokens indiretos — só existem pra permitir escopos claros (ex.: .lojista-shell)
+     sobrescreverem esses acentos roxos sem duplicar a regra inteira que os usa. */
+  --btn-primary-shadow:   rgba(124,58,237,0.4);
+  --focus-ring:           rgba(124,58,237,0.15);
+  --slot-hover-bg:        rgba(124,58,237,0.1);
+  --sidebar-active-a:     rgba(124,58,237,0.2);
+  --sidebar-active-b:     rgba(109,40,217,0.1);
+  --sidebar-active-border: rgba(124,58,237,0.3);
+  --primary-soft-bg:      rgba(124,58,237,0.15);
+  --primary-soft-bg-8:    rgba(124,58,237,0.08);
+  --primary-soft-border:  rgba(124,58,237,0.3);
+
   /* Transições */
   --transition-fast:   150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -269,9 +281,9 @@ a:hover { color: var(--primary-300); }
 }
 
 .sidebar-link.active {
-  background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(109,40,217,0.1));
+  background: linear-gradient(135deg, var(--sidebar-active-a), var(--sidebar-active-b));
   color: var(--primary-300);
-  border-color: rgba(124,58,237,0.3);
+  border-color: var(--sidebar-active-border);
   box-shadow: var(--shadow-glow-sm);
 }
 
@@ -431,7 +443,7 @@ a:hover { color: var(--primary-300); }
   background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
   color: white;
   border-color: var(--primary-600);
-  box-shadow: 0 1px 3px rgba(124,58,237,0.4);
+  box-shadow: 0 1px 3px var(--btn-primary-shadow);
 }
 
 .btn-primary:hover {
@@ -541,7 +553,7 @@ a:hover { color: var(--primary-300); }
 .form-select:focus,
 .form-textarea:focus {
   border-color: var(--primary-500);
-  box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+  box-shadow: 0 0 0 3px var(--focus-ring);
   background: var(--gray-800);
 }
 
@@ -921,7 +933,7 @@ a:hover { color: var(--primary-300); }
 
 .slot:hover:not(.slot-unavailable) {
   border-color: var(--primary-500);
-  background: rgba(124,58,237,0.1);
+  background: var(--slot-hover-bg);
   color: var(--primary-300);
 }
 
@@ -1277,7 +1289,7 @@ a:hover { color: var(--primary-300); }
 }
 .timeline-item:last-child { border-bottom: none; }
 .timeline-item:hover { background: var(--gray-850); }
-.timeline-item.is-selected { background: rgba(124,58,237,0.08); border-left-color: var(--primary-500); }
+.timeline-item.is-selected { background: var(--primary-soft-bg-8); border-left-color: var(--primary-500); }
 
 .timeline-item.status-Pendente   { border-left-color: var(--warning-500); }
 .timeline-item.status-Confirmado { border-left-color: var(--info-500); }
@@ -1321,7 +1333,7 @@ a:hover { color: var(--primary-300); }
   transition: all var(--transition-fast);
 }
 .agg-day:hover { border-color: var(--gray-700); }
-.agg-day.is-today { border-color: var(--primary-500); background: rgba(124,58,237,0.08); }
+.agg-day.is-today { border-color: var(--primary-500); background: var(--primary-soft-bg-8); }
 .agg-day-label { font-size: 0.75rem; color: var(--gray-500); text-transform: capitalize; }
 .agg-day-num { font-family: var(--font-heading); font-weight: 700; color: var(--gray-100); margin: 4px 0; }
 .agg-day-count { font-size: 0.75rem; color: var(--primary-400); font-weight: 600; }
@@ -1399,11 +1411,98 @@ a:hover { color: var(--primary-300); }
   text-align: left;
 }
 .picker-item:hover { border-color: var(--gray-600); }
-.picker-item.is-selected { border-color: var(--primary-500); background: rgba(124,58,237,0.1); }
+.picker-item.is-selected { border-color: var(--primary-500); background: var(--slot-hover-bg); }
 .picker-item-main { flex: 1; min-width: 0; }
 .picker-item-title { font-weight: 600; color: var(--gray-100); font-size: 0.9375rem; }
 .picker-item-sub { font-size: 0.8125rem; color: var(--gray-500); }
 .picker-item svg.picker-check { width: 18px; height: 18px; color: var(--primary-400); flex-shrink: 0; }
+
+/* ============================================================
+   TEMA CLARO — ÁREA DO LOJISTA (.lojista-shell)
+   ============================================================
+   O resto do sistema (cliente, funcionário, landing) continua no dark
+   mode roxo original — nada abaixo os afeta, porque só redefine as
+   MESMAS variáveis (--gray-*, --primary-*, etc.) escopadas dentro de
+   .lojista-shell. Como são as mesmas classes (.card, .table, .btn-*,
+   .badge-*, .stat-card*, .sidebar-*, .modal*...) usadas em toda a área
+   do lojista, elas se re-tematizam sozinhas — nenhuma precisou ser
+   reescrita ou duplicada.
+
+   Paleta: mesma paleta neutra quente + acento verde-azulado (teal) da
+   tela de login (.login-shell), para as duas telas seguirem o mesmo
+   design, como pedido.
+   ============================================================ */
+.lojista-shell {
+  background: var(--gray-950);
+
+  /* Superfícies e texto — invertido do dark mode: onde --gray-900 era
+     "quase preto" (fundo de card), agora é branco; onde --gray-100 era
+     "quase branco" (texto), agora é tinta escura. */
+  --gray-950: #f5f5f3;
+  --gray-900: #ffffff;
+  --gray-850: #fbfbfa;
+  --gray-800: #e6e6e3;
+  --gray-750: #dedcd8;
+  --gray-700: #d6d6d2;
+  --gray-600: #9c9b92;
+  --gray-500: #86867c;
+  --gray-400: #78716c;
+  --gray-300: #57574f;
+  --gray-200: #3a3a35;
+  --gray-100: #1c1c1a;
+  --gray-50:  #17171a;
+
+  /* Acento: verde-azulado no lugar do roxo (mesmo tom da tela de login) */
+  --primary-50:  #ecfdf8;
+  --primary-100: #d1faf0;
+  --primary-200: #9deee0;
+  --primary-300: #0f766e;
+  --primary-400: #0d9488;
+  --primary-500: #14b8a6;
+  --primary-600: #0d9488;
+  --primary-700: #0f766e;
+  --primary-800: #115e59;
+  --primary-900: #134e4a;
+
+  /* Textos de status legíveis sobre fundo claro (os "-900" viram fundos
+     claros tingidos, os "-400" viram a cor do texto sobre esse fundo —
+     no dark mode era o contrário). */
+  --success-900: #f0fdf4;
+  --success-400: #15803d;
+  --warning-900: #fffbeb;
+  --warning-400: #b45309;
+  --danger-900:  #fef2f2;
+  --danger-400:  #b91c1c;
+  --info-900:    #eff6ff;
+  --info-400:    #1d4ed8;
+
+  /* Sombras — leves e neutras, sem o "glow" roxo do dark mode */
+  --shadow-sm:  0 1px 2px rgba(0,0,0,0.04), 0 1px 1px rgba(0,0,0,0.03);
+  --shadow-md:  0 2px 8px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-lg:  0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
+  --shadow-xl:  0 16px 40px rgba(0,0,0,0.1), 0 4px 10px rgba(0,0,0,0.05);
+  --shadow-glow:    0 8px 24px rgba(13,148,136,0.18);
+  --shadow-glow-sm: 0 4px 12px rgba(13,148,136,0.15);
+
+  /* Tokens indiretos (ver definição no :root) — mesma técnica do roxo,
+     só que em teal */
+  --btn-primary-shadow:    rgba(13,148,136,0.35);
+  --focus-ring:            rgba(13,148,136,0.15);
+  --slot-hover-bg:         rgba(13,148,136,0.1);
+  --sidebar-active-a:      rgba(13,148,136,0.12);
+  --sidebar-active-b:      rgba(15,118,110,0.06);
+  --sidebar-active-border: rgba(13,148,136,0.25);
+  --primary-soft-bg:       rgba(13,148,136,0.12);
+  --primary-soft-bg-8:     rgba(13,148,136,0.08);
+  --primary-soft-border:   rgba(13,148,136,0.25);
+}
+
+/* Ajustes pontuais que não são cor — algumas regras do dark mode original
+   contavam com o fundo escuro pra funcionar (ex.: overlay de modal). */
+.lojista-shell .app-sidebar,
+.lojista-shell .app-topbar {
+  box-shadow: none;
+}
 
 /* ============================================================
    RESPONSIVO

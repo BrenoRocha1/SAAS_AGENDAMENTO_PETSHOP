@@ -24,7 +24,7 @@ export default async function AgendamentosLojistaPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Agendamentos 📅</h1>
+        <h1 className="page-title">Agendamentos</h1>
         <p className="page-subtitle">Gerencie todos os agendamentos do seu petshop</p>
       </div>
       <AgendamentosLojistaList agendamentos={agendamentos ?? []} />

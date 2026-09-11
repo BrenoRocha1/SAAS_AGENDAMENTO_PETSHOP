@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { salvarHorarioAction, toggleHorarioAction } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
+import { IconAlert, IconCheck, IconCircle, IconPencil } from '@/components/icons'
 
 const DIAS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'] as const
 
@@ -63,12 +64,12 @@ export default function HorariosManager({ horarios: inicial }: Props) {
     <div style={{ maxWidth: 600 }}>
       {error && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
-          <span>⚠️</span><span>{error}</span>
+          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{error}</span>
         </div>
       )}
       {success && (
         <div className="alert alert-success" style={{ marginBottom: 'var(--space-4)' }}>
-          <span>✓</span><span>{success}</span>
+          <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{success}</span>
         </div>
       )}
 
@@ -86,15 +87,16 @@ export default function HorariosManager({ horarios: inicial }: Props) {
                       width: 40,
                       height: 40,
                       borderRadius: 'var(--radius-md)',
-                      background: h?.ativo ? 'rgba(124,58,237,0.15)' : 'var(--gray-850)',
-                      border: `1px solid ${h?.ativo ? 'rgba(124,58,237,0.3)' : 'var(--gray-700)'}`,
+                      background: h?.ativo ? 'var(--primary-soft-bg)' : 'var(--gray-850)',
+                      border: `1px solid ${h?.ativo ? 'var(--primary-soft-border)' : 'var(--gray-700)'}`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '1.125rem',
+                      color: h?.ativo ? 'var(--primary-400)' : 'var(--gray-500)',
+                      flexShrink: 0,
                     }}
                   >
-                    {h?.ativo ? '✅' : '⭕'}
+                    {h?.ativo ? <IconCheck style={{ width: 18, height: 18 }} /> : <IconCircle style={{ width: 18, height: 18 }} />}
                   </div>
                   <div>
                     <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{dia}</div>
@@ -123,7 +125,7 @@ export default function HorariosManager({ horarios: inicial }: Props) {
                     className="btn btn-secondary btn-sm"
                     onClick={() => setEditDia(isEditing ? null : dia)}
                   >
-                    {isEditing ? 'Cancelar' : h ? '✏️ Editar' : '+ Configurar'}
+                    {isEditing ? 'Cancelar' : h ? (<><IconPencil style={{ width: 14, height: 14 }} /> Editar</>) : '+ Configurar'}
                   </button>
                 </div>
               </div>

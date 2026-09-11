@@ -211,3 +211,56 @@ export function IconDog(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export function IconCircle(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+    </svg>
+  )
+}
+
+export function IconPencil(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 20l.9-3.9L15.6 5.4a2 2 0 0 1 2.8 0l1.2 1.2a2 2 0 0 1 0 2.8L8.9 19.1 4 20Z" />
+      <path d="M13.5 7.5l3 3" />
+    </svg>
+  )
+}
+
+export function IconLock(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
+  )
+}
+
+export function IconUnlock(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 7.4-2" />
+    </svg>
+  )
+}
+
+export function IconShield(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 3.5 19 6v5.5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-2.5Z" />
+      <path d="m9.2 12 1.9 1.9 3.7-3.9" />
+    </svg>
+  )
+}
+
+export function IconSave(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 4h11l3 3v13H5V4Z" />
+      <path d="M8 4v5h7V4M8 20v-6h8v6" />
+    </svg>
+  )
+}

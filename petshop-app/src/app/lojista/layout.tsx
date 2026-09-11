@@ -39,7 +39,7 @@ export default async function LojistaLayout({
     .single()
 
   return (
-    <div className="app-layout">
+    <div className="app-layout lojista-shell">
       <LojistaSidebar
         nomeLoja={lojista?.nome_loja ?? 'Meu Petshop'}
         userEmail={user.email ?? ''}

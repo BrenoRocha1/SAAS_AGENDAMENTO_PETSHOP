@@ -17,7 +17,7 @@ export default async function ServicosPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Serviços ✂️</h1>
+        <h1 className="page-title">Serviços</h1>
         <p className="page-subtitle">Gerencie os serviços do seu petshop</p>
       </div>
       <ServicosList servicos={servicos ?? []} />

@@ -18,7 +18,7 @@ export default async function FuncionariosPage() {
     <>
       <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 className="page-title">Funcionários 👷</h1>
+          <h1 className="page-title">Funcionários</h1>
           <p className="page-subtitle">Gerencie a equipe do seu petshop</p>
         </div>
       </div>

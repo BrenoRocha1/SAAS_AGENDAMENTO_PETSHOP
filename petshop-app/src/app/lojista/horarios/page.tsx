@@ -17,7 +17,7 @@ export default async function HorariosPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Horários de Funcionamento ⏰</h1>
+        <h1 className="page-title">Horários de Funcionamento</h1>
         <p className="page-subtitle">Configure os dias e horários em que seu petshop atende</p>
       </div>
       <HorariosManager horarios={horarios ?? []} />
