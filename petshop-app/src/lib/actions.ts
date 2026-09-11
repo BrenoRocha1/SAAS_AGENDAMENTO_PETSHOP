@@ -10,6 +10,7 @@ import {
   loginSchema,
   petSchema,
   servicoSchema,
+  servicoVariacaoSchema,
   horarioSchema,
   agendamentoSchema,
   agendamentoLojistaSchema,
@@ -331,6 +332,8 @@ export async function criarPetAction(formData: FormData) {
     nome: formData.get('nome') as string,
     raca: formData.get('raca') as string,
     sexo: formData.get('sexo') as string,
+    especie: (formData.get('especie') as string) || undefined,
+    porte: (formData.get('porte') as string) || undefined,
     dt_nasc: formData.get('dt_nasc') as string,
     peso: formData.get('peso') ? parseFloat(formData.get('peso') as string) : undefined,
     obs: formData.get('obs') as string,
@@ -359,6 +362,8 @@ export async function editarPetAction(id_pet: string, formData: FormData) {
     nome: formData.get('nome') as string,
     raca: formData.get('raca') as string,
     sexo: formData.get('sexo') as string,
+    especie: (formData.get('especie') as string) || undefined,
+    porte: (formData.get('porte') as string) || undefined,
     dt_nasc: formData.get('dt_nasc') as string,
     peso: formData.get('peso') ? parseFloat(formData.get('peso') as string) : undefined,
     obs: formData.get('obs') as string,
@@ -454,6 +459,79 @@ export async function editarServicoAction(id_servico: string, formData: FormData
     .eq('id_lojista', user.id)
 
   if (error) return { error: 'Erro ao atualizar serviço.' }
+
+  revalidatePath('/lojista/servicos')
+  return { success: true }
+}
+
+// "Preços e Variações": cobrar diferente por porte ou por raça
+// específica para um serviço já existente. Ver migration 010
+// (servico_variacao) e fn_calcular_preco_servico.
+export async function adicionarVariacaoServicoAction(id_servico: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const tipo = formData.get('tipo') as string
+  const raw = tipo === 'raca'
+    ? {
+        tipo: 'raca' as const,
+        especie: formData.get('especie') as string,
+        raca: formData.get('raca') as string,
+        preco: parseFloat(formData.get('preco') as string),
+      }
+    : {
+        tipo: 'porte' as const,
+        especie: formData.get('especie') as string,
+        porte: formData.get('porte') as string,
+        preco: parseFloat(formData.get('preco') as string),
+      }
+
+  const parsed = servicoVariacaoSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  // Confere que o serviço é do lojista logado antes de inserir (defense
+  // in depth — a policy de INSERT já garante isso, mas dá pra devolver
+  // uma mensagem melhor aqui).
+  const { data: servico } = await supabase
+    .from('servico')
+    .select('id_servico')
+    .eq('id_servico', id_servico)
+    .eq('id_lojista', user.id)
+    .maybeSingle()
+  if (!servico) return { error: 'Serviço não encontrado' }
+
+  const { error } = await supabase.from('servico_variacao').insert({
+    id_servico,
+    ...parsed.data,
+  })
+
+  if (error) {
+    if (error.code === '23505') {
+      return { error: 'Já existe uma faixa de preço cadastrada para essa combinação.' }
+    }
+    return { error: 'Erro ao cadastrar variação de preço.' }
+  }
+
+  revalidatePath('/lojista/servicos')
+  return { success: true }
+}
+
+export async function removerVariacaoServicoAction(id_variacao: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const { error } = await supabase
+    .from('servico_variacao')
+    .delete()
+    .eq('id_variacao', id_variacao)
+
+  if (error) return { error: 'Erro ao remover variação de preço.' }
 
   revalidatePath('/lojista/servicos')
   return { success: true }
@@ -654,6 +732,41 @@ export async function atualizarStatusAgendamentoAction(
   if (error) return { error: 'Erro ao atualizar status.' }
 
   revalidatePath('/lojista/agendamentos')
+  return { success: true }
+}
+
+// Atribui (ou remove, se id_funcionario vier null) o profissional
+// responsável por um agendamento. Ver migration 012 — todo agendamento
+// nasce sem funcionário, mesmo os que o cliente cria sozinho; o
+// lojista atribui manualmente pela tela de agenda.
+export async function atribuirFuncionarioAction(id_agendamento: string, id_funcionario: string | null) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  if (id_funcionario) {
+    const { data: func } = await supabase
+      .from('funcionario')
+      .select('id_funcionario')
+      .eq('id_funcionario', id_funcionario)
+      .eq('id_lojista', user.id)
+      .eq('ativo', true)
+      .maybeSingle()
+    if (!func) return { error: 'Funcionário não encontrado ou inativo' }
+  }
+
+  const { error } = await supabase
+    .from('agendamento')
+    .update({ id_funcionario })
+    .eq('id_agendamento', id_agendamento)
+    .eq('id_lojista', user.id)
+
+  if (error) return { error: 'Erro ao atribuir profissional.' }
+
+  revalidatePath('/lojista/agendamentos')
+  revalidatePath('/lojista/dashboard')
   return { success: true }
 }
 

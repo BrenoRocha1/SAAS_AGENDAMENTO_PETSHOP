@@ -68,6 +68,27 @@ export default function NovoPetPage() {
             </div>
           </div>
 
+          <div className="form-grid-2">
+            <div className="form-group">
+              <label htmlFor="especie" className="form-label">Espécie</label>
+              <select id="especie" name="especie" className="form-select">
+                <option value="">Não informar</option>
+                <option value="Cão">Cão</option>
+                <option value="Gato">Gato</option>
+              </select>
+              <span className="form-hint">Usado para calcular preços por porte/raça, quando o petshop configura</span>
+            </div>
+            <div className="form-group">
+              <label htmlFor="porte" className="form-label">Porte</label>
+              <select id="porte" name="porte" className="form-select">
+                <option value="">Não informar</option>
+                <option value="Pequeno">Pequeno</option>
+                <option value="Médio">Médio</option>
+                <option value="Grande">Grande</option>
+              </select>
+            </div>
+          </div>
+
           <div className="form-group">
             <label htmlFor="peso" className="form-label">Peso (kg)</label>
             <input

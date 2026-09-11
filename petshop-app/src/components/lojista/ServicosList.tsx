@@ -1,9 +1,14 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { criarServicoAction, editarServicoAction } from '@/lib/actions'
+import { useEffect, useMemo, useState, useTransition } from 'react'
+import {
+  criarServicoAction,
+  editarServicoAction,
+  adicionarVariacaoServicoAction,
+  removerVariacaoServicoAction,
+} from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
-import { IconAlert, IconClose, IconPencil, IconPlus, IconScissors } from '@/components/icons'
+import { IconAlert, IconClose, IconPencil, IconPlus, IconScissors, IconSliders, IconTrash } from '@/components/icons'
 
 interface Servico {
   id_servico: string
@@ -12,6 +17,15 @@ interface Servico {
   preco: number
   duracao: number
   status: string
+}
+
+interface Variacao {
+  id_variacao: string
+  tipo: 'porte' | 'raca'
+  especie: 'Cão' | 'Gato'
+  porte: 'Pequeno' | 'Médio' | 'Grande' | null
+  raca: string | null
+  preco: number
 }
 
 interface Props {
@@ -195,6 +209,14 @@ export default function ServicosList({ servicos: inicial }: Props) {
                     <option value="Inativo">Inativo</option>
                   </select>
                 </div>
+
+                {editando ? (
+                  <PrecosVariacoes idServico={editando.id_servico} />
+                ) : (
+                  <p className="text-sm text-muted">
+                    Salve o serviço primeiro para poder configurar preços diferentes por porte ou raça.
+                  </p>
+                )}
               </div>
 
               <div className="modal-footer">
@@ -215,5 +237,189 @@ export default function ServicosList({ servicos: inicial }: Props) {
         </div>
       )}
     </>
+  )
+}
+
+// ============================================================
+// Preços e Variações — cobrar diferente por porte ou por raça
+// específica. Só existe em edição (precisa de um id_servico salvo).
+// Ver migration 010 (servico_variacao) e fn_calcular_preco_servico.
+// ============================================================
+function PrecosVariacoes({ idServico }: { idServico: string }) {
+  const supabase = useMemo(() => createClient(), [])
+  const [aberto, setAberto] = useState(false)
+  const [variacoes, setVariacoes] = useState<Variacao[] | null>(null)
+  const [tipo, setTipo] = useState<'porte' | 'raca'>('porte')
+  const [especie, setEspecie] = useState<'Cão' | 'Gato'>('Cão')
+  const [porte, setPorte] = useState('')
+  const [raca, setRaca] = useState('')
+  const [preco, setPreco] = useState('')
+  const [erro, setErro] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  async function carregar() {
+    const { data } = await supabase
+      .from('servico_variacao')
+      .select('*')
+      .eq('id_servico', idServico)
+      .order('created_at')
+    setVariacoes((data as Variacao[]) ?? [])
+  }
+
+  useEffect(() => {
+    if (!aberto || variacoes !== null) return
+    let cancelado = false
+    supabase
+      .from('servico_variacao')
+      .select('*')
+      .eq('id_servico', idServico)
+      .order('created_at')
+      .then(({ data }) => {
+        if (!cancelado) setVariacoes((data as Variacao[]) ?? [])
+      })
+    return () => { cancelado = true }
+  }, [aberto, idServico]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function adicionar() {
+    setErro(null)
+    if (tipo === 'porte' && !porte) { setErro('Selecione o porte'); return }
+    if (tipo === 'raca' && !raca.trim()) { setErro('Informe a raça'); return }
+    if (!preco) { setErro('Informe o preço'); return }
+
+    const fd = new FormData()
+    fd.set('tipo', tipo)
+    fd.set('especie', especie)
+    if (tipo === 'porte') fd.set('porte', porte)
+    else fd.set('raca', raca.trim())
+    fd.set('preco', preco)
+
+    startTransition(async () => {
+      const result = await adicionarVariacaoServicoAction(idServico, fd)
+      if (result?.error) {
+        setErro(result.error)
+        return
+      }
+      setPorte('')
+      setRaca('')
+      setPreco('')
+      await carregar()
+    })
+  }
+
+  function remover(id_variacao: string) {
+    startTransition(async () => {
+      await removerVariacaoServicoAction(id_variacao)
+      await carregar()
+    })
+  }
+
+  return (
+    <div className="form-group">
+      <button
+        type="button"
+        onClick={() => setAberto(v => !v)}
+        className="picker-item"
+        style={{ width: '100%' }}
+      >
+        <span className="dash-icon-btn" style={{ width: 32, height: 32, cursor: 'default' }}>
+          <IconSliders style={{ width: 15, height: 15 }} />
+        </span>
+        <div className="picker-item-main">
+          <div className="picker-item-title">Preços e Variações</div>
+          <div className="picker-item-sub">Cobrar diferente por porte, espécie ou raça</div>
+        </div>
+      </button>
+
+      {aberto && (
+        <div style={{ marginTop: 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <p className="text-xs text-muted">
+            Prioridade de cálculo: <strong>raça específica</strong> &gt; <strong>porte + espécie</strong> &gt; preço base.
+          </p>
+
+          {erro && (
+            <div className="alert alert-error">
+              <IconAlert style={{ width: 15, height: 15, flexShrink: 0, marginTop: 2 }} />
+              <span>{erro}</span>
+            </div>
+          )}
+
+          {variacoes === null ? (
+            <p className="text-sm text-muted">Carregando...</p>
+          ) : variacoes.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              {variacoes.map(v => (
+                <div key={v.id_variacao} className="flex items-center justify-between" style={{
+                  padding: 'var(--space-2) var(--space-3)',
+                  background: 'var(--gray-850)',
+                  border: '1px solid var(--gray-800)',
+                  borderRadius: 'var(--radius-sm)',
+                }}>
+                  <span className="text-sm">
+                    {v.especie} · {v.tipo === 'raca' ? v.raca : v.porte}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-success">R$ {Number(v.preco).toFixed(2)}</span>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => remover(v.id_variacao)} disabled={isPending} aria-label="Remover">
+                      <IconTrash style={{ width: 14, height: 14 }} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button type="button" className={`btn btn-sm ${tipo === 'porte' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTipo('porte')}>
+              Por porte
+            </button>
+            <button type="button" className={`btn btn-sm ${tipo === 'raca' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTipo('raca')}>
+              Por raça
+            </button>
+          </div>
+
+          <div className="form-grid-3">
+            <div className="form-group">
+              <label className="form-label">Espécie</label>
+              <select className="form-select" value={especie} onChange={e => setEspecie(e.target.value as 'Cão' | 'Gato')}>
+                <option value="Cão">Cão</option>
+                <option value="Gato">Gato</option>
+              </select>
+            </div>
+            {tipo === 'porte' ? (
+              <div className="form-group">
+                <label className="form-label">Porte</label>
+                <select className="form-select" value={porte} onChange={e => setPorte(e.target.value)}>
+                  <option value="">Selecione</option>
+                  <option value="Pequeno">Pequeno</option>
+                  <option value="Médio">Médio</option>
+                  <option value="Grande">Grande</option>
+                </select>
+              </div>
+            ) : (
+              <div className="form-group">
+                <label className="form-label">Raça</label>
+                <input className="form-input" value={raca} onChange={e => setRaca(e.target.value)} placeholder="Ex: Poodle" />
+              </div>
+            )}
+            <div className="form-group">
+              <label className="form-label">Preço (R$)</label>
+              <input
+                className="form-input"
+                type="number"
+                step="0.01"
+                min="0"
+                value={preco}
+                onChange={e => setPreco(e.target.value)}
+                placeholder="0,00"
+              />
+            </div>
+          </div>
+
+          <button type="button" className="btn btn-secondary btn-sm" onClick={adicionar} disabled={isPending} style={{ alignSelf: 'flex-start' }}>
+            <IconPlus style={{ width: 14, height: 14 }} /> {isPending ? 'Adicionando...' : 'Adicionar'}
+          </button>
+        </div>
+      )}
+    </div>
   )
 }

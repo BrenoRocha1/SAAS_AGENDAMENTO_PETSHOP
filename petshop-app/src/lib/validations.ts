@@ -56,6 +56,11 @@ export const petSchema = z.object({
   nome: z.string().min(1).max(80),
   raca: z.string().min(1).max(80),
   sexo: z.enum(['Macho', 'Fêmea']),
+  // Opcionais: pets já cadastrados antes da migration 010 não têm essa
+  // informação. Usados por fn_calcular_preco_servico para casar as
+  // faixas de preço "por porte"/"por raça" cadastradas pelo lojista.
+  especie: z.enum(['Cão', 'Gato']).optional(),
+  porte: z.enum(['Pequeno', 'Médio', 'Grande']).optional(),
   dt_nasc: z.string().refine(d => {
     const date = new Date(d)
     return date <= new Date()
@@ -67,6 +72,23 @@ export const petSchema = z.object({
     .optional(),
   obs: z.string().max(500).optional(),
 })
+
+// Variação de preço de um serviço, por espécie+porte OU por
+// espécie+raça específica — ver fn_calcular_preco_servico (migration 010).
+export const servicoVariacaoSchema = z.discriminatedUnion('tipo', [
+  z.object({
+    tipo: z.literal('porte'),
+    especie: z.enum(['Cão', 'Gato']),
+    porte: z.enum(['Pequeno', 'Médio', 'Grande']),
+    preco: z.number().min(0, 'Preço inválido'),
+  }),
+  z.object({
+    tipo: z.literal('raca'),
+    especie: z.enum(['Cão', 'Gato']),
+    raca: z.string().min(1, 'Informe a raça').max(80),
+    preco: z.number().min(0, 'Preço inválido'),
+  }),
+])
 
 export const servicoSchema = z.object({
   nome: z.string().min(2).max(100),
@@ -167,6 +189,7 @@ export type LoginData = z.infer<typeof loginSchema>
 export type CadastroClienteData = z.infer<typeof cadastroClienteSchema>
 export type CadastroLojistaData = z.infer<typeof cadastroLojistSchema>
 export type PetData = z.infer<typeof petSchema>
+export type ServicoVariacaoData = z.infer<typeof servicoVariacaoSchema>
 export type ServicoData = z.infer<typeof servicoSchema>
 export type HorarioData = z.infer<typeof horarioSchema>
 export type AgendamentoData = z.infer<typeof agendamentoSchema>
