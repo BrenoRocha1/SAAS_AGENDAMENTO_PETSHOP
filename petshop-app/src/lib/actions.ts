@@ -185,15 +185,21 @@ export async function cadastroClienteAction(formData: FormData) {
 }
 
 export async function cadastroLojistaAction(formData: FormData) {
+  // Campos opcionais do schema (descricao/endereco/cidade/estado/cep) só devem
+  // ir para o Zod como `undefined` quando não preenchidos. Vindos de <input>/
+  // <select> vazios eles chegam como string vazia (""), e `.optional()` não
+  // trata "" como ausente — "" ainda cai nas validações de tamanho (ex.:
+  // estado com .length(2)), gerando um erro confuso pro usuário mesmo com o
+  // campo em branco, que é justamente o comportamento esperado.
   const raw = {
     nome_loja: formData.get('nome_loja') as string,
     email: formData.get('email') as string,
     telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
-    descricao: formData.get('descricao') as string,
-    endereco: formData.get('endereco') as string,
-    cidade: formData.get('cidade') as string,
-    estado: formData.get('estado') as string,
-    cep: (formData.get('cep') as string).replace(/\D/g, ''),
+    descricao: (formData.get('descricao') as string) || undefined,
+    endereco: (formData.get('endereco') as string) || undefined,
+    cidade: (formData.get('cidade') as string) || undefined,
+    estado: (formData.get('estado') as string) || undefined,
+    cep: (formData.get('cep') as string).replace(/\D/g, '') || undefined,
     senha: formData.get('senha') as string,
     confirmaSenha: formData.get('confirmaSenha') as string,
   }
