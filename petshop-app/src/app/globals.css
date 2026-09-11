@@ -175,16 +175,12 @@ a:hover { color: var(--primary-300); }
   flex-direction: column;
   z-index: 50;
   overflow-y: auto;
-  overflow-x: hidden;
   transition: width var(--transition-normal);
 }
 
-/* Botão flutuante que recolhe/expande a sidebar — fica sempre na borda,
-   funciona igual nos dois estados (só troca o ícone). */
+/* Botão que recolhe/expande a sidebar — fica dentro da linha da logo,
+   nunca sobrepondo nada (recolhida, é o único filho ali, centralizado). */
 .sidebar-collapse-btn {
-  position: absolute;
-  top: 22px;
-  right: -12px;
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -194,13 +190,15 @@ a:hover { color: var(--primary-300); }
   border: 1px solid var(--gray-700);
   color: var(--gray-300);
   cursor: pointer;
-  z-index: 51;
+  flex-shrink: 0;
+  margin-left: auto;
   transition: all var(--transition-fast);
 }
 .sidebar-collapse-btn:hover { background: var(--gray-700); color: var(--gray-100); border-color: var(--gray-600); }
 
 /* Recolhida: só ícones, centralizados, sem textos */
 .app-sidebar.is-collapsed .sidebar-logo { justify-content: center; padding: var(--space-5) 0; }
+.app-sidebar.is-collapsed .sidebar-collapse-btn { margin-left: 0; }
 .app-sidebar.is-collapsed .sidebar-nav { align-items: center; padding: var(--space-4) var(--space-2); }
 .app-sidebar.is-collapsed .sidebar-link { justify-content: center; width: 44px; padding: var(--space-3) 0; }
 .app-sidebar.is-collapsed .sidebar-footer { padding: var(--space-4) var(--space-2); }

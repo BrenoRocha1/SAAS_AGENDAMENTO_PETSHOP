@@ -77,26 +77,27 @@ export default function LojistaSidebar({ nomeLoja, userEmail }: Props) {
 
   return (
     <aside className={`app-sidebar ${colapsada ? 'is-collapsed' : ''}`}>
-      <button
-        type="button"
-        className="sidebar-collapse-btn"
-        onClick={alternarColapso}
-        aria-label={colapsada ? 'Expandir menu' : 'Recolher menu'}
-        title={colapsada ? 'Expandir menu' : 'Recolher menu'}
-      >
-        {colapsada ? <IconChevronRight style={{ width: 12, height: 12 }} /> : <IconChevronLeft style={{ width: 12, height: 12 }} />}
-      </button>
-
-      {/* Logo */}
+      {/* Logo — recolhida, some e fica só o botão de expandir, pra nunca sobrepor nada */}
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">
-          <IconPaw style={{ width: 18, height: 18 }} />
-        </div>
         {!colapsada && (
-          <span className="sidebar-logo-text">
-            Pet<span>Agenda</span>
-          </span>
+          <>
+            <div className="sidebar-logo-icon">
+              <IconPaw style={{ width: 18, height: 18 }} />
+            </div>
+            <span className="sidebar-logo-text">
+              Pet<span>Agenda</span>
+            </span>
+          </>
         )}
+        <button
+          type="button"
+          className="sidebar-collapse-btn"
+          onClick={alternarColapso}
+          aria-label={colapsada ? 'Expandir menu' : 'Recolher menu'}
+          title={colapsada ? 'Expandir menu' : 'Recolher menu'}
+        >
+          {colapsada ? <IconChevronRight style={{ width: 12, height: 12 }} /> : <IconChevronLeft style={{ width: 12, height: 12 }} />}
+        </button>
       </div>
 
       {/* Navegação */}
