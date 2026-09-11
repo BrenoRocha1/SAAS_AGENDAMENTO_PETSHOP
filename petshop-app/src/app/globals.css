@@ -1505,6 +1505,16 @@ a:hover { color: var(--primary-300); }
   --info-900:    #eff6ff;
   --info-400:    #1d4ed8;
 
+  /* Cantos mais retos — o dark mode original é bem arredondado (--radius-xl
+     chega a 1.25rem/20px); aqui reduz bastante em toda a área do lojista.
+     --radius-full fica de fora de propósito (é usado em avatar/badge/bolinha,
+     que precisam continuar circulares). */
+  --radius-sm:  0.25rem;
+  --radius-md:  0.375rem;
+  --radius-lg:  0.5rem;
+  --radius-xl:  0.625rem;
+  --radius-2xl: 0.75rem;
+
   /* Sombras — leves e neutras, sem o "glow" roxo do dark mode */
   --shadow-sm:  0 1px 2px rgba(0,0,0,0.04), 0 1px 1px rgba(0,0,0,0.03);
   --shadow-md:  0 2px 8px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
@@ -1592,7 +1602,7 @@ a:hover { color: var(--primary-300); }
 .cal-hour-line { position: absolute; left: 0; right: 0; border-top: 1px solid var(--gray-850); }
 
 .cal-event {
-  position: absolute; border-radius: 6px; padding: 3px 6px; overflow: hidden;
+  position: absolute; border-radius: var(--radius-sm); padding: 3px 6px; overflow: hidden;
   cursor: pointer; border: none; border-left: 3px solid; text-align: left;
   font-size: 0.6875rem; line-height: 1.25; color: white; transition: filter var(--transition-fast);
 }
