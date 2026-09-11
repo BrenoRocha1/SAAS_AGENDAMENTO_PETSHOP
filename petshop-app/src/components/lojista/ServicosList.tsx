@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from 'react'
 import {
   criarServicoAction,
   editarServicoAction,
+  excluirServicoAction,
   adicionarVariacaoServicoAction,
   removerVariacaoServicoAction,
 } from '@/lib/actions'
@@ -50,7 +51,31 @@ export default function ServicosList({ servicos: inicial }: Props) {
   const [editando, setEditando] = useState<Servico | null>(null)
   const [draftVariacoes, setDraftVariacoes] = useState<VariacaoDraft[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [excluirErro, setExcluirErro] = useState<string | null>(null)
+  const [confirmarExclusao, setConfirmarExclusao] = useState<Servico | null>(null)
+  const [excluindoId, setExcluindoId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  function handleExcluir(s: Servico) {
+    setExcluirErro(null)
+    setConfirmarExclusao(s)
+  }
+
+  function confirmarExclusaoDoServico() {
+    if (!confirmarExclusao) return
+    const s = confirmarExclusao
+    setExcluindoId(s.id_servico)
+    startTransition(async () => {
+      const result = await excluirServicoAction(s.id_servico)
+      setExcluindoId(null)
+      setConfirmarExclusao(null)
+      if (result?.error) {
+        setExcluirErro(result.error)
+      } else {
+        setServicos(prev => prev.filter(x => x.id_servico !== s.id_servico))
+      }
+    })
+  }
 
   function abrirNovo() {
     setEditando(null)
@@ -100,6 +125,13 @@ export default function ServicosList({ servicos: inicial }: Props) {
         </button>
       </div>
 
+      {excluirErro && (
+        <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
+          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+          <span>{excluirErro}</span>
+        </div>
+      )}
+
       {servicos.length === 0 ? (
         <div className="empty-state card">
           <IconScissors style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
@@ -134,12 +166,23 @@ export default function ServicosList({ servicos: inicial }: Props) {
                     </span>
                   </td>
                   <td>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => abrirEditar(s)}
-                    >
-                      <IconPencil style={{ width: 14, height: 14 }} /> Editar
-                    </button>
+                    <div className="flex gap-1">
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => abrirEditar(s)}
+                      >
+                        <IconPencil style={{ width: 14, height: 14 }} /> Editar
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => handleExcluir(s)}
+                        disabled={excluindoId === s.id_servico}
+                        title="Excluir serviço"
+                      >
+                        <IconTrash style={{ width: 14, height: 14 }} />
+                        {excluindoId === s.id_servico ? 'Excluindo...' : 'Excluir'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -252,6 +295,47 @@ export default function ServicosList({ servicos: inicial }: Props) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {confirmarExclusao && (
+        <div className="modal-overlay" onClick={() => !isPending && setConfirmarExclusao(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Excluir serviço</h3>
+              <button className="modal-close" onClick={() => setConfirmarExclusao(null)} aria-label="Fechar" disabled={isPending}>
+                <IconClose style={{ width: 15, height: 15 }} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="flex gap-3" style={{ alignItems: 'flex-start' }}>
+                <span style={{
+                  width: 36, height: 36, borderRadius: 'var(--radius-full)', flexShrink: 0,
+                  background: 'rgba(239,68,68,0.1)', color: 'var(--danger-400)',
+                  display: 'grid', placeItems: 'center',
+                }}>
+                  <IconAlert style={{ width: 18, height: 18 }} />
+                </span>
+                <p style={{ color: 'var(--gray-200)' }}>
+                  Tem certeza que deseja excluir <strong style={{ color: 'var(--gray-100)' }}>&quot;{confirmarExclusao.nome}&quot;</strong>?
+                  Essa ação não pode ser desfeita.
+                </p>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setConfirmarExclusao(null)} disabled={isPending}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className={`btn btn-danger ${isPending ? 'btn-loading' : ''}`}
+                onClick={confirmarExclusaoDoServico}
+                disabled={isPending}
+              >
+                {isPending ? 'Excluindo...' : 'Excluir'}
+              </button>
+            </div>
           </div>
         </div>
       )}

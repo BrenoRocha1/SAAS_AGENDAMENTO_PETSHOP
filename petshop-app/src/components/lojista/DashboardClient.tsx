@@ -282,7 +282,7 @@ export default function DashboardClient({
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Painel de Controle</h1>
+        <h1 className="page-title">Bem-vindo, {nomeLoja}</h1>
         <p className="page-subtitle">
           {format(new Date(), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
         </p>

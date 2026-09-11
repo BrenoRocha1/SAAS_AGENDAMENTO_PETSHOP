@@ -19,31 +19,65 @@ export default async function LojistaDashboard({ searchParams }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   const lojistaId = user!.id
 
-  const { data: lojista } = await supabase
-    .from('lojista')
-    .select('nome_loja')
-    .eq('id_lojista', lojistaId)
-    .single()
-
   const hoje = new Date()
   const hojeISO = toISODate(hoje)
   const ontemISO = toISODate(subDays(hoje, 1))
   const selectedDate = params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO
 
-  // ── Métricas gerais (RPC existente) ─────────────────────────────
-  const { data: metricas } = await supabase.rpc('fn_metricas_lojista', {
-    p_id_lojista: lojistaId,
-  })
-  const m = (metricas as Record<string, number>) ?? {}
-
-  // ── Agenda de hoje (para os cards) + de ontem (para o comparativo) ──
-  const [{ data: agendaHoje }, { data: agendaOntem }, { data: agendaSelecionada }] = await Promise.all([
+  // Todas as consultas abaixo são independentes entre si (só precisam do
+  // lojistaId) — disparadas juntas numa única leva em vez de uma atrás da
+  // outra, que é o que fazia a navegação entre páginas parecer lenta
+  // (cada troca de página refaz essas 9 idas ao banco em sequência).
+  const [
+    { data: lojista },
+    { data: metricas },
+    { data: agendaHoje },
+    { data: agendaOntem },
+    { data: agendaSelecionada },
+    { data: slotsHoje },
+    { data: pendentesRaw },
+    { data: historico },
+    { data: servicosRaw },
+  ] = await Promise.all([
+    supabase.from('lojista').select('nome_loja').eq('id_lojista', lojistaId).single(),
+    supabase.rpc('fn_metricas_lojista', { p_id_lojista: lojistaId }),
     supabase.rpc('fn_agenda_dia', { p_id_lojista: lojistaId, p_data: hojeISO }),
     supabase.rpc('fn_agenda_dia', { p_id_lojista: lojistaId, p_data: ontemISO }),
     selectedDate === hojeISO
       ? Promise.resolve({ data: null })
       : supabase.rpc('fn_agenda_dia', { p_id_lojista: lojistaId, p_data: selectedDate }),
+    supabase.rpc('fn_horarios_disponiveis', { p_id_lojista: lojistaId, p_data: hojeISO, p_duracao: 30 }),
+    supabase
+      .from('agendamento')
+      .select(`
+        id_agendamento, dt_agendamento, hr_agendamento, valor,
+        pet:id_pet ( nome, raca ),
+        servico:id_servico ( nome ),
+        cliente:id_cliente ( nome )
+      `)
+      .eq('id_lojista', lojistaId)
+      .eq('status', 'Pendente')
+      .order('dt_agendamento', { ascending: true })
+      .order('hr_agendamento', { ascending: true })
+      .limit(12),
+    supabase
+      .from('agendamento')
+      .select(`
+        id_cliente,
+        cliente:id_cliente ( id_cliente, nome, telefone ),
+        pet:id_pet ( id_pet, nome, raca )
+      `)
+      .eq('id_lojista', lojistaId)
+      .not('status', 'eq', 'Cancelado'),
+    supabase
+      .from('servico')
+      .select('id_servico, nome, preco, duracao')
+      .eq('id_lojista', lojistaId)
+      .eq('status', 'Ativo')
+      .order('nome'),
   ])
+
+  const m = (metricas as Record<string, number>) ?? {}
 
   const listaHoje = (agendaHoje ?? []) as AgendaItem[]
   const listaOntem = (agendaOntem ?? []) as AgendaItem[]
@@ -65,45 +99,16 @@ export default async function LojistaDashboard({ searchParams }: Props) {
   })
 
   // ── Horários livres hoje (reaproveita fn_horarios_disponiveis com slot-base de 30min) ──
-  const { data: slotsHoje } = await supabase.rpc('fn_horarios_disponiveis', {
-    p_id_lojista: lojistaId,
-    p_data: hojeISO,
-    p_duracao: 30,
-  })
   const slots = (slotsHoje ?? []) as { hr_slot: string; disponivel: boolean }[]
   const horaAtualStr = format(hoje, 'HH:mm:ss')
   const livres = slots.filter(s => s.disponivel)
   const proximoLivre = livres.find(s => s.hr_slot > horaAtualStr) ?? null
 
   // ── Fila de espera: agendamentos Pendente (qualquer data futura) ──
-  const { data: pendentesRaw } = await supabase
-    .from('agendamento')
-    .select(`
-      id_agendamento, dt_agendamento, hr_agendamento, valor,
-      pet:id_pet ( nome, raca ),
-      servico:id_servico ( nome ),
-      cliente:id_cliente ( nome )
-    `)
-    .eq('id_lojista', lojistaId)
-    .eq('status', 'Pendente')
-    .order('dt_agendamento', { ascending: true })
-    .order('hr_agendamento', { ascending: true })
-    .limit(12)
-
   const pendentes = ((pendentesRaw ?? []) as unknown as PendenteItem[])
 
   // ── Clientes + pets já atendidos por este lojista (base para o modal) ──
   // Mesma lógica de agrupamento usada em /lojista/clientes.
-  const { data: historico } = await supabase
-    .from('agendamento')
-    .select(`
-      id_cliente,
-      cliente:id_cliente ( id_cliente, nome, telefone ),
-      pet:id_pet ( id_pet, nome, raca )
-    `)
-    .eq('id_lojista', lojistaId)
-    .not('status', 'eq', 'Cancelado')
-
   const clientesMap = new Map<string, ClienteComPets>()
   for (const row of (historico ?? []) as unknown as Array<{
     id_cliente: string
@@ -122,13 +127,6 @@ export default async function LojistaDashboard({ searchParams }: Props) {
   const clientesComPets = Array.from(clientesMap.values()).sort((a, b) => a.nome.localeCompare(b.nome))
 
   // ── Serviços ativos (para o modal) ──
-  const { data: servicosRaw } = await supabase
-    .from('servico')
-    .select('id_servico, nome, preco, duracao')
-    .eq('id_lojista', lojistaId)
-    .eq('status', 'Ativo')
-    .order('nome')
-
   const servicos = (servicosRaw ?? []) as ServicoAtivo[]
 
   return (

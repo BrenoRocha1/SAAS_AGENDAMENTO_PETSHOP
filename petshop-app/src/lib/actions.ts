@@ -497,6 +497,46 @@ export async function editarServicoAction(id_servico: string, formData: FormData
   return { success: true }
 }
 
+// Exclusão de verdade (não é o toggle de status Ativo/Inativo). Só é
+// possível quando o serviço nunca teve nenhum agendamento (nem
+// cancelado) — a FK agendamento.id_servico é ON DELETE RESTRICT de
+// propósito, pra nunca perder histórico. Por isso a checagem prévia
+// aqui, pra devolver uma mensagem clara em vez do erro cru do banco.
+export async function excluirServicoAction(id_servico: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const { count } = await supabase
+    .from('agendamento')
+    .select('id_agendamento', { count: 'exact', head: true })
+    .eq('id_servico', id_servico)
+
+  if (count && count > 0) {
+    return {
+      error: 'Este serviço já tem agendamentos (inclusive cancelados) e não pode ser excluído. Marque-o como "Inativo" em vez de excluir.',
+    }
+  }
+
+  const { error } = await supabase
+    .from('servico')
+    .delete()
+    .eq('id_servico', id_servico)
+    .eq('id_lojista', user.id)
+
+  if (error) {
+    if (error.code === '23503') {
+      return { error: 'Este serviço tem agendamentos vinculados e não pode ser excluído. Marque-o como "Inativo" em vez de excluir.' }
+    }
+    return { error: 'Erro ao excluir serviço.' }
+  }
+
+  revalidatePath('/lojista/servicos')
+  return { success: true }
+}
+
 // "Preços e Variações": cobrar diferente por porte ou por raça
 // específica para um serviço já existente. Ver migration 010
 // (servico_variacao) e fn_calcular_preco_servico.
@@ -597,6 +637,39 @@ export async function salvarHorarioAction(formData: FormData) {
   )
 
   if (error) return { error: 'Erro ao salvar horário.' }
+
+  revalidatePath('/lojista/horarios')
+  return { success: true }
+}
+
+// Mesma coisa que salvarHorarioAction, mas pra vários dias de uma vez
+// com o mesmo horário (ex.: Segunda a Sexta das 09h às 22h) — reaproveita
+// horarioSchema pra validar cada dia individualmente antes de gravar.
+export async function salvarHorariosEmLoteAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const dias = formData.getAll('dias') as string[]
+  const hr_inicio = formData.get('hr_inicio') as string
+  const hr_fim = formData.get('hr_fim') as string
+
+  if (dias.length === 0) return { error: 'Selecione pelo menos um dia da semana.' }
+
+  const linhas: { id_lojista: string; dia_semana: string; hr_inicio: string; hr_fim: string }[] = []
+  for (const dia_semana of dias) {
+    const parsed = horarioSchema.safeParse({ dia_semana, hr_inicio, hr_fim })
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+    linhas.push({ id_lojista: user.id, ...parsed.data })
+  }
+
+  const { error } = await supabase
+    .from('horario')
+    .upsert(linhas, { onConflict: 'id_lojista,dia_semana' })
+
+  if (error) return { error: 'Erro ao salvar horários.' }
 
   revalidatePath('/lojista/horarios')
   return { success: true }
