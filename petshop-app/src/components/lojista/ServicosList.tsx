@@ -28,6 +28,17 @@ interface Variacao {
   preco: number
 }
 
+// Variação ainda não salva — usada enquanto o serviço está sendo criado
+// (não existe id_servico até o "Criar serviço" ser confirmado).
+interface VariacaoDraft {
+  key: string
+  tipo: 'porte' | 'raca'
+  especie: 'Cão' | 'Gato'
+  porte: 'Pequeno' | 'Médio' | 'Grande' | ''
+  raca: string
+  preco: number
+}
+
 interface Props {
   servicos: Servico[]
 }
@@ -37,11 +48,13 @@ export default function ServicosList({ servicos: inicial }: Props) {
   const [servicos, setServicos] = useState<Servico[]>(inicial)
   const [showModal, setShowModal] = useState(false)
   const [editando, setEditando] = useState<Servico | null>(null)
+  const [draftVariacoes, setDraftVariacoes] = useState<VariacaoDraft[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function abrirNovo() {
     setEditando(null)
+    setDraftVariacoes([])
     setError(null)
     setShowModal(true)
   }
@@ -56,14 +69,22 @@ export default function ServicosList({ servicos: inicial }: Props) {
     e.preventDefault()
     setError(null)
     const form = e.currentTarget
+    // Ao criar um serviço novo, as variações ainda não salvas vão junto
+    // no mesmo submit (ver criarServicoAction) — não existe id_servico
+    // antes disso pra salvar elas separadamente.
     startTransition(async () => {
+      const formData = new FormData(form)
+      if (!editando && draftVariacoes.length > 0) {
+        formData.set('variacoes', JSON.stringify(draftVariacoes.map(v => ({ tipo: v.tipo, especie: v.especie, porte: v.porte, raca: v.raca, preco: v.preco }))))
+      }
       const result = editando
-        ? await editarServicoAction(editando.id_servico, new FormData(form))
-        : await criarServicoAction(new FormData(form))
+        ? await editarServicoAction(editando.id_servico, formData)
+        : await criarServicoAction(formData)
       if (result?.error) {
         setError(result.error)
       } else {
         setShowModal(false)
+        setDraftVariacoes([])
         // Recarregar lista
         const { data } = await supabase.from('servico').select('*').order('created_at', { ascending: false })
         setServicos(data ?? [])
@@ -210,13 +231,11 @@ export default function ServicosList({ servicos: inicial }: Props) {
                   </select>
                 </div>
 
-                {editando ? (
-                  <PrecosVariacoes idServico={editando.id_servico} />
-                ) : (
-                  <p className="text-sm text-muted">
-                    Salve o serviço primeiro para poder configurar preços diferentes por porte ou raça.
-                  </p>
-                )}
+                <PrecosVariacoes
+                  idServico={editando?.id_servico ?? null}
+                  draft={draftVariacoes}
+                  onDraftChange={setDraftVariacoes}
+                />
               </div>
 
               <div className="modal-footer">
@@ -242,13 +261,30 @@ export default function ServicosList({ servicos: inicial }: Props) {
 
 // ============================================================
 // Preços e Variações — cobrar diferente por porte ou por raça
-// específica. Só existe em edição (precisa de um id_servico salvo).
-// Ver migration 010 (servico_variacao) e fn_calcular_preco_servico.
+// específica. Ver migration 010 (servico_variacao) e
+// fn_calcular_preco_servico.
+//
+// Dois modos:
+//  - idServico != null (editando um serviço já salvo): adicionar/remover
+//    grava direto no banco (adicionarVariacaoServicoAction /
+//    removerVariacaoServicoAction).
+//  - idServico == null (criando um serviço novo): ainda não existe
+//    id_servico pra amarrar a variação, então ela fica só no estado do
+//    componente pai (draft) e é enviada junto no mesmo submit que cria
+//    o serviço — ver criarServicoAction.
 // ============================================================
-function PrecosVariacoes({ idServico }: { idServico: string }) {
+function PrecosVariacoes({
+  idServico,
+  draft,
+  onDraftChange,
+}: {
+  idServico: string | null
+  draft: VariacaoDraft[]
+  onDraftChange: (v: VariacaoDraft[]) => void
+}) {
   const supabase = useMemo(() => createClient(), [])
   const [aberto, setAberto] = useState(false)
-  const [variacoes, setVariacoes] = useState<Variacao[] | null>(null)
+  const [variacoesSalvas, setVariacoesSalvas] = useState<Variacao[] | null>(null)
   const [tipo, setTipo] = useState<'porte' | 'raca'>('porte')
   const [especie, setEspecie] = useState<'Cão' | 'Gato'>('Cão')
   const [porte, setPorte] = useState('')
@@ -257,17 +293,8 @@ function PrecosVariacoes({ idServico }: { idServico: string }) {
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  async function carregar() {
-    const { data } = await supabase
-      .from('servico_variacao')
-      .select('*')
-      .eq('id_servico', idServico)
-      .order('created_at')
-    setVariacoes((data as Variacao[]) ?? [])
-  }
-
   useEffect(() => {
-    if (!aberto || variacoes !== null) return
+    if (!aberto || !idServico || variacoesSalvas !== null) return
     let cancelado = false
     supabase
       .from('servico_variacao')
@@ -275,43 +302,75 @@ function PrecosVariacoes({ idServico }: { idServico: string }) {
       .eq('id_servico', idServico)
       .order('created_at')
       .then(({ data }) => {
-        if (!cancelado) setVariacoes((data as Variacao[]) ?? [])
+        if (!cancelado) setVariacoesSalvas((data as Variacao[]) ?? [])
       })
     return () => { cancelado = true }
   }, [aberto, idServico]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function jaExiste(especieAlvo: string, valor: string) {
+    const bate = (v: { tipo: string; especie: string; porte: string | null; raca: string | null }) => {
+      if (v.tipo !== tipo || v.especie !== especieAlvo) return false
+      return tipo === 'raca'
+        ? (v.raca ?? '').toLowerCase() === valor.toLowerCase()
+        : v.porte === valor
+    }
+    return idServico ? (variacoesSalvas ?? []).some(bate) : draft.some(bate)
+  }
 
   function adicionar() {
     setErro(null)
     if (tipo === 'porte' && !porte) { setErro('Selecione o porte'); return }
     if (tipo === 'raca' && !raca.trim()) { setErro('Informe a raça'); return }
-    if (!preco) { setErro('Informe o preço'); return }
+    if (!preco || Number(preco) < 0) { setErro('Informe o preço'); return }
 
-    const fd = new FormData()
-    fd.set('tipo', tipo)
-    fd.set('especie', especie)
-    if (tipo === 'porte') fd.set('porte', porte)
-    else fd.set('raca', raca.trim())
-    fd.set('preco', preco)
+    const chave = tipo === 'porte' ? porte : raca.trim()
+    if (jaExiste(especie, chave)) {
+      setErro('Já existe uma faixa de preço cadastrada para essa combinação.')
+      return
+    }
 
-    startTransition(async () => {
-      const result = await adicionarVariacaoServicoAction(idServico, fd)
-      if (result?.error) {
-        setErro(result.error)
-        return
-      }
-      setPorte('')
-      setRaca('')
-      setPreco('')
-      await carregar()
-    })
+    if (idServico) {
+      const fd = new FormData()
+      fd.set('tipo', tipo)
+      fd.set('especie', especie)
+      if (tipo === 'porte') fd.set('porte', porte)
+      else fd.set('raca', raca.trim())
+      fd.set('preco', preco)
+
+      startTransition(async () => {
+        const result = await adicionarVariacaoServicoAction(idServico, fd)
+        if (result?.error) { setErro(result.error); return }
+        setPorte(''); setRaca(''); setPreco('')
+        setVariacoesSalvas(null)
+      })
+    } else {
+      onDraftChange([
+        ...draft,
+        {
+          key: crypto.randomUUID(),
+          tipo,
+          especie,
+          porte: tipo === 'porte' ? (porte as VariacaoDraft['porte']) : '',
+          raca: tipo === 'raca' ? raca.trim() : '',
+          preco: Number(preco),
+        },
+      ])
+      setPorte(''); setRaca(''); setPreco('')
+    }
   }
 
-  function remover(id_variacao: string) {
-    startTransition(async () => {
-      await removerVariacaoServicoAction(id_variacao)
-      await carregar()
-    })
+  function remover(alvo: Variacao | VariacaoDraft) {
+    if (idServico && 'id_variacao' in alvo) {
+      startTransition(async () => {
+        await removerVariacaoServicoAction(alvo.id_variacao)
+        setVariacoesSalvas(null)
+      })
+    } else if ('key' in alvo) {
+      onDraftChange(draft.filter(v => v.key !== alvo.key))
+    }
   }
+
+  const listaExibida: Array<Variacao | VariacaoDraft> = idServico ? (variacoesSalvas ?? []) : draft
 
   return (
     <div className="form-group">
@@ -334,6 +393,7 @@ function PrecosVariacoes({ idServico }: { idServico: string }) {
         <div style={{ marginTop: 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           <p className="text-xs text-muted">
             Prioridade de cálculo: <strong>raça específica</strong> &gt; <strong>porte + espécie</strong> &gt; preço base.
+            {!idServico && ' As faixas abaixo só são salvas quando você confirmar "Criar serviço".'}
           </p>
 
           {erro && (
@@ -343,12 +403,12 @@ function PrecosVariacoes({ idServico }: { idServico: string }) {
             </div>
           )}
 
-          {variacoes === null ? (
+          {idServico && variacoesSalvas === null ? (
             <p className="text-sm text-muted">Carregando...</p>
-          ) : variacoes.length > 0 && (
+          ) : listaExibida.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-              {variacoes.map(v => (
-                <div key={v.id_variacao} className="flex items-center justify-between" style={{
+              {listaExibida.map(v => (
+                <div key={'id_variacao' in v ? v.id_variacao : v.key} className="flex items-center justify-between" style={{
                   padding: 'var(--space-2) var(--space-3)',
                   background: 'var(--gray-850)',
                   border: '1px solid var(--gray-800)',
@@ -359,7 +419,7 @@ function PrecosVariacoes({ idServico }: { idServico: string }) {
                   </span>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-semibold text-success">R$ {Number(v.preco).toFixed(2)}</span>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => remover(v.id_variacao)} disabled={isPending} aria-label="Remover">
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => remover(v)} disabled={isPending} aria-label="Remover">
                       <IconTrash style={{ width: 14, height: 14 }} />
                     </button>
                   </div>

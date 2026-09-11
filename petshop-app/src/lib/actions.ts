@@ -17,6 +17,7 @@ import {
   funcionarioSchema,
   editarFuncionarioSchema,
 } from '@/lib/validations'
+import type { ServicoVariacaoData } from '@/lib/validations'
 
 // ============================================================
 // AUTH ACTIONS
@@ -423,12 +424,44 @@ export async function criarServicoAction(formData: FormData) {
   const parsed = servicoSchema.safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  const { error } = await supabase.from('servico').insert({
-    id_lojista: user.id,
-    ...parsed.data,
-  })
+  // "Preços e Variações" podem vir junto já na criação (rascunho montado
+  // no cliente antes de existir id_servico) — valida tudo ANTES de criar
+  // o serviço, pra não salvar o serviço com variação inválida silenciosa.
+  const variacoesRaw = formData.get('variacoes') as string | null
+  const variacoesParsed: ServicoVariacaoData[] = []
+  if (variacoesRaw) {
+    let lista: unknown[]
+    try {
+      lista = JSON.parse(variacoesRaw)
+    } catch {
+      return { error: 'Dados de variação de preço inválidos.' }
+    }
+    for (const item of lista) {
+      const r = servicoVariacaoSchema.safeParse(item)
+      if (!r.success) return { error: `Variação de preço inválida: ${r.error.issues[0].message}` }
+      variacoesParsed.push(r.data)
+    }
+  }
 
-  if (error) return { error: 'Erro ao cadastrar serviço.' }
+  const { data: novoServico, error } = await supabase
+    .from('servico')
+    .insert({ id_lojista: user.id, ...parsed.data })
+    .select('id_servico')
+    .single()
+
+  if (error || !novoServico) return { error: 'Erro ao cadastrar serviço.' }
+
+  if (variacoesParsed.length > 0) {
+    const { error: variacaoError } = await supabase.from('servico_variacao').insert(
+      variacoesParsed.map(v => ({ id_servico: novoServico.id_servico, ...v }))
+    )
+    if (variacaoError) {
+      revalidatePath('/lojista/servicos')
+      return {
+        error: 'Serviço criado, mas não foi possível salvar as variações de preço (talvez duplicadas). Edite o serviço para ajustar.',
+      }
+    }
+  }
 
   revalidatePath('/lojista/servicos')
   return { success: true }
