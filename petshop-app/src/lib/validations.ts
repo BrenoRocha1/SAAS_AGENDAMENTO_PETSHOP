@@ -103,6 +103,13 @@ export const agendamentoSchema = z.object({
   obs: z.string().max(500).optional(),
 })
 
+// Agendamento criado pelo LOJISTA (walk-in/telefone) em nome de um cliente
+// já existente na base dele. Mesmas regras de data/hora de agendamentoSchema,
+// mais o cliente — ver fn_criar_agendamento_lojista (migration 008).
+export const agendamentoLojistaSchema = agendamentoSchema.extend({
+  id_cliente: z.string().uuid('Selecione um cliente'),
+})
+
 export const funcionarioSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(120),
   email: z.string().email('E-mail inválido'),
@@ -163,5 +170,6 @@ export type PetData = z.infer<typeof petSchema>
 export type ServicoData = z.infer<typeof servicoSchema>
 export type HorarioData = z.infer<typeof horarioSchema>
 export type AgendamentoData = z.infer<typeof agendamentoSchema>
+export type AgendamentoLojistaData = z.infer<typeof agendamentoLojistaSchema>
 export type FuncionarioData = z.infer<typeof funcionarioSchema>
 export type EditarFuncionarioData = z.infer<typeof editarFuncionarioSchema>

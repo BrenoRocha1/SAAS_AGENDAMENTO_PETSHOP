@@ -12,6 +12,7 @@ import {
   servicoSchema,
   horarioSchema,
   agendamentoSchema,
+  agendamentoLojistaSchema,
   funcionarioSchema,
   editarFuncionarioSchema,
 } from '@/lib/validations'
@@ -546,6 +547,63 @@ export async function criarAgendamentoAction(formData: FormData) {
   }
 
   revalidatePath('/cliente/agendamentos')
+  return { success: true, id_agendamento: data }
+}
+
+// Agendamento manual criado pelo LOJISTA (walk-in / telefone) para um
+// cliente que já existe na base dele. Ação separada de
+// criarAgendamentoAction (que é do cliente) porque as regras de quem pode
+// chamar e o status inicial são diferentes — ver fn_criar_agendamento_lojista
+// (migration 008) e agendamentoLojistaSchema.
+export async function criarAgendamentoLojistaAction(
+  formData: FormData
+): Promise<{ error?: string; success?: boolean; id_agendamento?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const raw = {
+    id_lojista: user.id,
+    id_cliente: formData.get('id_cliente') as string,
+    id_pet: formData.get('id_pet') as string,
+    id_servico: formData.get('id_servico') as string,
+    dt_agendamento: formData.get('dt_agendamento') as string,
+    hr_agendamento: formData.get('hr_agendamento') as string,
+    obs: (formData.get('obs') as string) || undefined,
+  }
+
+  const parsed = agendamentoLojistaSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  const { data, error } = await supabase.rpc('fn_criar_agendamento_lojista', {
+    p_id_lojista: parsed.data.id_lojista,
+    p_id_cliente: parsed.data.id_cliente,
+    p_id_pet: parsed.data.id_pet,
+    p_id_servico: parsed.data.id_servico,
+    p_data: parsed.data.dt_agendamento,
+    p_hora: parsed.data.hr_agendamento,
+    p_obs: parsed.data.obs || null,
+  })
+
+  if (error) {
+    if (error.message.includes('does not exist') || error.message.includes('Could not find') || error.code === '42883') {
+      return { error: 'Função fn_criar_agendamento_lojista não encontrada no banco. Execute a migration 008_fn_criar_agendamento_lojista.sql.' }
+    }
+    return {
+      error: error.message.includes('Horário não disponível')
+        ? 'Horário não disponível. Escolha outro horário.'
+        : error.message.includes('histórico')
+          ? 'Este cliente ainda não possui agendamentos com o seu petshop.'
+          : 'Erro ao criar agendamento. Tente novamente.'
+    }
+  }
+
+  revalidatePath('/lojista/dashboard')
+  revalidatePath('/lojista/agendamentos')
   return { success: true, id_agendamento: data }
 }
 
