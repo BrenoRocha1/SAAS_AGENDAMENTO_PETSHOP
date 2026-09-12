@@ -910,6 +910,33 @@ export async function atualizarPerfilLojistaAction(formData: FormData) {
   return { success: true }
 }
 
+// Liga/desliga o Kanban de agendamentos (migration 013). Mesmo padrão
+// de toggleHorarioAction/toggleFuncionarioAction — troca só essa coluna,
+// sem passar pelo formulário inteiro de perfil.
+export async function alternarKanbanAction(ativo: boolean) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const { error } = await supabase
+    .from('lojista')
+    .update({ kanban_ativo: ativo })
+    .eq('id_lojista', user.id)
+
+  if (error) {
+    if (error.code === '42703' || error.message?.includes('kanban_ativo')) {
+      return { error: 'Coluna kanban_ativo não encontrada no banco. Execute a migration 013_lojista_kanban_ativo.sql.' }
+    }
+    return { error: 'Erro ao atualizar configuração do Kanban.' }
+  }
+
+  revalidatePath('/lojista/perfil')
+  revalidatePath('/lojista', 'layout')
+  return { success: true }
+}
+
 // ============================================================
 // FUNCIONÁRIO ACTIONS (Lojista)
 // ============================================================

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { atualizarPerfilLojistaAction } from '@/lib/actions'
-import { IconAlert, IconCheck, IconSave } from '@/components/icons'
+import { atualizarPerfilLojistaAction, alternarKanbanAction } from '@/lib/actions'
+import { IconAlert, IconCheck, IconKanban, IconSave } from '@/components/icons'
 
 interface Lojista {
   id_lojista: string
@@ -14,6 +14,7 @@ interface Lojista {
   cidade?: string | null
   estado?: string | null
   cep?: string | null
+  kanban_ativo?: boolean | null
 }
 
 interface Props {
@@ -24,6 +25,23 @@ export default function PerfilLojistaForm({ lojista }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [isPending, startTransition] = useTransition()
+
+  const [kanbanAtivo, setKanbanAtivo] = useState(lojista?.kanban_ativo ?? true)
+  const [kanbanErro, setKanbanErro] = useState<string | null>(null)
+  const [kanbanPending, startKanbanTransition] = useTransition()
+
+  function handleAlternarKanban() {
+    setKanbanErro(null)
+    const novoValor = !kanbanAtivo
+    startKanbanTransition(async () => {
+      const result = await alternarKanbanAction(novoValor)
+      if (result?.error) {
+        setKanbanErro(result.error)
+        return
+      }
+      setKanbanAtivo(novoValor)
+    })
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -52,7 +70,8 @@ export default function PerfilLojistaForm({ lojista }: Props) {
   }
 
   return (
-    <div className="card" style={{ maxWidth: 700 }}>
+    <div style={{ maxWidth: 700, display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+    <div className="card">
       {error && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-5)' }}>
           <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
@@ -182,6 +201,44 @@ export default function PerfilLojistaForm({ lojista }: Props) {
           </button>
         </div>
       </form>
+    </div>
+
+    <div className="card">
+      <h4 style={{ marginBottom: 'var(--space-4)', color: 'var(--gray-300)', fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        Gestor de Agendamentos
+      </h4>
+
+      {kanbanErro && (
+        <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
+          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+          <span>{kanbanErro}</span>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between" style={{ gap: 'var(--space-4)' }}>
+        <div className="flex items-center gap-3">
+          <span className="dash-icon-btn" style={{ cursor: 'default' }}>
+            <IconKanban style={{ width: 17, height: 17 }} />
+          </span>
+          <div>
+            <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>Kanban de Agendamentos</div>
+            <div className="text-sm text-muted">
+              Ative pra acompanhar os atendimentos em tempo real, separados por Pendente, Em Andamento e Finalizado.
+              {!kanbanAtivo && ' Desativado, o item some do menu lateral.'}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          className={`btn btn-sm ${kanbanAtivo ? 'btn-success' : 'btn-secondary'}`}
+          onClick={handleAlternarKanban}
+          disabled={kanbanPending}
+          style={{ flexShrink: 0 }}
+        >
+          {kanbanPending ? 'Salvando...' : kanbanAtivo ? 'Ativado' : 'Desativado'}
+        </button>
+      </div>
+    </div>
     </div>
   )
 }

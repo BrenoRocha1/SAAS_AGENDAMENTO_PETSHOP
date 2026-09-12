@@ -8,6 +8,7 @@ import {
   IconPaw,
   IconGrid,
   IconCalendar,
+  IconKanban,
   IconScissors,
   IconClock,
   IconUsers,
@@ -18,9 +19,10 @@ import {
   IconChevronRight,
 } from '@/components/icons'
 
-const navItems = [
+const navItemsBase = [
   { href: '/lojista/dashboard',     icon: IconGrid,      label: 'Dashboard' },
   { href: '/lojista/agendamentos',  icon: IconCalendar,  label: 'Agendamentos' },
+  { href: '/lojista/kanban',        icon: IconKanban,    label: 'Kanban', condicional: true },
   { href: '/lojista/servicos',      icon: IconScissors,  label: 'Serviços' },
   { href: '/lojista/horarios',      icon: IconClock,     label: 'Horários' },
   { href: '/lojista/clientes',      icon: IconUsers,     label: 'Clientes' },
@@ -33,9 +35,11 @@ const CHAVE_COLAPSADA = 'petagenda:lojista-sidebar-colapsada'
 interface Props {
   nomeLoja: string
   userEmail: string
+  kanbanAtivo: boolean
 }
 
-export default function LojistaSidebar({ nomeLoja, userEmail }: Props) {
+export default function LojistaSidebar({ nomeLoja, userEmail, kanbanAtivo }: Props) {
+  const navItems = navItemsBase.filter(item => !item.condicional || kanbanAtivo)
   const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
   const [colapsada, setColapsada] = useState(false)

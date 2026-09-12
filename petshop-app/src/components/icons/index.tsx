@@ -286,3 +286,21 @@ export function IconTrash(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export function IconKanban(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3.5" y="4" width="5.2" height="16" rx="1.3" />
+      <rect x="9.4" y="4" width="5.2" height="10" rx="1.3" />
+      <rect x="15.3" y="4" width="5.2" height="13" rx="1.3" />
+    </svg>
+  )
+}
+
+export function IconArrowRight(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  )
+}
