@@ -304,3 +304,38 @@ export function IconArrowRight(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export function IconChartBar(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 20V10M10 20V4M16 20v-7M20 20H4" />
+    </svg>
+  )
+}
+
+export function IconDownload(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 4v11M7.5 11 12 15.5 16.5 11" />
+      <path d="M4.5 18.5v1a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-1" />
+    </svg>
+  )
+}
+
+export function IconTrendUp(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 16 10 10l4 4 6-7" />
+      <path d="M15 7h5v5" />
+    </svg>
+  )
+}
+
+export function IconTrendDown(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 8l6 6 4-4 6 7" />
+      <path d="M15 17h5v-5" />
+    </svg>
+  )
+}

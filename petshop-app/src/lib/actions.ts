@@ -1090,6 +1090,92 @@ export async function criarPetLojistaAction(formData: FormData) {
 }
 
 // ============================================================
+// RELATÓRIOS DE VENDAS (Lojista)
+// ============================================================
+
+// Máximo de linhas por exportação — protege contra alguém pedindo um CSV
+// gigante (ex.: período personalizado enorme) e travando a Server Action.
+// Se bater no limite, orienta a estreitar o período em vez de cortar
+// silenciosamente o arquivo pela metade sem avisar.
+const LIMITE_LINHAS_CSV = 5000
+
+function escaparCsv(valor: string) {
+  if (/[",\n;]/.test(valor)) return `"${valor.replace(/"/g, '""')}"`
+  return valor
+}
+
+export async function exportarRelatorioVendasCsvAction(filtros: {
+  dataIni: string
+  dataFim: string
+  idFuncionario?: string
+  idServico?: string
+  status?: string
+}): Promise<{ csv: string } | { error: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  let query = supabase
+    .from('agendamento')
+    .select(`
+      dt_agendamento, hr_agendamento, valor, status,
+      pet:id_pet ( nome ),
+      servico:id_servico ( nome ),
+      cliente:id_cliente ( nome ),
+      funcionario:id_funcionario ( nome )
+    `)
+    .eq('id_lojista', user.id)
+    .gte('dt_agendamento', filtros.dataIni)
+    .lte('dt_agendamento', filtros.dataFim)
+    .order('dt_agendamento', { ascending: true })
+    .order('hr_agendamento', { ascending: true })
+    .limit(LIMITE_LINHAS_CSV + 1)
+
+  if (filtros.idFuncionario) query = query.eq('id_funcionario', filtros.idFuncionario)
+  if (filtros.idServico) query = query.eq('id_servico', filtros.idServico)
+  if (filtros.status) query = query.eq('status', filtros.status)
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error('[exportarRelatorioVendasCsvAction] erro:', error.message)
+    return { error: devError('Não foi possível gerar o CSV. Tente novamente.', error.message) }
+  }
+
+  const linhas = (data ?? []) as unknown as Array<{
+    dt_agendamento: string
+    hr_agendamento: string
+    valor: number
+    status: string
+    pet: { nome: string } | null
+    servico: { nome: string } | null
+    cliente: { nome: string } | null
+    funcionario: { nome: string } | null
+  }>
+
+  if (linhas.length > LIMITE_LINHAS_CSV) {
+    return { error: `O período selecionado tem mais de ${LIMITE_LINHAS_CSV} registros. Estreite o período ou aplique um filtro antes de exportar.` }
+  }
+
+  const cabecalho = ['Data', 'Horário', 'Cliente', 'Pet', 'Serviço', 'Profissional', 'Valor', 'Status']
+  const corpo = linhas.map(l => [
+    l.dt_agendamento.split('-').reverse().join('/'),
+    l.hr_agendamento.slice(0, 5),
+    l.cliente?.nome ?? '',
+    l.pet?.nome ?? '',
+    l.servico?.nome ?? '',
+    l.funcionario?.nome ?? '',
+    l.valor.toFixed(2).replace('.', ','),
+    l.status,
+  ].map(v => escaparCsv(String(v))).join(';'))
+
+  const csv = '﻿' + [cabecalho.join(';'), ...corpo].join('\r\n')
+  return { csv }
+}
+
+// ============================================================
 // FUNCIONÁRIO ACTIONS (Lojista)
 // ============================================================
 

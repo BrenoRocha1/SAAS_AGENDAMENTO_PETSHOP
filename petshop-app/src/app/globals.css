@@ -1709,6 +1709,131 @@ a:hover { color: var(--primary-300); }
 }
 
 /* ============================================================
+   RELATÓRIOS DE VENDAS
+   ============================================================ */
+.relatorio-filtros {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.relatorio-presets { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+.relatorio-personalizado {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.relatorio-personalizado .form-input { width: auto; }
+
+.relatorio-secao-titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--gray-100);
+  font-family: var(--font-heading);
+  margin-bottom: var(--space-4);
+}
+
+.relatorio-lista { display: flex; flex-direction: column; gap: var(--space-1); }
+
+.relatorio-lista-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--gray-850);
+}
+.relatorio-lista-item:last-child { border-bottom: none; }
+.relatorio-lista-info { min-width: 0; }
+
+.relatorio-mini-stats {
+  display: flex;
+  gap: var(--space-5);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--gray-800);
+}
+.relatorio-mini-stats > div { font-size: 0.8rem; color: var(--gray-400); display: flex; flex-direction: column; gap: 2px; }
+.relatorio-mini-stats > div > span { font-size: 1.25rem; font-weight: 700; color: var(--gray-100); font-family: var(--font-heading); }
+
+.relatorio-tabela-filtros { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.relatorio-tabela-filtros .form-select { min-width: 160px; width: auto; }
+
+.relatorio-paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+/* Gráfico de evolução — barras em CSS puro, sem biblioteca de charts */
+.relatorio-grafico {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 160px;
+  padding-top: var(--space-2);
+}
+
+.relatorio-grafico-col {
+  flex: 1;
+  min-width: 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.relatorio-grafico-barra-wrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.relatorio-grafico-barra {
+  width: 100%;
+  min-height: 2px;
+  background: var(--primary-600);
+  border-radius: 2px 2px 0 0;
+  transition: background var(--transition-fast);
+}
+.relatorio-grafico-barra.is-melhor { background: var(--success-500); }
+.relatorio-grafico-barra-wrap:hover .relatorio-grafico-barra { background: var(--primary-400); }
+
+.relatorio-grafico-label {
+  font-size: 0.65rem;
+  color: var(--gray-500);
+  margin-top: var(--space-2);
+  white-space: nowrap;
+}
+
+.relatorio-grafico-legenda {
+  display: flex;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--gray-800);
+  font-size: 0.8rem;
+  color: var(--gray-400);
+}
+
+@media (max-width: 1024px) {
+  .relatorio-grafico-label { display: none; }
+}
+
+/* ============================================================
    RESPONSIVO
    ============================================================ */
 @media (max-width: 1024px) {
