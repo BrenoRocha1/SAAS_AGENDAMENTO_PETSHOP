@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { criarAgendamentoLojistaAction, criarPetLojistaAction } from '@/lib/actions'
+import { atribuirFuncionarioAction, criarAgendamentoLojistaAction, criarPetLojistaAction } from '@/lib/actions'
 import { formatarTelefone } from '@/lib/format'
 import { removerHorariosPassados } from '@/lib/agenda'
 import { format } from 'date-fns'
@@ -38,11 +38,12 @@ interface Props {
   defaultDate: string
   clientes: ClienteComPets[]
   servicos: ServicoAtivo[]
+  funcionarios: { id_funcionario: string; nome: string }[]
   onClose: () => void
   onCreated: (item: NovoAgendamentoCriado, dataISO: string) => void
 }
 
-export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes, servicos, onClose, onCreated }: Props) {
+export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes, servicos, funcionarios, onClose, onCreated }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [isPending, startTransition] = useTransition()
   const [isPendingPet, startPetTransition] = useTransition()
@@ -54,6 +55,11 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
   const [data, setData] = useState(defaultDate)
   const [hora, setHora] = useState('')
   const [obs, setObs] = useState('')
+  // Opcional — não bloqueia o agendamento. Se escolhido, é atribuído logo
+  // depois de criar (reaproveita atribuirFuncionarioAction, a mesma usada
+  // na Agenda/Kanban); se não escolhido, o agendamento nasce sem
+  // profissional, igual já acontecia antes desta opção existir.
+  const [funcionarioId, setFuncionarioId] = useState('')
 
   const [slots, setSlots] = useState<Slot[]>([])
   const [slotsLoadedKey, setSlotsLoadedKey] = useState<string | null>(null)
@@ -162,6 +168,17 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
       if (result?.error) {
         setError(result.error)
         return
+      }
+      // Profissional é opcional e não faz parte da criação em si — se foi
+      // escolhido, atribui logo em seguida. Best-effort: mesmo se essa
+      // atribuição falhar, o agendamento já foi criado com sucesso (dá
+      // pra atribuir depois pela Agenda/Kanban), então não trava a tela
+      // de sucesso por causa disso.
+      if (funcionarioId && result?.id_agendamento) {
+        const resultAtribuicao = await atribuirFuncionarioAction(result.id_agendamento, funcionarioId)
+        if (resultAtribuicao?.error) {
+          console.error('[NovoAgendamentoModal] falha ao atribuir profissional:', resultAtribuicao.error)
+        }
       }
       setSuccess(true)
       onCreated(
@@ -428,6 +445,24 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Profissional — opcional, dá pra deixar sem e atribuir depois */}
+              {servicoId && funcionarios.length > 0 && (
+                <div className="form-group">
+                  <label className="form-label">Profissional (opcional)</label>
+                  <select
+                    className="form-select"
+                    value={funcionarioId}
+                    onChange={e => setFuncionarioId(e.target.value)}
+                    disabled={isPending}
+                  >
+                    <option value="">Sem profissional definido</option>
+                    {funcionarios.map(f => (
+                      <option key={f.id_funcionario} value={f.id_funcionario}>{f.nome}</option>
+                    ))}
+                  </select>
                 </div>
               )}
 

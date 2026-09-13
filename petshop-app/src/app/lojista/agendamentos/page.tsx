@@ -35,7 +35,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     supabase
       .from('agendamento')
       .select(`
-        id_agendamento, dt_agendamento, hr_agendamento, status, valor, id_funcionario,
+        id_agendamento, dt_agendamento, hr_agendamento, status, valor, id_funcionario, obs,
         pet:id_pet ( nome ),
         servico:id_servico ( nome, duracao ),
         cliente:id_cliente ( nome ),
@@ -79,6 +79,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
     valor: number
     id_funcionario: string | null
+    obs: string | null
     pet: { nome: string } | null
     servico: { nome: string; duracao: number } | null
     cliente: { nome: string } | null
@@ -95,6 +96,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     nome_servico: a.servico?.nome ?? 'Serviço',
     id_funcionario: a.id_funcionario,
     nome_funcionario: a.funcionario?.nome ?? null,
+    obs: a.obs,
   }))
 
   const funcionarios: FuncionarioFiltro[] = (funcionariosRaw ?? []) as FuncionarioFiltro[]

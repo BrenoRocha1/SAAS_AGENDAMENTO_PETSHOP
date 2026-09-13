@@ -57,7 +57,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     supabase
       .from('agendamento')
       .select(`
-        id_agendamento, dt_agendamento, hr_agendamento, status, valor, id_funcionario, id_servico,
+        id_agendamento, dt_agendamento, hr_agendamento, status, valor, id_funcionario, id_servico, obs,
         pet:id_pet ( nome, raca, especie, porte ),
         servico:id_servico ( nome ),
         cliente:id_cliente ( nome ),
@@ -107,6 +107,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     valor: number
     id_funcionario: string | null
     id_servico: string
+    obs: string | null
     pet: { nome: string; raca: string; especie: 'Cão' | 'Gato' | null; porte: 'Pequeno' | 'Médio' | 'Grande' | null } | null
     servico: { nome: string } | null
     cliente: { nome: string } | null
@@ -126,6 +127,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     id_servico: a.id_servico,
     id_funcionario: a.id_funcionario,
     nome_funcionario: a.funcionario?.nome ?? null,
+    obs: a.obs,
   }))
 
   return (

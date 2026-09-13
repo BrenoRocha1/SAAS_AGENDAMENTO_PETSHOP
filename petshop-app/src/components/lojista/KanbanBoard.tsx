@@ -36,6 +36,7 @@ export interface KanbanItem {
   id_servico: string
   id_funcionario: string | null
   nome_funcionario: string | null
+  obs: string | null
 }
 
 interface Props {
@@ -379,6 +380,12 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
               <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>
               <div className="dash-detail-row"><span>Valor</span><span>R$ {selecionado.valor.toFixed(2)}</span></div>
               <div className="dash-detail-row"><span>Status</span><span>{selecionado.status}</span></div>
+              {selecionado.obs && (
+                <div className="dash-detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
+                  <span>Descrição</span>
+                  <span style={{ textAlign: 'left', fontWeight: 400, color: 'var(--gray-300)' }}>{selecionado.obs}</span>
+                </div>
+              )}
 
               {funcionarios.length > 0 && (
                 <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>

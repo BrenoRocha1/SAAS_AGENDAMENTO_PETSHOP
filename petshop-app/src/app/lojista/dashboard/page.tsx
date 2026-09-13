@@ -43,6 +43,7 @@ export default async function LojistaDashboard({ searchParams }: Props) {
     { data: vinculos },
     { data: petsVisiveis },
     { data: servicosRaw },
+    { data: funcionariosRaw },
   ] = await Promise.all([
     supabase.from('lojista').select('nome_loja').eq('id_lojista', lojistaId).single(),
     supabase.rpc('fn_metricas_lojista', { p_id_lojista: lojistaId }),
@@ -84,6 +85,12 @@ export default async function LojistaDashboard({ searchParams }: Props) {
       .eq('id_lojista', lojistaId)
       .eq('status', 'Ativo')
       .order('nome'),
+    supabase
+      .from('funcionario')
+      .select('id_funcionario, nome')
+      .eq('id_lojista', lojistaId)
+      .eq('ativo', true)
+      .order('created_at'),
   ])
 
   const m = (metricas as Record<string, number>) ?? {}
@@ -139,8 +146,9 @@ export default async function LojistaDashboard({ searchParams }: Props) {
   }
   const clientesComPets = Array.from(clientesMap.values()).sort((a, b) => a.nome.localeCompare(b.nome))
 
-  // ── Serviços ativos (para o modal) ──
+  // ── Serviços e funcionários ativos (para o modal) ──
   const servicos = (servicosRaw ?? []) as ServicoAtivo[]
+  const funcionarios = (funcionariosRaw ?? []) as { id_funcionario: string; nome: string }[]
 
   return (
     <DashboardClient
@@ -162,6 +170,7 @@ export default async function LojistaDashboard({ searchParams }: Props) {
       pendentes={pendentes}
       clientesComPets={clientesComPets}
       servicos={servicos}
+      funcionarios={funcionarios}
     />
   )
 }

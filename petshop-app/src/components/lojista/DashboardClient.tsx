@@ -94,6 +94,7 @@ interface Props {
   pendentes: PendenteItem[]
   clientesComPets: ClienteComPets[]
   servicos: ServicoAtivo[]
+  funcionarios: { id_funcionario: string; nome: string }[]
 }
 
 type Selecionado =
@@ -126,6 +127,7 @@ export default function DashboardClient({
   pendentes: pendentesIniciais,
   clientesComPets,
   servicos,
+  funcionarios,
 }: Props) {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
@@ -549,6 +551,7 @@ export default function DashboardClient({
           defaultDate={selectedDate}
           clientes={clientesComPets}
           servicos={servicos}
+          funcionarios={funcionarios}
           onClose={() => setModalAberto(false)}
           onCreated={handleCriado}
         />
