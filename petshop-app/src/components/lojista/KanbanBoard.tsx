@@ -1,16 +1,18 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { format, addDays, subDays, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { atualizarStatusAgendamentoAction } from '@/lib/actions'
+import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
 import {
   IconAlert,
   IconArrowRight,
   IconCalendar,
+  IconCheck,
   IconChevronLeft,
   IconChevronRight,
+  IconClose,
   IconDog,
   IconUserBadge,
 } from '@/components/icons'
@@ -90,18 +92,25 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
   // frente) quanto pelo arrastar-e-soltar (qualquer coluna → qualquer
   // coluna, incluindo voltar — ex.: arrastar de volta de "Finalizado"
   // pra "Em Andamento" se foi marcado por engano).
+  //
+  // Otimista: o card troca de coluna na hora, antes da resposta do
+  // servidor chegar — o salvamento continua rolando por baixo dos panos
+  // (startTransition) e só reverte a troca se o servidor recusar.
   function moverParaStatus(item: KanbanItem, novoStatus: KanbanItem['status']) {
     if (item.status === novoStatus) return
     setErro(null)
+    const statusAnterior = item.status
+    setItens(prev => prev.map(it => it.id_agendamento === item.id_agendamento ? { ...it, status: novoStatus } : it))
     setPendingId(item.id_agendamento)
     startTransition(async () => {
       const result = await atualizarStatusAgendamentoAction(item.id_agendamento, novoStatus)
       setPendingId(null)
       if (result?.error) {
         setErro(result.error)
+        // Servidor recusou — volta o card pra coluna original.
+        setItens(prev => prev.map(it => it.id_agendamento === item.id_agendamento ? { ...it, status: statusAnterior } : it))
         return
       }
-      setItens(prev => prev.map(it => it.id_agendamento === item.id_agendamento ? { ...it, status: novoStatus } : it))
       router.refresh()
     })
   }
@@ -119,6 +128,8 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
   function handleDragEnd() {
     setDraggingId(null)
     setColunaAlvo(null)
+    acabouDeArrastarRef.current = true
+    setTimeout(() => { acabouDeArrastarRef.current = false }, 0)
   }
 
   function handleDragOverColuna(e: React.DragEvent, status: KanbanItem['status']) {
@@ -141,6 +152,65 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
     setDraggingId(null)
     const item = itens.find(it => it.id_agendamento === id)
     if (item) moverParaStatus(item, status)
+  }
+
+  // ── Modal de detalhes (abre ao clicar no card) ──
+  // Um clique de verdade não dispara dragstart, então dá pra usar onClick
+  // no mesmo elemento draggable sem conflito — mas alguns navegadores
+  // ainda emitem um clique residual logo após soltar um drag, então essa
+  // ref marca "acabei de arrastar" por um instante pra ignorar esse clique.
+  const acabouDeArrastarRef = useRef(false)
+  const [selecionado, setSelecionado] = useState<KanbanItem | null>(null)
+  const [modalErro, setModalErro] = useState<string | null>(null)
+
+  function handleCardClick(item: KanbanItem) {
+    if (acabouDeArrastarRef.current) return
+    setModalErro(null)
+    setSelecionado(item)
+  }
+
+  function fecharModal() {
+    setSelecionado(null)
+    setModalErro(null)
+  }
+
+  function mudarStatusModal(novoStatus: KanbanItem['status']) {
+    if (!selecionado) return
+    // Reaproveita moverParaStatus (mesma troca otimista do drag-and-drop
+    // — fecha na hora, e se o servidor recusar o erro aparece no board
+    // com o card já de volta na coluna original).
+    moverParaStatus(selecionado, novoStatus)
+    fecharModal()
+  }
+
+  function cancelarModal() {
+    if (!selecionado) return
+    const item = selecionado
+    setModalErro(null)
+    startTransition(async () => {
+      const result = await cancelarAgendamentoAction(item.id_agendamento)
+      if (result?.error) { setModalErro(result.error); return }
+      // Cancelado sai do board — o Kanban nunca mostra 'Cancelado' (mesma
+      // regra da Agenda/Dashboard), então remove da lista em vez de só
+      // trocar o status.
+      setItens(prev => prev.filter(it => it.id_agendamento !== item.id_agendamento))
+      fecharModal()
+      router.refresh()
+    })
+  }
+
+  function atribuirModal(idFuncionario: string) {
+    if (!selecionado) return
+    const item = selecionado
+    setModalErro(null)
+    startTransition(async () => {
+      const result = await atribuirFuncionarioAction(item.id_agendamento, idFuncionario || null)
+      if (result?.error) { setModalErro(result.error); return }
+      const nome = funcionarios.find(f => f.id_funcionario === idFuncionario)?.nome ?? null
+      setItens(prev => prev.map(it => it.id_agendamento === item.id_agendamento ? { ...it, id_funcionario: idFuncionario || null, nome_funcionario: nome } : it))
+      setSelecionado(prev => prev ? { ...prev, id_funcionario: idFuncionario || null, nome_funcionario: nome } : prev)
+      router.refresh()
+    })
   }
 
   function descricaoPet(item: KanbanItem) {
@@ -237,6 +307,10 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                           draggable={!(isPending && pendingId === item.id_agendamento)}
                           onDragStart={e => handleDragStart(e, item)}
                           onDragEnd={handleDragEnd}
+                          onClick={() => handleCardClick(item)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={e => { if (e.key === 'Enter') handleCardClick(item) }}
                         >
                           <div className="kanban-card-top">
                             <div className="kanban-card-time">{item.hr_agendamento.slice(0, 5)}</div>
@@ -264,7 +338,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                               type="button"
                               className="btn btn-secondary btn-sm btn-full"
                               style={{ marginTop: 'var(--space-3)' }}
-                              onClick={() => moverParaStatus(item, coluna.proximo!)}
+                              onClick={e => { e.stopPropagation(); moverParaStatus(item, coluna.proximo!) }}
                               disabled={isPending && pendingId === item.id_agendamento}
                             >
                               {isPending && pendingId === item.id_agendamento ? 'Salvando...' : (<>{coluna.acao} <IconArrowRight style={{ width: 13, height: 13 }} /></>)}
@@ -278,6 +352,80 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
               </div>
             )
           })}
+        </div>
+      )}
+
+      {selecionado && (
+        <div className="modal-overlay" onClick={fecharModal}>
+          <div className="modal" style={{ maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Detalhes do agendamento</h3>
+              <button className="modal-close" onClick={fecharModal} aria-label="Fechar">
+                <IconClose style={{ width: 15, height: 15 }} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {modalErro && (
+                <div className="alert alert-error" style={{ marginBottom: 'var(--space-3)' }}>
+                  <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+                  <span>{modalErro}</span>
+                </div>
+              )}
+
+              <div className="dash-detail-row"><span>Cliente</span><span>{selecionado.nome_cliente}</span></div>
+              <div className="dash-detail-row"><span>Pet</span><span>{selecionado.nome_pet}{descricaoPet(selecionado) ? ` · ${descricaoPet(selecionado)}` : ''}</span></div>
+              <div className="dash-detail-row"><span>Serviço</span><span>{selecionado.nome_servico}</span></div>
+              <div className="dash-detail-row"><span>Data</span><span>{format(parseDia(selecionado.dt_agendamento), 'dd/MM/yyyy')}</span></div>
+              <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>
+              <div className="dash-detail-row"><span>Valor</span><span>R$ {selecionado.valor.toFixed(2)}</span></div>
+              <div className="dash-detail-row"><span>Status</span><span>{selecionado.status}</span></div>
+
+              {funcionarios.length > 0 && (
+                <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+                  <label className="form-label">Profissional responsável</label>
+                  <select
+                    className="form-select"
+                    value={selecionado.id_funcionario ?? ''}
+                    onChange={e => atribuirModal(e.target.value)}
+                    disabled={isPending}
+                  >
+                    <option value="">Sem profissional</option>
+                    {funcionarios.map(f => (
+                      <option key={f.id_funcionario} value={f.id_funcionario}>{f.nome}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {selecionado.status === 'Pendente' && (
+                <div className="dash-detail-actions">
+                  <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatusModal('Confirmado')}>
+                    <IconCheck style={{ width: 14, height: 14 }} /> Confirmar
+                  </button>
+                  <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={cancelarModal}>
+                    Cancelar
+                  </button>
+                </div>
+              )}
+              {selecionado.status === 'Confirmado' && (
+                <div className="dash-detail-actions">
+                  <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatusModal('Concluído')}>
+                    <IconCheck style={{ width: 14, height: 14 }} /> Concluir
+                  </button>
+                  <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={cancelarModal}>
+                    Cancelar
+                  </button>
+                </div>
+              )}
+              {selecionado.status === 'Concluído' && (
+                <div className="dash-detail-actions">
+                  <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatusModal('Confirmado')}>
+                    Reabrir (voltar pra Em Andamento)
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </>

@@ -79,6 +79,26 @@ chamando a mesma action:
    marcado como Finalizado por engano pode voltar pra "Em Andamento"
    arrastando).
 
+Ambas as formas são **otimistas**: o card troca de coluna na tela
+imediatamente ao soltar/clicar, sem esperar a resposta do servidor — a
+gravação continua em segundo plano (`startTransition`) e só reverte o
+card pra coluna original se o servidor recusar a mudança. Antes disso, a
+UI só atualizava depois da resposta do banco chegar, dando uma sensação de
+atraso ao arrastar.
+
+### Modal de detalhes
+Clicar num card (sem arrastar) abre um modal com os dados completos do
+agendamento (cliente, pet, serviço, data, horário, valor, status),
+reatribuição de profissional e as mesmas ações de mudança de status —
+é literalmente o mesmo modal "Detalhes do agendamento" que já existe na
+Agenda semanal (`AgendaCalendar.tsx`), reconstruído aqui com as mesmas
+classes CSS (`.dash-detail-row`, `.dash-detail-actions`) e as mesmas
+actions (`atribuirFuncionarioAction`, `atualizarStatusAgendamentoAction`,
+`cancelarAgendamentoAction`) — nenhum componente/action novo. Diferencia
+clique de arrastar por uma ref (`acabouDeArrastarRef`) setada por um
+instante logo após `dragend`, pra não abrir o modal sem querer ao soltar
+um card.
+
 ### Componentes reutilizados (não recriados)
 - `.card`, `.badge-pendente/confirmado/concluido`, `.btn-*`, `.form-select`,
   `.alert-*`, `.empty-state*`, `.dash-day-nav`, `.dash-icon-btn` — todos já
