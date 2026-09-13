@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { hojeBrasilISO } from '@/lib/agenda'
 
 // ============================================================
 // Schemas de validação com Zod
@@ -122,12 +123,11 @@ export const agendamentoSchema = z.object({
   id_lojista: z.string().uuid(),
   id_pet: z.string().uuid(),
   id_servico: z.string().uuid(),
-  dt_agendamento: z.string().refine(d => {
-    const date = new Date(d)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    return date >= today
-  }, 'Data de agendamento não pode ser passada'),
+  // Comparação de strings 'yyyy-MM-dd', não de objetos Date: `new Date(d)`
+  // com uma data sem hora vira meia-noite em UTC, o que fazia "hoje" ser
+  // considerado passado a partir de ~21h de Brasília (Brasil é UTC-3) —
+  // ver hojeBrasilISO() em src/lib/agenda.ts.
+  dt_agendamento: z.string().refine(d => d >= hojeBrasilISO(), 'Data de agendamento não pode ser passada'),
   hr_agendamento: z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM'),
   obs: z.string().max(500).optional(),
 })

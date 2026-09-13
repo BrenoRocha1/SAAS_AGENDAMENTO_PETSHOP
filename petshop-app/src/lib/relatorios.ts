@@ -6,6 +6,7 @@
 // dt_agendamento e nos searchParams de /lojista/kanban e /agendamentos).
 // ============================================================
 import { format, startOfMonth, endOfMonth, subMonths, subDays, differenceInCalendarDays } from 'date-fns'
+import { agoraBrasil } from '@/lib/agenda'
 
 export type PeriodoPreset = 'hoje' | '7dias' | '30dias' | 'este-mes' | 'mes-anterior' | 'personalizado'
 
@@ -38,7 +39,7 @@ export function calcularPeriodo(
   preset: PeriodoPreset,
   customIni: string | undefined,
   customFim: string | undefined,
-  hoje: Date = new Date()
+  hoje: Date = agoraBrasil()
 ): Periodo {
   const hojeISO = iso(hoje)
 

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
-import { format } from 'date-fns'
+import { hojeBrasilISO } from '@/lib/agenda'
 import KanbanBoard, { type KanbanItem } from '@/components/lojista/KanbanBoard'
 import { IconAlert, IconKanban } from '@/components/icons'
 import Link from 'next/link'
@@ -46,7 +46,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     )
   }
 
-  const hojeISO = format(new Date(), 'yyyy-MM-dd')
+  const hojeISO = hojeBrasilISO()
   const selectedDate = params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO
 
   const [

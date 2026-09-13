@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { hojeBrasilISO } from '@/lib/agenda'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Dashboard — Cliente' }
@@ -27,7 +28,7 @@ export default async function ClienteDashboard() {
       lojista:id_lojista ( nome_loja )
     `)
     .eq('id_cliente', user!.id)
-    .gte('dt_agendamento', new Date().toISOString().split('T')[0])
+    .gte('dt_agendamento', hojeBrasilISO())
     .not('status', 'eq', 'Cancelado')
     .order('dt_agendamento', { ascending: true })
     .order('hr_agendamento', { ascending: true })

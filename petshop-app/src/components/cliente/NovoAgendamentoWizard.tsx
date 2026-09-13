@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { criarAgendamentoAction } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
 import { format, addDays, isBefore, startOfDay } from 'date-fns'
+import { removerHorariosPassados } from '@/lib/agenda'
 import { ptBR } from 'date-fns/locale'
 
 interface Lojista {
@@ -64,13 +65,14 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
     if (!servico) return
     setSlots([])
     setHora('')
+    const dataSelecionada = data // captura antes do .then, que sombreia "data" com o retorno da RPC
     supabase
       .rpc('fn_horarios_disponiveis', {
         p_id_lojista: lojistaId,
         p_data: data,
         p_duracao: servico.duracao,
       })
-      .then(({ data }) => setSlots(data ?? []))
+      .then(({ data: rows }) => setSlots(removerHorariosPassados(rows ?? [], dataSelecionada)))
   }, [data, servicoId, lojistaId])
 
   function handleSubmit() {

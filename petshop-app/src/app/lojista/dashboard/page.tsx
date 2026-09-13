@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import { format, subDays } from 'date-fns'
+import { agoraBrasil } from '@/lib/agenda'
 import DashboardClient, { type AgendaItem, type ClienteComPets, type PendenteItem, type ServicoAtivo } from '@/components/lojista/DashboardClient'
 
 export const metadata: Metadata = { title: 'Dashboard — Lojista' }
@@ -19,7 +20,10 @@ export default async function LojistaDashboard({ searchParams }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   const lojistaId = user!.id
 
-  const hoje = new Date()
+  // agoraBrasil(), não new Date(): o servidor roda em UTC, e "hoje"/"agora"
+  // precisam refletir o horário da loja (Brasil), não o do servidor —
+  // ver src/lib/agenda.ts.
+  const hoje = agoraBrasil()
   const hojeISO = toISODate(hoje)
   const ontemISO = toISODate(subDays(hoje, 1))
   const selectedDate = params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO

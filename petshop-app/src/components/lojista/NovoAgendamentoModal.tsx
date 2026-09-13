@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { criarAgendamentoLojistaAction, criarPetLojistaAction } from '@/lib/actions'
 import { formatarTelefone } from '@/lib/format'
+import { removerHorariosPassados } from '@/lib/agenda'
 import { format } from 'date-fns'
 import {
   IconClose,
@@ -138,7 +139,7 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
       })
       .then(({ data: rows }) => {
         if (cancelado) return
-        setSlots((rows as Slot[]) ?? [])
+        setSlots(removerHorariosPassados((rows as Slot[]) ?? [], data))
         setSlotsLoadedKey(key)
       })
 

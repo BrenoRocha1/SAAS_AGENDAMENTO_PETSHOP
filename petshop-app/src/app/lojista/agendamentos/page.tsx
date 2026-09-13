@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import { format, startOfWeek, addDays } from 'date-fns'
+import { agoraBrasil } from '@/lib/agenda'
 import AgendaCalendar, { type AgendamentoCalendario, type FuncionarioFiltro } from '@/components/lojista/AgendaCalendar'
 import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/DashboardClient'
 
@@ -18,7 +19,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
 
   const referencia = params.semana && /^\d{4}-\d{2}-\d{2}$/.test(params.semana)
     ? new Date(`${params.semana}T12:00:00`)
-    : new Date()
+    : agoraBrasil()
   const inicioSemana = startOfWeek(referencia, { weekStartsOn: 0 })
   const fimSemana = addDays(inicioSemana, 6)
   const inicioSemanaISO = format(inicioSemana, 'yyyy-MM-dd')
