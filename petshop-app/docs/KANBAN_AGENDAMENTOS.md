@@ -64,10 +64,20 @@ semanal já usam pra excluir cancelados da visualização ativa).
 ### Alteração de status
 Reaproveita **a action que já existia**, sem criar nada novo:
 `atualizarStatusAgendamentoAction(id_agendamento, status)` — a mesma usada
-pelo painel de detalhes da Dashboard e da Agenda semanal. O botão no rodapé
-do card chama essa action com o próximo status da sequência
-(Pendente→Confirmado, Confirmado→Concluído). Sem drag-and-drop (ver seção
-"Performance" — decisão deliberada).
+pelo painel de detalhes da Dashboard e da Agenda semanal (o parâmetro
+`status` foi só ampliado pra aceitar também `'Pendente'`, já que antes só
+dava pra avançar, nunca voltar). Duas formas de mover um card, as duas
+chamando a mesma action:
+
+1. **Botão** no rodapé do card — avança pra o próximo status da sequência
+   (Pendente→Confirmado, Confirmado→Concluído). Continua existindo pra
+   quem prefere clique a arrastar (acessibilidade, touch sem drag).
+2. **Arrastar e soltar** — pedido explicitamente depois da primeira versão
+   deste board. Implementado com a **HTML5 Drag and Drop API nativa**
+   (`draggable`, `onDragStart/OnDragOver/onDrop`), sem nenhuma biblioteca
+   — permite mover pra **qualquer** coluna, inclusive voltar (ex.: um card
+   marcado como Finalizado por engano pode voltar pra "Em Andamento"
+   arrastando).
 
 ### Componentes reutilizados (não recriados)
 - `.card`, `.badge-pendente/confirmado/concluido`, `.btn-*`, `.form-select`,
@@ -145,12 +155,14 @@ próprio request.
 
 ## 6. Performance
 
-- **Sem biblioteca nova.** Nada de drag-and-drop (`react-beautiful-dnd`,
-  `dnd-kit` etc.) — troca de status é por **botão** no card, não
-  arrastar. Motivo: essas libs são pesadas, exigem JS de mouse/touch
-  tracking constante, e o pedido original já cita "computadores antigos de
-  recepção" como restrição real — um botão é mais leve, mais acessível
-  (funciona por teclado/leitor de tela) e não tem lag nenhum.
+- **Drag-and-drop sem biblioteca.** Quando o arrastar-e-soltar foi pedido,
+  a resposta não foi instalar `react-beautiful-dnd`/`dnd-kit` (pesadas,
+  exigem tracking constante de mouse/touch) — foi usar a **HTML5 Drag and
+  Drop API nativa do navegador** (`draggable`, `dragstart/dragover/drop`),
+  que não adiciona nenhum KB ao bundle. O botão continua existindo do lado
+  do drag, não foi removido — mantém acessibilidade (teclado/leitor de
+  tela) e funciona em touch, onde a Drag and Drop API nativa não é
+  confiável.
 - Uma consulta ao banco por carregamento de página (`Promise.all` com 3
   queries independentes: agendamentos do dia + funcionários + serviços),
   igual ao padrão já usado na Agenda semanal.

@@ -831,7 +831,7 @@ export async function cancelarAgendamentoAction(id_agendamento: string, motivo?:
 
 export async function atualizarStatusAgendamentoAction(
   id_agendamento: string,
-  status: 'Confirmado' | 'Concluído' | 'Cancelado'
+  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

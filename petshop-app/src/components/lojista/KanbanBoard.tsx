@@ -86,7 +86,12 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
     })
   }, [itens, filtroFuncionario, filtroServico])
 
-  function avancarStatus(item: KanbanItem, novoStatus: 'Confirmado' | 'Concluído') {
+  // Usada tanto pelos botões (Pendente→Confirmado→Concluído, só pra
+  // frente) quanto pelo arrastar-e-soltar (qualquer coluna → qualquer
+  // coluna, incluindo voltar — ex.: arrastar de volta de "Finalizado"
+  // pra "Em Andamento" se foi marcado por engano).
+  function moverParaStatus(item: KanbanItem, novoStatus: KanbanItem['status']) {
+    if (item.status === novoStatus) return
     setErro(null)
     setPendingId(item.id_agendamento)
     startTransition(async () => {
@@ -99,6 +104,43 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
       setItens(prev => prev.map(it => it.id_agendamento === item.id_agendamento ? { ...it, status: novoStatus } : it))
       router.refresh()
     })
+  }
+
+  // ── Arrastar e soltar (HTML5 Drag and Drop nativo — sem biblioteca) ──
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [colunaAlvo, setColunaAlvo] = useState<KanbanItem['status'] | null>(null)
+
+  function handleDragStart(e: React.DragEvent, item: KanbanItem) {
+    setDraggingId(item.id_agendamento)
+    e.dataTransfer.setData('text/plain', item.id_agendamento)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function handleDragEnd() {
+    setDraggingId(null)
+    setColunaAlvo(null)
+  }
+
+  function handleDragOverColuna(e: React.DragEvent, status: KanbanItem['status']) {
+    e.preventDefault() // sem isso o navegador não permite soltar aqui
+    e.dataTransfer.dropEffect = 'move'
+    if (colunaAlvo !== status) setColunaAlvo(status)
+  }
+
+  function handleDragLeaveColuna(e: React.DragEvent, status: KanbanItem['status']) {
+    // Ignora dragleave disparado ao passar por um card FILHO da coluna —
+    // só limpa o destaque quando realmente sai da coluna inteira.
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    if (colunaAlvo === status) setColunaAlvo(null)
+  }
+
+  function handleDrop(e: React.DragEvent, status: KanbanItem['status']) {
+    e.preventDefault()
+    const id = e.dataTransfer.getData('text/plain')
+    setColunaAlvo(null)
+    setDraggingId(null)
+    const item = itens.find(it => it.id_agendamento === id)
+    if (item) moverParaStatus(item, status)
   }
 
   function descricaoPet(item: KanbanItem) {
@@ -175,16 +217,27 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                   <span className={`badge ${coluna.badge}`}>{itensDaColuna.length}</span>
                 </div>
 
-                <div className="kanban-column-body">
+                <div
+                  className={`kanban-column-body ${colunaAlvo === coluna.status ? 'is-drag-over' : ''}`}
+                  onDragOver={e => handleDragOverColuna(e, coluna.status)}
+                  onDragLeave={e => handleDragLeaveColuna(e, coluna.status)}
+                  onDrop={e => handleDrop(e, coluna.status)}
+                >
                   {itensDaColuna.length === 0 ? (
                     <p className="text-sm text-muted" style={{ padding: 'var(--space-3)' }}>
-                      {filtroFuncionario || filtroServico ? 'Nada com esse filtro.' : 'Nenhum agendamento aqui.'}
+                      {filtroFuncionario || filtroServico ? 'Nada com esse filtro.' : 'Arraste um card pra cá, ou nenhum agendamento aqui.'}
                     </p>
                   ) : (
                     itensDaColuna.map(item => {
                       const pet = descricaoPet(item)
                       return (
-                        <div key={item.id_agendamento} className="kanban-card">
+                        <div
+                          key={item.id_agendamento}
+                          className={`kanban-card ${draggingId === item.id_agendamento ? 'is-dragging' : ''}`}
+                          draggable={!(isPending && pendingId === item.id_agendamento)}
+                          onDragStart={e => handleDragStart(e, item)}
+                          onDragEnd={handleDragEnd}
+                        >
                           <div className="kanban-card-top">
                             <div className="kanban-card-time">{item.hr_agendamento.slice(0, 5)}</div>
                             <span className="text-sm font-semibold text-success">R$ {item.valor.toFixed(2)}</span>
@@ -211,7 +264,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                               type="button"
                               className="btn btn-secondary btn-sm btn-full"
                               style={{ marginTop: 'var(--space-3)' }}
-                              onClick={() => avancarStatus(item, coluna.proximo!)}
+                              onClick={() => moverParaStatus(item, coluna.proximo!)}
                               disabled={isPending && pendingId === item.id_agendamento}
                             >
                               {isPending && pendingId === item.id_agendamento ? 'Salvando...' : (<>{coluna.acao} <IconArrowRight style={{ width: 13, height: 13 }} /></>)}
