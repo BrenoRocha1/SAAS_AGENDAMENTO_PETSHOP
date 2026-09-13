@@ -452,17 +452,23 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                       <p className="text-sm text-muted">Sem horário de funcionamento cadastrado para este dia.</p>
                     ) : (
                       <div className="slots-grid">
-                        {slots.map(s => (
-                          <button
-                            key={s.hr_slot}
-                            type="button"
-                            className={`slot ${!s.disponivel ? 'slot-unavailable' : ''} ${hora === s.hr_slot ? 'slot-selected' : ''}`}
-                            onClick={() => s.disponivel && setHora(s.hr_slot)}
-                            disabled={!s.disponivel || isPending}
-                          >
-                            {s.hr_slot.slice(0, 5)}
-                          </button>
-                        ))}
+                        {slots.map(s => {
+                          // hr_slot vem do Postgres como "HH:MM:SS" (tipo TIME) —
+                          // o schema de validação exige exatamente "HH:MM", então
+                          // já normaliza aqui, antes de guardar no estado.
+                          const horaCurta = s.hr_slot.slice(0, 5)
+                          return (
+                            <button
+                              key={s.hr_slot}
+                              type="button"
+                              className={`slot ${!s.disponivel ? 'slot-unavailable' : ''} ${hora === horaCurta ? 'slot-selected' : ''}`}
+                              onClick={() => s.disponivel && setHora(horaCurta)}
+                              disabled={!s.disponivel || isPending}
+                            >
+                              {horaCurta}
+                            </button>
+                          )
+                        })}
                       </div>
                     )}
                   </div>

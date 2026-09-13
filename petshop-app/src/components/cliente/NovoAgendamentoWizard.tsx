@@ -303,17 +303,24 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
                 </div>
               ) : (
                 <div className="slots-grid">
-                  {slots.map((slot: any) => (
-                    <button
-                      key={slot.hr_slot}
-                      type="button"
-                      className={`slot ${!slot.disponivel ? 'slot-unavailable' : ''} ${hora === slot.hr_slot ? 'slot-selected' : ''}`}
-                      onClick={() => slot.disponivel && setHora(slot.hr_slot)}
-                      disabled={!slot.disponivel}
-                    >
-                      {slot.hr_slot.slice(0, 5)}
-                    </button>
-                  ))}
+                  {slots.map((slot: any) => {
+                    // slot.hr_slot vem do Postgres como "HH:MM:SS" (tipo TIME) —
+                    // agendamentoSchema exige exatamente "HH:MM", então normaliza
+                    // antes de guardar no estado (senão o agendamento nunca
+                    // passa na validação e sempre dá "Formato HH:MM").
+                    const horaCurta = slot.hr_slot.slice(0, 5)
+                    return (
+                      <button
+                        key={slot.hr_slot}
+                        type="button"
+                        className={`slot ${!slot.disponivel ? 'slot-unavailable' : ''} ${hora === horaCurta ? 'slot-selected' : ''}`}
+                        onClick={() => slot.disponivel && setHora(horaCurta)}
+                        disabled={!slot.disponivel}
+                      >
+                        {horaCurta}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>
