@@ -73,6 +73,13 @@ export const petSchema = z.object({
   obs: z.string().max(500).optional(),
 })
 
+// Pet cadastrado pelo LOJISTA em nome de um cliente já vinculado a ele
+// (walk-in que ainda não tem pet cadastrado) — ver fn_criar_pet_lojista
+// (migration 015). Mesmos campos de petSchema, mais o cliente dono do pet.
+export const petLojistaSchema = petSchema.extend({
+  id_cliente: z.string().uuid('Selecione um cliente'),
+})
+
 // Variação de preço de um serviço, por espécie+porte OU por
 // espécie+raça específica — ver fn_calcular_preco_servico (migration 010).
 export const servicoVariacaoSchema = z.discriminatedUnion('tipo', [

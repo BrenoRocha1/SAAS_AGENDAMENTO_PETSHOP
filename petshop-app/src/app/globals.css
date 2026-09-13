@@ -469,14 +469,14 @@ a:hover { color: var(--primary-300); }
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+  background: var(--primary-600);
   color: white;
   border-color: var(--primary-600);
   box-shadow: 0 1px 3px var(--btn-primary-shadow);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, var(--primary-400), var(--primary-600));
+  background: var(--primary-500);
   box-shadow: var(--shadow-glow);
   transform: translateY(-1px);
 }

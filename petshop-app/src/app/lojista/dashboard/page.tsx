@@ -36,7 +36,8 @@ export default async function LojistaDashboard({ searchParams }: Props) {
     { data: agendaSelecionada },
     { data: slotsHoje },
     { data: pendentesRaw },
-    { data: historico },
+    { data: vinculos },
+    { data: petsVisiveis },
     { data: servicosRaw },
   ] = await Promise.all([
     supabase.from('lojista').select('nome_loja').eq('id_lojista', lojistaId).single(),
@@ -60,15 +61,19 @@ export default async function LojistaDashboard({ searchParams }: Props) {
       .order('dt_agendamento', { ascending: true })
       .order('hr_agendamento', { ascending: true })
       .limit(12),
+    // Todo cliente "conhecido" pelo lojista (migration 014) — inclui
+    // quem já agendou E quem foi cadastrado direto pelo botão "Novo
+    // Cliente" em /lojista/clientes, mesmo sem nenhum agendamento ainda.
     supabase
-      .from('agendamento')
-      .select(`
-        id_cliente,
-        cliente:id_cliente ( id_cliente, nome, telefone ),
-        pet:id_pet ( id_pet, nome, raca )
-      `)
-      .eq('id_lojista', lojistaId)
-      .not('status', 'eq', 'Cancelado'),
+      .from('cliente_lojista')
+      .select('cliente:id_cliente ( id_cliente, nome, telefone )')
+      .eq('id_lojista', lojistaId),
+    // Pets desses clientes — a policy de RLS (migration 015) já filtra
+    // pra só trazer pet de cliente vinculado a este lojista.
+    supabase
+      .from('pet')
+      .select('id_pet, id_cliente, nome, raca')
+      .eq('ativo', true),
     supabase
       .from('servico')
       .select('id_servico, nome, preco, duracao')
@@ -107,22 +112,26 @@ export default async function LojistaDashboard({ searchParams }: Props) {
   // ── Fila de espera: agendamentos Pendente (qualquer data futura) ──
   const pendentes = ((pendentesRaw ?? []) as unknown as PendenteItem[])
 
-  // ── Clientes + pets já atendidos por este lojista (base para o modal) ──
-  // Mesma lógica de agrupamento usada em /lojista/clientes.
+  // ── Clientes vinculados + seus pets (base para o modal "Novo Agendamento") ──
+  // Todo cliente em cliente_lojista entra na lista, mesmo sem pet ainda
+  // (o lojista cadastra o pet na hora, pelo próprio modal, se faltar).
   const clientesMap = new Map<string, ClienteComPets>()
-  for (const row of (historico ?? []) as unknown as Array<{
-    id_cliente: string
+  for (const v of (vinculos ?? []) as unknown as Array<{
     cliente: { id_cliente: string; nome: string; telefone: string } | null
-    pet: { id_pet: string; nome: string; raca: string } | null
   }>) {
-    if (!row.cliente) continue
-    if (!clientesMap.has(row.id_cliente)) {
-      clientesMap.set(row.id_cliente, { ...row.cliente, pets: [] })
+    if (!v.cliente) continue
+    if (!clientesMap.has(v.cliente.id_cliente)) {
+      clientesMap.set(v.cliente.id_cliente, { ...v.cliente, pets: [] })
     }
-    const entry = clientesMap.get(row.id_cliente)!
-    if (row.pet && !entry.pets.some(p => p.id_pet === row.pet!.id_pet)) {
-      entry.pets.push(row.pet)
-    }
+  }
+  for (const p of (petsVisiveis ?? []) as unknown as Array<{
+    id_pet: string
+    id_cliente: string
+    nome: string
+    raca: string
+  }>) {
+    const entry = clientesMap.get(p.id_cliente)
+    if (entry) entry.pets.push({ id_pet: p.id_pet, nome: p.nome, raca: p.raca })
   }
   const clientesComPets = Array.from(clientesMap.values()).sort((a, b) => a.nome.localeCompare(b.nome))
 

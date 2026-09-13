@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { criarAgendamentoLojistaAction } from '@/lib/actions'
+import { criarAgendamentoLojistaAction, criarPetLojistaAction } from '@/lib/actions'
+import { formatarTelefone } from '@/lib/format'
 import { format } from 'date-fns'
 import {
   IconClose,
@@ -10,6 +11,7 @@ import {
   IconCheck,
   IconSearch,
   IconDog,
+  IconPlus,
   IconScissors,
 } from '@/components/icons'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
@@ -42,6 +44,7 @@ interface Props {
 export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes, servicos, onClose, onCreated }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [isPending, startTransition] = useTransition()
+  const [isPendingPet, startPetTransition] = useTransition()
 
   const [buscaCliente, setBuscaCliente] = useState('')
   const [clienteId, setClienteId] = useState('')
@@ -56,9 +59,47 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
+  // Pets cadastrados aqui mesmo, no meio do fluxo (cliente novo, sem
+  // nenhum pet ainda) — somados aos pets que já vieram do servidor.
+  const [petsExtras, setPetsExtras] = useState<Record<string, { id_pet: string; nome: string; raca: string }[]>>({})
+  const [showNovoPet, setShowNovoPet] = useState(false)
+  const [petErro, setPetErro] = useState<string | null>(null)
+  const [petNome, setPetNome] = useState('')
+  const [petRaca, setPetRaca] = useState('')
+  const [petSexo, setPetSexo] = useState<'Macho' | 'Fêmea'>('Macho')
+  const [petDtNasc, setPetDtNasc] = useState('')
+
   const clienteSel = clientes.find(c => c.id_cliente === clienteId)
+  const petsDoCliente = [...(clienteSel?.pets ?? []), ...(petsExtras[clienteId] ?? [])]
   const servicoSel = servicos.find(s => s.id_servico === servicoId)
-  const petSel = clienteSel?.pets.find(p => p.id_pet === petId)
+  const petSel = petsDoCliente.find(p => p.id_pet === petId)
+
+  function handleCriarPet() {
+    if (!clienteId || !petNome.trim() || !petRaca.trim() || !petDtNasc) return
+    setPetErro(null)
+    const formData = new FormData()
+    formData.set('id_cliente', clienteId)
+    formData.set('nome', petNome.trim())
+    formData.set('raca', petRaca.trim())
+    formData.set('sexo', petSexo)
+    formData.set('dt_nasc', petDtNasc)
+
+    startPetTransition(async () => {
+      const result = await criarPetLojistaAction(formData)
+      if (result?.error) {
+        setPetErro(result.error)
+        return
+      }
+      const novoPet = { id_pet: result!.id_pet!, nome: petNome.trim(), raca: petRaca.trim() }
+      setPetsExtras(prev => ({ ...prev, [clienteId]: [...(prev[clienteId] ?? []), novoPet] }))
+      setPetId(novoPet.id_pet)
+      setShowNovoPet(false)
+      setPetNome('')
+      setPetRaca('')
+      setPetSexo('Macho')
+      setPetDtNasc('')
+    })
+  }
 
   const clientesFiltrados = buscaCliente.trim()
     ? clientes.filter(c => c.nome.toLowerCase().includes(buscaCliente.trim().toLowerCase()))
@@ -173,8 +214,8 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                   <div className="alert alert-warning">
                     <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
                     <span>
-                      Você ainda não tem clientes com histórico neste petshop. Um cliente precisa
-                      criar sua conta e agendar pelo menos uma vez antes de aparecer aqui.
+                      Você ainda não tem nenhum cliente cadastrado. Cadastre um em{' '}
+                      <strong>Clientes → Novo Cliente</strong> antes de criar o agendamento.
                     </span>
                   </div>
                 ) : (
@@ -199,7 +240,10 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                         >
                           <div className="picker-item-main">
                             <div className="picker-item-title">{c.nome}</div>
-                            <div className="picker-item-sub">{c.telefone} · {c.pets.length} pet(s)</div>
+                            <div className="picker-item-sub">
+                              {formatarTelefone(c.telefone)}
+                              {c.pets.length > 0 && ` · ${c.pets.length} pet${c.pets.length > 1 ? 's' : ''}`}
+                            </div>
                           </div>
                           {clienteId === c.id_cliente && <IconCheck className="picker-check" />}
                         </button>
@@ -216,11 +260,14 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
               {clienteSel && (
                 <div className="form-group">
                   <label className="form-label form-label-required">Pet</label>
-                  {clienteSel.pets.length === 0 ? (
-                    <p className="text-sm text-muted">Este cliente não tem pets cadastrados.</p>
-                  ) : (
-                    <div className="picker-list" style={{ maxHeight: 140 }}>
-                      {clienteSel.pets.map(p => (
+                  {petsDoCliente.length === 0 && !showNovoPet && (
+                    <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-2)' }}>
+                      Este cliente ainda não tem pet cadastrado.
+                    </p>
+                  )}
+                  {petsDoCliente.length > 0 && (
+                    <div className="picker-list" style={{ maxHeight: 140, marginBottom: 'var(--space-2)' }}>
+                      {petsDoCliente.map(p => (
                         <button
                           type="button"
                           key={p.id_pet}
@@ -236,6 +283,115 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                           {petId === p.id_pet && <IconCheck className="picker-check" />}
                         </button>
                       ))}
+                    </div>
+                  )}
+
+                  {!showNovoPet ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setShowNovoPet(true)}
+                      disabled={isPending}
+                    >
+                      <IconPlus style={{ width: 13, height: 13 }} /> Cadastrar novo pet
+                    </button>
+                  ) : (
+                    <div
+                      style={{
+                        padding: 'var(--space-4)',
+                        border: '1px solid var(--gray-700)',
+                        borderRadius: 'var(--radius-md)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 'var(--space-2)',
+                          marginBottom: 'var(--space-4)',
+                          fontWeight: 600,
+                          fontSize: '0.875rem',
+                          color: 'var(--gray-200)',
+                        }}
+                      >
+                        <IconDog style={{ width: 15, height: 15, color: 'var(--gray-400)' }} />
+                        Novo pet de {clienteSel?.nome.split(' ')[0]}
+                      </div>
+
+                      {petErro && (
+                        <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
+                          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+                          <span>{petErro}</span>
+                        </div>
+                      )}
+
+                      <div className="form-grid-2">
+                        <div className="form-group">
+                          <label className="form-label form-label-required">Nome do pet</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={petNome}
+                            onChange={e => setPetNome(e.target.value)}
+                            placeholder="Rex"
+                            disabled={isPendingPet}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label form-label-required">Raça</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={petRaca}
+                            onChange={e => setPetRaca(e.target.value)}
+                            placeholder="SRD, Poodle..."
+                            disabled={isPendingPet}
+                          />
+                        </div>
+                      </div>
+                      <div className="form-grid-2" style={{ marginBottom: 'var(--space-4)' }}>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label form-label-required">Sexo</label>
+                          <select
+                            className="form-select"
+                            value={petSexo}
+                            onChange={e => setPetSexo(e.target.value as 'Macho' | 'Fêmea')}
+                            disabled={isPendingPet}
+                          >
+                            <option value="Macho">Macho</option>
+                            <option value="Fêmea">Fêmea</option>
+                          </select>
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label form-label-required">Data de nascimento</label>
+                          <input
+                            type="date"
+                            className="form-input"
+                            value={petDtNasc}
+                            max={format(new Date(), 'yyyy-MM-dd')}
+                            onChange={e => setPetDtNasc(e.target.value)}
+                            disabled={isPendingPet}
+                          />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => { setShowNovoPet(false); setPetErro(null) }}
+                          disabled={isPendingPet}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn btn-primary btn-sm ${isPendingPet ? 'btn-loading' : ''}`}
+                          onClick={handleCriarPet}
+                          disabled={isPendingPet || !petNome.trim() || !petRaca.trim() || !petDtNasc}
+                        >
+                          {isPendingPet ? 'Cadastrando...' : 'Salvar pet'}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

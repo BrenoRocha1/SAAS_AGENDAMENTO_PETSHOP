@@ -9,6 +9,7 @@ import {
   cadastroLojistSchema,
   loginSchema,
   petSchema,
+  petLojistaSchema,
   servicoSchema,
   servicoVariacaoSchema,
   horarioSchema,
@@ -18,6 +19,20 @@ import {
   editarFuncionarioSchema,
 } from '@/lib/validations'
 import type { ServicoVariacaoData } from '@/lib/validations'
+
+// ============================================================
+// HELPER: erro com detalhe técnico em dev
+// ============================================================
+// Em produção o usuário só vê a mensagem amigável (não vaza detalhe
+// interno). Em dev (`npm run dev`), gruda a causa técnica real (mensagem
+// do Supabase/Postgres) na mesma string, pra debugar sem precisar ficar
+// catando log no terminal — some sozinho no build de produção.
+function devError(mensagemAmigavel: string, detalheTecnico?: string | null) {
+  if (process.env.NODE_ENV !== 'production' && detalheTecnico) {
+    return `${mensagemAmigavel} [DEV: ${detalheTecnico}]`
+  }
+  return mensagemAmigavel
+}
 
 // ============================================================
 // AUTH ACTIONS
@@ -138,7 +153,7 @@ export async function cadastroClienteAction(formData: FormData) {
     if (authError.message.includes('already registered')) {
       return { error: 'Este e-mail já está cadastrado' }
     }
-    return { error: 'Erro ao criar conta. Tente novamente.' }
+    return { error: devError('Erro ao criar conta. Tente novamente.', authError.message) }
   }
 
   if (!authData.user) {
@@ -938,6 +953,143 @@ export async function alternarKanbanAction(ativo: boolean) {
 }
 
 // ============================================================
+// CLIENTE ACTIONS (Lojista)
+// ============================================================
+
+// Cadastra um cliente direto pelo lojista (walk-in, telefone — cliente
+// que não usa o app). Mesmo padrão de cadastrarFuncionarioAction: cria
+// a conta Auth via admin API (o lojista logado não pode usar signUp
+// pra outra pessoa sem deslogar a própria sessão) e insere na tabela
+// `cliente` via RPC SECURITY DEFINER (migration 014), que também grava
+// o vínculo em cliente_lojista pra o cliente aparecer na lista e já
+// poder receber o primeiro agendamento manual.
+export async function cadastrarClienteLojistaAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const raw = {
+    nome: formData.get('nome') as string,
+    cpf: (formData.get('cpf') as string).replace(/\D/g, ''),
+    email: formData.get('email') as string,
+    telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
+    senha: formData.get('senha') as string,
+    confirmaSenha: formData.get('confirmaSenha') as string,
+  }
+
+  const parsed = cadastroClienteSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  const adminClient = createAdminClient()
+  if (!adminClient) {
+    return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+  }
+
+  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+    email: parsed.data.email,
+    password: parsed.data.senha,
+    email_confirm: true,
+    user_metadata: { role: 'cliente', nome: parsed.data.nome },
+  })
+
+  if (authError) {
+    console.error('[cadastrarClienteLojistaAction] createUser error:', authError.message)
+    const msg = authError.message.toLowerCase()
+    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate')) {
+      return { error: 'Este e-mail já está cadastrado no sistema.' }
+    }
+    return { error: devError('Não foi possível criar a conta do cliente. Tente novamente.', authError.message) }
+  }
+
+  if (!authData.user) {
+    return { error: 'Erro interno ao criar conta. Tente novamente.' }
+  }
+
+  const { error: rpcError } = await supabase.rpc('fn_registrar_cliente_lojista', {
+    p_id_cliente: authData.user.id,
+    p_id_lojista: user.id,
+    p_nome: parsed.data.nome,
+    p_cpf: parsed.data.cpf,
+    p_email: parsed.data.email,
+    p_telefone: parsed.data.telefone,
+  })
+
+  if (rpcError) {
+    // Rollback: remover conta Auth criada
+    console.error('[cadastrarClienteLojistaAction] RPC error:', rpcError.message)
+    await adminClient.auth.admin.deleteUser(authData.user.id)
+
+    const msg = rpcError.message ?? ''
+    if (msg.includes('email_already_exists')) {
+      return { error: 'Este e-mail já está cadastrado como cliente, lojista ou funcionário.' }
+    }
+    if (msg.includes('cpf_already_exists')) {
+      return { error: 'Este CPF já está cadastrado.' }
+    }
+    return { error: devError('Não foi possível cadastrar o cliente. Tente novamente.', rpcError.message) }
+  }
+
+  revalidatePath('/lojista/clientes')
+  revalidatePath('/lojista/dashboard')
+  revalidatePath('/lojista/agendamentos')
+  return { success: true }
+}
+
+// Cadastra um pet em nome de um cliente já vinculado a este lojista
+// (migration 015) — cobre o cliente cadastrado pelo botão acima que
+// ainda não tem nenhum pet, e por isso travava no modal de "Novo
+// Agendamento" na etapa de escolher o pet.
+export async function criarPetLojistaAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const raw = {
+    id_cliente: formData.get('id_cliente') as string,
+    nome: formData.get('nome') as string,
+    raca: formData.get('raca') as string,
+    sexo: formData.get('sexo') as string,
+    especie: (formData.get('especie') as string) || undefined,
+    porte: (formData.get('porte') as string) || undefined,
+    dt_nasc: formData.get('dt_nasc') as string,
+    peso: formData.get('peso') ? parseFloat(formData.get('peso') as string) : undefined,
+    obs: (formData.get('obs') as string) || undefined,
+  }
+
+  const parsed = petLojistaSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { data: id_pet, error } = await supabase.rpc('fn_criar_pet_lojista', {
+    p_id_lojista: user.id,
+    p_id_cliente: parsed.data.id_cliente,
+    p_nome: parsed.data.nome,
+    p_raca: parsed.data.raca,
+    p_sexo: parsed.data.sexo,
+    p_especie: parsed.data.especie ?? null,
+    p_porte: parsed.data.porte ?? null,
+    p_dt_nasc: parsed.data.dt_nasc,
+    p_peso: parsed.data.peso ?? null,
+    p_obs: parsed.data.obs ?? null,
+  })
+
+  if (error) {
+    console.error('[criarPetLojistaAction] RPC error:', error.message)
+    return { error: devError('Não foi possível cadastrar o pet. Tente novamente.', error.message) }
+  }
+
+  revalidatePath('/lojista/dashboard')
+  revalidatePath('/lojista/clientes')
+  revalidatePath('/lojista/agendamentos')
+  return { success: true, id_pet: id_pet as string }
+}
+
+// ============================================================
 // FUNCIONÁRIO ACTIONS (Lojista)
 // ============================================================
 
@@ -989,7 +1141,7 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate')) {
       return { error: 'Este e-mail já está cadastrado no sistema.' }
     }
-    return { error: 'Não foi possível criar a conta do funcionário. Tente novamente.' }
+    return { error: devError('Não foi possível criar a conta do funcionário. Tente novamente.', authError.message) }
   }
 
   if (!authData.user) {
@@ -1017,7 +1169,7 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     if (msg.includes('email_already_exists')) {
       return { error: 'Este e-mail já está cadastrado como funcionário, lojista ou cliente.' }
     }
-    return { error: 'Não foi possível cadastrar o funcionário. Tente novamente.' }
+    return { error: devError('Não foi possível cadastrar o funcionário. Tente novamente.', rpcError.message) }
   }
 
   revalidatePath('/lojista/funcionarios')
