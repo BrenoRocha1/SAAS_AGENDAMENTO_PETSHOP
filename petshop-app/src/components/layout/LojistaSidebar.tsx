@@ -10,6 +10,7 @@ import {
   IconCalendar,
   IconKanban,
   IconChartBar,
+  IconDog,
   IconScissors,
   IconClock,
   IconUsers,
@@ -28,6 +29,7 @@ const navItemsBase = [
   { href: '/lojista/servicos',      icon: IconScissors,  label: 'Serviços' },
   { href: '/lojista/horarios',      icon: IconClock,     label: 'Horários' },
   { href: '/lojista/clientes',      icon: IconUsers,     label: 'Clientes' },
+  { href: '/lojista/pets',          icon: IconDog,       label: 'Pets' },
   { href: '/lojista/funcionarios',  icon: IconUserBadge, label: 'Funcionários' },
   { href: '/lojista/perfil',        icon: IconStore,     label: 'Perfil da Loja' },
 ]

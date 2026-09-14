@@ -1086,7 +1086,62 @@ export async function criarPetLojistaAction(formData: FormData) {
   revalidatePath('/lojista/dashboard')
   revalidatePath('/lojista/clientes')
   revalidatePath('/lojista/agendamentos')
+  revalidatePath('/lojista/pets')
   return { success: true, id_pet: id_pet as string }
+}
+
+// Edita um pet já cadastrado (nome, espécie, raça, porte, tutor) — só
+// funciona se o pet já pertence a um cliente vinculado a este lojista, e
+// se estiver trocando o tutor, o novo também precisa estar vinculado
+// (fn_editar_pet_lojista, migration 018). Não existia NENHUM caminho pro
+// lojista editar pet antes disso — a policy de UPDATE em `pet` só deixa
+// o próprio cliente editar o dele.
+export async function editarPetLojistaAction(id_pet: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const raw = {
+    id_cliente: formData.get('id_cliente') as string,
+    nome: formData.get('nome') as string,
+    raca: formData.get('raca') as string,
+    sexo: formData.get('sexo') as string,
+    especie: (formData.get('especie') as string) || undefined,
+    porte: (formData.get('porte') as string) || undefined,
+    dt_nasc: formData.get('dt_nasc') as string,
+    peso: formData.get('peso') ? parseFloat(formData.get('peso') as string) : undefined,
+    obs: (formData.get('obs') as string) || undefined,
+  }
+
+  const parsed = petLojistaSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase.rpc('fn_editar_pet_lojista', {
+    p_id_lojista: user.id,
+    p_id_pet: id_pet,
+    p_id_cliente: parsed.data.id_cliente,
+    p_nome: parsed.data.nome,
+    p_raca: parsed.data.raca,
+    p_sexo: parsed.data.sexo,
+    p_especie: parsed.data.especie ?? null,
+    p_porte: parsed.data.porte ?? null,
+    p_dt_nasc: parsed.data.dt_nasc,
+    p_peso: parsed.data.peso ?? null,
+    p_obs: parsed.data.obs ?? null,
+  })
+
+  if (error) {
+    console.error('[editarPetLojistaAction] RPC error:', error.message)
+    return { error: devError('Não foi possível salvar as alterações. Tente novamente.', error.message) }
+  }
+
+  revalidatePath('/lojista/pets')
+  revalidatePath(`/lojista/pets/${id_pet}`)
+  revalidatePath('/lojista/dashboard')
+  revalidatePath('/lojista/agendamentos')
+  return { success: true }
 }
 
 // ============================================================
