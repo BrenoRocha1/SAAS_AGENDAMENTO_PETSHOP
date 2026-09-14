@@ -1699,6 +1699,12 @@ a:hover { color: var(--primary-300); }
   padding: var(--space-3);
   cursor: grab;
   transition: border-color var(--transition-fast), opacity var(--transition-fast);
+  /* Sem isso, um clique+arrasto que começa em cima de um texto vira
+     seleção de texto (fica tudo azul) em vez de iniciar o drag — o
+     navegador prioriza selecionar texto ao arrastar, então "solta" o
+     card no meio do caminho. */
+  user-select: none;
+  -webkit-user-select: none;
 }
 .kanban-card:hover { border-color: var(--gray-700); }
 .kanban-card:active { cursor: grabbing; }
