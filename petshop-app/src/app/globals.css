@@ -1638,7 +1638,11 @@ a:hover { color: var(--primary-300); }
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-5);
-  align-items: start;
+  /* "stretch" (o padrão do grid) em vez de "start": as 3 colunas ficam
+     com a mesma altura (a da mais alta) — sem isso, uma coluna com poucos
+     ou nenhum card ficava baixinha, e a área de "soltar" um card
+     arrastado terminava logo abaixo do último card, exigindo mirar bem
+     no espacinho certo em vez de em qualquer lugar da coluna. */
 }
 
 .kanban-column {
@@ -1649,6 +1653,7 @@ a:hover { color: var(--primary-300); }
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 260px);
+  min-height: 220px;
 }
 
 .kanban-column-header {
@@ -1675,6 +1680,10 @@ a:hover { color: var(--primary-300); }
   overflow-y: auto;
   border-radius: var(--radius-md);
   transition: background var(--transition-fast), box-shadow var(--transition-fast);
+  /* Preenche todo o resto da coluna (que agora tem altura mínima e é
+     esticada pra bater com as outras) — a área de soltar um card vira a
+     coluna inteira, não só o espaço embaixo do último card. */
+  flex: 1;
 }
 
 /* Destaque da coluna enquanto um card é arrastado por cima dela */
