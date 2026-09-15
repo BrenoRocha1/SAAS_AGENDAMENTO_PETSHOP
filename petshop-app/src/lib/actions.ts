@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import {
   cadastroClienteSchema,
+  editarClienteLojistaSchema,
   cadastroLojistSchema,
   loginSchema,
   petSchema,
@@ -1036,6 +1037,42 @@ export async function cadastrarClienteLojistaAction(formData: FormData) {
   revalidatePath('/lojista/clientes')
   revalidatePath('/lojista/dashboard')
   revalidatePath('/lojista/agendamentos')
+  return { success: true }
+}
+
+// Edita nome/telefone de um cliente já vinculado a este lojista (migration
+// 019) — não existia NENHUM caminho pro lojista corrigir esses dados antes
+// (a policy de UPDATE em `cliente` só permite o próprio cliente editar-se).
+export async function editarClienteLojistaAction(id_cliente: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const raw = {
+    nome: formData.get('nome') as string,
+    telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
+  }
+
+  const parsed = editarClienteLojistaSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase.rpc('fn_editar_cliente_lojista', {
+    p_id_lojista: user.id,
+    p_id_cliente: id_cliente,
+    p_nome: parsed.data.nome,
+    p_telefone: parsed.data.telefone,
+  })
+
+  if (error) {
+    console.error('[editarClienteLojistaAction] RPC error:', error.message)
+    return { error: devError('Não foi possível salvar as alterações. Tente novamente.', error.message) }
+  }
+
+  revalidatePath('/lojista/clientes')
+  revalidatePath(`/lojista/clientes/${id_cliente}`)
+  revalidatePath('/lojista/dashboard')
   return { success: true }
 }
 

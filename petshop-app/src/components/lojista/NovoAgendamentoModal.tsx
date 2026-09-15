@@ -39,17 +39,21 @@ interface Props {
   clientes: ClienteComPets[]
   servicos: ServicoAtivo[]
   funcionarios: { id_funcionario: string; nome: string }[]
+  // Vem do perfil do cliente ("Novo agendamento") — cliente já sai
+  // selecionado e travado, sem precisar buscar de novo quem já está na
+  // tela de origem.
+  clienteIdFixo?: string
   onClose: () => void
   onCreated: (item: NovoAgendamentoCriado, dataISO: string) => void
 }
 
-export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes, servicos, funcionarios, onClose, onCreated }: Props) {
+export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes, servicos, funcionarios, clienteIdFixo, onClose, onCreated }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [isPending, startTransition] = useTransition()
   const [isPendingPet, startPetTransition] = useTransition()
 
   const [buscaCliente, setBuscaCliente] = useState('')
-  const [clienteId, setClienteId] = useState('')
+  const [clienteId, setClienteId] = useState(clienteIdFixo ?? '')
   const [petId, setPetId] = useState('')
   const [servicoId, setServicoId] = useState('')
   const [data, setData] = useState(defaultDate)
@@ -235,6 +239,16 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                       Você ainda não tem nenhum cliente cadastrado. Cadastre um em{' '}
                       <strong>Clientes → Novo Cliente</strong> antes de criar o agendamento.
                     </span>
+                  </div>
+                ) : clienteIdFixo && clienteSel ? (
+                  // Veio do perfil do cliente — já travado, sem opção de trocar
+                  // (a intenção de "agendar pra este cliente" já está clara).
+                  <div className="picker-item is-selected" style={{ cursor: 'default' }}>
+                    <div className="picker-item-main">
+                      <div className="picker-item-title">{clienteSel.nome}</div>
+                      <div className="picker-item-sub">{formatarTelefone(clienteSel.telefone)}</div>
+                    </div>
+                    <IconCheck className="picker-check" />
                   </div>
                 ) : (
                   <>

@@ -8,7 +8,7 @@ import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/Dashboar
 export const metadata: Metadata = { title: 'Agendamentos' }
 
 interface Props {
-  searchParams: Promise<{ semana?: string }>
+  searchParams: Promise<{ semana?: string; novoAgendamentoTutor?: string }>
 }
 
 export default async function AgendamentosLojistaPage({ searchParams }: Props) {
@@ -122,6 +122,13 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
   const clientesComPets = Array.from(clientesMap.values()).sort((a, b) => a.nome.localeCompare(b.nome))
   const servicos = (servicosRaw ?? []) as ServicoAtivo[]
 
+  // ?novoAgendamentoTutor=<id> (vem de "Novo agendamento" no perfil do
+  // cliente) — o cliente já está em clientesComPets, não precisa de
+  // outra consulta.
+  const clienteFixoInicial = params.novoAgendamentoTutor
+    ? clientesComPets.find(c => c.id_cliente === params.novoAgendamentoTutor) ?? null
+    : null
+
   return (
     <AgendaCalendar
       lojistaId={lojistaId}
@@ -130,6 +137,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
       funcionarios={funcionarios}
       clientesComPets={clientesComPets}
       servicos={servicos}
+      clienteFixoInicial={clienteFixoInicial}
     />
   )
 }

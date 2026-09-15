@@ -17,6 +17,7 @@ interface Props {
     porte?: string
     pagina?: string
     editar?: string
+    novoPetTutor?: string
   }>
 }
 
@@ -147,6 +148,13 @@ export default async function PetsLojistaPage({ searchParams }: Props) {
     }
   }
 
+  // ?novoPetTutor=<id> (vem de "Adicionar Pet" no perfil do cliente) — o
+  // tutor já está na lista `clientes` carregada acima, não precisa de
+  // outra consulta.
+  const clienteFixoInicial = params.novoPetTutor
+    ? clientes.find(c => c.id_cliente === params.novoPetTutor) ?? null
+    : null
+
   return (
     <>
       <div className="page-header">
@@ -164,6 +172,7 @@ export default async function PetsLojistaPage({ searchParams }: Props) {
         filtroPorte={porte}
         clientes={clientes}
         petParaEditarInicial={petParaEditarInicial}
+        clienteFixoInicial={clienteFixoInicial}
       />
     </>
   )

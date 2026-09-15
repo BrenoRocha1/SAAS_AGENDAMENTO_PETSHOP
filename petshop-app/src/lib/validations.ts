@@ -32,6 +32,14 @@ export const cadastroClienteSchema = z.object({
   path: ['confirmaSenha'],
 })
 
+// Edição de cliente PELO LOJISTA (fn_editar_cliente_lojista, migration
+// 019) — deliberadamente só nome/telefone. E-mail é o login do cliente
+// (auth.users) e CPF é documento — nenhum dos dois é editado por aqui.
+export const editarClienteLojistaSchema = z.object({
+  nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(120),
+  telefone: z.string().regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
+})
+
 export const cadastroLojistSchema = z.object({
   nome_loja: z.string().min(2).max(150),
   email: z.string().email('E-mail inválido'),

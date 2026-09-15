@@ -30,20 +30,24 @@ export interface PetParaEditar {
 interface Props {
   pet: PetParaEditar | null // null = cadastro novo; preenchido = edição
   clientes: ClienteBasico[]
+  // Vem do perfil do cliente ("Adicionar Pet") — tutor já sai fixado e
+  // travado, sem precisar buscar de novo quem já está na tela de origem.
+  clienteFixo?: ClienteBasico | null
   onClose: () => void
   onSaved: () => void
 }
 
-export default function PetFormModal({ pet, clientes, onClose, onSaved }: Props) {
+export default function PetFormModal({ pet, clientes, clienteFixo, onClose, onSaved }: Props) {
   const isEdicao = !!pet
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [buscaCliente, setBuscaCliente] = useState('')
-  const [clienteId, setClienteId] = useState(pet?.id_cliente ?? '')
-  // Editando, o tutor atual já vem selecionado — mostra ele "fechado"
-  // (um resumo, não a lista inteira) até o usuário decidir trocar.
-  // Cadastrando, não tem tutor ainda, então já abre a busca.
-  const [trocandoTutor, setTrocandoTutor] = useState(!pet)
+  const [clienteId, setClienteId] = useState(pet?.id_cliente ?? clienteFixo?.id_cliente ?? '')
+  // Editando OU vindo com tutor fixo, o tutor já vem selecionado — mostra
+  // ele "fechado" (resumo, não a lista inteira). Editando ainda dá pra
+  // trocar; com tutor fixo (veio do perfil do cliente) não tem nem opção
+  // de trocar, já que a intenção é clara: "adicionar pet DESTE cliente".
+  const [trocandoTutor, setTrocandoTutor] = useState(!pet && !clienteFixo)
 
   const clienteSel = clientes.find(c => c.id_cliente === clienteId)
   const clientesFiltrados = buscaCliente.trim()
@@ -106,13 +110,13 @@ export default function PetFormModal({ pet, clientes, onClose, onSaved }: Props)
                 <button
                   type="button"
                   className="picker-item is-selected"
-                  onClick={() => setTrocandoTutor(true)}
-                  style={{ width: '100%' }}
-                  disabled={isPending}
+                  onClick={clienteFixo ? undefined : () => setTrocandoTutor(true)}
+                  style={{ width: '100%', cursor: clienteFixo ? 'default' : 'pointer' }}
+                  disabled={isPending || !!clienteFixo}
                 >
                   <div className="picker-item-main">
                     <div className="picker-item-title">{clienteSel.nome}</div>
-                    <div className="picker-item-sub">{clienteSel.telefone} · toque para trocar</div>
+                    <div className="picker-item-sub">{clienteSel.telefone}{clienteFixo ? '' : ' · toque para trocar'}</div>
                   </div>
                   <IconCheck className="picker-check" />
                 </button>

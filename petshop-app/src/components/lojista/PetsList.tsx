@@ -32,6 +32,9 @@ interface Props {
   filtroPorte: string
   clientes: ClienteBasico[]
   petParaEditarInicial: PetParaEditar | null
+  // ?novoPetTutor=<id> (vem de "Adicionar Pet" no perfil do cliente) —
+  // abre o cadastro já com o tutor fixado, sem precisar buscar de novo.
+  clienteFixoInicial?: ClienteBasico | null
 }
 
 export default function PetsList({
@@ -44,13 +47,15 @@ export default function PetsList({
   filtroPorte,
   clientes,
   petParaEditarInicial,
+  clienteFixoInicial,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
   const [buscaInput, setBuscaInput] = useState(busca)
-  const [showModal, setShowModal] = useState(!!petParaEditarInicial)
+  const [showModal, setShowModal] = useState(!!petParaEditarInicial || !!clienteFixoInicial)
   const [petEditando, setPetEditando] = useState<PetParaEditar | null>(petParaEditarInicial)
+  const [clienteFixo, setClienteFixo] = useState<ClienteBasico | null>(clienteFixoInicial ?? null)
 
   function navegar(overrides: Record<string, string | undefined>) {
     const params: Record<string, string | undefined> = {
@@ -81,24 +86,29 @@ export default function PetsList({
 
   function abrirNovo() {
     setPetEditando(null)
+    setClienteFixo(null)
     setShowModal(true)
   }
 
   function abrirEdicao(pet: PetLinha) {
     setPetEditando(pet)
+    setClienteFixo(null)
     setShowModal(true)
   }
 
   function fecharModal() {
     setShowModal(false)
     setPetEditando(null)
-    // Se veio de ?editar=, some com o parâmetro da URL ao fechar sem salvar.
-    if (petParaEditarInicial) navegar({})
+    setClienteFixo(null)
+    // Se veio de ?editar= ou ?novoPetTutor=, some com o parâmetro da URL
+    // ao fechar sem salvar (senão reabriria o modal a cada refresh).
+    if (petParaEditarInicial || clienteFixoInicial) navegar({})
   }
 
   function handleSalvo() {
     setShowModal(false)
     setPetEditando(null)
+    setClienteFixo(null)
     router.refresh()
   }
 
@@ -214,7 +224,7 @@ export default function PetsList({
       )}
 
       {showModal && (
-        <PetFormModal pet={petEditando} clientes={clientes} onClose={fecharModal} onSaved={handleSalvo} />
+        <PetFormModal pet={petEditando} clientes={clientes} clienteFixo={clienteFixo} onClose={fecharModal} onSaved={handleSalvo} />
       )}
     </div>
   )

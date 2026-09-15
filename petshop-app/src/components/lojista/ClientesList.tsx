@@ -1,70 +1,106 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
-import { cadastrarClienteLojistaAction } from '@/lib/actions'
+import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { formatarTelefone } from '@/lib/format'
-import { IconAlert, IconCheck, IconClose, IconPlus, IconUsers } from '@/components/icons'
+import ClienteFormModal, { type ClienteParaEditar } from './ClienteFormModal'
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconEye,
+  IconPencil,
+  IconPlus,
+  IconSearch,
+  IconUsers,
+} from '@/components/icons'
 
 export interface ClienteLinha {
   id_cliente: string
   nome: string
   telefone: string
   email: string
-  pets: string[]
-  totalAgendamentos: number
+  qtdPets: number
+  petsResumo: string[]
+  qtdAgendamentos: number
 }
 
 interface Props {
   clientes: ClienteLinha[]
+  total: number
+  pagina: number
+  pageSize: number
+  busca: string
+  clienteParaEditarInicial: ClienteParaEditar | null
 }
 
-export default function ClientesList({ clientes }: Props) {
-  const [showModal, setShowModal] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+export default function ClientesList({ clientes, total, pagina, pageSize, busca, clienteParaEditarInicial }: Props) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const formRef = useRef<HTMLFormElement>(null)
 
-  function openNew() {
-    setError(null)
-    setSuccess(null)
+  const [buscaInput, setBuscaInput] = useState(busca)
+  const [showModal, setShowModal] = useState(!!clienteParaEditarInicial)
+  const [clienteEditando, setClienteEditando] = useState<ClienteParaEditar | null>(clienteParaEditarInicial)
+
+  function navegar(overrides: Record<string, string | undefined>) {
+    const params: Record<string, string | undefined> = {
+      busca: busca || undefined,
+      pagina: pagina !== 1 ? String(pagina) : undefined,
+      ...overrides,
+    }
+    const qs = new URLSearchParams()
+    for (const [k, v] of Object.entries(params)) {
+      if (v) qs.set(k, v)
+    }
+    const query = qs.toString()
+    startTransition(() => router.push(`/lojista/clientes${query ? `?${query}` : ''}`))
+  }
+
+  // Busca com debounce — mesma ideia da tela de Pets: cada letra digitada
+  // não dispara uma navegação, só depois de meio segundo parado.
+  useEffect(() => {
+    if (buscaInput === busca) return
+    const t = setTimeout(() => navegar({ busca: buscaInput || undefined, pagina: undefined }), 500)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buscaInput])
+
+  function abrirNovo() {
+    setClienteEditando(null)
     setShowModal(true)
   }
 
-  function closeModal() {
+  function abrirEdicao(cliente: ClienteParaEditar) {
+    setClienteEditando(cliente)
+    setShowModal(true)
+  }
+
+  function fecharModal() {
     setShowModal(false)
-    setError(null)
+    setClienteEditando(null)
+    if (clienteParaEditarInicial) navegar({})
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    const form = e.currentTarget
-
-    startTransition(async () => {
-      const result = await cadastrarClienteLojistaAction(new FormData(form))
-      if (result?.error) {
-        setError(result.error)
-      } else {
-        setSuccess('Cliente cadastrado com sucesso! Ele já pode fazer login.')
-        closeModal()
-        formRef.current?.reset()
-        setTimeout(() => setSuccess(null), 4000)
-      }
-    })
+  function handleSalvo() {
+    setShowModal(false)
+    setClienteEditando(null)
+    router.refresh()
   }
+
+  const totalPaginas = Math.max(1, Math.ceil(total / pageSize))
 
   return (
-    <>
-      {success && (
-        <div className="alert alert-success" style={{ marginBottom: 'var(--space-4)' }}>
-          <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-          <span>{success}</span>
+    <div style={{ opacity: isPending ? 0.6 : 1, transition: 'opacity 150ms' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
+        <div className="dash-search" style={{ maxWidth: 360 }}>
+          <IconSearch />
+          <input
+            placeholder="Buscar por nome, telefone ou e-mail..."
+            value={buscaInput}
+            onChange={e => setBuscaInput(e.target.value)}
+          />
         </div>
-      )}
-
-      <div style={{ marginBottom: 'var(--space-6)' }}>
-        <button onClick={openNew} className="btn btn-primary" id="btn-novo-cliente">
+        <button onClick={abrirNovo} className="btn btn-primary" id="btn-novo-cliente">
           <IconPlus style={{ width: 16, height: 16 }} /> Novo Cliente
         </button>
       </div>
@@ -72,216 +108,117 @@ export default function ClientesList({ clientes }: Props) {
       {clientes.length === 0 ? (
         <div className="empty-state card">
           <IconUsers style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
-          <div className="empty-state-title">Nenhum cliente ainda</div>
-          <p style={{ marginBottom: 'var(--space-5)' }}>
-            Cadastre um cliente ou espere o primeiro agendamento
-          </p>
-          <button onClick={openNew} className="btn btn-primary">
-            Cadastrar primeiro cliente
-          </button>
+          <div className="empty-state-title">
+            {busca ? 'Nenhum cliente encontrado para essa busca.' : 'Nenhum cliente ainda'}
+          </div>
+          {!busca && (
+            <>
+              <p style={{ marginBottom: 'var(--space-5)' }}>
+                Cadastre um cliente ou espere o primeiro agendamento
+              </p>
+              <button onClick={abrirNovo} className="btn btn-primary">
+                Cadastrar primeiro cliente
+              </button>
+            </>
+          )}
         </div>
       ) : (
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Contato</th>
-                <th>Pets</th>
-                <th>Agendamentos</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clientes.map(c => (
-                <tr key={c.id_cliente}>
-                  <td>
-                    <div className="flex items-center gap-3">
-                      <div
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: '50%',
-                          background: 'var(--primary-600)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 700,
-                          fontSize: '0.875rem',
-                          color: 'white',
-                          flexShrink: 0,
-                        }}
-                      >
-                        {c.nome?.[0]?.toUpperCase()}
-                      </div>
-                      <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{c.nome}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div>{formatarTelefone(c.telefone)}</div>
-                    <div className="text-sm text-muted">{c.email}</div>
-                  </td>
-                  <td>
-                    {c.pets.length === 0 ? (
-                      <span className="text-sm text-muted">Sem pet cadastrado</span>
-                    ) : (
-                      <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
-                        {c.pets.map(p => (
-                          <span key={p} className="badge badge-ativo" style={{ fontSize: '0.7rem' }}>{p}</span>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <span className="font-semibold" style={{ color: 'var(--primary-400)' }}>
-                      {c.totalAgendamentos}
-                    </span>
-                  </td>
+        <>
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Contato</th>
+                  <th>Pets</th>
+                  <th>Agendamentos</th>
+                  <th>Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {clientes.map(c => (
+                  <tr key={c.id_cliente}>
+                    <td>
+                      <Link href={`/lojista/clientes/${c.id_cliente}`} className="flex items-center gap-3" style={{ textDecoration: 'none' }}>
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: '50%',
+                            background: 'var(--primary-600)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 700,
+                            fontSize: '0.875rem',
+                            color: 'white',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {c.nome?.[0]?.toUpperCase()}
+                        </div>
+                        <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{c.nome}</span>
+                      </Link>
+                    </td>
+                    <td>
+                      <div>{formatarTelefone(c.telefone)}</div>
+                      <div className="text-sm text-muted">{c.email}</div>
+                    </td>
+                    <td>
+                      {c.qtdPets === 0 ? (
+                        <span className="text-sm text-muted">Sem pet cadastrado</span>
+                      ) : (
+                        <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
+                          {c.petsResumo.map(p => (
+                            <span key={p} className="badge badge-ativo" style={{ fontSize: '0.7rem' }}>{p}</span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <span className="font-semibold" style={{ color: 'var(--primary-400)' }}>
+                        {c.qtdAgendamentos}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        <Link href={`/lojista/clientes/${c.id_cliente}`} className="btn btn-ghost btn-sm" title="Ver perfil">
+                          <IconEye style={{ width: 14, height: 14 }} />
+                        </Link>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          title="Editar"
+                          onClick={() => abrirEdicao({ id_cliente: c.id_cliente, nome: c.nome, telefone: c.telefone })}
+                        >
+                          <IconPencil style={{ width: 14, height: 14 }} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+            <span className="text-sm text-muted">
+              {total} cliente{total !== 1 ? 's' : ''} · página {pagina} de {totalPaginas}
+            </span>
+            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => navegar({ pagina: pagina - 1 > 1 ? String(pagina - 1) : undefined })} disabled={pagina <= 1 || isPending}>
+                <IconChevronLeft style={{ width: 14, height: 14 }} /> Anterior
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => navegar({ pagina: String(pagina + 1) })} disabled={pagina >= totalPaginas || isPending}>
+                Próxima <IconChevronRight style={{ width: 14, height: 14 }} />
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {showModal && (
-        <div
-          className="modal-overlay"
-          onClick={(e) => { if (e.target === e.currentTarget) closeModal() }}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.7)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 'var(--space-4)',
-          }}
-        >
-          <div
-            className="card animate-slide-up"
-            style={{ width: '100%', maxWidth: 520, maxHeight: '90vh', overflow: 'auto' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-6)' }}>
-              <h2 style={{
-                fontSize: '1.25rem',
-                fontWeight: 700,
-                color: 'var(--gray-100)',
-                fontFamily: 'var(--font-heading)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-2)',
-              }}>
-                <IconUsers style={{ width: 18, height: 18 }} />
-                Novo Cliente
-              </h2>
-              <button onClick={closeModal} className="btn btn-ghost btn-sm" aria-label="Fechar">
-                <IconClose style={{ width: 15, height: 15 }} />
-              </button>
-            </div>
-
-            {error && (
-              <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
-                <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <form ref={formRef} onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label htmlFor="cli-nome" className="form-label form-label-required">Nome completo</label>
-                <input
-                  id="cli-nome"
-                  name="nome"
-                  type="text"
-                  className="form-input"
-                  placeholder="Maria Silva"
-                  required
-                />
-              </div>
-
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label htmlFor="cli-cpf" className="form-label form-label-required">CPF</label>
-                  <input
-                    id="cli-cpf"
-                    name="cpf"
-                    type="text"
-                    className="form-input"
-                    placeholder="000.000.000-00"
-                    maxLength={14}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="cli-telefone" className="form-label form-label-required">Telefone</label>
-                  <input
-                    id="cli-telefone"
-                    name="telefone"
-                    type="tel"
-                    className="form-input"
-                    placeholder="(11) 99999-9999"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="cli-email" className="form-label form-label-required">E-mail (será usado para login)</label>
-                <input
-                  id="cli-email"
-                  name="email"
-                  type="email"
-                  className="form-input"
-                  placeholder="cliente@email.com"
-                  required
-                />
-              </div>
-
-              <div className="separator" />
-
-              <div className="form-group">
-                <label htmlFor="cli-senha" className="form-label form-label-required">Senha de acesso</label>
-                <input
-                  id="cli-senha"
-                  name="senha"
-                  type="password"
-                  className="form-input"
-                  placeholder="Mín. 8 chars, 1 maiúscula, 1 número, 1 especial"
-                  required
-                />
-                <span className="form-hint">O cliente usará este e-mail e senha para acessar o sistema</span>
-              </div>
-              <div className="form-group">
-                <label htmlFor="cli-confirmaSenha" className="form-label form-label-required">Confirmar senha</label>
-                <input
-                  id="cli-confirmaSenha"
-                  name="confirmaSenha"
-                  type="password"
-                  className="form-input"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end', marginTop: 'var(--space-2)' }}>
-                <button type="button" onClick={closeModal} className="btn btn-ghost">
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
-                  disabled={isPending}
-                  id="btn-salvar-cliente"
-                >
-                  {isPending ? 'Cadastrando...' : 'Cadastrar Cliente'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <ClienteFormModal cliente={clienteEditando} onClose={fecharModal} onSaved={handleSalvo} />
       )}
-    </>
+    </div>
   )
 }
