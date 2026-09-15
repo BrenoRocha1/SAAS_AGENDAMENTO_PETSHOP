@@ -348,3 +348,12 @@ export function IconEye(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export function IconWhatsapp(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4.5 20 5.7 16A7.8 7.8 0 1 1 8.9 19l-4.4 1Z" />
+      <path d="M9 9.3c0 3.3 2.7 6 6 6 .5 0 .9-.5.7-1l-.5-1.1a.9.9 0 0 0-1-.5l-.8.2a5 5 0 0 1-2.7-2.7l.2-.8a.9.9 0 0 0-.5-1L9.3 8c-.5-.2-1 .2-1 .7Z" />
+    </svg>
+  )
+}

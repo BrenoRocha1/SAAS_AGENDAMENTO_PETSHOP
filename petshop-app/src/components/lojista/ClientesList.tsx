@@ -2,13 +2,11 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { formatarTelefone } from '@/lib/format'
 import ClienteFormModal, { type ClienteParaEditar } from './ClienteFormModal'
 import {
   IconChevronLeft,
   IconChevronRight,
-  IconEye,
   IconPencil,
   IconPlus,
   IconSearch,
@@ -137,9 +135,13 @@ export default function ClientesList({ clientes, total, pagina, pageSize, busca,
               </thead>
               <tbody>
                 {clientes.map(c => (
-                  <tr key={c.id_cliente}>
+                  <tr
+                    key={c.id_cliente}
+                    onClick={() => router.push(`/lojista/clientes/${c.id_cliente}`)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <td>
-                      <Link href={`/lojista/clientes/${c.id_cliente}`} className="flex items-center gap-3" style={{ textDecoration: 'none' }}>
+                      <div className="flex items-center gap-3">
                         <div
                           style={{
                             width: 36,
@@ -158,7 +160,7 @@ export default function ClientesList({ clientes, total, pagina, pageSize, busca,
                           {c.nome?.[0]?.toUpperCase()}
                         </div>
                         <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{c.nome}</span>
-                      </Link>
+                      </div>
                     </td>
                     <td>
                       <div>{formatarTelefone(c.telefone)}</div>
@@ -181,18 +183,16 @@ export default function ClientesList({ clientes, total, pagina, pageSize, busca,
                       </span>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                        <Link href={`/lojista/clientes/${c.id_cliente}`} className="btn btn-ghost btn-sm" title="Ver perfil">
-                          <IconEye style={{ width: 14, height: 14 }} />
-                        </Link>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          title="Editar"
-                          onClick={() => abrirEdicao({ id_cliente: c.id_cliente, nome: c.nome, telefone: c.telefone })}
-                        >
-                          <IconPencil style={{ width: 14, height: 14 }} />
-                        </button>
-                      </div>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        title="Editar"
+                        onClick={e => {
+                          e.stopPropagation()
+                          abrirEdicao({ id_cliente: c.id_cliente, nome: c.nome, telefone: c.telefone })
+                        }}
+                      >
+                        <IconPencil style={{ width: 14, height: 14 }} />
+                      </button>
                     </td>
                   </tr>
                 ))}

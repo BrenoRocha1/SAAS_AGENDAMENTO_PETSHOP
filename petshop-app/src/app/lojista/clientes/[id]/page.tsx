@@ -14,6 +14,7 @@ import {
   IconPlus,
   IconScissors,
   IconUsers,
+  IconWhatsapp,
 } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'Perfil do Cliente — Lojista' }
@@ -194,8 +195,9 @@ export default async function PerfilClientePage({ params }: Props) {
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn-secondary btn-sm"
+            title="Chamar no WhatsApp"
           >
-            WhatsApp
+            <IconWhatsapp style={{ width: 14, height: 14 }} /> WhatsApp
           </a>
           <Link href={`/lojista/pets?novoPetTutor=${cliente.id_cliente}`} className="btn btn-secondary btn-sm">
             <IconPlus style={{ width: 14, height: 14 }} /> Adicionar Pet
