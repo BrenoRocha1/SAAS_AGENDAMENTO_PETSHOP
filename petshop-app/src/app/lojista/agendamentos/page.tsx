@@ -8,7 +8,7 @@ import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/Dashboar
 export const metadata: Metadata = { title: 'Agendamentos' }
 
 interface Props {
-  searchParams: Promise<{ semana?: string; novoAgendamentoTutor?: string }>
+  searchParams: Promise<{ semana?: string; novoAgendamentoTutor?: string; novoAgendamentoProfissional?: string }>
 }
 
 export default async function AgendamentosLojistaPage({ searchParams }: Props) {
@@ -129,6 +129,14 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     ? clientesComPets.find(c => c.id_cliente === params.novoAgendamentoTutor) ?? null
     : null
 
+  // ?novoAgendamentoProfissional=<id> (vem de "Novo Agendamento" no
+  // perfil do funcionário) — confere que é mesmo um funcionário desta
+  // loja antes de repassar como valor padrão do select.
+  const funcionarioIdPadraoInicial = params.novoAgendamentoProfissional
+    && funcionarios.some(f => f.id_funcionario === params.novoAgendamentoProfissional)
+    ? params.novoAgendamentoProfissional
+    : null
+
   return (
     <AgendaCalendar
       lojistaId={lojistaId}
@@ -138,6 +146,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
       clientesComPets={clientesComPets}
       servicos={servicos}
       clienteFixoInicial={clienteFixoInicial}
+      funcionarioIdPadraoInicial={funcionarioIdPadraoInicial}
     />
   )
 }

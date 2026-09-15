@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   cadastrarFuncionarioAction,
   editarFuncionarioAction,
@@ -456,24 +457,26 @@ function FuncCard({
     .join('')
     .toUpperCase()
 
+  const router = useRouter()
+
   return (
     <div
       className="card"
+      onClick={() => router.push(`/lojista/funcionarios/${func.id_funcionario}`)}
       style={{
         display: 'flex',
         alignItems: 'center',
         gap: 'var(--space-4)',
         padding: 'var(--space-4)',
         opacity: func.ativo ? 1 : 0.6,
+        cursor: 'pointer',
       }}
     >
       <div style={{
         width: 48,
         height: 48,
         borderRadius: '50%',
-        background: func.ativo
-          ? 'linear-gradient(135deg, var(--primary-500), var(--primary-600))'
-          : 'var(--gray-700)',
+        background: func.ativo ? 'var(--primary-600)' : 'var(--gray-700)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -538,14 +541,14 @@ function FuncCard({
 
       <div style={{ display: 'flex', gap: 'var(--space-2)', flexShrink: 0 }}>
         <button
-          onClick={() => onEdit(func)}
+          onClick={e => { e.stopPropagation(); onEdit(func) }}
           className="btn btn-ghost btn-sm"
           title="Editar"
         >
           <IconPencil style={{ width: 14, height: 14 }} />
         </button>
         <button
-          onClick={() => onToggle(func.id_funcionario, !func.ativo)}
+          onClick={e => { e.stopPropagation(); onToggle(func.id_funcionario, !func.ativo) }}
           className={`btn btn-sm ${func.ativo ? 'btn-ghost' : 'btn-secondary'}`}
           disabled={isPending}
           title={func.ativo ? 'Desativar' : 'Reativar'}

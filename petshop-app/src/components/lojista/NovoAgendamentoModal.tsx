@@ -43,11 +43,15 @@ interface Props {
   // selecionado e travado, sem precisar buscar de novo quem já está na
   // tela de origem.
   clienteIdFixo?: string
+  // Vem do perfil do funcionário ("Novo Agendamento") — só um valor
+  // inicial pro select de profissional (esse campo já era opcional e
+  // continua editável, diferente do cliente, que vem travado).
+  funcionarioIdPadrao?: string
   onClose: () => void
   onCreated: (item: NovoAgendamentoCriado, dataISO: string) => void
 }
 
-export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes, servicos, funcionarios, clienteIdFixo, onClose, onCreated }: Props) {
+export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes, servicos, funcionarios, clienteIdFixo, funcionarioIdPadrao, onClose, onCreated }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [isPending, startTransition] = useTransition()
   const [isPendingPet, startPetTransition] = useTransition()
@@ -63,7 +67,7 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
   // depois de criar (reaproveita atribuirFuncionarioAction, a mesma usada
   // na Agenda/Kanban); se não escolhido, o agendamento nasce sem
   // profissional, igual já acontecia antes desta opção existir.
-  const [funcionarioId, setFuncionarioId] = useState('')
+  const [funcionarioId, setFuncionarioId] = useState(funcionarioIdPadrao ?? '')
 
   const [slots, setSlots] = useState<Slot[]>([])
   const [slotsLoadedKey, setSlotsLoadedKey] = useState<string | null>(null)

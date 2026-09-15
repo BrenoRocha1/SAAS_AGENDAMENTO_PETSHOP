@@ -61,6 +61,10 @@ interface Props {
   // ?novoAgendamentoTutor=<id> (vem de "Novo agendamento" no perfil do
   // cliente) — abre o modal já com esse cliente fixado.
   clienteFixoInicial?: { id_cliente: string; nome: string; telefone: string } | null
+  // ?novoAgendamentoProfissional=<id> (vem de "Novo Agendamento" no
+  // perfil do funcionário) — abre o modal com esse profissional já
+  // pré-selecionado (não travado, o campo já era opcional).
+  funcionarioIdPadraoInicial?: string | null
 }
 
 const CORES = ['#0d9488', '#2563eb', '#7c3aed', '#db2777', '#d97706', '#16a34a', '#0891b2']
@@ -153,6 +157,7 @@ export default function AgendaCalendar({
   clientesComPets,
   servicos,
   clienteFixoInicial,
+  funcionarioIdPadraoInicial,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -168,7 +173,7 @@ export default function AgendaCalendar({
     () => new Set([...funcionarios.map(f => f.id_funcionario), SEM_PROFISSIONAL])
   )
   const [selecionado, setSelecionado] = useState<AgendamentoCalendario | null>(null)
-  const [modalAberto, setModalAberto] = useState(!!clienteFixoInicial)
+  const [modalAberto, setModalAberto] = useState(!!clienteFixoInicial || !!funcionarioIdPadraoInicial)
   const [acaoErro, setAcaoErro] = useState<string | null>(null)
 
   function irParaSemana(dataRef: Date) {
@@ -452,11 +457,13 @@ export default function AgendaCalendar({
           servicos={servicos}
           funcionarios={funcionarios}
           clienteIdFixo={clienteFixoInicial?.id_cliente}
+          funcionarioIdPadrao={funcionarioIdPadraoInicial ?? undefined}
           onClose={() => {
             setModalAberto(false)
-            // Veio de ?novoAgendamentoTutor= — some com o parâmetro ao
-            // fechar sem criar, preservando a semana em exibição.
-            if (clienteFixoInicial) router.push(`/lojista/agendamentos?semana=${inicioSemana}`)
+            // Veio de ?novoAgendamentoTutor= ou ?novoAgendamentoProfissional=
+            // — some com o parâmetro ao fechar sem criar, preservando a
+            // semana em exibição.
+            if (clienteFixoInicial || funcionarioIdPadraoInicial) router.push(`/lojista/agendamentos?semana=${inicioSemana}`)
           }}
           onCreated={() => router.refresh()}
         />
