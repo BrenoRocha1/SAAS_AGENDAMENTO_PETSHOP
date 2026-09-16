@@ -3,7 +3,10 @@
    Paleta: Dark mode elegante com acentos em roxo/âmbar
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+/* Fontes (Inter / Plus Jakarta Sans) carregadas via <link> no <head> do
+   layout raiz (src/app/layout.tsx), não por @import aqui — o Turbopack não
+   estava baixando esse @import externo, deixando tudo cair na fonte
+   genérica do sistema em vez de Inter/Plus Jakarta Sans. */
 
 /* ============================================================
    TOKENS DE DESIGN

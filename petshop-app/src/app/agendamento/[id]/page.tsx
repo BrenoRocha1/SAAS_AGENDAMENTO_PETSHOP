@@ -13,7 +13,12 @@ interface Props {
 
 function AvisoShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="agenonline-shell" style={{ display: 'flex', alignItems: 'center', minHeight: '100vh' }}>
+    // lojista-shell aqui não é sobre permissão nenhuma — é só a mesma
+    // paleta clara (creme + teal) já usada na área do lojista e no login,
+    // reaproveitada via a técnica de retematização por CSS custom
+    // properties (ver globals.css). Sem isso a página cai no dark mode
+    // roxo padrão do resto do app cliente/login, que não é o pedido aqui.
+    <div className="agenonline-shell lojista-shell" style={{ display: 'flex', alignItems: 'center', minHeight: '100vh' }}>
       <div className="card" style={{ width: '100%', textAlign: 'center' }}>
         {children}
       </div>
@@ -114,7 +119,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   }
 
   return (
-    <div className="agenonline-shell">
+    <div className="agenonline-shell lojista-shell">
       <AgendamentoOnlineWizard
         lojista={{
           id: lojista.id_lojista,
