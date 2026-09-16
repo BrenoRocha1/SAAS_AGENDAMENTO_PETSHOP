@@ -198,9 +198,7 @@ export default function ServicosList({ servicos: inicial }: Props) {
                       >
                         <span className="switch-thumb" />
                       </button>
-                      <span className={`badge badge-${s.status === 'Ativo' ? 'ativo' : 'inativo'}`}>
-                        {alternandoId === s.id_servico ? 'Salvando...' : s.status}
-                      </span>
+                      {alternandoId === s.id_servico && <span className="text-xs text-muted">Salvando...</span>}
                     </div>
                   </td>
                   <td>

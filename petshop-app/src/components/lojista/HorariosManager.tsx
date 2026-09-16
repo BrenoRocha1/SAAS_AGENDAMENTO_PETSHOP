@@ -169,11 +169,15 @@ export default function HorariosManager({ horarios: inicial }: Props) {
                 <div className="flex gap-2">
                   {h && (
                     <button
-                      className={`btn btn-sm ${h.ativo ? 'btn-danger' : 'btn-success'}`}
+                      type="button"
+                      className={`switch ${h.ativo ? 'switch-on' : ''}`}
                       onClick={() => handleToggle(h.id_horario, !h.ativo)}
                       disabled={isPending}
+                      role="switch"
+                      aria-checked={h.ativo}
+                      title={h.ativo ? 'Desativar' : 'Ativar'}
                     >
-                      {h.ativo ? 'Desativar' : 'Ativar'}
+                      <span className="switch-thumb" />
                     </button>
                   )}
                   <button

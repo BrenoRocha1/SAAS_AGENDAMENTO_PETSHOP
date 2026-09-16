@@ -56,12 +56,15 @@ export default function ConfigToggleCard({ icone, titulo, descricao, descricaoQu
         </div>
         <button
           type="button"
-          className={`btn btn-sm ${ativo ? 'btn-success' : 'btn-secondary'}`}
+          className={`switch ${ativo ? 'switch-on' : ''}`}
           onClick={handleToggle}
           disabled={isPending}
+          role="switch"
+          aria-checked={ativo}
+          title={ativo ? 'Desativar' : 'Ativar'}
           style={{ flexShrink: 0 }}
         >
-          {isPending ? 'Salvando...' : ativo ? 'Ativado' : 'Desativado'}
+          <span className="switch-thumb" />
         </button>
       </div>
     </div>
