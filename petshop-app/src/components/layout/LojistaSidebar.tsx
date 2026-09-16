@@ -16,6 +16,7 @@ import {
   IconUsers,
   IconUserBadge,
   IconStore,
+  IconSettings,
   IconLogout,
   IconChevronLeft,
   IconChevronRight,
@@ -32,6 +33,7 @@ const navItemsBase = [
   { href: '/lojista/pets',          icon: IconDog,       label: 'Pets' },
   { href: '/lojista/funcionarios',  icon: IconUserBadge, label: 'Funcionários' },
   { href: '/lojista/perfil',        icon: IconStore,     label: 'Perfil da Loja' },
+  { href: '/lojista/configuracoes', icon: IconSettings,  label: 'Configurações' },
 ]
 
 const CHAVE_COLAPSADA = 'petagenda:lojista-sidebar-colapsada'

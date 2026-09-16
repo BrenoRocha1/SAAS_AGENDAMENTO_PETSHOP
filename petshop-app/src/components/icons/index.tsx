@@ -357,3 +357,12 @@ export function IconWhatsapp(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export function IconSettings(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 2.5v3M12 18.5v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2.5 12h3M18.5 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1" />
+    </svg>
+  )
+}

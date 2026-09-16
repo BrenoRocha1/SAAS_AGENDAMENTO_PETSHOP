@@ -745,11 +745,13 @@ export async function criarAgendamentoAction(formData: FormData) {
   })
 
   if (error) {
-    return {
-      error: error.message.includes('Horário não disponível')
-        ? 'Horário não disponível. Escolha outro horário.'
-        : 'Erro ao criar agendamento. Tente novamente.'
+    if (error.message.includes('Horário não disponível')) {
+      return { error: 'Horário não disponível. Escolha outro horário.' }
     }
+    if (error.message.includes('não está aceitando agendamentos online')) {
+      return { error: 'Este petshop não está aceitando agendamentos online no momento. Entre em contato diretamente com a loja.' }
+    }
+    return { error: 'Erro ao criar agendamento. Tente novamente.' }
   }
 
   revalidatePath('/cliente/agendamentos')
@@ -950,6 +952,35 @@ export async function alternarKanbanAction(ativo: boolean) {
 
   revalidatePath('/lojista/perfil')
   revalidatePath('/lojista', 'layout')
+  return { success: true }
+}
+
+// Liga/desliga o agendamento online (migration 020) — mesmo padrão de
+// alternarKanbanAction, só troca a coluna. Não mexe em nada da RPC de
+// agendamento do lojista (walk-in continua funcionando sempre); só
+// fn_criar_agendamento (a do cliente) passa a checar essa coluna.
+export async function alternarAgendamentoOnlineAction(ativo: boolean) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const { error } = await supabase
+    .from('lojista')
+    .update({ aceita_agendamento_online: ativo })
+    .eq('id_lojista', user.id)
+
+  if (error) {
+    if (error.code === '42703' || error.message?.includes('aceita_agendamento_online')) {
+      return { error: 'Coluna aceita_agendamento_online não encontrada no banco. Execute a migration 020_configuracoes_loja.sql.' }
+    }
+    return { error: 'Erro ao atualizar configuração de agendamento online.' }
+  }
+
+  revalidatePath('/lojista/configuracoes/agendamentos')
+  revalidatePath('/lojista/configuracoes')
+  revalidatePath('/cliente/novo-agendamento')
   return { success: true }
 }
 

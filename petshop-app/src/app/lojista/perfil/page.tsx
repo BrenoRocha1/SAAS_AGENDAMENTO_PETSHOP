@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
+import Link from 'next/link'
 import PerfilLojistaForm from '@/components/lojista/PerfilLojistaForm'
+import { IconSettings } from '@/components/icons'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Perfil da Loja' }
@@ -20,6 +22,12 @@ export default async function PerfilLojistaPage() {
         <h1 className="page-title">Perfil da Loja</h1>
         <p className="page-subtitle">Atualize as informações do seu estabelecimento</p>
       </div>
+      <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
+        Procurando o Kanban ou o agendamento online? Isso agora fica em{' '}
+        <Link href="/lojista/configuracoes" style={{ color: 'var(--primary-400)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <IconSettings style={{ width: 13, height: 13 }} /> Configurações
+        </Link>.
+      </p>
       <PerfilLojistaForm lojista={lojista} />
     </>
   )

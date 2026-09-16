@@ -16,10 +16,16 @@ export default async function NovoAgendamentoPage() {
       .eq('id_cliente', user!.id)
       .eq('ativo', true)
       .order('nome'),
+    // Só lojas que aceitam agendamento online (migration 020) — quem
+    // desativou nas Configurações some do seletor. A RPC (fn_criar_
+    // agendamento) confere isso de novo no backend, então mesmo que
+    // alguém force o id_lojista de uma loja fora dessa lista, o agendamento
+    // é recusado — este filtro aqui é só pra não oferecer uma opção morta.
     supabase
       .from('lojista')
       .select('id_lojista, nome_loja, cidade, estado, descricao')
       .eq('ativo', true)
+      .eq('aceita_agendamento_online', true)
       .order('nome_loja'),
   ])
 

@@ -1860,6 +1860,34 @@ a:hover { color: var(--primary-300); }
 }
 
 /* ============================================================
+   CONFIGURAÇÕES — hub de navegação (/lojista/configuracoes)
+   ============================================================ */
+.config-grupo-titulo {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: var(--space-3);
+}
+
+.config-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: inherit;
+  transition: background var(--transition-fast);
+}
+.config-item:hover { background: var(--gray-850); }
+.config-item + .config-item { border-top: 1px solid var(--gray-850); }
+
+.config-item-titulo { font-weight: 600; color: var(--gray-100); }
+.config-item-desc { font-size: 0.8125rem; color: var(--gray-400); margin-top: 2px; }
+
+/* ============================================================
    RESPONSIVO
    ============================================================ */
 @media (max-width: 1024px) {
