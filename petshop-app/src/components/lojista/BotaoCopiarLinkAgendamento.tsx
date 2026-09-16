@@ -1,16 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { IconCheck, IconLink } from '@/components/icons'
+import { IconCheck, IconCopy } from '@/components/icons'
 
 interface Props {
   idLojista: string
   slug: string | null
 }
 
-// Botão compacto (mesmo estilo dos ícones da topbar do dashboard) só pra
-// copiar o link — a edição/personalização do link em si mora em
-// Configurações > Agendamentos (ver LinkAgendamentoOnline.tsx).
+// Reaproveita o mesmo visual de "dash-store-badge" (o badge da loja, ao
+// lado) de propósito: um ícone sozinho (versão anterior) não deixava
+// claro pra quem não é técnico o que o botão fazia. Com texto do lado,
+// fica óbvio — igual todo botão com ação real no resto do dashboard.
 export default function BotaoCopiarLinkAgendamento({ idLojista, slug }: Props) {
   const [copiado, setCopiado] = useState(false)
   const [origem, setOrigem] = useState('')
@@ -34,12 +35,13 @@ export default function BotaoCopiarLinkAgendamento({ idLojista, slug }: Props) {
   return (
     <button
       type="button"
-      className="dash-icon-btn"
+      className="dash-store-badge"
       onClick={copiar}
-      title={copiado ? 'Copiado!' : 'Copiar link de agendamento'}
-      aria-label="Copiar link de agendamento"
+      title="Copiar link de agendamento online"
+      style={{ cursor: 'pointer', border: copiado ? '1px solid var(--success-500)' : undefined }}
     >
-      {copiado ? <IconCheck /> : <IconLink />}
+      {copiado ? <IconCheck style={{ color: 'var(--success-400)' }} /> : <IconCopy />}
+      {copiado ? 'Copiado!' : 'Copiar link'}
     </button>
   )
 }

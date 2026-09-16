@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { criarAgendamentoOnlineAction, atualizarClassificacaoPetAction } from '@/lib/actions'
+import { criarAgendamentoOnlineAction, atualizarClassificacaoPetAction, logoutAction } from '@/lib/actions'
 import { removerHorariosPassados } from '@/lib/agenda'
 import { formatarCpf, formatarTelefone } from '@/lib/format'
 import { format, addDays, startOfDay } from 'date-fns'
@@ -192,6 +192,10 @@ export default function AgendamentoOnlineWizard({
   const voltarParaCa = `/agendamento/${lojista.id}${carrinho.length ? `?servicos=${carrinho.join(',')}` : ''}`
   const loginHref = `/login?redirectTo=${encodeURIComponent(voltarParaCa)}`
 
+  function handleSairEEntrarComOutraConta() {
+    startTransition(() => logoutAction(voltarParaCa))
+  }
+
   function selecionarPet(p: Pet) {
     setPetId(p.id_pet)
     setEspecieForm(p.especie ?? '')
@@ -345,9 +349,18 @@ export default function AgendamentoOnlineWizard({
                 <>
                   <IconAlert style={{ width: 28, height: 28, color: 'var(--warning-400)', margin: '0 auto var(--space-4)' }} />
                   <h3 style={{ marginBottom: 'var(--space-2)' }}>Essa conta não é uma conta de cliente</h3>
-                  <p className="text-sm text-muted">
+                  <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
                     Para agendar em {lojista.nome}, saia e entre com uma conta de cliente.
                   </p>
+                  <button
+                    type="button"
+                    className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
+                    disabled={isPending}
+                    onClick={handleSairEEntrarComOutraConta}
+                    style={{ width: '100%' }}
+                  >
+                    {isPending ? 'Saindo...' : 'Sair e entrar com outra conta'}
+                  </button>
                 </>
               ) : (
                 <>

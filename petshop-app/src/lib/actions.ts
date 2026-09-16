@@ -129,11 +129,16 @@ export async function loginAction(formData: FormData) {
   redirect('/cliente/dashboard')
 }
 
-export async function logoutAction() {
+// redirectTo opcional — usado em /agendamento/[id] quando quem clicou
+// "sair e entrar com outra conta" está logado com o papel errado (ex.:
+// lojista testando o próprio link) e precisa voltar pro mesmo link
+// depois de entrar de novo como cliente. Sem o parâmetro, comportamento
+// de sempre (volta pro /login genérico).
+export async function logoutAction(redirectTo?: string) {
   const supabase = await createClient()
   await supabase.auth.signOut()
   revalidatePath('/', 'layout')
-  redirect('/login')
+  redirect(redirectTo?.startsWith('/agendamento/') ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : '/login')
 }
 
 export async function cadastroClienteAction(formData: FormData) {
