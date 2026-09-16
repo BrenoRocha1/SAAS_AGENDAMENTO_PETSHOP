@@ -48,6 +48,15 @@ export function agoraBrasilHHMM(): string {
   return format(agoraBrasil(), 'HH:mm')
 }
 
+const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'] as const
+
+/** Nome do dia da semana (mesmos valores do enum `dia_semana` do banco) pra uma data, no fuso do petshop. */
+export function diaSemanaBrasil(data: Date = agoraBrasil()): typeof DIAS_SEMANA[number] {
+  // getDay() (local), não getUTCDay() — mesma convenção do resto deste
+  // arquivo (format/etc.), que assume runtime em UTC (ver agoraBrasil()).
+  return DIAS_SEMANA[data.getDay()]
+}
+
 /**
  * Remove da lista os horários que já passaram — só faz diferença quando a
  * data selecionada é hoje (num dia futuro nenhum horário "já passou").

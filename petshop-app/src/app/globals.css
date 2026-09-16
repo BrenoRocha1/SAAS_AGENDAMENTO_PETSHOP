@@ -2314,6 +2314,143 @@ a:hover { color: var(--primary-300); }
   margin-top: 4px;
 }
 
+/* ============================================================
+   AGENDAMENTO ONLINE — link público /agendamento/[id_lojista]
+   Página solo (sem sidebar), largura de app mobile mesmo no desktop.
+   ============================================================ */
+.agenonline-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: var(--space-6) var(--space-4) calc(var(--space-16) + 64px);
+}
+
+.agenonline-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.agenonline-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  background: var(--gray-800);
+  border: 1px solid var(--gray-700);
+  flex-shrink: 0;
+}
+
+.agenonline-logo-fallback {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: var(--gray-800);
+  border: 1px solid var(--gray-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-500);
+  flex-shrink: 0;
+}
+
+.agenonline-loja-nome { font-size: 1.25rem; font-weight: 700; color: var(--gray-100); font-family: var(--font-heading); }
+.agenonline-loja-local { font-size: 0.8125rem; color: var(--gray-500); }
+.agenonline-loja-status { font-size: 0.8125rem; color: var(--success-400); font-weight: 600; }
+
+.agenonline-service-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.agenonline-service-card {
+  position: relative;
+  border: 1px solid var(--gray-700);
+  background: var(--gray-850);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.agenonline-service-card:hover { border-color: var(--primary-500); }
+
+.agenonline-service-card.selected {
+  border-color: var(--primary-500);
+  background: rgba(124,58,237,0.12);
+  box-shadow: var(--shadow-glow-sm);
+}
+
+.agenonline-service-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: var(--primary-500);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.agenonline-service-nome { font-weight: 600; color: var(--gray-100); margin-top: var(--space-2); }
+.agenonline-service-preco { font-size: 0.8125rem; color: var(--gray-500); margin-top: 2px; }
+
+.agenonline-cart-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4);
+  background: linear-gradient(to top, var(--gray-950) 55%, transparent);
+  pointer-events: none;
+}
+
+.agenonline-cart-bar > * { pointer-events: auto; }
+
+.agenonline-day-strip {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: var(--space-1);
+}
+
+.agenonline-day {
+  flex: 0 0 auto;
+  min-width: 60px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-700);
+  background: var(--gray-850);
+  text-align: center;
+  cursor: pointer;
+  color: var(--gray-300);
+  transition: all var(--transition-fast);
+}
+
+.agenonline-day.selected {
+  background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+  border-color: var(--primary-400);
+  color: #fff;
+}
+
+.agenonline-resumo-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--gray-800);
+  font-size: 0.9rem;
+}
+.agenonline-resumo-row:last-child { border-bottom: none; }
+
 @media (max-width: 900px) {
   .login-shell { grid-template-columns: 1fr; }
   .login-aside { display: none; }

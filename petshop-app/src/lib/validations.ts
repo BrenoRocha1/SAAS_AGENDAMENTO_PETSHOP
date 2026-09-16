@@ -82,6 +82,15 @@ export const petSchema = z.object({
   obs: z.string().max(500).optional(),
 })
 
+// Complementar espécie/porte de um pet que já existe, sem mexer no resto
+// do cadastro — usado no link público de agendamento (/agendamento/[id])
+// quando o pet ainda não tem essa informação (precisa dela pra calcular
+// preço por variação, ver fn_calcular_preco_servico).
+export const classificacaoPetSchema = z.object({
+  especie: z.enum(['Cão', 'Gato']),
+  porte: z.enum(['Pequeno', 'Médio', 'Grande']),
+})
+
 // Pet cadastrado pelo LOJISTA em nome de um cliente já vinculado a ele
 // (walk-in que ainda não tem pet cadastrado) — ver fn_criar_pet_lojista
 // (migration 015). Mesmos campos de petSchema, mais o cliente dono do pet.
@@ -135,6 +144,19 @@ export const agendamentoSchema = z.object({
   // com uma data sem hora vira meia-noite em UTC, o que fazia "hoje" ser
   // considerado passado a partir de ~21h de Brasília (Brasil é UTC-3) —
   // ver hojeBrasilISO() em src/lib/agenda.ts.
+  dt_agendamento: z.string().refine(d => d >= hojeBrasilISO(), 'Data de agendamento não pode ser passada'),
+  hr_agendamento: z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM'),
+  obs: z.string().max(500).optional(),
+})
+
+// Carrinho com um ou mais serviços — link público /agendamento/[id_lojista]
+// (ver fn_criar_agendamento_multiplo, migration 022). Profissional é
+// opcional ("sem preferência" = null).
+export const agendamentoOnlineSchema = z.object({
+  id_lojista: z.string().uuid(),
+  id_pet: z.string().uuid(),
+  id_funcionario: z.string().uuid().nullable().optional(),
+  servicos: z.array(z.string().uuid()).min(1, 'Selecione ao menos um serviço').max(10),
   dt_agendamento: z.string().refine(d => d >= hojeBrasilISO(), 'Data de agendamento não pode ser passada'),
   hr_agendamento: z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM'),
   obs: z.string().max(500).optional(),
@@ -208,6 +230,7 @@ export type ServicoVariacaoData = z.infer<typeof servicoVariacaoSchema>
 export type ServicoData = z.infer<typeof servicoSchema>
 export type HorarioData = z.infer<typeof horarioSchema>
 export type AgendamentoData = z.infer<typeof agendamentoSchema>
+export type AgendamentoOnlineData = z.infer<typeof agendamentoOnlineSchema>
 export type AgendamentoLojistaData = z.infer<typeof agendamentoLojistaSchema>
 export type FuncionarioData = z.infer<typeof funcionarioSchema>
 export type EditarFuncionarioData = z.infer<typeof editarFuncionarioSchema>

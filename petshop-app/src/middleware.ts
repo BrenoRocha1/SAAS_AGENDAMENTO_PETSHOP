@@ -41,7 +41,10 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   const isRotaProtegida =
-    pathname.startsWith('/cliente') || pathname.startsWith('/lojista') || pathname.startsWith('/admin')
+    pathname.startsWith('/cliente') ||
+    pathname.startsWith('/lojista') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/agendamento')
 
   // Única regra: sem sessão + rota protegida → login
   // Sem nenhuma lógica de role aqui para evitar loops

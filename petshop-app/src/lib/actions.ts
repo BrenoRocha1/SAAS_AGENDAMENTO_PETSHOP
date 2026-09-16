@@ -10,11 +10,13 @@ import {
   cadastroLojistSchema,
   loginSchema,
   petSchema,
+  classificacaoPetSchema,
   petLojistaSchema,
   servicoSchema,
   servicoVariacaoSchema,
   horarioSchema,
   agendamentoSchema,
+  agendamentoOnlineSchema,
   agendamentoLojistaSchema,
   funcionarioSchema,
   editarFuncionarioSchema,
@@ -112,6 +114,14 @@ export async function loginAction(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
+
+  // Só honra redirectTo de volta pro link público de agendamento (é onde a
+  // middleware manda quem clicou em /agendamento/[id] sem estar logado) —
+  // nunca redireciona pra fora do domínio nem pra rota arbitrária.
+  const redirectTo = formData.get('redirectTo') as string | null
+  if (role === 'cliente' && redirectTo?.startsWith('/agendamento/')) {
+    redirect(redirectTo)
+  }
 
   if (role === 'lojista') redirect('/lojista/dashboard')
   if (role === 'funcionario') redirect('/funcionario/dashboard')
@@ -398,6 +408,33 @@ export async function editarPetAction(id_pet: string, formData: FormData) {
   if (error) return { error: 'Erro ao atualizar pet.' }
 
   revalidatePath('/cliente/pets')
+  return { success: true }
+}
+
+// Complementar só espécie+porte de um pet que já existe, sem tocar no
+// resto do cadastro (nome/raça/sexo/dt_nasc) — usado no link público de
+// agendamento quando o pet ainda não tem essa classificação.
+export async function atualizarClassificacaoPetAction(id_pet: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const raw = {
+    especie: formData.get('especie') as string,
+    porte: formData.get('porte') as string,
+  }
+
+  const parsed = classificacaoPetSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase
+    .from('pet')
+    .update(parsed.data)
+    .eq('id_pet', id_pet)
+    .eq('id_cliente', user.id)
+
+  if (error) return { error: devError('Erro ao atualizar informações do pet.', error.message) }
+
   return { success: true }
 }
 
@@ -783,6 +820,67 @@ export async function criarAgendamentoAction(formData: FormData) {
 
   revalidatePath('/cliente/agendamentos')
   return { success: true, id_agendamento: data }
+}
+
+// Carrinho com um ou mais serviços, criado a partir do link público de
+// agendamento da loja (/agendamento/[id_lojista]) — ver
+// fn_criar_agendamento_multiplo (migration 022). Cria um agendamento por
+// serviço, encadeados, numa transação só (ou agenda tudo, ou nada).
+export async function criarAgendamentoOnlineAction(
+  formData: FormData
+): Promise<{ error?: string; success?: boolean; ids_agendamento?: string[] }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'cliente') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  let servicos: unknown
+  try {
+    servicos = JSON.parse((formData.get('servicos') as string) || '[]')
+  } catch {
+    return { error: 'Serviços inválidos.' }
+  }
+
+  const raw = {
+    id_lojista: formData.get('id_lojista') as string,
+    id_pet: formData.get('id_pet') as string,
+    id_funcionario: (formData.get('id_funcionario') as string) || null,
+    servicos,
+    dt_agendamento: formData.get('dt_agendamento') as string,
+    hr_agendamento: formData.get('hr_agendamento') as string,
+    obs: formData.get('obs') as string,
+  }
+
+  const parsed = agendamentoOnlineSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { data, error } = await supabase.rpc('fn_criar_agendamento_multiplo', {
+    p_id_pet: parsed.data.id_pet,
+    p_id_cliente: user.id,
+    p_id_lojista: parsed.data.id_lojista,
+    p_data: parsed.data.dt_agendamento,
+    p_hora_inicio: parsed.data.hr_agendamento,
+    p_servicos: parsed.data.servicos,
+    p_id_funcionario: parsed.data.id_funcionario || null,
+    p_obs: parsed.data.obs || null,
+  })
+
+  if (error) {
+    if (error.message.includes('Horário não disponível')) {
+      return { error: 'Horário não disponível. Escolha outro horário.' }
+    }
+    if (error.message.includes('não está aceitando agendamentos online')) {
+      return { error: 'Este petshop não está aceitando agendamentos online no momento. Entre em contato diretamente com a loja.' }
+    }
+    if (error.message.includes('fora do funcionamento')) {
+      return { error: 'Esse horário não cabe dentro do funcionamento da loja para os serviços escolhidos. Escolha outro horário.' }
+    }
+    return { error: devError('Erro ao criar agendamento. Tente novamente.', error.message) }
+  }
+
+  revalidatePath('/cliente/agendamentos')
+  return { success: true, ids_agendamento: data ?? [] }
 }
 
 // Agendamento manual criado pelo LOJISTA (walk-in / telefone) para um

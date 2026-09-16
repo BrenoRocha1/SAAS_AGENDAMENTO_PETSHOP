@@ -376,3 +376,22 @@ export function IconImage(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export function IconLink(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M9.5 14.5 14.5 9.5" />
+      <path d="M11 6.5 12.5 5a3.5 3.5 0 0 1 5 5L16 11.5" />
+      <path d="M13 17.5 11.5 19a3.5 3.5 0 0 1-5-5L8 12.5" />
+    </svg>
+  )
+}
+
+export function IconCopy(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="8.5" y="8.5" width="12" height="12" rx="2" />
+      <path d="M15.5 8.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h2.5" />
+    </svg>
+  )
+}

@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { alternarKanbanAction, alternarAgendamentoOnlineAction } from '@/lib/actions'
 import ConfigToggleCard from '@/components/lojista/ConfigToggleCard'
+import LinkAgendamentoOnline from '@/components/lojista/LinkAgendamentoOnline'
 import { IconAlert, IconCalendar, IconChevronLeft, IconKanban } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'Configurações de Agendamentos — Lojista' }
@@ -60,6 +61,8 @@ export default async function ConfiguracoesAgendamentosPage() {
               action={alternarAgendamentoOnlineAction}
             />
           </div>
+
+          {lojista.aceita_agendamento_online && <LinkAgendamentoOnline idLojista={user!.id} />}
         </div>
       )}
     </>
