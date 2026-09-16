@@ -19,8 +19,10 @@ function AvisoShell({ children }: { children: React.ReactNode }) {
     // properties (ver globals.css). Sem isso a página cai no dark mode
     // roxo padrão do resto do app cliente/login, que não é o pedido aqui.
     <div className="agenonline-shell lojista-shell" style={{ display: 'flex', alignItems: 'center', minHeight: '100vh' }}>
-      <div className="card" style={{ width: '100%', textAlign: 'center' }}>
-        {children}
+      <div className="agenonline-content" style={{ width: '100%' }}>
+        <div className="card" style={{ width: '100%', textAlign: 'center' }}>
+          {children}
+        </div>
       </div>
     </div>
   )
@@ -37,7 +39,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   // login nenhum (visitante anônimo = role `anon`).
   const { data: lojista, error: lojistaError } = await supabase
     .from('lojista')
-    .select('id_lojista, nome_loja, logo_url, cidade, estado, telefone, ativo, aceita_agendamento_online')
+    .select('id_lojista, nome_loja, logo_url, descricao, endereco, cidade, estado, cep, telefone, ativo, aceita_agendamento_online')
     .eq('id_lojista', id)
     .maybeSingle()
 
@@ -70,9 +72,10 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   const autenticado = !!user && role === 'cliente'
   const contaInvalida = !!user && role !== 'cliente'
 
-  // Serviços e horário de hoje são públicos — dá pra navegar e ver o que
-  // a loja oferece sem estar logado.
-  const [{ data: servicos }, { data: horarioHoje }] = await Promise.all([
+  // Serviços e horários são públicos — dá pra navegar e ver o que a loja
+  // oferece sem estar logado. Busca a semana inteira (não só hoje) pra
+  // mostrar no modal de detalhes da loja.
+  const [{ data: servicos }, { data: horarios }] = await Promise.all([
     supabase
       .from('servico')
       .select('id_servico, nome, descricao, preco, duracao')
@@ -81,12 +84,11 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
       .order('nome'),
     supabase
       .from('horario')
-      .select('hr_inicio, hr_fim')
-      .eq('id_lojista', id)
-      .eq('dia_semana', diaSemanaBrasil())
-      .eq('ativo', true)
-      .maybeSingle(),
+      .select('dia_semana, hr_inicio, hr_fim, ativo')
+      .eq('id_lojista', id),
   ])
+
+  const horarioHoje = (horarios ?? []).find(h => h.dia_semana === diaSemanaBrasil() && h.ativo) ?? null
 
   // Dados do próprio cliente — só buscados quando logado como cliente,
   // já que dependem de RLS de auth.uid() (pets, cadastro) ou de uma RPC
@@ -120,24 +122,30 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
 
   return (
     <div className="agenonline-shell lojista-shell">
-      <AgendamentoOnlineWizard
-        lojista={{
-          id: lojista.id_lojista,
-          nome: lojista.nome_loja,
-          logoUrl: lojista.logo_url,
-          cidade: lojista.cidade,
-          estado: lojista.estado,
-          telefone: lojista.telefone,
-          statusHoje,
-        }}
-        servicos={servicos ?? []}
-        funcionarios={funcionarios}
-        pets={pets}
-        cliente={cliente}
-        autenticado={autenticado}
-        contaInvalida={contaInvalida}
-        carrinhoInicial={servicosParam ? servicosParam.split(',').filter(Boolean) : []}
-      />
+      <div className="agenonline-content">
+        <AgendamentoOnlineWizard
+          lojista={{
+            id: lojista.id_lojista,
+            nome: lojista.nome_loja,
+            logoUrl: lojista.logo_url,
+            descricao: lojista.descricao,
+            endereco: lojista.endereco,
+            cidade: lojista.cidade,
+            estado: lojista.estado,
+            cep: lojista.cep,
+            telefone: lojista.telefone,
+            statusHoje,
+          }}
+          horarios={horarios ?? []}
+          servicos={servicos ?? []}
+          funcionarios={funcionarios}
+          pets={pets}
+          cliente={cliente}
+          autenticado={autenticado}
+          contaInvalida={contaInvalida}
+          carrinhoInicial={servicosParam ? servicosParam.split(',').filter(Boolean) : []}
+        />
+      </div>
     </div>
   )
 }

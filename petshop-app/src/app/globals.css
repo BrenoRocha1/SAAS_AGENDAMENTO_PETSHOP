@@ -2319,13 +2319,18 @@ a:hover { color: var(--primary-300); }
 
 /* ============================================================
    AGENDAMENTO ONLINE — link público /agendamento/[id_lojista]
-   Página solo (sem sidebar), largura de app mobile mesmo no desktop.
+   Página solo (sem sidebar). O fundo (.agenonline-shell) preenche a tela
+   inteira, mesmo no desktop — só o CONTEÚDO (.agenonline-content) fica
+   numa coluna estreita, largura de app mobile, centralizada.
    ============================================================ */
 .agenonline-shell {
-  max-width: 480px;
-  margin: 0 auto;
   min-height: 100vh;
   padding: var(--space-6) var(--space-4);
+}
+
+.agenonline-content {
+  max-width: 480px;
+  margin: 0 auto;
 }
 
 .agenonline-header {
@@ -2383,7 +2388,7 @@ a:hover { color: var(--primary-300); }
 
 .agenonline-service-card.selected {
   border-color: var(--primary-500);
-  background: rgba(124,58,237,0.12);
+  background: var(--primary-soft-bg);
   box-shadow: var(--shadow-glow-sm);
 }
 

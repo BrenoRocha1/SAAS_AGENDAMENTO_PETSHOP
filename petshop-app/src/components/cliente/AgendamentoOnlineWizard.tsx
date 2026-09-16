@@ -12,6 +12,9 @@ import {
   IconAlert,
   IconCheck,
   IconChevronLeft,
+  IconChevronRight,
+  IconClock,
+  IconClose,
   IconDog,
   IconPaw,
   IconScissors,
@@ -22,10 +25,19 @@ interface Lojista {
   id: string
   nome: string
   logoUrl: string | null
+  descricao: string | null
+  endereco: string | null
   cidade: string | null
   estado: string | null
+  cep: string | null
   telefone: string
   statusHoje: string
+}
+interface Horario {
+  dia_semana: string
+  hr_inicio: string
+  hr_fim: string
+  ativo: boolean
 }
 interface Servico {
   id_servico: string
@@ -54,6 +66,7 @@ interface Cliente {
 }
 interface Props {
   lojista: Lojista
+  horarios: Horario[]
   servicos: Servico[]
   funcionarios: Funcionario[]
   pets: Pet[]
@@ -66,8 +79,36 @@ interface Props {
 type Step = 1 | 2 | 3 | 4 | 5 | 6
 type Slot = { hr_slot: string; disponivel: boolean }
 
+const ETAPAS = ['Serviços', 'Pet', 'Seus dados', 'Horário', 'Confirmar']
+const DIAS_ORDEM = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
+
+function ProgressoEtapas({ passo }: { passo: number }) {
+  return (
+    <div style={{ marginBottom: 'var(--space-6)' }}>
+      <div className="flex justify-between" style={{ marginBottom: 'var(--space-2)' }}>
+        <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{ETAPAS[passo - 1]}</span>
+        <span className="text-xs text-muted">Passo {passo} de {ETAPAS.length}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 4 }}>
+        {ETAPAS.map((etapa, i) => (
+          <div
+            key={etapa}
+            style={{
+              flex: 1,
+              height: 6,
+              borderRadius: 999,
+              background: i < passo ? 'var(--primary-500)' : 'var(--gray-700)',
+              transition: 'background var(--transition-fast)',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function AgendamentoOnlineWizard({
-  lojista, servicos, funcionarios, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
+  lojista, horarios, servicos, funcionarios, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [step, setStep] = useState<Step>(1)
@@ -77,6 +118,8 @@ export default function AgendamentoOnlineWizard({
   // Mostrado no lugar do passo 2 quando quem clicou em "Ver Carrinho"
   // ainda não tem login de cliente — a página é pública até aqui.
   const [mostrarGateAcesso, setMostrarGateAcesso] = useState(false)
+  const [mostrarDetalheLoja, setMostrarDetalheLoja] = useState(false)
+  const [servicoDetalhe, setServicoDetalhe] = useState<Servico | null>(null)
 
   const [carrinho, setCarrinho] = useState<string[]>(carrinhoInicial)
   const [pets, setPets] = useState<Pet[]>(petsIniciais)
@@ -201,6 +244,8 @@ export default function AgendamentoOnlineWizard({
     `Total: R$ ${valorTotal.toFixed(2)}`,
   ].join('\n')
 
+  const enderecoCompleto = [lojista.endereco, lojista.cidade && lojista.estado ? `${lojista.cidade}, ${lojista.estado}` : lojista.cidade].filter(Boolean).join(' — ')
+
   return (
     <div>
       {step > 1 && step < 6 && (
@@ -215,20 +260,28 @@ export default function AgendamentoOnlineWizard({
       )}
 
       {step === 1 && (
-        <div className="agenonline-header">
+        <button
+          type="button"
+          className="agenonline-header"
+          onClick={() => setMostrarDetalheLoja(true)}
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: '100%', textAlign: 'left' }}
+        >
           {lojista.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- URL pública do Storage
             <img src={lojista.logoUrl} alt={lojista.nome} className="agenonline-logo" />
           ) : (
             <div className="agenonline-logo-fallback"><IconPaw style={{ width: 24, height: 24 }} /></div>
           )}
-          <div>
+          <div style={{ flex: 1 }}>
             <div className="agenonline-loja-nome">{lojista.nome}</div>
             {lojista.cidade && <div className="agenonline-loja-local">{lojista.cidade}{lojista.estado ? `, ${lojista.estado}` : ''}</div>}
             <div className="agenonline-loja-status">{lojista.statusHoje}</div>
           </div>
-        </div>
+          <IconChevronRight style={{ width: 16, height: 16, color: 'var(--gray-500)', flexShrink: 0 }} />
+        </button>
       )}
+
+      {step < 6 && <ProgressoEtapas passo={step} />}
 
       {erro && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
@@ -255,7 +308,7 @@ export default function AgendamentoOnlineWizard({
                     key={s.id_servico}
                     type="button"
                     className={`agenonline-service-card ${selecionado ? 'selected' : ''}`}
-                    onClick={() => alternarServico(s.id_servico)}
+                    onClick={() => setServicoDetalhe(s)}
                   >
                     {selecionado && <span className="agenonline-service-check"><IconCheck style={{ width: 13, height: 13 }} /></span>}
                     <IconScissors style={{ width: 20, height: 20, color: 'var(--gray-500)' }} />
@@ -330,7 +383,7 @@ export default function AgendamentoOnlineWizard({
                     padding: 'var(--space-3) var(--space-4)',
                     borderRadius: 'var(--radius-md)',
                     border: `1px solid ${petId === p.id_pet ? 'var(--primary-500)' : 'var(--gray-700)'}`,
-                    background: petId === p.id_pet ? 'rgba(124,58,237,0.1)' : 'var(--gray-850)',
+                    background: petId === p.id_pet ? 'var(--primary-soft-bg)' : 'var(--gray-850)',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -562,6 +615,96 @@ export default function AgendamentoOnlineWizard({
           <Link href="/cliente/agendamentos" className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center' }}>
             Ver meus agendamentos
           </Link>
+        </div>
+      )}
+
+      {/* MODAL — Detalhes do serviço */}
+      {servicoDetalhe && (
+        <div className="modal-overlay" onClick={() => setServicoDetalhe(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">{servicoDetalhe.nome}</h3>
+              <button className="modal-close" onClick={() => setServicoDetalhe(null)} aria-label="Fechar">
+                <IconClose style={{ width: 15, height: 15 }} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {servicoDetalhe.descricao && (
+                <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-4)' }}>{servicoDetalhe.descricao}</p>
+              )}
+              <div className="flex justify-between" style={{ marginBottom: 'var(--space-2)' }}>
+                <span className="text-sm text-muted">Duração</span>
+                <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{servicoDetalhe.duracao} minutos</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-muted">Preço</span>
+                <span className="font-semibold text-success">A partir de R$ {Number(servicoDetalhe.preco).toFixed(2)}</span>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setServicoDetalhe(null)}>Fechar</button>
+              <button
+                type="button"
+                className={`btn ${carrinho.includes(servicoDetalhe.id_servico) ? 'btn-danger' : 'btn-primary'}`}
+                onClick={() => { alternarServico(servicoDetalhe.id_servico); setServicoDetalhe(null) }}
+              >
+                {carrinho.includes(servicoDetalhe.id_servico) ? 'Remover do carrinho' : 'Adicionar ao carrinho'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL — Detalhes da loja */}
+      {mostrarDetalheLoja && (
+        <div className="modal-overlay" onClick={() => setMostrarDetalheLoja(false)}>
+          <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">{lojista.nome}</h3>
+              <button className="modal-close" onClick={() => setMostrarDetalheLoja(false)} aria-label="Fechar">
+                <IconClose style={{ width: 15, height: 15 }} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {lojista.descricao && (
+                <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>{lojista.descricao}</p>
+              )}
+
+              {enderecoCompleto && (
+                <div style={{ marginBottom: 'var(--space-5)' }}>
+                  <div className="font-semibold text-sm" style={{ color: 'var(--gray-100)', marginBottom: 4 }}>Endereço</div>
+                  <div className="text-sm text-muted">{enderecoCompleto}{lojista.cep ? ` — CEP ${lojista.cep}` : ''}</div>
+                </div>
+              )}
+
+              <div style={{ marginBottom: 'var(--space-5)' }}>
+                <div className="flex items-center gap-2" style={{ marginBottom: 'var(--space-2)' }}>
+                  <IconClock style={{ width: 15, height: 15, color: 'var(--gray-500)' }} />
+                  <span className="font-semibold text-sm" style={{ color: 'var(--gray-100)' }}>Horário de funcionamento</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {DIAS_ORDEM.map(dia => {
+                    const h = horarios.find(h => h.dia_semana === dia && h.ativo)
+                    return (
+                      <div key={dia} className="flex justify-between text-sm" style={{ padding: '2px 0' }}>
+                        <span className="text-muted">{dia}</span>
+                        <span style={{ color: h ? 'var(--gray-100)' : 'var(--gray-500)' }}>
+                          {h ? `${h.hr_inicio.slice(0, 5)} — ${h.hr_fim.slice(0, 5)}` : 'Fechado'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <p className="text-xs text-muted">
+                Avaliações de clientes ainda não estão disponíveis nesta loja.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setMostrarDetalheLoja(false)}>Fechar</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
