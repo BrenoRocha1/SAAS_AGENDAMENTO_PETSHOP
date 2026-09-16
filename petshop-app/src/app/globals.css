@@ -1000,8 +1000,8 @@ a:hover { color: var(--primary-300); }
 }
 
 .slot.slot-selected {
-  background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
-  border-color: var(--primary-400);
+  background: var(--primary-500);
+  border-color: var(--primary-500);
   color: white;
   box-shadow: var(--shadow-glow-sm);
 }
@@ -2447,8 +2447,8 @@ a:hover { color: var(--primary-300); }
 }
 
 .agenonline-day.selected {
-  background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
-  border-color: var(--primary-400);
+  background: var(--primary-500);
+  border-color: var(--primary-500);
   color: #fff;
 }
 
@@ -2459,6 +2459,12 @@ a:hover { color: var(--primary-300); }
   padding: var(--space-2) 0;
   border-bottom: 1px solid var(--gray-800);
   font-size: 0.9rem;
+  /* Sem isso, o texto sem cor própria herdava o branco calculado no
+     <body> (tema escuro, de fora do escopo .lojista-shell) em vez do
+     --gray-100 escuro redefinido aqui dentro — ficava ilegível (quase
+     invisível) no tema claro. Herança de `color` usa o valor já
+     resolvido do ancestral, não reavalia var() por elemento. */
+  color: var(--gray-100);
 }
 .agenonline-resumo-row:last-child { border-bottom: none; }
 
