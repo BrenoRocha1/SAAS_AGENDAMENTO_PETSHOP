@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import PerfilLojistaForm from '@/components/lojista/PerfilLojistaForm'
+import LogoLojaUpload from '@/components/lojista/LogoLojaUpload'
 import { IconSettings } from '@/components/icons'
 import type { Metadata } from 'next'
 
@@ -28,7 +29,10 @@ export default async function PerfilLojistaPage() {
           <IconSettings style={{ width: 13, height: 13 }} /> Configurações
         </Link>.
       </p>
-      <PerfilLojistaForm lojista={lojista} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+        <LogoLojaUpload logoUrlInicial={lojista?.logo_url ?? null} />
+        <PerfilLojistaForm lojista={lojista} />
+      </div>
     </>
   )
 }

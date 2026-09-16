@@ -928,6 +928,117 @@ export async function atualizarPerfilLojistaAction(formData: FormData) {
   return { success: true }
 }
 
+// ============================================================
+// LOGO DA LOJA (migration 021 — bucket 'logos-loja')
+// ============================================================
+const LOGO_BUCKET = 'logos-loja'
+// Mesmo limite configurado no bucket (migration 021) — o Storage já
+// recusa no nível de API, isso aqui é só pra dar um erro amigável antes
+// de sequer tentar o upload.
+const LOGO_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB
+
+// Confere os primeiros bytes do arquivo (magic numbers), não o nome nem
+// o Content-Type declarado pelo navegador — os dois são fáceis de
+// forjar; o conteúdo real do arquivo não. Defesa em profundidade: o
+// preview/otimização já roda no navegador, mas o servidor nunca confia
+// só nisso.
+function detectarExtensaoImagem(bytes: Uint8Array): 'jpg' | 'png' | 'webp' | null {
+  if (bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'jpg'
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'png'
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && // "RIFF"
+    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50   // "WEBP"
+  ) return 'webp'
+  return null
+}
+
+// Apaga tudo que já existe na pasta do lojista antes de subir uma nova
+// imagem — evita ficar com arquivo órfão no Storage quando o formato
+// muda entre um upload e outro (ex.: era .png, virou .webp), sem
+// precisar fixar uma extensão única pra sempre.
+async function limparPastaDoLojista(supabase: Awaited<ReturnType<typeof createClient>>, idLojista: string) {
+  const { data: existentes } = await supabase.storage.from(LOGO_BUCKET).list(idLojista)
+  if (existentes && existentes.length > 0) {
+    await supabase.storage.from(LOGO_BUCKET).remove(existentes.map(f => `${idLojista}/${f.name}`))
+  }
+}
+
+export async function atualizarLogoLojistaAction(
+  formData: FormData
+): Promise<{ error?: string; success?: boolean; url?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const arquivo = formData.get('logo') as File | null
+  if (!arquivo || arquivo.size === 0) {
+    return { error: 'Selecione uma imagem.' }
+  }
+  if (arquivo.size > LOGO_TAMANHO_MAXIMO) {
+    return { error: 'Imagem muito grande. O limite é 5 MB.' }
+  }
+
+  const bytes = new Uint8Array(await arquivo.arrayBuffer())
+  const extensao = detectarExtensaoImagem(bytes)
+  if (!extensao) {
+    return { error: 'Formato de imagem inválido. Envie um arquivo JPG, PNG ou WEBP.' }
+  }
+
+  await limparPastaDoLojista(supabase, user.id)
+
+  const caminho = `${user.id}/logo.${extensao}`
+  const { error: uploadError } = await supabase.storage
+    .from(LOGO_BUCKET)
+    .upload(caminho, bytes, {
+      contentType: extensao === 'jpg' ? 'image/jpeg' : `image/${extensao}`,
+      upsert: true,
+    })
+
+  if (uploadError) {
+    console.error('[atualizarLogoLojistaAction] upload error:', uploadError.message)
+    return { error: devError('Não foi possível enviar a imagem. Tente novamente.', uploadError.message) }
+  }
+
+  const { data: { publicUrl } } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(caminho)
+  // Cache-busting: o caminho pode ser idêntico ao da imagem anterior
+  // (mesma extensão) — sem isso, o navegador continuaria mostrando a
+  // versão antiga em cache mesmo depois de trocar a imagem.
+  const urlComVersao = `${publicUrl}?v=${Date.now()}`
+
+  const { error: dbError } = await supabase
+    .from('lojista')
+    .update({ logo_url: urlComVersao })
+    .eq('id_lojista', user.id)
+
+  if (dbError) {
+    return { error: devError('Imagem enviada, mas não foi possível salvar a referência. Tente novamente.', dbError.message) }
+  }
+
+  revalidatePath('/lojista/perfil')
+  return { success: true, url: urlComVersao }
+}
+
+export async function removerLogoLojistaAction(): Promise<{ error?: string; success?: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  await limparPastaDoLojista(supabase, user.id)
+
+  const { error } = await supabase.from('lojista').update({ logo_url: null }).eq('id_lojista', user.id)
+  if (error) {
+    return { error: devError('Não foi possível remover a imagem. Tente novamente.', error.message) }
+  }
+
+  revalidatePath('/lojista/perfil')
+  return { success: true }
+}
+
 // Liga/desliga o Kanban de agendamentos (migration 013). Mesmo padrão
 // de toggleHorarioAction/toggleFuncionarioAction — troca só essa coluna,
 // sem passar pelo formulário inteiro de perfil.
