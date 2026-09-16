@@ -64,13 +64,32 @@ export default function LinkAgendamentoOnline({ idLojista, slugAtual }: Props) {
         </div>
       </div>
 
-      <div className="flex gap-2" style={{ marginBottom: 'var(--space-5)' }}>
-        <input className="form-input" value={link} readOnly onFocus={e => e.target.select()} />
-        <button type="button" className="btn btn-secondary" onClick={copiar} style={{ flexShrink: 0 }}>
-          {copiado ? <IconCheck style={{ width: 14, height: 14 }} /> : <IconCopy style={{ width: 14, height: 14 }} />}
-          {copiado ? 'Copiado!' : 'Copiar'}
-        </button>
-      </div>
+      <label className="form-label">Link da sua loja</label>
+      <button
+        type="button"
+        onClick={copiar}
+        title={copiado ? 'Copiado!' : 'Copiar link'}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 'var(--space-3)',
+          width: '100%',
+          border: '1px solid var(--gray-700)',
+          borderRadius: 'var(--radius-full)',
+          background: 'var(--gray-850)',
+          padding: 'var(--space-2) var(--space-2) var(--space-2) var(--space-4)',
+          cursor: 'pointer',
+          marginBottom: 'var(--space-5)',
+        }}
+      >
+        <span className="text-sm" style={{ color: 'var(--info-400)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {link}
+        </span>
+        <span className="dash-icon-btn" style={{ flexShrink: 0, cursor: 'pointer' }}>
+          {copiado ? <IconCheck style={{ color: 'var(--success-400)' }} /> : <IconCopy />}
+        </span>
+      </button>
 
       <form onSubmit={salvar} style={{ paddingTop: 'var(--space-4)', borderTop: '1px solid var(--gray-800)' }}>
         <label className="form-label" htmlFor="slug-loja">

@@ -41,11 +41,27 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   // Público de propósito — a policy "lojista: acesso publico as lojas
   // ativas" (migration 023) é o que permite essa consulta funcionar sem
   // login nenhum (visitante anônimo = role `anon`).
-  const { data: lojista, error: lojistaError } = await supabase
-    .from('lojista')
-    .select('id_lojista, nome_loja, logo_url, descricao, endereco, cidade, estado, cep, telefone, ativo, aceita_agendamento_online, slug')
-    .eq(UUID_RE.test(id) ? 'id_lojista' : 'slug', id)
-    .maybeSingle()
+  //
+  // `slug` fica de fora do select principal de propósito: é uma coluna
+  // opcional (migration 024) e, se ainda não rodou no banco, um select
+  // que a inclui falha por INTEIRO — o que quebraria até os links por
+  // UUID que já funcionavam antes dela existir. Por isso a resolução por
+  // slug é uma consulta separada e tolerante: se a coluna não existir ou
+  // não achar nada, cai direto em "loja não encontrada" sem derrubar o
+  // resto da página.
+  let idLojistaResolvido = id
+  if (!UUID_RE.test(id)) {
+    const { data: porSlug } = await supabase.from('lojista').select('id_lojista').eq('slug', id).maybeSingle()
+    idLojistaResolvido = porSlug?.id_lojista ?? ''
+  }
+
+  const { data: lojista, error: lojistaError } = idLojistaResolvido
+    ? await supabase
+        .from('lojista')
+        .select('id_lojista, nome_loja, logo_url, descricao, endereco, cidade, estado, cep, telefone, ativo, aceita_agendamento_online')
+        .eq('id_lojista', idLojistaResolvido)
+        .maybeSingle()
+    : { data: null, error: null }
 
   if (lojistaError || !lojista || !lojista.ativo) {
     return (

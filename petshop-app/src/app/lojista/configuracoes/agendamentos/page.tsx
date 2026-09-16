@@ -14,9 +14,21 @@ export default async function ConfiguracoesAgendamentosPage() {
 
   const { data: lojista, error } = await supabase
     .from('lojista')
-    .select('kanban_ativo, aceita_agendamento_online, slug')
+    .select('kanban_ativo, aceita_agendamento_online')
     .eq('id_lojista', user!.id)
     .maybeSingle()
+
+  // Busca o slug numa query separada, de propósito: é uma coluna nova
+  // (migration 024) e opcional — se ainda não rodou no banco, não pode
+  // derrubar a tela inteira (kanban/agendamento online já funcionavam
+  // antes dela existir). Sem a coluna, `slug` vira null e o card de link
+  // mostra só o link por UUID.
+  const { data: slugRow, error: slugError } = await supabase
+    .from('lojista')
+    .select('slug')
+    .eq('id_lojista', user!.id)
+    .maybeSingle()
+  const slugPendente = !!slugError
 
   return (
     <>
@@ -62,7 +74,20 @@ export default async function ConfiguracoesAgendamentosPage() {
             />
           </div>
 
-          {lojista.aceita_agendamento_online && <LinkAgendamentoOnline idLojista={user!.id} slugAtual={lojista.slug} />}
+          {lojista.aceita_agendamento_online && (
+            <>
+              {slugPendente && (
+                <div className="alert alert-warning">
+                  <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+                  <span>
+                    Ainda não dá pra personalizar o nome do link — execute a migration 024_slug_lojista.sql.
+                    {process.env.NODE_ENV !== 'production' && ` [DEV: ${slugError!.message}]`}
+                  </span>
+                </div>
+              )}
+              <LinkAgendamentoOnline idLojista={user!.id} slugAtual={slugRow?.slug ?? null} />
+            </>
+          )}
         </div>
       )}
     </>

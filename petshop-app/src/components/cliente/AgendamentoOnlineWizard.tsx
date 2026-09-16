@@ -83,25 +83,23 @@ const ETAPAS = ['Serviços', 'Pet', 'Seus dados', 'Horário', 'Confirmar']
 const DIAS_ORDEM = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
 
 function ProgressoEtapas({ passo }: { passo: number }) {
+  const percentual = (passo / ETAPAS.length) * 100
   return (
     <div style={{ marginBottom: 'var(--space-6)' }}>
       <div className="flex justify-between" style={{ marginBottom: 'var(--space-2)' }}>
         <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{ETAPAS[passo - 1]}</span>
         <span className="text-xs text-muted">Passo {passo} de {ETAPAS.length}</span>
       </div>
-      <div style={{ display: 'flex', gap: 4 }}>
-        {ETAPAS.map((etapa, i) => (
-          <div
-            key={etapa}
-            style={{
-              flex: 1,
-              height: 6,
-              borderRadius: 999,
-              background: i < passo ? 'var(--primary-500)' : 'var(--gray-700)',
-              transition: 'background var(--transition-fast)',
-            }}
-          />
-        ))}
+      <div style={{ height: 6, borderRadius: 999, background: 'var(--gray-700)', overflow: 'hidden' }}>
+        <div
+          style={{
+            height: '100%',
+            width: `${percentual}%`,
+            borderRadius: 999,
+            background: 'var(--primary-500)',
+            transition: 'width 0.35s ease',
+          }}
+        />
       </div>
     </div>
   )
@@ -333,33 +331,39 @@ export default function AgendamentoOnlineWizard({
         </>
       )}
 
-      {/* Gate de acesso — só aparece ao tentar continuar sem estar logado como cliente */}
-      {step === 1 && mostrarGateAcesso && (
-        <div className="card" style={{ textAlign: 'center', marginTop: 'var(--space-5)' }}>
-          {contaInvalida ? (
-            <>
-              <IconAlert style={{ width: 28, height: 28, color: 'var(--warning-400)', margin: '0 auto var(--space-4)' }} />
-              <h2 style={{ fontSize: '1.1rem', marginBottom: 'var(--space-2)' }}>Essa conta não é uma conta de cliente</h2>
-              <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
-                Para agendar em {lojista.nome}, saia e entre com uma conta de cliente.
-              </p>
-            </>
-          ) : (
-            <>
-              <IconPaw style={{ width: 28, height: 28, color: 'var(--primary-400)', margin: '0 auto var(--space-4)' }} />
-              <h2 style={{ fontSize: '1.1rem', marginBottom: 'var(--space-2)' }}>Falta pouco!</h2>
-              <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
-                Entre com sua conta de cliente para continuar o agendamento em {lojista.nome}. Seus serviços escolhidos continuam salvos.
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-                <Link href={loginHref} className="btn btn-primary">Entrar</Link>
-                <Link href={`/cadastro?redirectTo=${encodeURIComponent(voltarParaCa)}`} className="btn btn-secondary">Criar conta de cliente</Link>
-              </div>
-            </>
-          )}
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMostrarGateAcesso(false)}>
-            Voltar
-          </button>
+      {/* Gate de acesso — modal que só aparece ao tentar continuar sem estar logado como cliente */}
+      {mostrarGateAcesso && (
+        <div className="modal-overlay" onClick={() => setMostrarGateAcesso(false)}>
+          <div className="modal" style={{ maxWidth: 400, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ justifyContent: 'flex-end' }}>
+              <button className="modal-close" onClick={() => setMostrarGateAcesso(false)} aria-label="Fechar">
+                <IconClose style={{ width: 15, height: 15 }} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {contaInvalida ? (
+                <>
+                  <IconAlert style={{ width: 28, height: 28, color: 'var(--warning-400)', margin: '0 auto var(--space-4)' }} />
+                  <h3 style={{ marginBottom: 'var(--space-2)' }}>Essa conta não é uma conta de cliente</h3>
+                  <p className="text-sm text-muted">
+                    Para agendar em {lojista.nome}, saia e entre com uma conta de cliente.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <IconPaw style={{ width: 28, height: 28, color: 'var(--primary-400)', margin: '0 auto var(--space-4)' }} />
+                  <h3 style={{ marginBottom: 'var(--space-2)' }}>Falta pouco!</h3>
+                  <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
+                    Entre com sua conta de cliente para continuar o agendamento em {lojista.nome}. Seus serviços escolhidos continuam salvos.
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                    <Link href={loginHref} className="btn btn-primary">Entrar</Link>
+                    <Link href={`/cadastro?redirectTo=${encodeURIComponent(voltarParaCa)}`} className="btn btn-secondary">Criar conta de cliente</Link>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
