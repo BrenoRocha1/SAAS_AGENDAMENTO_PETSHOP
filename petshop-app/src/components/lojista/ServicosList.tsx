@@ -5,6 +5,7 @@ import {
   criarServicoAction,
   editarServicoAction,
   excluirServicoAction,
+  alternarStatusServicoAction,
   adicionarVariacaoServicoAction,
   removerVariacaoServicoAction,
 } from '@/lib/actions'
@@ -54,7 +55,24 @@ export default function ServicosList({ servicos: inicial }: Props) {
   const [excluirErro, setExcluirErro] = useState<string | null>(null)
   const [confirmarExclusao, setConfirmarExclusao] = useState<Servico | null>(null)
   const [excluindoId, setExcluindoId] = useState<string | null>(null)
+  const [alternandoId, setAlternandoId] = useState<string | null>(null)
+  const [alternarErro, setAlternarErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  function handleAlternarStatus(s: Servico) {
+    setAlternarErro(null)
+    const novoStatus = s.status === 'Ativo' ? 'Inativo' : 'Ativo'
+    setAlternandoId(s.id_servico)
+    startTransition(async () => {
+      const result = await alternarStatusServicoAction(s.id_servico, novoStatus === 'Ativo')
+      setAlternandoId(null)
+      if (result?.error) {
+        setAlternarErro(result.error)
+        return
+      }
+      setServicos(prev => prev.map(x => x.id_servico === s.id_servico ? { ...x, status: novoStatus } : x))
+    })
+  }
 
   function handleExcluir(s: Servico) {
     setExcluirErro(null)
@@ -132,6 +150,13 @@ export default function ServicosList({ servicos: inicial }: Props) {
         </div>
       )}
 
+      {alternarErro && (
+        <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
+          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+          <span>{alternarErro}</span>
+        </div>
+      )}
+
       {servicos.length === 0 ? (
         <div className="empty-state card">
           <IconScissors style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
@@ -161,9 +186,16 @@ export default function ServicosList({ servicos: inicial }: Props) {
                   <td className="text-success font-semibold">R$ {Number(s.preco).toFixed(2)}</td>
                   <td>{s.duracao} min</td>
                   <td>
-                    <span className={`badge badge-${s.status === 'Ativo' ? 'ativo' : 'inativo'}`}>
-                      {s.status}
-                    </span>
+                    <button
+                      type="button"
+                      className={`badge badge-${s.status === 'Ativo' ? 'ativo' : 'inativo'}`}
+                      style={{ cursor: alternandoId === s.id_servico ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                      onClick={() => handleAlternarStatus(s)}
+                      disabled={alternandoId === s.id_servico}
+                      title={s.status === 'Ativo' ? 'Clique para desativar' : 'Clique para ativar'}
+                    >
+                      {alternandoId === s.id_servico ? 'Salvando...' : s.status}
+                    </button>
                   </td>
                   <td>
                     <div className="flex gap-1">

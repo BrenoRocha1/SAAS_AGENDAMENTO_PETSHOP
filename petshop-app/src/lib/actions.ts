@@ -513,6 +513,30 @@ export async function editarServicoAction(id_servico: string, formData: FormData
   return { success: true }
 }
 
+// Toggle rápido de status Ativo/Inativo, direto na listagem — não abre o
+// modal de edição inteiro. Serviço "Inativo" simplesmente para de
+// aparecer pro cliente na hora de agendar (fn_criar_agendamento já
+// filtra `status = 'Ativo'`); nada é excluído, histórico e agendamentos
+// já existentes continuam intactos.
+export async function alternarStatusServicoAction(id_servico: string, ativo: boolean) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const { error } = await supabase
+    .from('servico')
+    .update({ status: ativo ? 'Ativo' : 'Inativo' })
+    .eq('id_servico', id_servico)
+    .eq('id_lojista', user.id)
+
+  if (error) return { error: devError('Erro ao atualizar status do serviço.', error.message) }
+
+  revalidatePath('/lojista/servicos')
+  return { success: true }
+}
+
 // Exclusão de verdade (não é o toggle de status Ativo/Inativo). Só é
 // possível quando o serviço nunca teve nenhum agendamento (nem
 // cancelado) — a FK agendamento.id_servico é ON DELETE RESTRICT de
