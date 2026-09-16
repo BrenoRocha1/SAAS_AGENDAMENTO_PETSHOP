@@ -61,6 +61,17 @@ export const cadastroLojistSchema = z.object({
   path: ['confirmaSenha'],
 })
 
+// Link personalizado de agendamento (/agendamento/[slug]) — só letras
+// minúsculas, números e hífen simples entre eles, sem espaço/acento.
+// Unicidade é garantida por UNIQUE no banco (migration 024), não aqui.
+export const slugLojistaSchema = z.object({
+  slug: z
+    .string()
+    .min(3, 'O link precisa ter no mínimo 3 caracteres')
+    .max(60, 'O link pode ter no máximo 60 caracteres')
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Use só letras minúsculas, números e hífen — sem espaços, acentos ou símbolos'),
+})
+
 export const petSchema = z.object({
   nome: z.string().min(1).max(80),
   raca: z.string().min(1).max(80),
@@ -225,6 +236,7 @@ function validarCPF(cpf: string): boolean {
 export type LoginData = z.infer<typeof loginSchema>
 export type CadastroClienteData = z.infer<typeof cadastroClienteSchema>
 export type CadastroLojistaData = z.infer<typeof cadastroLojistSchema>
+export type SlugLojistaData = z.infer<typeof slugLojistaSchema>
 export type PetData = z.infer<typeof petSchema>
 export type ServicoVariacaoData = z.infer<typeof servicoVariacaoSchema>
 export type ServicoData = z.infer<typeof servicoSchema>

@@ -11,6 +11,10 @@ interface Props {
   searchParams: Promise<{ servicos?: string }>
 }
 
+// UUID (link antigo, por id_lojista) vs slug personalizado (migration 024)
+// — o mesmo parâmetro de rota aceita os dois formatos.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 function AvisoShell({ children }: { children: React.ReactNode }) {
   return (
     // lojista-shell aqui não é sobre permissão nenhuma — é só a mesma
@@ -39,8 +43,8 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   // login nenhum (visitante anônimo = role `anon`).
   const { data: lojista, error: lojistaError } = await supabase
     .from('lojista')
-    .select('id_lojista, nome_loja, logo_url, descricao, endereco, cidade, estado, cep, telefone, ativo, aceita_agendamento_online')
-    .eq('id_lojista', id)
+    .select('id_lojista, nome_loja, logo_url, descricao, endereco, cidade, estado, cep, telefone, ativo, aceita_agendamento_online, slug')
+    .eq(UUID_RE.test(id) ? 'id_lojista' : 'slug', id)
     .maybeSingle()
 
   if (lojistaError || !lojista || !lojista.ativo) {
@@ -79,13 +83,13 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
     supabase
       .from('servico')
       .select('id_servico, nome, descricao, preco, duracao')
-      .eq('id_lojista', id)
+      .eq('id_lojista', lojista.id_lojista)
       .eq('status', 'Ativo')
       .order('nome'),
     supabase
       .from('horario')
       .select('dia_semana, hr_inicio, hr_fim, ativo')
-      .eq('id_lojista', id),
+      .eq('id_lojista', lojista.id_lojista),
   ])
 
   const horarioHoje = (horarios ?? []).find(h => h.dia_semana === diaSemanaBrasil() && h.ativo) ?? null
@@ -99,7 +103,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
 
   if (autenticado) {
     const [{ data: f }, { data: p }, { data: c }] = await Promise.all([
-      supabase.rpc('fn_funcionarios_publicos', { p_id_lojista: id }),
+      supabase.rpc('fn_funcionarios_publicos', { p_id_lojista: lojista.id_lojista }),
       supabase
         .from('pet')
         .select('id_pet, nome, raca, especie, porte, sexo')

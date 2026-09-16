@@ -45,7 +45,7 @@ export default async function LojistaDashboard({ searchParams }: Props) {
     { data: servicosRaw },
     { data: funcionariosRaw },
   ] = await Promise.all([
-    supabase.from('lojista').select('nome_loja').eq('id_lojista', lojistaId).single(),
+    supabase.from('lojista').select('nome_loja, slug').eq('id_lojista', lojistaId).single(),
     supabase.rpc('fn_metricas_lojista', { p_id_lojista: lojistaId }),
     supabase.rpc('fn_agenda_dia', { p_id_lojista: lojistaId, p_data: hojeISO }),
     supabase.rpc('fn_agenda_dia', { p_id_lojista: lojistaId, p_data: ontemISO }),
@@ -154,6 +154,7 @@ export default async function LojistaDashboard({ searchParams }: Props) {
     <DashboardClient
       nomeLoja={lojista?.nome_loja ?? 'Meu Petshop'}
       lojistaId={lojistaId}
+      slugLoja={lojista?.slug ?? null}
       hojeISO={hojeISO}
       selectedDate={selectedDate}
       stats={{

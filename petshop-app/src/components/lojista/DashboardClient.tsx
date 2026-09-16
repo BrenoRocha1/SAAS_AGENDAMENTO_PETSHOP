@@ -33,6 +33,7 @@ import {
   IconStore,
 } from '@/components/icons'
 import NovoAgendamentoModal from './NovoAgendamentoModal'
+import BotaoCopiarLinkAgendamento from './BotaoCopiarLinkAgendamento'
 
 // ============================================================
 // Tipos — refletem o retorno das RPCs/queries existentes
@@ -87,6 +88,7 @@ interface Stats {
 interface Props {
   nomeLoja: string
   lojistaId: string
+  slugLoja: string | null
   hojeISO: string
   selectedDate: string
   stats: Stats
@@ -120,6 +122,7 @@ function normaliza(s: string) {
 export default function DashboardClient({
   nomeLoja,
   lojistaId,
+  slugLoja,
   hojeISO,
   selectedDate,
   stats,
@@ -305,6 +308,7 @@ export default function DashboardClient({
             <IconStore />
             {nomeLoja}
           </Link>
+          <BotaoCopiarLinkAgendamento idLojista={lojistaId} slug={slugLoja} />
           <Link href="/lojista/agendamentos" className="dash-icon-btn" title="Agendamentos pendentes">
             <IconBell />
             {stats.pendentesTotal > 0 && (

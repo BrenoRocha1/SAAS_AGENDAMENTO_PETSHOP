@@ -8,6 +8,7 @@ import {
   cadastroClienteSchema,
   editarClienteLojistaSchema,
   cadastroLojistSchema,
+  slugLojistaSchema,
   loginSchema,
   petSchema,
   classificacaoPetSchema,
@@ -1218,6 +1219,41 @@ export async function alternarAgendamentoOnlineAction(ativo: boolean) {
   revalidatePath('/lojista/configuracoes')
   revalidatePath('/cliente/novo-agendamento')
   return { success: true }
+}
+
+// Link personalizado de agendamento (/agendamento/[slug]) — migration 024.
+// Unicidade é garantida pelo UNIQUE do banco; aqui só traduz a violação
+// (código 23505) numa mensagem amigável, sem checar disponibilidade
+// antes (evita race condition entre checar e salvar).
+export async function atualizarSlugLojistaAction(formData: FormData): Promise<{ error?: string; success?: boolean; slug?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const raw = { slug: ((formData.get('slug') as string) || '').trim().toLowerCase() }
+  const parsed = slugLojistaSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase
+    .from('lojista')
+    .update({ slug: parsed.data.slug })
+    .eq('id_lojista', user.id)
+
+  if (error) {
+    if (error.code === '23505') {
+      return { error: 'Esse link já está em uso por outra loja. Tente outro nome.' }
+    }
+    if (error.code === '42703' || error.message?.includes('column "slug"')) {
+      return { error: 'Coluna slug não encontrada no banco. Execute a migration 024_slug_lojista.sql.' }
+    }
+    return { error: devError('Erro ao salvar o link personalizado.', error.message) }
+  }
+
+  revalidatePath('/lojista/configuracoes/agendamentos')
+  revalidatePath('/lojista/dashboard')
+  return { success: true, slug: parsed.data.slug }
 }
 
 // ============================================================

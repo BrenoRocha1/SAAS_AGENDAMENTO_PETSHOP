@@ -14,7 +14,7 @@ export default async function ConfiguracoesAgendamentosPage() {
 
   const { data: lojista, error } = await supabase
     .from('lojista')
-    .select('kanban_ativo, aceita_agendamento_online')
+    .select('kanban_ativo, aceita_agendamento_online, slug')
     .eq('id_lojista', user!.id)
     .maybeSingle()
 
@@ -62,7 +62,7 @@ export default async function ConfiguracoesAgendamentosPage() {
             />
           </div>
 
-          {lojista.aceita_agendamento_online && <LinkAgendamentoOnline idLojista={user!.id} />}
+          {lojista.aceita_agendamento_online && <LinkAgendamentoOnline idLojista={user!.id} slugAtual={lojista.slug} />}
         </div>
       )}
     </>
