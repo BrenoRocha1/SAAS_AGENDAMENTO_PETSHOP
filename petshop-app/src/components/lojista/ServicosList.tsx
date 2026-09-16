@@ -302,14 +302,6 @@ export default function ServicosList({ servicos: inicial }: Props) {
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label htmlFor="status" className="form-label">Status</label>
-                  <select id="status" name="status" className="form-select" defaultValue={editando?.status ?? 'Ativo'}>
-                    <option value="Ativo">Ativo</option>
-                    <option value="Inativo">Inativo</option>
-                  </select>
-                </div>
-
                 <PrecosVariacoes
                   idServico={editando?.id_servico ?? null}
                   draft={draftVariacoes}

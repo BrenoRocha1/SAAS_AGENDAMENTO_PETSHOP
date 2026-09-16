@@ -495,10 +495,13 @@ export async function editarServicoAction(id_servico: string, formData: FormData
     descricao: formData.get('descricao') as string,
     preco: parseFloat(formData.get('preco') as string),
     duracao: parseInt(formData.get('duracao') as string),
-    status: (formData.get('status') as string) || 'Ativo',
   }
 
-  const parsed = servicoSchema.safeParse(raw)
+  // Sem "status" aqui de propósito — esse formulário não tem mais o campo
+  // (o switch da listagem já cuida disso via alternarStatusServicoAction).
+  // Se voltasse a mandar status aqui, todo "Salvar Serviço" reativaria o
+  // serviço mesmo que o lojista tivesse acabado de desativá-lo pelo switch.
+  const parsed = servicoSchema.omit({ status: true }).safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   const { error } = await supabase
@@ -728,7 +731,7 @@ export async function toggleHorarioAction(id_horario: string, ativo: boolean) {
     .eq('id_horario', id_horario)
     .eq('id_lojista', user.id)
 
-  if (error) return { error: 'Erro ao atualizar horário.' }
+  if (error) return { error: devError('Erro ao atualizar horário.', error.message) }
 
   revalidatePath('/lojista/horarios')
   return { success: true }

@@ -62,9 +62,18 @@ export default function HorariosManager({ horarios: inicial }: Props) {
   }
 
   function handleToggle(id_horario: string, ativo: boolean) {
+    setError(null)
     startTransition(async () => {
-      await toggleHorarioAction(id_horario, ativo)
-      await recarregar()
+      const result = await toggleHorarioAction(id_horario, ativo)
+      if (result?.error) {
+        setError(result.error)
+        return
+      }
+      // Atualiza só o campo "ativo" no estado local — nunca refaz o fetch
+      // aqui. hr_inicio/hr_fim já estavam certos no estado, e um refetch
+      // reintroduziria a mesma falha (o horário "sumir" da tela ao
+      // desativar) que já foi reportada com esse fluxo.
+      setHorarios(prev => prev.map(h => h.id_horario === id_horario ? { ...h, ativo } : h))
     })
   }
 
