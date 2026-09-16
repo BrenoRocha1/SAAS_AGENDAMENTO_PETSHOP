@@ -10,7 +10,7 @@ import {
   removerVariacaoServicoAction,
 } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
-import { IconAlert, IconCheck, IconClose, IconPencil, IconPlus, IconScissors, IconSliders, IconTrash } from '@/components/icons'
+import { IconAlert, IconClose, IconPencil, IconPlus, IconScissors, IconSliders, IconTrash } from '@/components/icons'
 
 interface Servico {
   id_servico: string
@@ -186,21 +186,25 @@ export default function ServicosList({ servicos: inicial }: Props) {
                   <td className="text-success font-semibold">R$ {Number(s.preco).toFixed(2)}</td>
                   <td>{s.duracao} min</td>
                   <td>
-                    <span className={`badge badge-${s.status === 'Ativo' ? 'ativo' : 'inativo'}`}>
-                      {s.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className={`switch ${s.status === 'Ativo' ? 'switch-on' : ''}`}
+                        onClick={() => handleAlternarStatus(s)}
+                        disabled={alternandoId === s.id_servico}
+                        role="switch"
+                        aria-checked={s.status === 'Ativo'}
+                        title={s.status === 'Ativo' ? 'Desativar serviço' : 'Ativar serviço'}
+                      >
+                        <span className="switch-thumb" />
+                      </button>
+                      <span className={`badge badge-${s.status === 'Ativo' ? 'ativo' : 'inativo'}`}>
+                        {alternandoId === s.id_servico ? 'Salvando...' : s.status}
+                      </span>
+                    </div>
                   </td>
                   <td>
                     <div className="flex gap-1">
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => handleAlternarStatus(s)}
-                        disabled={alternandoId === s.id_servico}
-                        title={s.status === 'Ativo' ? 'Desativar serviço' : 'Ativar serviço'}
-                      >
-                        {s.status === 'Ativo' ? <IconClose style={{ width: 14, height: 14 }} /> : <IconCheck style={{ width: 14, height: 14 }} />}
-                        {alternandoId === s.id_servico ? 'Salvando...' : s.status === 'Ativo' ? 'Desativar' : 'Ativar'}
-                      </button>
                       <button
                         className="btn btn-ghost btn-sm"
                         onClick={() => abrirEditar(s)}
