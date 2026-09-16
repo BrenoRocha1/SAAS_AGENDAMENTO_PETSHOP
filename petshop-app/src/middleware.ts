@@ -40,11 +40,13 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
+  // /agendamento/[id] é público de propósito — qualquer pessoa com o link
+  // pode ver a loja e os serviços sem login; só o passo de agendar em si
+  // exige conta de cliente (checado na própria página/wizard).
   const isRotaProtegida =
     pathname.startsWith('/cliente') ||
     pathname.startsWith('/lojista') ||
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/agendamento')
+    pathname.startsWith('/admin')
 
   // Única regra: sem sessão + rota protegida → login
   // Sem nenhuma lógica de role aqui para evitar loops

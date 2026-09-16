@@ -58,18 +58,27 @@ interface Props {
   funcionarios: Funcionario[]
   pets: Pet[]
   cliente: Cliente
+  autenticado: boolean
+  contaInvalida: boolean
+  carrinhoInicial: string[]
 }
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6
 type Slot = { hr_slot: string; disponivel: boolean }
 
-export default function AgendamentoOnlineWizard({ lojista, servicos, funcionarios, pets: petsIniciais, cliente }: Props) {
+export default function AgendamentoOnlineWizard({
+  lojista, servicos, funcionarios, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
+}: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [step, setStep] = useState<Step>(1)
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const [carrinho, setCarrinho] = useState<string[]>([])
+  // Mostrado no lugar do passo 2 quando quem clicou em "Ver Carrinho"
+  // ainda não tem login de cliente — a página é pública até aqui.
+  const [mostrarGateAcesso, setMostrarGateAcesso] = useState(false)
+
+  const [carrinho, setCarrinho] = useState<string[]>(carrinhoInicial)
   const [pets, setPets] = useState<Pet[]>(petsIniciais)
   const [petId, setPetId] = useState('')
   const [funcionarioId, setFuncionarioId] = useState('')
@@ -130,6 +139,17 @@ export default function AgendamentoOnlineWizard({ lojista, servicos, funcionario
   function alternarServico(id: string) {
     setCarrinho(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
+
+  function handleContinuarServicos() {
+    if (!autenticado) {
+      setMostrarGateAcesso(true)
+      return
+    }
+    setStep(2)
+  }
+
+  const voltarParaCa = `/agendamento/${lojista.id}${carrinho.length ? `?servicos=${carrinho.join(',')}` : ''}`
+  const loginHref = `/login?redirectTo=${encodeURIComponent(voltarParaCa)}`
 
   function selecionarPet(p: Pet) {
     setPetId(p.id_pet)
@@ -252,12 +272,42 @@ export default function AgendamentoOnlineWizard({ lojista, servicos, funcionario
               type="button"
               className="btn btn-primary"
               disabled={carrinho.length === 0}
-              onClick={() => setStep(2)}
+              onClick={handleContinuarServicos}
             >
               Ver Carrinho ({carrinho.length})
             </button>
           </div>
         </>
+      )}
+
+      {/* Gate de acesso — só aparece ao tentar continuar sem estar logado como cliente */}
+      {step === 1 && mostrarGateAcesso && (
+        <div className="card" style={{ textAlign: 'center', marginTop: 'var(--space-5)' }}>
+          {contaInvalida ? (
+            <>
+              <IconAlert style={{ width: 28, height: 28, color: 'var(--warning-400)', margin: '0 auto var(--space-4)' }} />
+              <h2 style={{ fontSize: '1.1rem', marginBottom: 'var(--space-2)' }}>Essa conta não é uma conta de cliente</h2>
+              <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
+                Para agendar em {lojista.nome}, saia e entre com uma conta de cliente.
+              </p>
+            </>
+          ) : (
+            <>
+              <IconPaw style={{ width: 28, height: 28, color: 'var(--primary-400)', margin: '0 auto var(--space-4)' }} />
+              <h2 style={{ fontSize: '1.1rem', marginBottom: 'var(--space-2)' }}>Falta pouco!</h2>
+              <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
+                Entre com sua conta de cliente para continuar o agendamento em {lojista.nome}. Seus serviços escolhidos continuam salvos.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+                <Link href={loginHref} className="btn btn-primary">Entrar</Link>
+                <Link href={`/cadastro?redirectTo=${encodeURIComponent(voltarParaCa)}`} className="btn btn-secondary">Criar conta de cliente</Link>
+              </div>
+            </>
+          )}
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMostrarGateAcesso(false)}>
+            Voltar
+          </button>
+        </div>
       )}
 
       {/* STEP 2 — Pet */}

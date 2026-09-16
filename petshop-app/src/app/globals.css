@@ -2322,7 +2322,7 @@ a:hover { color: var(--primary-300); }
   max-width: 480px;
   margin: 0 auto;
   min-height: 100vh;
-  padding: var(--space-6) var(--space-4) calc(var(--space-16) + 64px);
+  padding: var(--space-6) var(--space-4);
 }
 
 .agenonline-header {
@@ -2401,26 +2401,29 @@ a:hover { color: var(--primary-300); }
 .agenonline-service-nome { font-weight: 600; color: var(--gray-100); margin-top: var(--space-2); }
 .agenonline-service-preco { font-size: 0.8125rem; color: var(--gray-500); margin-top: 2px; }
 
+/* position: sticky (não fixed) de propósito — com poucos serviços o
+   conteúdo não enche a tela, e um botão fixed ficaria colado no rodapé
+   da viewport com um vão vazio enorme no meio. Sticky só "gruda" quando
+   a página realmente rola até ali; senão fica logo abaixo da grade,
+   no fluxo normal. */
 .agenonline-cart-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
+  position: sticky;
   bottom: 0;
   display: flex;
   justify-content: center;
-  padding: var(--space-4);
+  margin-top: var(--space-6);
+  padding: var(--space-4) 0;
   background: linear-gradient(to top, var(--gray-950) 55%, transparent);
-  pointer-events: none;
 }
-
-.agenonline-cart-bar > * { pointer-events: auto; }
 
 .agenonline-day-strip {
   display: flex;
   gap: var(--space-2);
   overflow-x: auto;
   padding-bottom: var(--space-1);
+  scrollbar-width: none; /* Firefox */
 }
+.agenonline-day-strip::-webkit-scrollbar { display: none; } /* Chrome/Safari/Edge */
 
 .agenonline-day {
   flex: 0 0 auto;
