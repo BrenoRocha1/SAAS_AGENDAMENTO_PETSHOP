@@ -1,0 +1,34 @@
+-- ============================================================
+-- PETSHOP SaaS - Migration 017: Fuso horário do banco = Brasil
+-- ============================================================
+-- Motivo: por padrão, um projeto Supabase roda em UTC. O petshop opera
+-- no Brasil (UTC-3). Como Brasil está atrás de UTC, a partir de ~21h no
+-- horário de Brasília o calendário em UTC já virou o dia seguinte.
+--
+-- Isso quebrava, na prática:
+--   1) A própria CHECK CONSTRAINT de `agendamento.dt_agendamento >=
+--      CURRENT_DATE` (migration 001) — rejeitava um agendamento pra
+--      HOJE, porque pro banco (em UTC) "hoje" já era amanhã.
+--   2) O `IF p_data < CURRENT_DATE` dentro de fn_criar_agendamento e
+--      fn_criar_agendamento_lojista (migrations 003/008/011/014) — mesmo
+--      problema, mesma hora do dia.
+--   3) `fn_metricas_lojista` (o filtro "hoje" das métricas) e o valor
+--      padrão `p_data DATE DEFAULT CURRENT_DATE` de fn_agenda_dia.
+--
+-- Em vez de reescrever cada função pra calcular "hoje" na mão (frágil,
+-- fácil de esquecer numa próxima função), a correção é no nível certo:
+-- o banco inteiro passa a considerar 'America/Sao_Paulo' como fuso
+-- padrão. CURRENT_DATE, NOW() e toda CHECK CONSTRAINT baseada neles
+-- passam a refletir o horário real da loja, sem tocar em cada função.
+--
+-- Efeito colateral esperado (e correto): CURRENT_DATE muda de valor às
+-- 21h de Brasília (meia-noite em UTC-3... na verdade agora vira à meia-
+-- noite de Brasília, que é o comportamento certo) em vez de à meia-noite
+-- UTC (21h de Brasília).
+-- ============================================================
+
+ALTER DATABASE postgres SET timezone TO 'America/Sao_Paulo';
+
+-- Nota: sessões/conexões já abertas antes desta migration continuam com
+-- o fuso antigo até reconectar — normal em ambiente serverless (cada
+-- invocação abre conexão nova), então o efeito é imediato na prática.
