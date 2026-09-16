@@ -6,7 +6,6 @@ import {
   IconCalendar,
   IconChevronRight,
   IconClock,
-  IconKanban,
   IconShield,
   IconStore,
   IconUserBadge,
@@ -19,7 +18,10 @@ interface ItemConfig {
   icon: React.ReactNode
   titulo: string
   descricao: string
-  status?: { texto: string; ativo: boolean }
+  // Array porque "Configurações de Agendamentos" mostra dois status
+  // (Kanban e Agendamento Online) num item só, já que os dois campos
+  // vivem na mesma página de destino.
+  status?: { texto: string; ativo: boolean }[]
 }
 
 export default async function ConfiguracoesPage() {
@@ -60,18 +62,14 @@ export default async function ConfiguracoesPage() {
       titulo: 'Agendamentos',
       itens: [
         {
-          href: '/lojista/configuracoes/agendamentos#kanban',
-          icon: <IconKanban style={{ width: 18, height: 18 }} />,
-          titulo: 'Gestor de Agendamentos',
-          descricao: 'Ativa ou desativa o Kanban (Pendentes / Em Andamento / Finalizado)',
-          status: { texto: kanbanAtivo ? 'Ativado' : 'Desativado', ativo: kanbanAtivo },
-        },
-        {
-          href: '/lojista/configuracoes/agendamentos#online',
+          href: '/lojista/configuracoes/agendamentos',
           icon: <IconCalendar style={{ width: 18, height: 18 }} />,
-          titulo: 'Agendamento Online',
-          descricao: 'Controla se clientes podem agendar sozinhos pelo app',
-          status: { texto: agendamentoOnlineAtivo ? 'Ativado' : 'Desativado', ativo: agendamentoOnlineAtivo },
+          titulo: 'Configurações de Agendamentos',
+          descricao: 'Kanban de atendimento (Pendentes / Em Andamento / Finalizado) e agendamento feito pelos próprios clientes',
+          status: [
+            { texto: `Kanban ${kanbanAtivo ? 'Ativado' : 'Desativado'}`, ativo: kanbanAtivo },
+            { texto: `Online ${agendamentoOnlineAtivo ? 'Ativado' : 'Desativado'}`, ativo: agendamentoOnlineAtivo },
+          ],
         },
       ],
     },
@@ -125,9 +123,13 @@ export default async function ConfiguracoesPage() {
                     <div className="config-item-desc">{item.descricao}</div>
                   </div>
                   {item.status && (
-                    <span className={`badge ${item.status.ativo ? 'badge-ativo' : 'badge-inativo'}`} style={{ flexShrink: 0 }}>
-                      {item.status.texto}
-                    </span>
+                    <div className="flex gap-2" style={{ flexShrink: 0 }}>
+                      {item.status.map(s => (
+                        <span key={s.texto} className={`badge ${s.ativo ? 'badge-ativo' : 'badge-inativo'}`}>
+                          {s.texto}
+                        </span>
+                      ))}
+                    </div>
                   )}
                   <IconChevronRight style={{ width: 16, height: 16, color: 'var(--gray-600)', flexShrink: 0 }} />
                 </Link>
