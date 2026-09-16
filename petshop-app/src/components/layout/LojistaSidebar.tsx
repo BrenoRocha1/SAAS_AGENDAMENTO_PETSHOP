@@ -14,14 +14,17 @@ import {
   IconScissors,
   IconClock,
   IconUsers,
-  IconUserBadge,
-  IconStore,
   IconSettings,
   IconLogout,
   IconChevronLeft,
   IconChevronRight,
 } from '@/components/icons'
 
+// Funcionários e Perfil da Loja saíram daqui — agora são acessados via
+// Configurações (Operação → Equipe / Loja → Dados da loja), que já é a
+// central de navegação pra essas duas telas. As telas em si continuam
+// existindo nas mesmas rotas de sempre, só não duplicam mais a entrada
+// no menu.
 const navItemsBase = [
   { href: '/lojista/dashboard',     icon: IconGrid,      label: 'Dashboard' },
   { href: '/lojista/agendamentos',  icon: IconCalendar,  label: 'Agendamentos' },
@@ -31,8 +34,6 @@ const navItemsBase = [
   { href: '/lojista/horarios',      icon: IconClock,     label: 'Horários' },
   { href: '/lojista/clientes',      icon: IconUsers,     label: 'Clientes' },
   { href: '/lojista/pets',          icon: IconDog,       label: 'Pets' },
-  { href: '/lojista/funcionarios',  icon: IconUserBadge, label: 'Funcionários' },
-  { href: '/lojista/perfil',        icon: IconStore,     label: 'Perfil da Loja' },
   { href: '/lojista/configuracoes', icon: IconSettings,  label: 'Configurações' },
 ]
 

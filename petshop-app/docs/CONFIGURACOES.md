@@ -48,7 +48,7 @@ sem duplicar a lógica de gravação, que continua só na página de destino.
   - a loja some do seletor de lojas em `/cliente/novo-agendamento` (filtro `.eq('aceita_agendamento_online', true)` na query);
   - `fn_criar_agendamento` (a RPC chamada pelo PRÓPRIO cliente) passou a checar essa coluna e recusa com uma mensagem clara — dupla camada, não confia só em esconder a loja da lista;
   - `fn_criar_agendamento_lojista` (agendamento manual, criado pelo lojista) **não foi alterada** — continua funcionando sempre, como pedido explicitamente.
-- **CPF**: não virou uma configuração. `cliente.cpf` já é `NOT NULL` desde a migration 001, pra qualquer cliente, de qualquer loja — não existe (nem faria sentido criar) uma exigência de CPF *por loja*, já que a conta do cliente é única na plataforma. Isso está documentado também dentro da própria tela (card tracejado em Configurações → Agendamentos), não só aqui.
+- **CPF**: não virou uma configuração. `cliente.cpf` já é `NOT NULL` desde a migration 001, pra qualquer cliente, de qualquer loja — não existe (nem faria sentido criar) uma exigência de CPF *por loja*, já que a conta do cliente é única na plataforma. Só documentado aqui — não aparece nada sobre isso na tela, pra não poluir a UI com um card informativo sem ação nenhuma.
 
 ## 4. Arquivos
 
@@ -66,7 +66,7 @@ sem duplicar a lógica de gravação, que continua só na página de destino.
 - `src/components/lojista/PerfilLojistaForm.tsx` — removido o card do Kanban (mudou de endereço, não de lógica).
 - `src/app/lojista/perfil/page.tsx` — link avisando que Kanban/Agendamento Online agora ficam em Configurações.
 - `src/app/cliente/novo-agendamento/page.tsx` — filtro `aceita_agendamento_online = true` na lista de lojas.
-- `src/components/layout/LojistaSidebar.tsx` — item "Configurações" adicionado ao final (nenhum item removido).
+- `src/components/layout/LojistaSidebar.tsx` — item "Configurações" adicionado; "Funcionários" e "Perfil da Loja" removidos do menu a pedido do usuário, já que ambos agora são acessados via Configurações (Operação → Equipe / Loja → Dados da loja) — as rotas/páginas em si continuam existindo e funcionando, só a entrada duplicada no menu saiu.
 - `src/components/icons/index.tsx` — `IconSettings` (engrenagem), único ícone novo.
 
 ## 5. Multi-tenant e permissões
