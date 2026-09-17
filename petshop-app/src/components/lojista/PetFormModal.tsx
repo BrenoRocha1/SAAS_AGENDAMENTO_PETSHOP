@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { format } from 'date-fns'
 import { criarPetLojistaAction, editarPetLojistaAction } from '@/lib/actions'
 import { IconAlert, IconCheck, IconClose, IconDog, IconSearch } from '@/components/icons'
+import PetFotoUpload from '@/components/cliente/PetFotoUpload'
 
 export interface ClienteBasico {
   id_cliente: string
@@ -25,6 +26,7 @@ export interface PetParaEditar {
   obs: string | null
   id_cliente: string
   nome_cliente: string
+  foto_url?: string | null
 }
 
 interface Props {
@@ -95,6 +97,12 @@ export default function PetFormModal({ pet, clientes, clienteFixo, onClose, onSa
               <div className="alert alert-error">
                 <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
                 <span>{error}</span>
+              </div>
+            )}
+
+            {isEdicao && (
+              <div style={{ marginBottom: 'var(--space-4)' }}>
+                <PetFotoUpload idPet={pet!.id_pet} fotoUrlInicial={pet!.foto_url ?? null} />
               </div>
             )}
 

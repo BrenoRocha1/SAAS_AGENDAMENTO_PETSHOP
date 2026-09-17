@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   cadastrarFuncionarioAction,
   editarFuncionarioAction,
+  excluirFuncionarioAction,
   toggleFuncionarioAction,
 } from '@/lib/actions'
 import {
@@ -12,10 +13,13 @@ import {
   IconCalendar,
   IconCheck,
   IconClose,
+  IconDog,
+  IconLock,
   IconPencil,
   IconPlus,
   IconScissors,
   IconShield,
+  IconTrash,
   IconUserBadge,
 } from '@/components/icons'
 
@@ -27,19 +31,31 @@ interface Funcionario {
   cargo: string | null
   pode_gerenciar_agenda: boolean
   pode_gerenciar_servicos: boolean
+  pode_gerenciar_clientes_pets: boolean
+  acesso_total: boolean
   ativo: boolean
   created_at: string
 }
 
 interface Props {
   funcionarios: Funcionario[]
+  // Só o responsável pela conta (o lojista de verdade) pode conceder
+  // "Acesso total" — um administrador (funcionário com acesso_total)
+  // gerencia a equipe normalmente, mas nunca vê essa opção pra si mesmo
+  // nem pra ninguém (migration 029 garante isso de novo no banco).
+  podeConcederAcessoTotal: boolean
+  // Quem criou a conta do petshop — não é uma linha da tabela funcionario
+  // (é a própria lojista), então aparece aqui só como um card fixo,
+  // sempre "Administrador" e nunca editável ou removível.
+  donoConta: { nome: string; email: string } | null
 }
 
-export default function FuncionariosList({ funcionarios: initial }: Props) {
+export default function FuncionariosList({ funcionarios: initial, podeConcederAcessoTotal, donoConta }: Props) {
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [confirmarExclusao, setConfirmarExclusao] = useState<Funcionario | null>(null)
   const [isPending, startTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -79,7 +95,7 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
         if (result?.error) {
           setError(result.error)
         } else {
-          setSuccess('Funcionário atualizado com sucesso!')
+          setSuccess('Membro atualizado com sucesso!')
           closeModal()
         }
       } else {
@@ -87,7 +103,7 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
         if (result?.error) {
           setError(result.error)
         } else {
-          setSuccess('Convite enviado! O funcionário vai receber um e-mail para definir a própria senha e acessar o sistema.')
+          setSuccess('Convite enviado! A pessoa vai receber um e-mail para definir a própria senha e acessar o sistema.')
           closeModal()
           formRef.current?.reset()
         }
@@ -100,6 +116,22 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
     startTransition(async () => {
       const result = await toggleFuncionarioAction(id, ativo)
       if (result?.error) setError(result.error)
+    })
+  }
+
+  function confirmarExclusaoDoMembro() {
+    if (!confirmarExclusao) return
+    const alvo = confirmarExclusao
+    setError(null)
+    startTransition(async () => {
+      const result = await excluirFuncionarioAction(alvo.id_funcionario)
+      setConfirmarExclusao(null)
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        closeModal()
+        setSuccess('Membro excluído com sucesso!')
+      }
     })
   }
 
@@ -129,20 +161,39 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
           className="btn btn-primary"
           id="btn-novo-funcionario"
         >
-          <IconPlus style={{ width: 16, height: 16 }} /> Cadastrar Funcionário
+          <IconPlus style={{ width: 16, height: 16 }} /> Cadastrar Membro
         </button>
       </div>
 
-      {/* Lista de funcionários ativos */}
+      {/* Responsável pela conta — não é um registro de funcionario, é a
+          própria lojista, sempre "Administrador" e fixo (não dá pra
+          editar nem excluir por aqui). */}
+      {donoConta && (
+        <div style={{ marginBottom: 'var(--space-8)' }}>
+          <h2 style={{
+            fontSize: '1rem',
+            fontWeight: 600,
+            color: 'var(--gray-300)',
+            marginBottom: 'var(--space-4)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}>
+            Responsável pela conta
+          </h2>
+          <DonoContaCard donoConta={donoConta} />
+        </div>
+      )}
+
+      {/* Lista de membros ativos */}
       {ativos.length === 0 && inativos.length === 0 ? (
         <div className="empty-state card">
           <IconUserBadge style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
-          <div className="empty-state-title">Nenhum funcionário cadastrado</div>
+          <div className="empty-state-title">Nenhum outro membro cadastrado</div>
           <p style={{ marginBottom: 'var(--space-5)' }}>
-            Cadastre funcionários para ajudar na gestão do seu petshop
+            Cadastre membros da equipe para ajudar na gestão do seu petshop
           </p>
           <button onClick={openNew} className="btn btn-primary">
-            Cadastrar primeiro funcionário
+            Cadastrar primeiro membro
           </button>
         </div>
       ) : (
@@ -226,7 +277,7 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
                 gap: 'var(--space-2)',
               }}>
                 {editId ? <IconPencil style={{ width: 18, height: 18 }} /> : <IconUserBadge style={{ width: 18, height: 18 }} />}
-                {editId ? 'Editar Funcionário' : 'Novo Funcionário'}
+                {editId ? 'Editar Membro' : 'Novo Membro'}
               </h2>
               <button
                 onClick={closeModal}
@@ -266,11 +317,11 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
                     name="email"
                     type="email"
                     className="form-input"
-                    placeholder="funcionario@email.com"
+                    placeholder="membro@email.com"
                     required
                   />
                   <span className="form-hint">
-                    O funcionário vai receber um e-mail nesse endereço para definir a própria senha
+                    A pessoa vai receber um e-mail nesse endereço para definir a própria senha
                   </span>
                 </div>
               )}
@@ -304,108 +355,324 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
 
               <div className="separator" />
 
-              {/* Permissões */}
-              <div style={{ marginBottom: 'var(--space-4)' }}>
-                <h3 style={{
-                  fontSize: '0.95rem',
-                  fontWeight: 600,
-                  color: 'var(--gray-200)',
-                  marginBottom: 'var(--space-3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-2)',
-                }}>
-                  <IconShield style={{ width: 16, height: 16 }} /> Permissões
-                </h3>
+              <PermissoesCampos editFunc={editFunc} podeConcederAcessoTotal={podeConcederAcessoTotal} />
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-3)',
-                    padding: 'var(--space-3)',
-                    background: 'var(--gray-800)',
-                    borderRadius: 'var(--radius-md)',
-                    cursor: 'pointer',
-                  }}>
-                    <input
-                      type="checkbox"
-                      name="pode_gerenciar_agenda_check"
-                      defaultChecked={editFunc?.pode_gerenciar_agenda ?? true}
-                      onChange={(e) => {
-                        const hidden = e.target.form?.querySelector('#func-pode-agenda') as HTMLInputElement
-                        if (hidden) hidden.value = String(e.target.checked)
-                      }}
-                      style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
-                    />
-                    <input type="hidden" id="func-pode-agenda" name="pode_gerenciar_agenda" defaultValue={String(editFunc?.pode_gerenciar_agenda ?? true)} />
-                    <div>
-                      <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                        <IconCalendar style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Agenda
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
-                        Visualizar e alterar status de agendamentos
-                      </div>
-                    </div>
-                  </label>
-
-                  <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-3)',
-                    padding: 'var(--space-3)',
-                    background: 'var(--gray-800)',
-                    borderRadius: 'var(--radius-md)',
-                    cursor: 'pointer',
-                  }}>
-                    <input
-                      type="checkbox"
-                      name="pode_gerenciar_servicos_check"
-                      defaultChecked={editFunc?.pode_gerenciar_servicos ?? false}
-                      onChange={(e) => {
-                        const hidden = e.target.form?.querySelector('#func-pode-servicos') as HTMLInputElement
-                        if (hidden) hidden.value = String(e.target.checked)
-                      }}
-                      style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
-                    />
-                    <input type="hidden" id="func-pode-servicos" name="pode_gerenciar_servicos" defaultValue={String(editFunc?.pode_gerenciar_servicos ?? false)} />
-                    <div>
-                      <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                        <IconScissors style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Serviços
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
-                        Cadastrar e editar serviços do petshop
-                      </div>
-                    </div>
-                  </label>
+              <div style={{
+                display: 'flex',
+                gap: 'var(--space-3)',
+                justifyContent: editFunc ? 'space-between' : 'flex-end',
+              }}>
+                {editFunc && (podeConcederAcessoTotal || !editFunc.acesso_total) && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmarExclusao(editFunc)}
+                    className="btn btn-danger"
+                    disabled={isPending}
+                  >
+                    <IconTrash style={{ width: 14, height: 14 }} /> Excluir Membro
+                  </button>
+                )}
+                <div style={{ display: 'flex', gap: 'var(--space-3)', marginLeft: 'auto' }}>
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="btn btn-ghost"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
+                    disabled={isPending}
+                    id="btn-salvar-funcionario"
+                  >
+                    {isPending
+                      ? (editId ? 'Salvando...' : 'Convidando...')
+                      : (editId ? 'Salvar Alterações' : 'Convidar Membro')
+                    }
+                  </button>
                 </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="btn btn-ghost"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
-                  disabled={isPending}
-                  id="btn-salvar-funcionario"
-                >
-                  {isPending
-                    ? (editId ? 'Salvando...' : 'Convidando...')
-                    : (editId ? 'Salvar Alterações' : 'Convidar Funcionário')
-                  }
-                </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Confirmação de exclusão — fica por cima do modal de edição */}
+      {confirmarExclusao && (
+        <div
+          className="modal-overlay"
+          onClick={() => !isPending && setConfirmarExclusao(null)}
+          style={{ zIndex: 1100 }}
+        >
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Excluir membro</h3>
+              <button className="modal-close" onClick={() => setConfirmarExclusao(null)} aria-label="Fechar" disabled={isPending}>
+                <IconClose style={{ width: 15, height: 15 }} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="flex gap-3" style={{ alignItems: 'flex-start' }}>
+                <span style={{
+                  width: 36, height: 36, borderRadius: 'var(--radius-full)', flexShrink: 0,
+                  background: 'rgba(239,68,68,0.1)', color: 'var(--danger-400)',
+                  display: 'grid', placeItems: 'center',
+                }}>
+                  <IconAlert style={{ width: 18, height: 18 }} />
+                </span>
+                <p style={{ color: 'var(--gray-200)' }}>
+                  Tem certeza que deseja excluir <strong style={{ color: 'var(--gray-100)' }}>{confirmarExclusao.nome}</strong> da
+                  equipe? Essa ação não pode ser desfeita — a pessoa perde o acesso ao sistema
+                  imediatamente. O histórico de agendamentos já realizados por ela é mantido.
+                </p>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setConfirmarExclusao(null)} disabled={isPending}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className={`btn btn-danger ${isPending ? 'btn-loading' : ''}`}
+                onClick={confirmarExclusaoDoMembro}
+                disabled={isPending}
+              >
+                {isPending ? 'Excluindo...' : 'Excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
+  )
+}
+
+// ============================================================
+// Sub-componente: Card do responsável pela conta — mesma linguagem
+// visual do FuncCard, mas sem nenhuma ação (não edita, não desativa,
+// não navega pra lugar nenhum e não conta pro total de "Ativos").
+// ============================================================
+function DonoContaCard({ donoConta }: { donoConta: { nome: string; email: string } }) {
+  const initials = donoConta.nome
+    .split(' ')
+    .slice(0, 2)
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+
+  return (
+    <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', padding: 'var(--space-4)' }}>
+      <div style={{
+        width: 48,
+        height: 48,
+        borderRadius: '50%',
+        background: 'var(--primary-600)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: 700,
+        color: 'white',
+        fontSize: '0.9rem',
+        flexShrink: 0,
+      }}>
+        {initials}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, color: 'var(--gray-100)' }}>{donoConta.nome}</div>
+        <div style={{ fontSize: '0.85rem', color: 'var(--gray-400)' }}>{donoConta.email}</div>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-1)', flexWrap: 'wrap' }}>
+          <span style={{
+            fontSize: '0.7rem',
+            padding: '2px 8px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'rgba(13,148,136,0.12)',
+            color: 'var(--primary-700)',
+            border: '1px solid rgba(13,148,136,0.3)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+          }}>
+            <IconShield style={{ width: 11, height: 11 }} /> Administrador
+          </span>
+          <span style={{
+            fontSize: '0.7rem',
+            padding: '2px 8px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--gray-800)',
+            color: 'var(--gray-400)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+          }}>
+            <IconLock style={{ width: 11, height: 11 }} /> Fixo — dono da conta
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// Sub-componente: Campos de permissão do modal (estado próprio, reseta
+// a cada abertura do modal porque só é montado enquanto ele está aberto)
+// ============================================================
+function PermissoesCampos({
+  editFunc,
+  podeConcederAcessoTotal,
+}: {
+  editFunc: Funcionario | null
+  podeConcederAcessoTotal: boolean
+}) {
+  const [podeAgenda, setPodeAgenda] = useState(editFunc?.pode_gerenciar_agenda ?? true)
+  const [podeServicos, setPodeServicos] = useState(editFunc?.pode_gerenciar_servicos ?? false)
+  const [podeClientesPets, setPodeClientesPets] = useState(editFunc?.pode_gerenciar_clientes_pets ?? false)
+  const [acessoTotal, setAcessoTotal] = useState(editFunc?.acesso_total ?? false)
+
+  // "Acesso total" é paridade completa com o lojista — marcar ele já
+  // implica todas as outras permissões, então elas seguem juntas (e
+  // ficam travadas, já que desmarcar uma sozinha não faria sentido
+  // enquanto o administrador continua com acesso total).
+  function handleAcessoTotal(checked: boolean) {
+    setAcessoTotal(checked)
+    setPodeAgenda(checked)
+    setPodeServicos(checked)
+    setPodeClientesPets(checked)
+  }
+
+  return (
+    <div style={{ marginBottom: 'var(--space-4)' }}>
+      <h3 style={{
+        fontSize: '0.95rem',
+        fontWeight: 600,
+        color: 'var(--gray-200)',
+        marginBottom: 'var(--space-3)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--space-2)',
+      }}>
+        <IconShield style={{ width: 16, height: 16 }} /> Permissões
+      </h3>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-3)',
+          padding: 'var(--space-3)',
+          background: 'var(--gray-800)',
+          borderRadius: 'var(--radius-md)',
+          cursor: acessoTotal ? 'not-allowed' : 'pointer',
+          opacity: acessoTotal ? 0.6 : 1,
+        }}>
+          <input
+            type="checkbox"
+            checked={podeAgenda}
+            disabled={acessoTotal}
+            onChange={(e) => setPodeAgenda(e.target.checked)}
+            style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
+          />
+          <input type="hidden" name="pode_gerenciar_agenda" value={String(podeAgenda)} />
+          <div>
+            <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <IconCalendar style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Agenda
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
+              Visualizar e alterar status de agendamentos
+            </div>
+          </div>
+        </label>
+
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-3)',
+          padding: 'var(--space-3)',
+          background: 'var(--gray-800)',
+          borderRadius: 'var(--radius-md)',
+          cursor: acessoTotal ? 'not-allowed' : 'pointer',
+          opacity: acessoTotal ? 0.6 : 1,
+        }}>
+          <input
+            type="checkbox"
+            checked={podeServicos}
+            disabled={acessoTotal}
+            onChange={(e) => setPodeServicos(e.target.checked)}
+            style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
+          />
+          <input type="hidden" name="pode_gerenciar_servicos" value={String(podeServicos)} />
+          <div>
+            <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <IconScissors style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Serviços
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
+              Cadastrar e editar serviços do petshop
+            </div>
+          </div>
+        </label>
+
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-3)',
+          padding: 'var(--space-3)',
+          background: 'var(--gray-800)',
+          borderRadius: 'var(--radius-md)',
+          cursor: acessoTotal ? 'not-allowed' : 'pointer',
+          opacity: acessoTotal ? 0.6 : 1,
+        }}>
+          <input
+            type="checkbox"
+            checked={podeClientesPets}
+            disabled={acessoTotal}
+            onChange={(e) => setPodeClientesPets(e.target.checked)}
+            style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
+          />
+          <input type="hidden" name="pode_gerenciar_clientes_pets" value={String(podeClientesPets)} />
+          <div>
+            <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <IconDog style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Pets e Clientes
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
+              Visualizar os pets e clientes cadastrados no sistema
+            </div>
+          </div>
+        </label>
+
+        {(podeConcederAcessoTotal || editFunc?.acesso_total) && (
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-3)',
+            padding: 'var(--space-3)',
+            background: 'var(--gray-800)',
+            borderRadius: 'var(--radius-md)',
+            cursor: podeConcederAcessoTotal ? 'pointer' : 'not-allowed',
+            opacity: podeConcederAcessoTotal ? 1 : 0.6,
+          }}>
+            <input
+              type="checkbox"
+              checked={acessoTotal}
+              disabled={!podeConcederAcessoTotal}
+              onChange={(e) => handleAcessoTotal(e.target.checked)}
+              style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
+            />
+            <input type="hidden" name="acesso_total" value={String(acessoTotal)} />
+            <div>
+              <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <IconShield style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Acesso Total (Administrador)
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
+                {podeConcederAcessoTotal
+                  ? 'Mesmo acesso que você tem, em todas as telas — só você pode conceder isso'
+                  : 'Só o responsável pela conta pode conceder ou remover acesso total'}
+              </div>
+            </div>
+          </label>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -435,7 +702,7 @@ function FuncCard({
   return (
     <div
       className="card"
-      onClick={() => router.push(`/lojista/funcionarios/${func.id_funcionario}`)}
+      onClick={() => router.push(`/lojista/equipe/${func.id_funcionario}`)}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -507,6 +774,35 @@ function FuncCard({
               gap: 4,
             }}>
               <IconScissors style={{ width: 11, height: 11 }} /> Serviços
+            </span>
+          )}
+          {func.pode_gerenciar_clientes_pets && (
+            <span style={{
+              fontSize: '0.7rem',
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--warning-900)',
+              color: 'var(--warning-400)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}>
+              <IconDog style={{ width: 11, height: 11 }} /> Clientes/Pets
+            </span>
+          )}
+          {func.acesso_total && (
+            <span style={{
+              fontSize: '0.7rem',
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(13,148,136,0.12)',
+              color: 'var(--primary-700)',
+              border: '1px solid rgba(13,148,136,0.3)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}>
+              <IconShield style={{ width: 11, height: 11 }} /> Administrador
             </span>
           )}
         </div>

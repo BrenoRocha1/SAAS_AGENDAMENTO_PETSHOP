@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { format, parseISO, differenceInCalendarDays } from 'date-fns'
 import { agoraBrasil } from '@/lib/agenda'
 import { formatarTelefone, formatarCpf } from '@/lib/format'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import {
   IconCalendar,
   IconChevronLeft,
@@ -51,7 +52,10 @@ export default async function PerfilClientePage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const lojistaId = user!.id
+  const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
+  if (!contexto || !contexto.podeGerenciarClientesPets) return null
+  const podeEditar = contexto.role === 'lojista' || contexto.acessoTotal
+  const lojistaId = contexto.idLojista
 
   // RLS ("cliente: lojista ve vinculados", migration 014) já garante que
   // só vem resultado se este cliente pertencer ao seu petshop.
@@ -199,15 +203,19 @@ export default async function PerfilClientePage({ params }: Props) {
           >
             <IconWhatsapp style={{ width: 14, height: 14 }} /> WhatsApp
           </a>
-          <Link href={`/lojista/pets?novoPetTutor=${cliente.id_cliente}`} className="btn btn-secondary btn-sm">
-            <IconPlus style={{ width: 14, height: 14 }} /> Adicionar Pet
-          </Link>
-          <Link href={`/lojista/agendamentos?novoAgendamentoTutor=${cliente.id_cliente}`} className="btn btn-secondary btn-sm">
-            <IconCalendar style={{ width: 14, height: 14 }} /> Novo Agendamento
-          </Link>
-          <Link href={`/lojista/clientes?editar=${cliente.id_cliente}`} className="btn btn-primary btn-sm">
-            <IconPencil style={{ width: 14, height: 14 }} /> Editar
-          </Link>
+          {podeEditar && (
+            <>
+              <Link href={`/lojista/pets?novoPetTutor=${cliente.id_cliente}`} className="btn btn-secondary btn-sm">
+                <IconPlus style={{ width: 14, height: 14 }} /> Adicionar Pet
+              </Link>
+              <Link href={`/lojista/agendamentos?novoAgendamentoTutor=${cliente.id_cliente}`} className="btn btn-secondary btn-sm">
+                <IconCalendar style={{ width: 14, height: 14 }} /> Novo Agendamento
+              </Link>
+              <Link href={`/lojista/clientes?editar=${cliente.id_cliente}`} className="btn btn-primary btn-sm">
+                <IconPencil style={{ width: 14, height: 14 }} /> Editar
+              </Link>
+            </>
+          )}
         </div>
       </div>
 

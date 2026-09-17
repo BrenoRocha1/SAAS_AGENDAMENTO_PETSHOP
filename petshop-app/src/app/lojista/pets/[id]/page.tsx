@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { format, parseISO, differenceInYears } from 'date-fns'
 import { formatarTelefone } from '@/lib/format'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import { IconChevronLeft, IconDog, IconPencil, IconUsers } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'Detalhes do Pet — Lojista' }
@@ -22,7 +23,10 @@ export default async function DetalhePetPage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const lojistaId = user!.id
+  const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
+  if (!contexto || !contexto.podeGerenciarClientesPets) return null
+  const podeEditar = contexto.role === 'lojista' || contexto.acessoTotal
+  const lojistaId = contexto.idLojista
 
   // RLS ("pet: lojista ve pets de clientes vinculados", migration 015) já
   // garante que só vem resultado se este pet pertencer a um cliente do
@@ -92,9 +96,11 @@ export default async function DetalhePetPage({ params }: Props) {
             {[pet.especie, pet.porte, pet.raca].filter(Boolean).join(' · ')}
           </p>
         </div>
-        <Link href={`/lojista/pets?editar=${pet.id_pet}`} className="btn btn-primary btn-sm">
-          <IconPencil style={{ width: 14, height: 14 }} /> Editar
-        </Link>
+        {podeEditar && (
+          <Link href={`/lojista/pets?editar=${pet.id_pet}`} className="btn btn-primary btn-sm">
+            <IconPencil style={{ width: 14, height: 14 }} /> Editar
+          </Link>
+        )}
       </div>
 
       <div className="grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'start' }}>

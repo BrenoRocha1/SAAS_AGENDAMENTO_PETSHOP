@@ -244,6 +244,11 @@ export const funcionarioSchema = z.object({
   cargo: z.string().max(100).optional(),
   pode_gerenciar_agenda: z.boolean().default(true),
   pode_gerenciar_servicos: z.boolean().default(false),
+  pode_gerenciar_clientes_pets: z.boolean().default(false),
+  // Só o responsável pela conta (o lojista de verdade) pode marcar isso —
+  // checado em código (cadastrarFuncionarioAction) e garantido de novo
+  // por trigger no banco (migration 029), nunca só confiando no Zod.
+  acesso_total: z.boolean().default(false),
 })
 
 export const editarFuncionarioSchema = z.object({
@@ -254,6 +259,8 @@ export const editarFuncionarioSchema = z.object({
   cargo: z.string().max(100).optional(),
   pode_gerenciar_agenda: z.boolean().default(true),
   pode_gerenciar_servicos: z.boolean().default(false),
+  pode_gerenciar_clientes_pets: z.boolean().default(false),
+  acesso_total: z.boolean().default(false),
 })
 
 // ============================================================

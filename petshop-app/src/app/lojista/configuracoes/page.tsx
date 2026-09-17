@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import {
@@ -8,7 +9,6 @@ import {
   IconClock,
   IconShield,
   IconStore,
-  IconUserBadge,
 } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'Configurações — Lojista' }
@@ -27,6 +27,8 @@ interface ItemConfig {
 export default async function ConfiguracoesPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
+  if (!contexto) return null
 
   // Só pra mostrar o status (Ativado/Desativado) ao lado dos itens que
   // são toggles — a página em si (Configurações → Agendamentos) é quem
@@ -34,7 +36,7 @@ export default async function ConfiguracoesPage() {
   const { data: lojista } = await supabase
     .from('lojista')
     .select('kanban_ativo, aceita_agendamento_online')
-    .eq('id_lojista', user!.id)
+    .eq('id_lojista', contexto.idLojista)
     .maybeSingle()
 
   const kanbanAtivo = lojista?.kanban_ativo ?? true
@@ -77,22 +79,16 @@ export default async function ConfiguracoesPage() {
       titulo: 'Operação',
       itens: [
         {
-          href: '/lojista/funcionarios',
-          icon: <IconUserBadge style={{ width: 18, height: 18 }} />,
-          titulo: 'Equipe',
-          descricao: 'Cadastre e gerencie os profissionais da loja',
+          href: '/lojista/equipe',
+          icon: <IconShield style={{ width: 18, height: 18 }} />,
+          titulo: 'Usuários e Permissões',
+          descricao: 'Cadastre membros da equipe e administradores, e gerencie as permissões de cada um',
         },
       ],
     },
     {
       titulo: 'Sistema',
       itens: [
-        {
-          href: '/lojista/configuracoes/permissoes',
-          icon: <IconShield style={{ width: 18, height: 18 }} />,
-          titulo: 'Usuários e permissões',
-          descricao: 'Entenda quem acessa o quê e o que pode ser configurado por funcionário',
-        },
         {
           href: '/lojista/configuracoes/notificacoes',
           icon: <IconBell style={{ width: 18, height: 18 }} />,

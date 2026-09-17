@@ -35,6 +35,9 @@ interface Props {
   // ?novoPetTutor=<id> (vem de "Adicionar Pet" no perfil do cliente) —
   // abre o cadastro já com o tutor fixado, sem precisar buscar de novo.
   clienteFixoInicial?: ClienteBasico | null
+  // Quem só tem "gerenciar clientes e pets" apenas visualiza — sem criar,
+  // editar ou excluir. Lojista e administrador (acesso_total) sempre true.
+  podeEditar: boolean
 }
 
 export default function PetsList({
@@ -48,6 +51,7 @@ export default function PetsList({
   clientes,
   petParaEditarInicial,
   clienteFixoInicial,
+  podeEditar,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -126,9 +130,11 @@ export default function PetsList({
             onChange={e => setBuscaInput(e.target.value)}
           />
         </div>
-        <button className="btn btn-primary" onClick={abrirNovo} id="btn-novo-pet">
-          <IconPlus style={{ width: 16, height: 16 }} /> Novo Pet
-        </button>
+        {podeEditar && (
+          <button className="btn btn-primary" onClick={abrirNovo} id="btn-novo-pet">
+            <IconPlus style={{ width: 16, height: 16 }} /> Novo Pet
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', marginBottom: 'var(--space-5)' }}>
@@ -151,7 +157,7 @@ export default function PetsList({
           <div className="empty-state-title">
             {temFiltroAtivo ? 'Nenhum pet encontrado para essa busca.' : 'Nenhum pet cadastrado.'}
           </div>
-          {!temFiltroAtivo && (
+          {!temFiltroAtivo && podeEditar && (
             <>
               <p style={{ marginBottom: 'var(--space-5)' }}>Cadastre o primeiro pet da sua loja.</p>
               <button className="btn btn-primary" onClick={abrirNovo}>Cadastrar primeiro pet</button>
@@ -189,9 +195,11 @@ export default function PetsList({
                         <Link href={`/lojista/pets/${p.id_pet}`} className="btn btn-ghost btn-sm" title="Visualizar">
                           <IconEye style={{ width: 14, height: 14 }} />
                         </Link>
-                        <button className="btn btn-ghost btn-sm" title="Editar" onClick={() => abrirEdicao(p)}>
-                          <IconPencil style={{ width: 14, height: 14 }} />
-                        </button>
+                        {podeEditar && (
+                          <button className="btn btn-ghost btn-sm" title="Editar" onClick={() => abrirEdicao(p)}>
+                            <IconPencil style={{ width: 14, height: 14 }} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

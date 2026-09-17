@@ -60,7 +60,9 @@ function IconAlert() {
 const DESTINO_POR_ROLE: Record<string, string> = {
   cliente: '/cliente/dashboard',
   lojista: '/lojista/dashboard',
-  funcionario: '/funcionario/dashboard',
+  // Funcionário usa o mesmo painel do lojista — a própria página de
+  // agendamentos redireciona pra Serviços se ele só tiver essa permissão.
+  funcionario: '/lojista/agendamentos',
 }
 
 export default function RedefinirSenhaPage() {

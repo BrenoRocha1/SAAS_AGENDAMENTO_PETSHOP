@@ -27,6 +27,7 @@ import {
   perfilClienteSchema,
   redefinirSenhaSchema,
 } from '@/lib/validations'
+import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } from '@/lib/lojista-context'
 import type { ServicoVariacaoData } from '@/lib/validations'
 
 // ============================================================
@@ -54,6 +55,19 @@ async function obterOrigin() {
   const host = h.get('host') ?? 'localhost:3000'
   const protocolo = host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https'
   return `${protocolo}://${host}`
+}
+
+// ============================================================
+// HELPER: client pra gravar em telas "só lojista" (perfil da loja,
+// horários, equipe, clientes/pets, etc.). O lojista grava com o client
+// normal (RLS de sempre); um funcionário com acesso_total ("administrador",
+// migration 029) não tem policy de escrita nessas tabelas — grava com o
+// client admin (service_role), só depois de confirmado em código que
+// `contexto.acessoTotal` é true. Nunca chamar isso sem checar acesso
+// antes: o admin client ignora RLS por completo.
+// ============================================================
+function clienteParaEscritaLojista(contexto: ContextoLojista, supabaseNormal: Awaited<ReturnType<typeof createClient>>) {
+  return contexto.role === 'lojista' ? supabaseNormal : createAdminClient()
 }
 
 // ============================================================
@@ -119,16 +133,22 @@ export async function loginAction(formData: FormData) {
     }
   }
 
-  // Verificar se funcionário está ativo
+  // Verificar se funcionário está ativo, e pra onde mandar ele — o
+  // funcionário usa o mesmo painel do lojista (agenda/serviços), então
+  // vai direto pra primeira área que ele tem permissão de usar.
+  let destinoFuncionario = '/lojista/agendamentos'
   if (role === 'funcionario') {
     const { data: func } = await supabase
       .from('funcionario')
-      .select('ativo')
+      .select('ativo, pode_gerenciar_agenda, pode_gerenciar_servicos')
       .eq('id_funcionario', user!.id)
       .maybeSingle()
     if (!func?.ativo) {
       await supabase.auth.signOut()
       return { error: 'Sua conta de funcionário foi desativada. Entre em contato com o responsável pelo petshop.' }
+    }
+    if (!func.pode_gerenciar_agenda && func.pode_gerenciar_servicos) {
+      destinoFuncionario = '/lojista/servicos'
     }
   }
 
@@ -143,7 +163,7 @@ export async function loginAction(formData: FormData) {
   }
 
   if (role === 'lojista') redirect('/lojista/dashboard')
-  if (role === 'funcionario') redirect('/funcionario/dashboard')
+  if (role === 'funcionario') redirect(destinoFuncionario)
   redirect('/cliente/dashboard')
 }
 
@@ -545,9 +565,11 @@ export async function desativarPetAction(id_pet: string) {
 export async function criarServicoAction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar serviços.' }
 
   const raw = {
     nome: formData.get('nome') as string,
@@ -581,7 +603,7 @@ export async function criarServicoAction(formData: FormData) {
 
   const { data: novoServico, error } = await supabase
     .from('servico')
-    .insert({ id_lojista: user.id, ...parsed.data })
+    .insert({ id_lojista: contexto.idLojista, ...parsed.data })
     .select('id_servico')
     .single()
 
@@ -606,9 +628,11 @@ export async function criarServicoAction(formData: FormData) {
 export async function editarServicoAction(id_servico: string, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar serviços.' }
 
   const raw = {
     nome: formData.get('nome') as string,
@@ -628,7 +652,7 @@ export async function editarServicoAction(id_servico: string, formData: FormData
     .from('servico')
     .update(parsed.data)
     .eq('id_servico', id_servico)
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) return { error: 'Erro ao atualizar serviço.' }
 
@@ -644,15 +668,17 @@ export async function editarServicoAction(id_servico: string, formData: FormData
 export async function alternarStatusServicoAction(id_servico: string, ativo: boolean) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar serviços.' }
 
   const { error } = await supabase
     .from('servico')
     .update({ status: ativo ? 'Ativo' : 'Inativo' })
     .eq('id_servico', id_servico)
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) return { error: devError('Erro ao atualizar status do serviço.', error.message) }
 
@@ -668,9 +694,14 @@ export async function alternarStatusServicoAction(id_servico: string, ativo: boo
 export async function excluirServicoAction(id_servico: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
 
   const { count } = await supabase
     .from('agendamento')
@@ -683,11 +714,11 @@ export async function excluirServicoAction(id_servico: string) {
     }
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('servico')
     .delete()
     .eq('id_servico', id_servico)
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) {
     if (error.code === '23503') {
@@ -706,9 +737,11 @@ export async function excluirServicoAction(id_servico: string) {
 export async function adicionarVariacaoServicoAction(id_servico: string, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar serviços.' }
 
   const tipo = formData.get('tipo') as string
   const raw = tipo === 'raca'
@@ -735,7 +768,7 @@ export async function adicionarVariacaoServicoAction(id_servico: string, formDat
     .from('servico')
     .select('id_servico')
     .eq('id_servico', id_servico)
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
     .maybeSingle()
   if (!servico) return { error: 'Serviço não encontrado' }
 
@@ -758,9 +791,11 @@ export async function adicionarVariacaoServicoAction(id_servico: string, formDat
 export async function removerVariacaoServicoAction(id_variacao: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar serviços.' }
 
   const { error } = await supabase
     .from('servico_variacao')
@@ -780,9 +815,14 @@ export async function removerVariacaoServicoAction(id_variacao: string) {
 export async function salvarHorarioAction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
 
   const raw = {
     dia_semana: formData.get('dia_semana') as string,
@@ -794,8 +834,8 @@ export async function salvarHorarioAction(formData: FormData) {
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   // Upsert por lojista + dia_semana
-  const { error } = await supabase.from('horario').upsert(
-    { id_lojista: user.id, ...parsed.data },
+  const { error } = await db.from('horario').upsert(
+    { id_lojista: contexto.idLojista, ...parsed.data },
     { onConflict: 'id_lojista,dia_semana' }
   )
 
@@ -811,9 +851,14 @@ export async function salvarHorarioAction(formData: FormData) {
 export async function salvarHorariosEmLoteAction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
 
   const dias = formData.getAll('dias') as string[]
   const hr_inicio = formData.get('hr_inicio') as string
@@ -825,10 +870,10 @@ export async function salvarHorariosEmLoteAction(formData: FormData) {
   for (const dia_semana of dias) {
     const parsed = horarioSchema.safeParse({ dia_semana, hr_inicio, hr_fim })
     if (!parsed.success) return { error: parsed.error.issues[0].message }
-    linhas.push({ id_lojista: user.id, ...parsed.data })
+    linhas.push({ id_lojista: contexto.idLojista, ...parsed.data })
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('horario')
     .upsert(linhas, { onConflict: 'id_lojista,dia_semana' })
 
@@ -841,15 +886,20 @@ export async function salvarHorariosEmLoteAction(formData: FormData) {
 export async function toggleHorarioAction(id_horario: string, ativo: boolean) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('horario')
     .update({ ativo })
     .eq('id_horario', id_horario)
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) return { error: devError('Erro ao atualizar horário.', error.message) }
 
@@ -976,12 +1026,14 @@ export async function criarAgendamentoLojistaAction(
 ): Promise<{ error?: string; success?: boolean; id_agendamento?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarAgenda) return { error: 'Você não tem permissão para gerenciar a agenda.' }
 
   const raw = {
-    id_lojista: user.id,
+    id_lojista: contexto.idLojista,
     id_cliente: formData.get('id_cliente') as string,
     id_pet: formData.get('id_pet') as string,
     id_servico: formData.get('id_servico') as string,
@@ -1046,20 +1098,22 @@ export async function atualizarStatusAgendamentoAction(
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarAgenda) return { error: 'Você não tem permissão para gerenciar a agenda.' }
 
   const updateData: Record<string, string> = { status }
   if (status === 'Cancelado') {
-    updateData.cancelado_por = 'lojista'
+    updateData.cancelado_por = contexto.role === 'funcionario' ? 'funcionario' : 'lojista'
   }
 
   const { error } = await supabase
     .from('agendamento')
     .update(updateData)
     .eq('id_agendamento', id_agendamento)
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) return { error: 'Erro ao atualizar status.' }
 
@@ -1070,20 +1124,23 @@ export async function atualizarStatusAgendamentoAction(
 // Atribui (ou remove, se id_funcionario vier null) o profissional
 // responsável por um agendamento. Ver migration 012 — todo agendamento
 // nasce sem funcionário, mesmo os que o cliente cria sozinho; o
-// lojista atribui manualmente pela tela de agenda.
+// lojista (ou um funcionário com permissão de agenda) atribui
+// manualmente pela tela de agenda.
 export async function atribuirFuncionarioAction(id_agendamento: string, id_funcionario: string | null) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarAgenda) return { error: 'Você não tem permissão para gerenciar a agenda.' }
 
   if (id_funcionario) {
     const { data: func } = await supabase
       .from('funcionario')
       .select('id_funcionario')
       .eq('id_funcionario', id_funcionario)
-      .eq('id_lojista', user.id)
+      .eq('id_lojista', contexto.idLojista)
       .eq('ativo', true)
       .maybeSingle()
     if (!func) return { error: 'Funcionário não encontrado ou inativo' }
@@ -1093,7 +1150,7 @@ export async function atribuirFuncionarioAction(id_agendamento: string, id_funci
     .from('agendamento')
     .update({ id_funcionario })
     .eq('id_agendamento', id_agendamento)
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) return { error: 'Erro ao atribuir profissional.' }
 
@@ -1109,9 +1166,14 @@ export async function atribuirFuncionarioAction(id_agendamento: string, id_funci
 export async function atualizarPerfilLojistaAction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
 
   const nome_loja = (formData.get('nome_loja') as string)?.trim()
   const telefone = (formData.get('telefone') as string)?.replace(/\D/g, '')
@@ -1125,10 +1187,10 @@ export async function atualizarPerfilLojistaAction(formData: FormData) {
   if (!nome_loja || nome_loja.length < 2) return { error: 'Nome da loja inválido' }
   if (!telefone || !/^\d{10,11}$/.test(telefone)) return { error: 'Telefone inválido' }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('lojista')
     .update({ nome_loja, telefone, descricao, endereco, cidade, estado, cep })
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) return { error: 'Erro ao atualizar perfil.' }
 
@@ -1177,9 +1239,14 @@ export async function atualizarLogoLojistaAction(
 ): Promise<{ error?: string; success?: boolean; url?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
 
   const arquivo = formData.get('logo') as File | null
   if (!arquivo || arquivo.size === 0) {
@@ -1195,10 +1262,10 @@ export async function atualizarLogoLojistaAction(
     return { error: 'Formato de imagem inválido. Envie um arquivo JPG, PNG ou WEBP.' }
   }
 
-  await limparPastaDoLojista(supabase, user.id)
+  await limparPastaDoLojista(db, contexto.idLojista)
 
-  const caminho = `${user.id}/logo.${extensao}`
-  const { error: uploadError } = await supabase.storage
+  const caminho = `${contexto.idLojista}/logo.${extensao}`
+  const { error: uploadError } = await db.storage
     .from(LOGO_BUCKET)
     .upload(caminho, bytes, {
       contentType: extensao === 'jpg' ? 'image/jpeg' : `image/${extensao}`,
@@ -1210,16 +1277,16 @@ export async function atualizarLogoLojistaAction(
     return { error: devError('Não foi possível enviar a imagem. Tente novamente.', uploadError.message) }
   }
 
-  const { data: { publicUrl } } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(caminho)
+  const { data: { publicUrl } } = db.storage.from(LOGO_BUCKET).getPublicUrl(caminho)
   // Cache-busting: o caminho pode ser idêntico ao da imagem anterior
   // (mesma extensão) — sem isso, o navegador continuaria mostrando a
   // versão antiga em cache mesmo depois de trocar a imagem.
   const urlComVersao = `${publicUrl}?v=${Date.now()}`
 
-  const { error: dbError } = await supabase
+  const { error: dbError } = await db
     .from('lojista')
     .update({ logo_url: urlComVersao })
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (dbError) {
     return { error: devError('Imagem enviada, mas não foi possível salvar a referência. Tente novamente.', dbError.message) }
@@ -1232,13 +1299,18 @@ export async function atualizarLogoLojistaAction(
 export async function removerLogoLojistaAction(): Promise<{ error?: string; success?: boolean }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
 
-  await limparPastaDoLojista(supabase, user.id)
+  await limparPastaDoLojista(db, contexto.idLojista)
 
-  const { error } = await supabase.from('lojista').update({ logo_url: null }).eq('id_lojista', user.id)
+  const { error } = await db.from('lojista').update({ logo_url: null }).eq('id_lojista', contexto.idLojista)
   if (error) {
     return { error: devError('Não foi possível remover a imagem. Tente novamente.', error.message) }
   }
@@ -1253,14 +1325,19 @@ export async function removerLogoLojistaAction(): Promise<{ error?: string; succ
 export async function alternarKanbanAction(ativo: boolean) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('lojista')
     .update({ kanban_ativo: ativo })
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) {
     if (error.code === '42703' || error.message?.includes('kanban_ativo')) {
@@ -1281,14 +1358,19 @@ export async function alternarKanbanAction(ativo: boolean) {
 export async function alternarAgendamentoOnlineAction(ativo: boolean) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('lojista')
     .update({ aceita_agendamento_online: ativo })
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) {
     if (error.code === '42703' || error.message?.includes('aceita_agendamento_online')) {
@@ -1310,18 +1392,23 @@ export async function alternarAgendamentoOnlineAction(ativo: boolean) {
 export async function atualizarSlugLojistaAction(formData: FormData): Promise<{ error?: string; success?: boolean; slug?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
 
   const raw = { slug: ((formData.get('slug') as string) || '').trim().toLowerCase() }
   const parsed = slugLojistaSchema.safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('lojista')
     .update({ slug: parsed.data.slug })
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) {
     if (error.code === '23505') {
@@ -1344,9 +1431,14 @@ export async function atualizarSlugLojistaAction(formData: FormData): Promise<{ 
 export async function atualizarJanelaAgendamentoAction(formData: FormData): Promise<{ error?: string; success?: boolean }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
 
   const raw = {
     minValor: Number(formData.get('minValor')),
@@ -1358,7 +1450,7 @@ export async function atualizarJanelaAgendamentoAction(formData: FormData): Prom
   const parsed = janelaAgendamentoSchema.safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('lojista')
     .update({
       agendamento_min_valor: parsed.data.minValor,
@@ -1366,7 +1458,7 @@ export async function atualizarJanelaAgendamentoAction(formData: FormData): Prom
       agendamento_max_valor: parsed.data.maxValor,
       agendamento_max_unidade: parsed.data.maxUnidade,
     })
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) {
     if (error.code === '42703') {
@@ -1395,7 +1487,10 @@ export async function atualizarJanelaAgendamentoAction(formData: FormData): Prom
 export async function cadastrarClienteLojistaAction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
 
@@ -1437,7 +1532,7 @@ export async function cadastrarClienteLojistaAction(formData: FormData) {
 
   const { error: rpcError } = await supabase.rpc('fn_registrar_cliente_lojista', {
     p_id_cliente: authData.user.id,
-    p_id_lojista: user.id,
+    p_id_lojista: contexto.idLojista,
     p_nome: parsed.data.nome,
     p_cpf: parsed.data.cpf,
     p_email: parsed.data.email,
@@ -1471,7 +1566,10 @@ export async function cadastrarClienteLojistaAction(formData: FormData) {
 export async function editarClienteLojistaAction(id_cliente: string, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
 
@@ -1484,7 +1582,7 @@ export async function editarClienteLojistaAction(id_cliente: string, formData: F
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   const { error } = await supabase.rpc('fn_editar_cliente_lojista', {
-    p_id_lojista: user.id,
+    p_id_lojista: contexto.idLojista,
     p_id_cliente: id_cliente,
     p_nome: parsed.data.nome,
     p_telefone: parsed.data.telefone,
@@ -1508,9 +1606,11 @@ export async function editarClienteLojistaAction(id_cliente: string, formData: F
 export async function criarPetLojistaAction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarAgenda) return { error: 'Você não tem permissão para gerenciar a agenda.' }
 
   const raw = {
     id_cliente: formData.get('id_cliente') as string,
@@ -1528,7 +1628,7 @@ export async function criarPetLojistaAction(formData: FormData) {
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   const { data: id_pet, error } = await supabase.rpc('fn_criar_pet_lojista', {
-    p_id_lojista: user.id,
+    p_id_lojista: contexto.idLojista,
     p_id_cliente: parsed.data.id_cliente,
     p_nome: parsed.data.nome,
     p_raca: parsed.data.raca,
@@ -1561,7 +1661,10 @@ export async function criarPetLojistaAction(formData: FormData) {
 export async function editarPetLojistaAction(id_pet: string, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
 
@@ -1581,7 +1684,7 @@ export async function editarPetLojistaAction(id_pet: string, formData: FormData)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   const { error } = await supabase.rpc('fn_editar_pet_lojista', {
-    p_id_lojista: user.id,
+    p_id_lojista: contexto.idLojista,
     p_id_pet: id_pet,
     p_id_cliente: parsed.data.id_cliente,
     p_nome: parsed.data.nome,
@@ -1699,8 +1802,21 @@ export async function exportarRelatorioVendasCsvAction(filtros: {
 export async function cadastrarFuncionarioAction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
+  }
+
+  const acessoTotalSolicitado = formData.get('acesso_total') === 'true'
+  // Só o responsável pela conta (o lojista de verdade) pode criar outro
+  // administrador — um funcionário com acesso_total NUNCA pode, mesmo
+  // que "acesso total" signifique paridade com o lojista em tudo mais.
+  // O trigger fn_bloquear_acesso_total_por_funcionario (migration 029)
+  // garante isso de novo no banco, mesmo se este código tiver um bug.
+  if (acessoTotalSolicitado && !ehResponsavelPelaConta(contexto)) {
+    return { error: 'Apenas o responsável pela conta pode conceder acesso total (administrador).' }
   }
 
   const raw = {
@@ -1710,6 +1826,8 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     cargo: formData.get('cargo') as string,
     pode_gerenciar_agenda: formData.get('pode_gerenciar_agenda') === 'true',
     pode_gerenciar_servicos: formData.get('pode_gerenciar_servicos') === 'true',
+    pode_gerenciar_clientes_pets: formData.get('pode_gerenciar_clientes_pets') === 'true',
+    acesso_total: acessoTotalSolicitado,
   }
 
   const parsed = funcionarioSchema.safeParse(raw)
@@ -1717,23 +1835,22 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     return { error: parsed.error.issues[0].message }
   }
 
-  // Admin client é obrigatório para criar conta Auth para o funcionário
-  // (o lojista logado não pode usar signUp — isso deslogaria ele)
+  // Admin client é obrigatório para criar conta Auth para o novo membro
+  // (quem convida não pode usar signUp — isso deslogaria a própria sessão)
   const adminClient = createAdminClient()
   if (!adminClient) {
     return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
   }
 
-  // Convida o funcionário por e-mail em vez de o lojista definir a senha
-  // dele — o funcionário define a própria senha ao aceitar o convite em
-  // /redefinir-senha.
+  // Convida o membro por e-mail em vez de definir uma senha por ele —
+  // ele define a própria senha ao aceitar o convite em /redefinir-senha.
   const origin = await obterOrigin()
   const { data: authData, error: authError } = await adminClient.auth.admin.inviteUserByEmail(parsed.data.email, {
     redirectTo: `${origin}/auth/callback?next=/redefinir-senha`,
     data: {
       role: 'funcionario',
       nome: parsed.data.nome,
-      id_lojista: user.id,
+      id_lojista: contexto.idLojista,
     },
   })
 
@@ -1743,23 +1860,28 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate') || msg.includes('registered')) {
       return { error: 'Este e-mail já está cadastrado no sistema.' }
     }
-    return { error: devError('Não foi possível convidar o funcionário. Tente novamente.', authError.message) }
+    return { error: devError('Não foi possível convidar o membro. Tente novamente.', authError.message) }
   }
 
   if (!authData.user) {
     return { error: 'Erro interno ao criar conta. Tente novamente.' }
   }
 
-  // Inserir na tabela funcionario via RPC (SECURITY DEFINER)
+  // Inserir na tabela funcionario via RPC (SECURITY DEFINER) — chamada
+  // com o client normal (não o admin), pra auth.uid()/auth_role() dentro
+  // da função continuarem sendo os de quem está convidando, não os do
+  // service_role (necessário pro trigger de acesso_total funcionar).
   const { error: rpcError } = await supabase.rpc('fn_registrar_funcionario', {
     p_id_funcionario: authData.user.id,
-    p_id_lojista: user.id,
+    p_id_lojista: contexto.idLojista,
     p_nome: parsed.data.nome,
     p_email: parsed.data.email,
     p_telefone: parsed.data.telefone,
     p_cargo: parsed.data.cargo ?? null,
     p_pode_agenda: parsed.data.pode_gerenciar_agenda,
     p_pode_servicos: parsed.data.pode_gerenciar_servicos,
+    p_pode_clientes_pets: parsed.data.pode_gerenciar_clientes_pets,
+    p_acesso_total: parsed.data.acesso_total,
   })
 
   if (rpcError) {
@@ -1771,18 +1893,31 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     if (msg.includes('email_already_exists')) {
       return { error: 'Este e-mail já está cadastrado como funcionário, lojista ou cliente.' }
     }
-    return { error: devError('Não foi possível cadastrar o funcionário. Tente novamente.', rpcError.message) }
+    if (msg.includes('acesso total')) {
+      return { error: 'Apenas o responsável pela conta pode conceder acesso total (administrador).' }
+    }
+    return { error: devError('Não foi possível cadastrar o membro. Tente novamente.', rpcError.message) }
   }
 
-  revalidatePath('/lojista/funcionarios')
+  revalidatePath('/lojista/equipe')
   return { success: true }
 }
 
 export async function editarFuncionarioAction(id_funcionario: string, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
+  }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+
+  const acessoTotalSolicitado = formData.get('acesso_total') === 'true'
+  if (acessoTotalSolicitado && !ehResponsavelPelaConta(contexto)) {
+    return { error: 'Apenas o responsável pela conta pode conceder acesso total (administrador).' }
   }
 
   const raw = {
@@ -1791,12 +1926,14 @@ export async function editarFuncionarioAction(id_funcionario: string, formData: 
     cargo: formData.get('cargo') as string,
     pode_gerenciar_agenda: formData.get('pode_gerenciar_agenda') === 'true',
     pode_gerenciar_servicos: formData.get('pode_gerenciar_servicos') === 'true',
+    pode_gerenciar_clientes_pets: formData.get('pode_gerenciar_clientes_pets') === 'true',
+    acesso_total: acessoTotalSolicitado,
   }
 
   const parsed = editarFuncionarioSchema.safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('funcionario')
     .update({
       nome: parsed.data.nome,
@@ -1804,32 +1941,95 @@ export async function editarFuncionarioAction(id_funcionario: string, formData: 
       cargo: parsed.data.cargo ?? null,
       pode_gerenciar_agenda: parsed.data.pode_gerenciar_agenda,
       pode_gerenciar_servicos: parsed.data.pode_gerenciar_servicos,
+      pode_gerenciar_clientes_pets: parsed.data.pode_gerenciar_clientes_pets,
+      acesso_total: parsed.data.acesso_total,
     })
     .eq('id_funcionario', id_funcionario)
-    .eq('id_lojista', user.id) // Garante que é funcionário do SEU petshop
+    .eq('id_lojista', contexto.idLojista) // Garante que é membro da SUA equipe
 
-  if (error) return { error: 'Erro ao atualizar funcionário.' }
+  if (error) {
+    if (error.message?.toLowerCase().includes('acesso total')) {
+      return { error: 'Apenas o responsável pela conta pode conceder acesso total (administrador).' }
+    }
+    return { error: 'Erro ao atualizar membro.' }
+  }
 
-  revalidatePath('/lojista/funcionarios')
+  revalidatePath('/lojista/equipe')
   return { success: true }
 }
 
 export async function toggleFuncionarioAction(id_funcionario: string, ativo: boolean) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('funcionario')
     .update({ ativo })
     .eq('id_funcionario', id_funcionario)
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
-  if (error) return { error: ativo ? 'Erro ao reativar funcionário.' : 'Erro ao desativar funcionário.' }
+  if (error) return { error: ativo ? 'Erro ao reativar membro.' : 'Erro ao desativar membro.' }
 
-  revalidatePath('/lojista/funcionarios')
+  revalidatePath('/lojista/equipe')
+  return { success: true }
+}
+
+export async function excluirFuncionarioAction(id_funcionario: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  if (id_funcionario === user.id) {
+    return { error: 'Você não pode excluir a si mesmo.' }
+  }
+
+  // Lê com o client normal (RLS) antes de excluir — garante que o membro
+  // pertence mesmo à sua loja, e não a outra (defesa em profundidade,
+  // igual ao resto das actions de escrita neste arquivo).
+  const { data: alvo } = await supabase
+    .from('funcionario')
+    .select('id_lojista, acesso_total')
+    .eq('id_funcionario', id_funcionario)
+    .maybeSingle()
+
+  if (!alvo || alvo.id_lojista !== contexto.idLojista) {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  // Mesma regra de "quem pode mexer em acesso total": só o responsável
+  // pela conta pode remover um administrador.
+  if (alvo.acesso_total && !ehResponsavelPelaConta(contexto)) {
+    return { error: 'Apenas o responsável pela conta pode remover um administrador.' }
+  }
+
+  const adminClient = createAdminClient()
+  if (!adminClient) {
+    return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+  }
+
+  // Exclui a conta de autenticação — a linha em `funcionario` some junto
+  // (FK id_funcionario -> auth.users ON DELETE CASCADE, migration 005), e
+  // os agendamentos que ele atendeu ficam com id_funcionario = NULL em vez
+  // de sumir (FK ON DELETE SET NULL, migration 012), preservando o histórico.
+  const { error } = await adminClient.auth.admin.deleteUser(id_funcionario)
+  if (error) {
+    return { error: devError('Não foi possível excluir o membro. Tente novamente.', error.message) }
+  }
+
+  revalidatePath('/lojista/equipe')
   return { success: true }
 }
 
@@ -1872,12 +2072,50 @@ export async function atualizarPerfilClienteAction(formData: FormData) {
 const PET_FOTO_BUCKET = 'fotos-pet'
 const PET_FOTO_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB
 
-async function limparArquivosDoPet(supabase: Awaited<ReturnType<typeof createClient>>, idCliente: string, idPet: string) {
-  const { data: existentes } = await supabase.storage.from(PET_FOTO_BUCKET).list(idCliente)
+type ClienteSupabase = Awaited<ReturnType<typeof createClient>>
+
+async function limparArquivosDoPet(cliente: ClienteSupabase, idCliente: string, idPet: string) {
+  const { data: existentes } = await cliente.storage.from(PET_FOTO_BUCKET).list(idCliente)
   const doPet = existentes?.filter(f => f.name.startsWith(`${idPet}.`)) ?? []
   if (doPet.length > 0) {
-    await supabase.storage.from(PET_FOTO_BUCKET).remove(doPet.map(f => `${idCliente}/${f.name}`))
+    await cliente.storage.from(PET_FOTO_BUCKET).remove(doPet.map(f => `${idCliente}/${f.name}`))
   }
+}
+
+// Descobre o dono (id_cliente) do pet e QUAL client usar pra gravar
+// (Storage + tabela pet): o cliente edita a própria foto com o client
+// normal (RLS já permite); o lojista só pode mexer na foto de um pet de
+// um cliente vinculado a ele (cliente_lojista) — e como não existe
+// policy de UPDATE em `pet`/Storage pra lojista (só RPCs SECURITY
+// DEFINER pros outros campos), usa o adminClient depois de confirmar a
+// autorização pela própria SELECT com RLS abaixo (que já só devolve a
+// linha se o lojista realmente tiver esse cliente vinculado).
+async function resolverAutorizacaoFotoPet(
+  supabase: ClienteSupabase,
+  userId: string,
+  role: string | undefined,
+  id_pet: string
+): Promise<{ error: string } | { idCliente: string; clienteParaEscrita: ClienteSupabase }> {
+  const { data: pet } = await supabase
+    .from('pet')
+    .select('id_cliente')
+    .eq('id_pet', id_pet)
+    .maybeSingle()
+
+  if (!pet) return { error: 'Pet não encontrado.' }
+
+  if (role === 'cliente') {
+    if (pet.id_cliente !== userId) return { error: 'Pet não encontrado.' }
+    return { idCliente: pet.id_cliente, clienteParaEscrita: supabase }
+  }
+
+  if (role === 'lojista') {
+    const adminClient = createAdminClient()
+    if (!adminClient) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+    return { idCliente: pet.id_cliente, clienteParaEscrita: adminClient }
+  }
+
+  return { error: 'Acesso não autorizado' }
 }
 
 export async function atualizarFotoPetAction(
@@ -1902,18 +2140,14 @@ export async function atualizarFotoPetAction(
     return { error: 'Formato de imagem inválido. Envie um arquivo JPG, PNG ou WEBP.' }
   }
 
-  const { data: pet } = await supabase
-    .from('pet')
-    .select('id_pet')
-    .eq('id_pet', id_pet)
-    .eq('id_cliente', user.id)
-    .maybeSingle()
-  if (!pet) return { error: 'Pet não encontrado.' }
+  const autorizacao = await resolverAutorizacaoFotoPet(supabase, user.id, user.user_metadata?.role, id_pet)
+  if ('error' in autorizacao) return { error: autorizacao.error }
+  const { idCliente, clienteParaEscrita } = autorizacao
 
-  await limparArquivosDoPet(supabase, user.id, id_pet)
+  await limparArquivosDoPet(clienteParaEscrita, idCliente, id_pet)
 
-  const caminho = `${user.id}/${id_pet}.${extensao}`
-  const { error: uploadError } = await supabase.storage
+  const caminho = `${idCliente}/${id_pet}.${extensao}`
+  const { error: uploadError } = await clienteParaEscrita.storage
     .from(PET_FOTO_BUCKET)
     .upload(caminho, bytes, {
       contentType: extensao === 'jpg' ? 'image/jpeg' : `image/${extensao}`,
@@ -1924,20 +2158,20 @@ export async function atualizarFotoPetAction(
     return { error: devError('Não foi possível enviar a imagem. Tente novamente.', uploadError.message) }
   }
 
-  const { data: { publicUrl } } = supabase.storage.from(PET_FOTO_BUCKET).getPublicUrl(caminho)
+  const { data: { publicUrl } } = clienteParaEscrita.storage.from(PET_FOTO_BUCKET).getPublicUrl(caminho)
   const urlComVersao = `${publicUrl}?v=${Date.now()}`
 
-  const { error: dbError } = await supabase
+  const { error: dbError } = await clienteParaEscrita
     .from('pet')
     .update({ foto_url: urlComVersao })
     .eq('id_pet', id_pet)
-    .eq('id_cliente', user.id)
 
   if (dbError) {
     return { error: devError('Imagem enviada, mas não foi possível salvar a referência. Tente novamente.', dbError.message) }
   }
 
   revalidatePath('/cliente/pets')
+  revalidatePath('/lojista/pets')
   return { success: true, url: urlComVersao }
 }
 
@@ -1946,16 +2180,20 @@ export async function removerFotoPetAction(id_pet: string): Promise<{ error?: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
 
-  await limparArquivosDoPet(supabase, user.id, id_pet)
+  const autorizacao = await resolverAutorizacaoFotoPet(supabase, user.id, user.user_metadata?.role, id_pet)
+  if ('error' in autorizacao) return { error: autorizacao.error }
+  const { idCliente, clienteParaEscrita } = autorizacao
 
-  const { error } = await supabase
+  await limparArquivosDoPet(clienteParaEscrita, idCliente, id_pet)
+
+  const { error } = await clienteParaEscrita
     .from('pet')
     .update({ foto_url: null })
     .eq('id_pet', id_pet)
-    .eq('id_cliente', user.id)
 
   if (error) return { error: devError('Não foi possível remover a imagem. Tente novamente.', error.message) }
 
   revalidatePath('/cliente/pets')
+  revalidatePath('/lojista/pets')
   return { success: true }
 }

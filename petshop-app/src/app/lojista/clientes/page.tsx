@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import { IconAlert } from '@/components/icons'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import ClientesList, { type ClienteLinha } from '@/components/lojista/ClientesList'
 import type { ClienteParaEditar } from '@/components/lojista/ClienteFormModal'
 
@@ -16,7 +17,23 @@ export default async function ClientesLojistaPage({ searchParams }: Props) {
   const params = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const lojistaId = user!.id
+  const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
+
+  if (!contexto) return null
+  if (!contexto.podeGerenciarClientesPets) {
+    return (
+      <div className="empty-state card">
+        <IconAlert style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+        <div className="empty-state-title">Sem permissão para ver clientes</div>
+        <p>Fale com o responsável pelo petshop para liberar esse acesso.</p>
+      </div>
+    )
+  }
+  // Só o lojista de verdade ou um administrador (acesso_total) pode
+  // criar/editar/excluir — quem só tem "gerenciar clientes e pets" apenas
+  // visualiza, conforme pedido.
+  const podeEditar = contexto.role === 'lojista' || contexto.acessoTotal
+  const lojistaId = contexto.idLojista
 
   const busca = params.busca?.trim() ?? ''
   const pagina = Math.max(1, parseInt(params.pagina ?? '1', 10) || 1)
@@ -98,6 +115,7 @@ export default async function ClientesLojistaPage({ searchParams }: Props) {
         pageSize={PAGE_SIZE}
         busca={busca}
         clienteParaEditarInicial={clienteParaEditarInicial}
+        podeEditar={podeEditar}
       />
     </>
   )

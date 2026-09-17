@@ -19,32 +19,62 @@ import {
   IconChevronRight,
 } from '@/components/icons'
 
-// Funcionários, Perfil da Loja e Horários saíram daqui — agora são
-// acessados via Configurações (Operação → Equipe / Loja → Dados da loja
-// / Horários), que já é a central de navegação pra essas telas. As telas
-// em si continuam existindo nas mesmas rotas de sempre, só não duplicam
-// mais a entrada no menu.
+// Perfil da Loja e Horários saíram daqui — agora são acessados via
+// Configurações (Loja → Dados da loja / Horários), que já é a central
+// de navegação pra essas telas. As telas em si continuam existindo nas
+// mesmas rotas de sempre, só não duplicam mais a entrada no menu.
+// `restrito` marca os itens que só aparecem pro lojista dono ou pra um
+// administrador (acesso_total) — um funcionário comum nunca vê
+// Relatórios/Configurações, só a área coberta pelas permissões dele.
 const navItemsBase = [
-  { href: '/lojista/dashboard',     icon: IconGrid,      label: 'Dashboard' },
-  { href: '/lojista/agendamentos',  icon: IconCalendar,  label: 'Agendamentos' },
-  { href: '/lojista/kanban',        icon: IconKanban,    label: 'Kanban', condicional: true },
-  { href: '/lojista/relatorios',    icon: IconChartBar,  label: 'Relatórios de Vendas' },
-  { href: '/lojista/servicos',      icon: IconScissors,  label: 'Serviços' },
-  { href: '/lojista/clientes',      icon: IconUsers,     label: 'Clientes' },
-  { href: '/lojista/pets',          icon: IconDog,       label: 'Pets' },
-  { href: '/lojista/configuracoes', icon: IconSettings,  label: 'Configurações' },
+  { href: '/lojista/dashboard',     icon: IconGrid,      label: 'Dashboard', restrito: true },
+  { href: '/lojista/agendamentos',  icon: IconCalendar,  label: 'Agendamentos', permissao: 'agenda' as const },
+  { href: '/lojista/kanban',        icon: IconKanban,    label: 'Kanban', condicional: true, permissao: 'agenda' as const },
+  { href: '/lojista/relatorios',    icon: IconChartBar,  label: 'Relatórios de Vendas', restrito: true },
+  { href: '/lojista/servicos',      icon: IconScissors,  label: 'Serviços', permissao: 'servicos' as const },
+  { href: '/lojista/clientes',      icon: IconUsers,     label: 'Clientes', permissao: 'clientesPets' as const },
+  { href: '/lojista/pets',          icon: IconDog,       label: 'Pets', permissao: 'clientesPets' as const },
+  { href: '/lojista/configuracoes', icon: IconSettings,  label: 'Configurações', restrito: true },
 ]
 
 const CHAVE_COLAPSADA = 'petagenda:lojista-sidebar-colapsada'
 
 interface Props {
   nomeLoja: string
+  nomeUsuario?: string
   userEmail: string
   kanbanAtivo: boolean
+  role?: 'lojista' | 'funcionario'
+  podeGerenciarAgenda?: boolean
+  podeGerenciarServicos?: boolean
+  podeGerenciarClientesPets?: boolean
+  acessoTotal?: boolean
 }
 
-export default function LojistaSidebar({ nomeLoja, userEmail, kanbanAtivo }: Props) {
-  const navItems = navItemsBase.filter(item => !item.condicional || kanbanAtivo)
+export default function LojistaSidebar({
+  nomeLoja,
+  nomeUsuario,
+  userEmail,
+  kanbanAtivo,
+  role = 'lojista',
+  podeGerenciarAgenda = true,
+  podeGerenciarServicos = true,
+  podeGerenciarClientesPets = true,
+  acessoTotal = true,
+}: Props) {
+  // Administrador (funcionário com acesso_total) tem a MESMA visão do
+  // lojista — nenhum item escondido, exatamente como se `role` fosse
+  // 'lojista'. Só um funcionário comum passa pelo corte de permissões.
+  const navItems = navItemsBase.filter(item => {
+    if (item.condicional && !kanbanAtivo) return false
+    if (role === 'funcionario' && !acessoTotal) {
+      if (item.restrito) return false
+      if (item.permissao === 'agenda') return podeGerenciarAgenda
+      if (item.permissao === 'servicos') return podeGerenciarServicos
+      if (item.permissao === 'clientesPets') return podeGerenciarClientesPets
+    }
+    return true
+  })
   const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
   const [colapsada, setColapsada] = useState(false)
@@ -82,7 +112,8 @@ export default function LojistaSidebar({ nomeLoja, userEmail, kanbanAtivo }: Pro
     startTransition(() => logoutAction())
   }
 
-  const initial = nomeLoja[0]?.toUpperCase() ?? 'P'
+  const nomeExibido = role === 'funcionario' ? (nomeUsuario ?? nomeLoja) : nomeLoja
+  const initial = nomeExibido[0]?.toUpperCase() ?? 'P'
 
   return (
     <aside className={`app-sidebar ${colapsada ? 'is-collapsed' : ''}`}>
@@ -138,8 +169,10 @@ export default function LojistaSidebar({ nomeLoja, userEmail, kanbanAtivo }: Pro
           </div>
           {!colapsada && (
             <div className="sidebar-user-info">
-              <div className="sidebar-user-name">{nomeLoja}</div>
-              <div className="sidebar-user-role">Lojista</div>
+              <div className="sidebar-user-name">{nomeExibido}</div>
+              <div className="sidebar-user-role">
+                {role === 'lojista' ? 'Lojista' : acessoTotal ? 'Administrador' : 'Funcionário'}
+              </div>
             </div>
           )}
         </div>

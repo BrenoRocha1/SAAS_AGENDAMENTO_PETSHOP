@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import { hojeBrasilISO } from '@/lib/agenda'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import KanbanBoard, { type KanbanItem } from '@/components/lojista/KanbanBoard'
 import { IconAlert, IconKanban } from '@/components/icons'
 import Link from 'next/link'
@@ -15,7 +16,26 @@ export default async function KanbanPage({ searchParams }: Props) {
   const params = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const lojistaId = user!.id
+  const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
+
+  if (!contexto) return null
+
+  if (!contexto.podeGerenciarAgenda) {
+    return (
+      <>
+        <div className="page-header">
+          <h1 className="page-title">Kanban de Agendamentos</h1>
+        </div>
+        <div className="empty-state card">
+          <IconKanban style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          <div className="empty-state-title">Sem permissão para gerenciar a agenda</div>
+          <p>Fale com o responsável pelo petshop para liberar esse acesso.</p>
+        </div>
+      </>
+    )
+  }
+
+  const lojistaId = contexto.idLojista
 
   // Gate: só mostra o board se o lojista tiver o Kanban ativado (migration
   // 013). Se a coluna ainda não existir no banco, trata como "ativado por
