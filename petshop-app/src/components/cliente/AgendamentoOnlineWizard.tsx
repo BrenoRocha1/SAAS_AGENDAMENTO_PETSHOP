@@ -6,7 +6,10 @@ import { createClient } from '@/lib/supabase/client'
 import { criarAgendamentoOnlineAction, atualizarClassificacaoPetAction, logoutAction } from '@/lib/actions'
 import { removerHorariosPassados } from '@/lib/agenda'
 import { formatarCpf, formatarTelefone } from '@/lib/format'
-import { format, addDays, startOfDay } from 'date-fns'
+import {
+  format, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
+  eachDayOfInterval, isBefore, isAfter, isSameMonth, addMonths, subMonths, getDay,
+} from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   IconAlert,
@@ -39,6 +42,12 @@ interface Horario {
   hr_fim: string
   ativo: boolean
 }
+interface Janela {
+  minValor: number
+  minUnidade: 'horas' | 'dias'
+  maxValor: number
+  maxUnidade: 'horas' | 'dias'
+}
 interface Servico {
   id_servico: string
   nome: string
@@ -67,6 +76,7 @@ interface Cliente {
 interface Props {
   lojista: Lojista
   horarios: Horario[]
+  janela: Janela
   servicos: Servico[]
   funcionarios: Funcionario[]
   pets: Pet[]
@@ -105,8 +115,83 @@ function ProgressoEtapas({ passo }: { passo: number }) {
   )
 }
 
+const NOMES_DIA_POR_INDICE = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'] as const
+
+// Calendário de verdade (mês em grade) em vez da tira horizontal com
+// scroll de antes — aquela cortava o último dia visível na borda do
+// card, e não dava pra escolher um dia mais distante sem esconder que
+// dava pra rolar. Aqui os dias fechados e os fora da janela de
+// antecedência (min/máx configurada pela loja) já vêm desabilitados.
+function SeletorDeData({
+  diasAbertos, minInstante, maxInstante, dataSelecionada, onSelecionar,
+}: {
+  diasAbertos: Set<string>
+  minInstante: Date
+  maxInstante: Date
+  dataSelecionada: string
+  onSelecionar: (iso: string) => void
+}) {
+  const [mesAtual, setMesAtual] = useState(() => startOfMonth(dataSelecionada ? new Date(`${dataSelecionada}T12:00:00`) : new Date()))
+
+  const minDia = startOfDay(minInstante)
+  const maxDia = startOfDay(maxInstante)
+  const inicioGrade = startOfWeek(startOfMonth(mesAtual))
+  const fimGrade = endOfWeek(endOfMonth(mesAtual))
+  const dias = eachDayOfInterval({ start: inicioGrade, end: fimGrade })
+
+  const podeVoltar = !isBefore(endOfMonth(subMonths(mesAtual, 1)), minDia)
+  const podeAvancar = !isAfter(startOfMonth(addMonths(mesAtual, 1)), maxDia)
+
+  return (
+    <div>
+      <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-3)' }}>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMesAtual(m => subMonths(m, 1))} disabled={!podeVoltar}>
+          <IconChevronLeft style={{ width: 14, height: 14 }} />
+        </button>
+        <span className="font-semibold" style={{ color: 'var(--gray-100)', textTransform: 'capitalize' }}>
+          {format(mesAtual, "MMMM 'de' yyyy", { locale: ptBR })}
+        </span>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMesAtual(m => addMonths(m, 1))} disabled={!podeAvancar}>
+          <IconChevronRight style={{ width: 14, height: 14 }} />
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
+        {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+          <div key={i} className="text-xs text-muted" style={{ textAlign: 'center' }}>{d}</div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+        {dias.map(d => {
+          const iso = format(d, 'yyyy-MM-dd')
+          const foraDoMes = !isSameMonth(d, mesAtual)
+          const fechado = !diasAbertos.has(NOMES_DIA_POR_INDICE[getDay(d)])
+          const foraDaJanela = isBefore(startOfDay(d), minDia) || isAfter(startOfDay(d), maxDia)
+          const desabilitado = fechado || foraDaJanela || foraDoMes
+
+          if (foraDoMes) return <div key={iso} />
+
+          return (
+            <button
+              key={iso}
+              type="button"
+              disabled={desabilitado}
+              onClick={() => onSelecionar(iso)}
+              className={`agenonline-day ${iso === dataSelecionada ? 'selected' : ''}`}
+              style={{ opacity: desabilitado ? 0.35 : 1, cursor: desabilitado ? 'not-allowed' : 'pointer' }}
+              title={fechado ? 'Fechado' : undefined}
+            >
+              {format(d, 'd')}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function AgendamentoOnlineWizard({
-  lojista, horarios, servicos, funcionarios, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
+  lojista, horarios, janela, servicos, funcionarios, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [step, setStep] = useState<Step>(1)
@@ -236,7 +321,15 @@ export default function AgendamentoOnlineWizard({
     })
   }
 
-  const proximosDias = Array.from({ length: 30 }, (_, i) => addDays(startOfDay(new Date()), i + 1))
+  // Só pra desenhar o calendário (desabilitar dias fora da janela) — a
+  // checagem que vale de verdade é sempre a do servidor (RPC), que usa o
+  // horário de Brasília certo. Aqui é aproximado o bastante pra UI.
+  // "agora" via useState(() => ...) — lazy initializer, não chamada
+  // direta de Date.now() no corpo do componente (regra de pureza).
+  const [agora] = useState(() => Date.now())
+  const diasAbertos = useMemo(() => new Set(horarios.filter(h => h.ativo).map(h => h.dia_semana)), [horarios])
+  const minInstante = useMemo(() => new Date(agora + (janela.minUnidade === 'dias' ? janela.minValor * 24 : janela.minValor) * 3600_000), [agora, janela])
+  const maxInstante = useMemo(() => new Date(agora + (janela.maxUnidade === 'dias' ? janela.maxValor * 24 : janela.maxValor) * 3600_000), [agora, janela])
 
   const mensagemWhatsapp = [
     `Olá! Acabei de agendar em ${lojista.nome}:`,
@@ -507,21 +600,14 @@ export default function AgendamentoOnlineWizard({
           </select>
 
           <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-3)' }}>Selecione o dia</h2>
-          <div className="agenonline-day-strip" style={{ marginBottom: 'var(--space-6)' }}>
-            {proximosDias.map(d => {
-              const valor = format(d, 'yyyy-MM-dd')
-              return (
-                <button
-                  key={valor}
-                  type="button"
-                  className={`agenonline-day ${data === valor ? 'selected' : ''}`}
-                  onClick={() => setData(valor)}
-                >
-                  <div className="text-xs" style={{ textTransform: 'capitalize' }}>{format(d, 'EEE', { locale: ptBR })}</div>
-                  <div className="font-semibold">{format(d, 'dd')}</div>
-                </button>
-              )
-            })}
+          <div style={{ marginBottom: 'var(--space-6)' }}>
+            <SeletorDeData
+              diasAbertos={diasAbertos}
+              minInstante={minInstante}
+              maxInstante={maxInstante}
+              dataSelecionada={data}
+              onSelecionar={setData}
+            />
           </div>
 
           {data && (

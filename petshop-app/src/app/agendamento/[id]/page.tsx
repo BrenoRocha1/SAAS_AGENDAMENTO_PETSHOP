@@ -110,6 +110,22 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
 
   const horarioHoje = (horarios ?? []).find(h => h.dia_semana === diaSemanaBrasil() && h.ativo) ?? null
 
+  // Janela de antecedência (migration 025) — query separada e tolerante,
+  // mesmo raciocínio do slug: se ainda não rodou no banco, cai no mesmo
+  // padrão que já era fixo no código antes dela existir (sem mínimo,
+  // até 30 dias à frente), em vez de quebrar a página.
+  const { data: janelaRow } = await supabase
+    .from('lojista')
+    .select('agendamento_min_valor, agendamento_min_unidade, agendamento_max_valor, agendamento_max_unidade')
+    .eq('id_lojista', lojista.id_lojista)
+    .maybeSingle()
+  const janela = {
+    minValor: janelaRow?.agendamento_min_valor ?? 0,
+    minUnidade: (janelaRow?.agendamento_min_unidade ?? 'horas') as 'horas' | 'dias',
+    maxValor: janelaRow?.agendamento_max_valor ?? 30,
+    maxUnidade: (janelaRow?.agendamento_max_unidade ?? 'dias') as 'horas' | 'dias',
+  }
+
   // Dados do próprio cliente — só buscados quando logado como cliente,
   // já que dependem de RLS de auth.uid() (pets, cadastro) ou de uma RPC
   // que só authenticated pode chamar (fn_funcionarios_publicos).
@@ -157,6 +173,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
             statusHoje,
           }}
           horarios={horarios ?? []}
+          janela={janela}
           servicos={servicos ?? []}
           funcionarios={funcionarios}
           pets={pets}

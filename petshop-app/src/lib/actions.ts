@@ -9,6 +9,7 @@ import {
   editarClienteLojistaSchema,
   cadastroLojistSchema,
   slugLojistaSchema,
+  janelaAgendamentoSchema,
   loginSchema,
   petSchema,
   classificacaoPetSchema,
@@ -1259,6 +1260,47 @@ export async function atualizarSlugLojistaAction(formData: FormData): Promise<{ 
   revalidatePath('/lojista/configuracoes/agendamentos')
   revalidatePath('/lojista/dashboard')
   return { success: true, slug: parsed.data.slug }
+}
+
+// Antecedência mínima/máxima do agendamento online (migration 025) —
+// só afeta o que o CLIENTE agenda sozinho (fn_criar_agendamento e
+// fn_criar_agendamento_multiplo), nunca o walk-in criado pelo lojista.
+export async function atualizarJanelaAgendamentoAction(formData: FormData): Promise<{ error?: string; success?: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const raw = {
+    minValor: Number(formData.get('minValor')),
+    minUnidade: formData.get('minUnidade') as string,
+    maxValor: Number(formData.get('maxValor')),
+    maxUnidade: formData.get('maxUnidade') as string,
+  }
+
+  const parsed = janelaAgendamentoSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase
+    .from('lojista')
+    .update({
+      agendamento_min_valor: parsed.data.minValor,
+      agendamento_min_unidade: parsed.data.minUnidade,
+      agendamento_max_valor: parsed.data.maxValor,
+      agendamento_max_unidade: parsed.data.maxUnidade,
+    })
+    .eq('id_lojista', user.id)
+
+  if (error) {
+    if (error.code === '42703') {
+      return { error: 'Colunas de antecedência não encontradas no banco. Execute a migration 025_janela_agendamento.sql.' }
+    }
+    return { error: devError('Erro ao salvar a configuração de antecedência.', error.message) }
+  }
+
+  revalidatePath('/lojista/configuracoes/agendamentos')
+  return { success: true }
 }
 
 // ============================================================

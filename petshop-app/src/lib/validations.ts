@@ -72,6 +72,19 @@ export const slugLojistaSchema = z.object({
     .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Use só letras minúsculas, números e hífen — sem espaços, acentos ou símbolos'),
 })
 
+// Antecedência mínima/máxima do agendamento online (migration 025) —
+// cada uma com seu valor + unidade (horas ou dias), pedido explícito.
+export const janelaAgendamentoSchema = z.object({
+  minValor: z.number().int().min(0, 'Não pode ser negativo').max(999),
+  minUnidade: z.enum(['horas', 'dias']),
+  maxValor: z.number().int().min(1, 'Precisa ser pelo menos 1').max(999),
+  maxUnidade: z.enum(['horas', 'dias']),
+}).refine(d => {
+  const minHoras = d.minValor * (d.minUnidade === 'dias' ? 24 : 1)
+  const maxHoras = d.maxValor * (d.maxUnidade === 'dias' ? 24 : 1)
+  return maxHoras > minHoras
+}, { message: 'O máximo precisa ser maior que o mínimo', path: ['maxValor'] })
+
 export const petSchema = z.object({
   nome: z.string().min(1).max(80),
   raca: z.string().min(1).max(80),
@@ -237,6 +250,7 @@ export type LoginData = z.infer<typeof loginSchema>
 export type CadastroClienteData = z.infer<typeof cadastroClienteSchema>
 export type CadastroLojistaData = z.infer<typeof cadastroLojistSchema>
 export type SlugLojistaData = z.infer<typeof slugLojistaSchema>
+export type JanelaAgendamentoData = z.infer<typeof janelaAgendamentoSchema>
 export type PetData = z.infer<typeof petSchema>
 export type ServicoVariacaoData = z.infer<typeof servicoVariacaoSchema>
 export type ServicoData = z.infer<typeof servicoSchema>

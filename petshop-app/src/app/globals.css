@@ -2424,27 +2424,22 @@ a:hover { color: var(--primary-300); }
   background: linear-gradient(to top, var(--gray-950) 55%, transparent);
 }
 
-.agenonline-day-strip {
-  display: flex;
-  gap: var(--space-2);
-  overflow-x: auto;
-  padding-bottom: var(--space-1);
-  scrollbar-width: none; /* Firefox */
-}
-.agenonline-day-strip::-webkit-scrollbar { display: none; } /* Chrome/Safari/Edge */
-
+/* Célula do calendário de "Selecione o dia" — mês em grade de 7
+   colunas, não mais a tira horizontal com scroll (cortava o último dia
+   visível na borda do card). */
 .agenonline-day {
-  flex: 0 0 auto;
-  min-width: 60px;
-  padding: var(--space-2) var(--space-3);
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius-md);
   border: 1px solid var(--gray-700);
   background: var(--gray-850);
-  text-align: center;
-  cursor: pointer;
   color: var(--gray-300);
+  font-size: 0.875rem;
   transition: all var(--transition-fast);
 }
+.agenonline-day:disabled { background: transparent; border-color: transparent; }
 
 .agenonline-day.selected {
   background: var(--primary-500);

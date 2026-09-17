@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { alternarKanbanAction, alternarAgendamentoOnlineAction } from '@/lib/actions'
 import ConfigToggleCard from '@/components/lojista/ConfigToggleCard'
 import LinkAgendamentoOnline from '@/components/lojista/LinkAgendamentoOnline'
+import JanelaAgendamentoForm from '@/components/lojista/JanelaAgendamentoForm'
 import { IconAlert, IconCalendar, IconChevronLeft, IconKanban } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'Configurações de Agendamentos — Lojista' }
@@ -29,6 +30,16 @@ export default async function ConfiguracoesAgendamentosPage() {
     .eq('id_lojista', user!.id)
     .maybeSingle()
   const slugPendente = !!slugError
+
+  // Mesmo raciocínio do slug acima: colunas novas (migration 025) numa
+  // query separada e tolerante, pra não derrubar o resto da tela se
+  // ainda não rodou.
+  const { data: janelaRow, error: janelaError } = await supabase
+    .from('lojista')
+    .select('agendamento_min_valor, agendamento_min_unidade, agendamento_max_valor, agendamento_max_unidade')
+    .eq('id_lojista', user!.id)
+    .maybeSingle()
+  const janelaPendente = !!janelaError
 
   return (
     <>
@@ -86,6 +97,23 @@ export default async function ConfiguracoesAgendamentosPage() {
                 </div>
               )}
               <LinkAgendamentoOnline idLojista={user!.id} slugAtual={slugRow?.slug ?? null} />
+
+              {janelaPendente ? (
+                <div className="alert alert-warning">
+                  <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+                  <span>
+                    Ainda não dá pra configurar a antecedência do agendamento online — execute a migration 025_janela_agendamento.sql.
+                    {process.env.NODE_ENV !== 'production' && ` [DEV: ${janelaError!.message}]`}
+                  </span>
+                </div>
+              ) : (
+                <JanelaAgendamentoForm
+                  minValorAtual={janelaRow!.agendamento_min_valor}
+                  minUnidadeAtual={janelaRow!.agendamento_min_unidade as 'horas' | 'dias'}
+                  maxValorAtual={janelaRow!.agendamento_max_valor}
+                  maxUnidadeAtual={janelaRow!.agendamento_max_unidade as 'horas' | 'dias'}
+                />
+              )}
             </>
           )}
         </div>
