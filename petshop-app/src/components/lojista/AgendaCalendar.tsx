@@ -54,7 +54,7 @@ export interface FuncionarioFiltro {
 interface Props {
   lojistaId: string
   inicioSemana: string
-  agendamentos: AgendamentoCalendario[]
+  agendamentosIniciais: AgendamentoCalendario[]
   funcionarios: FuncionarioFiltro[]
   clientesComPets: ClienteComPets[]
   servicos: ServicoAtivo[]
@@ -152,7 +152,7 @@ function posicionarDia(eventos: AgendamentoCalendario[]): EventoPosicionado[] {
 export default function AgendaCalendar({
   lojistaId,
   inicioSemana,
-  agendamentos,
+  agendamentosIniciais,
   funcionarios,
   clientesComPets,
   servicos,
@@ -161,6 +161,19 @@ export default function AgendaCalendar({
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+
+  // Otimista: status/profissional mudam na hora na tela, o salvamento de
+  // verdade continua rolando por baixo dos panos (startTransition) — só
+  // reverte se o servidor recusar. Mesmo padrão do KanbanBoard.
+  const [agendamentos, setAgendamentos] = useState(agendamentosIniciais)
+  // Re-sincroniza com o servidor quando a semana muda (navegação por
+  // Link/router.push) — ajuste de estado durante a renderização, não em
+  // efeito (mesmo truque do KanbanBoard pra trocar de dia).
+  const [agendamentosAnterior, setAgendamentosAnterior] = useState(agendamentosIniciais)
+  if (agendamentosIniciais !== agendamentosAnterior) {
+    setAgendamentosAnterior(agendamentosIniciais)
+    setAgendamentos(agendamentosIniciais)
+  }
 
   const inicioSemanaObj = parseDia(inicioSemana)
   const diasSemana = useMemo(
@@ -203,22 +216,41 @@ export default function AgendaCalendar({
   const horas = Array.from({ length: HORA_FIM - HORA_INICIO + 1 }, (_, i) => HORA_INICIO + i)
 
   function mudarStatus(id: string, novoStatus: 'Confirmado' | 'Concluído' | 'Cancelado') {
+    const atual = agendamentos.find(a => a.id_agendamento === id)
+    if (!atual) return
+    const statusAnterior = atual.status
     setAcaoErro(null)
+    setAgendamentos(prev => prev.map(a => a.id_agendamento === id ? { ...a, status: novoStatus } : a))
+    setSelecionado(null)
     startTransition(async () => {
       const result = novoStatus === 'Cancelado'
         ? await cancelarAgendamentoAction(id)
         : await atualizarStatusAgendamentoAction(id, novoStatus)
-      if (result?.error) { setAcaoErro(result.error); return }
-      setSelecionado(null)
+      if (result?.error) {
+        setAcaoErro(result.error)
+        setAgendamentos(prev => prev.map(a => a.id_agendamento === id ? { ...a, status: statusAnterior } : a))
+        return
+      }
       router.refresh()
     })
   }
 
   function atribuir(id: string, idFuncionario: string) {
+    const atual = agendamentos.find(a => a.id_agendamento === id)
+    if (!atual) return
+    const funcionarioAnterior = { id_funcionario: atual.id_funcionario, nome_funcionario: atual.nome_funcionario }
+    const nome = funcionarios.find(f => f.id_funcionario === idFuncionario)?.nome ?? null
     setAcaoErro(null)
+    setAgendamentos(prev => prev.map(a => a.id_agendamento === id ? { ...a, id_funcionario: idFuncionario || null, nome_funcionario: nome } : a))
+    setSelecionado(prev => prev && prev.id_agendamento === id ? { ...prev, id_funcionario: idFuncionario || null, nome_funcionario: nome } : prev)
     startTransition(async () => {
       const result = await atribuirFuncionarioAction(id, idFuncionario || null)
-      if (result?.error) { setAcaoErro(result.error); return }
+      if (result?.error) {
+        setAcaoErro(result.error)
+        setAgendamentos(prev => prev.map(a => a.id_agendamento === id ? { ...a, ...funcionarioAnterior } : a))
+        setSelecionado(prev => prev && prev.id_agendamento === id ? { ...prev, ...funcionarioAnterior } : prev)
+        return
+      }
       router.refresh()
     })
   }

@@ -157,7 +157,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     <AgendaCalendar
       lojistaId={lojistaId}
       inicioSemana={inicioSemanaISO}
-      agendamentos={agendamentos}
+      agendamentosIniciais={agendamentos}
       funcionarios={funcionarios}
       clientesComPets={clientesComPets}
       servicos={servicos}
