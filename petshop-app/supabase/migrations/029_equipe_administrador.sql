@@ -72,7 +72,10 @@ CREATE TRIGGER trg_funcionario_bloqueia_acesso_total
 -- ============================================================
 DROP FUNCTION IF EXISTS fn_registrar_funcionario(UUID, UUID, TEXT, TEXT, TEXT, TEXT, BOOLEAN, BOOLEAN);
 
-CREATE FUNCTION fn_registrar_funcionario(
+-- CREATE OR REPLACE (não só CREATE): deixa seguro rodar este arquivo de
+-- novo caso uma tentativa anterior já tenha criado a versão de 10
+-- parâmetros antes de falhar em outro trecho do script.
+CREATE OR REPLACE FUNCTION fn_registrar_funcionario(
   p_id_funcionario      UUID,
   p_id_lojista          UUID,
   p_nome                TEXT,
@@ -476,6 +479,13 @@ BEGIN
   LIMIT p_limit OFFSET p_offset;
 END;
 $$;
+
+-- DROP + CREATE (não CREATE OR REPLACE): se a migration 027 ainda não
+-- tinha rodado neste banco, a versão existente de fn_buscar_pets_lojista
+-- é a da migration 018 (sem a coluna foto_url no retorno), e o Postgres
+-- recusa trocar o tipo de retorno de uma função existente com CREATE OR
+-- REPLACE ("cannot change return type of existing function").
+DROP FUNCTION IF EXISTS fn_buscar_pets_lojista(UUID, TEXT, especie_pet, porte_pet, INT, INT);
 
 CREATE OR REPLACE FUNCTION fn_buscar_pets_lojista(
   p_id_lojista  UUID,
