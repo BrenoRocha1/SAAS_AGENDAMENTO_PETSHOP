@@ -1115,7 +1115,7 @@ export async function atualizarStatusAgendamentoAction(
     .eq('id_agendamento', id_agendamento)
     .eq('id_lojista', contexto.idLojista)
 
-  if (error) return { error: 'Erro ao atualizar status.' }
+  if (error) return { error: devError('Erro ao atualizar status.', error.message) }
 
   revalidatePath('/lojista/agendamentos')
   return { success: true }
