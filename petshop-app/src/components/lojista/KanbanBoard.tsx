@@ -8,7 +8,6 @@ import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAg
 import { classeBadgeStatus, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
 import {
   IconAlert,
-  IconArrowRight,
   IconCalendar,
   IconCheck,
   IconChevronLeft,
@@ -335,18 +334,6 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                             <IconUserBadge style={{ width: 13, height: 13 }} />
                             {item.nome_funcionario ?? 'Sem profissional'}
                           </div>
-
-                          {PROXIMA_ETAPA[coluna.status] && (
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-sm btn-full"
-                              style={{ marginTop: 'var(--space-3)' }}
-                              onClick={e => { e.stopPropagation(); moverParaStatus(item, PROXIMA_ETAPA[coluna.status]!.status) }}
-                              disabled={isPending && pendingId === item.id_agendamento}
-                            >
-                              {isPending && pendingId === item.id_agendamento ? 'Salvando...' : (<>{PROXIMA_ETAPA[coluna.status]!.acao} <IconArrowRight style={{ width: 13, height: 13 }} /></>)}
-                            </button>
-                          )}
                         </div>
                       )
                     })
