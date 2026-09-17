@@ -4,20 +4,14 @@ import { useState, useTransition } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cancelarAgendamentoAction } from '@/lib/actions'
+import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import { IconAlert, IconScissors, IconTrash } from '@/components/icons'
-
-const statusConfig: Record<string, { label: string; cls: string }> = {
-  Pendente:   { label: 'Pendente',   cls: 'badge-pendente' },
-  Confirmado: { label: 'Confirmado', cls: 'badge-confirmado' },
-  'Concluído':  { label: 'Concluído',  cls: 'badge-concluido' },
-  Cancelado:  { label: 'Cancelado',  cls: 'badge-cancelado' },
-}
 
 export interface AgendamentoCliente {
   id_agendamento: string
   dt_agendamento: string
   hr_agendamento: string
-  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
   valor: number
   obs: string | null
   pet: { nome: string; raca: string } | null
@@ -95,8 +89,8 @@ export default function AgendamentosClienteList({ agendamentos }: Props) {
                     <span className="text-sm text-muted">{ag.lojista?.nome_loja}</span>
                   </div>
                 </div>
-                <span className={`badge ${statusConfig[ag.status]?.cls}`}>
-                  {statusConfig[ag.status]?.label}
+                <span className={`badge ${classeBadgeStatus(ag.status)}`}>
+                  {rotuloStatus(ag.status)}
                 </span>
               </div>
 

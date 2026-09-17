@@ -4,22 +4,16 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { IconCalendar, IconDog, IconMoney, IconScissors, IconStore } from '@/components/icons'
+import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Dashboard — Cliente' }
-
-const statusConfig: Record<string, { label: string; cls: string }> = {
-  Pendente:   { label: 'Pendente',   cls: 'badge-pendente' },
-  Confirmado: { label: 'Confirmado', cls: 'badge-confirmado' },
-  Concluído:  { label: 'Concluído',  cls: 'badge-concluido' },
-  Cancelado:  { label: 'Cancelado',  cls: 'badge-cancelado' },
-}
 
 interface AgendamentoProximo {
   id_agendamento: string
   dt_agendamento: string
   hr_agendamento: string
-  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
   valor: number
   pet: { nome: string; raca: string } | null
   servico: { nome: string } | null
@@ -133,8 +127,8 @@ export default async function ClienteDashboard() {
                     <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>
                       {ag.servico?.nome}
                     </span>
-                    <span className={`badge ${statusConfig[ag.status]?.cls}`}>
-                      {statusConfig[ag.status]?.label}
+                    <span className={`badge ${classeBadgeStatus(ag.status)}`}>
+                      {rotuloStatus(ag.status)}
                     </span>
                   </div>
                   <div className="flex gap-4 text-sm text-muted">

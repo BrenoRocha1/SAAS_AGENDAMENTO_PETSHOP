@@ -8,6 +8,7 @@ import { ptBR } from 'date-fns/locale'
 import { toggleFuncionarioAction } from '@/lib/actions'
 import { formatarTelefone } from '@/lib/format'
 import { PRESETS, variacaoPercentual, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
+import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import {
   IconAlert,
   IconCalendar,
@@ -42,7 +43,7 @@ export interface AgendamentoFuncionario {
   id_agendamento: string
   dt_agendamento: string
   hr_agendamento: string
-  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
   valor: number
   id_pet: string
   nome_pet: string
@@ -60,12 +61,6 @@ interface Props {
   agendamentosAnterior: AgendamentoFuncionario[]
 }
 
-const STATUS_BADGE: Record<string, string> = {
-  Pendente: 'badge-pendente',
-  Confirmado: 'badge-confirmado',
-  'Concluído': 'badge-concluido',
-  Cancelado: 'badge-cancelado',
-}
 const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 
 function moeda(v: number) {
@@ -271,7 +266,8 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
               <div className="dash-detail-row"><span>Total no período</span><span>{agendamentos.length}</span></div>
               <div className="dash-detail-row"><span>Concluídos</span><span>{resumo.qtdConcluidos}</span></div>
               <div className="dash-detail-row"><span>Pendentes</span><span>{resumo.qtdPendente}</span></div>
-              <div className="dash-detail-row"><span>Confirmados (em andamento)</span><span>{resumo.qtdConfirmado}</span></div>
+              <div className="dash-detail-row"><span>Aceitos</span><span>{resumo.qtdConfirmado}</span></div>
+              <div className="dash-detail-row"><span>Em andamento</span><span>{resumo.qtdEmAndamento}</span></div>
               <div className="dash-detail-row"><span>Cancelados</span><span>{resumo.qtdCancelados}</span></div>
               <div className="dash-detail-row"><span>Taxa de conclusão</span><span>{pct(resumo.taxaConclusao)}</span></div>
               <div className="dash-detail-row"><span>Taxa de cancelamento</span><span>{pct(resumo.taxaCancelamento)}</span></div>
@@ -481,7 +477,7 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
                         <td>{a.nome_cliente}</td>
                         <td>{a.nome_servico}</td>
                         <td>{moeda(a.valor)}</td>
-                        <td><span className={`badge ${STATUS_BADGE[a.status]}`}>{a.status}</span></td>
+                        <td><span className={`badge ${classeBadgeStatus(a.status)}`}>{rotuloStatus(a.status)}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -547,6 +543,7 @@ function calcularResumo(ags: AgendamentoFuncionario[]) {
   const qtdCancelados = ags.filter(a => a.status === 'Cancelado').length
   const qtdPendente = ags.filter(a => a.status === 'Pendente').length
   const qtdConfirmado = ags.filter(a => a.status === 'Confirmado').length
+  const qtdEmAndamento = ags.filter(a => a.status === 'Em andamento').length
   const diasTrabalhados = new Set(naoCancelados.map(a => a.dt_agendamento)).size
   const petsUnicos = new Set(naoCancelados.map(a => a.id_pet)).size
   const clientesPorId = new Map<string, number>()
@@ -558,6 +555,7 @@ function calcularResumo(ags: AgendamentoFuncionario[]) {
     qtdCancelados,
     qtdPendente,
     qtdConfirmado,
+    qtdEmAndamento,
     faturamento,
     ticketMedio: qtdConcluidos > 0 ? faturamento / qtdConcluidos : 0,
     // Denominador = todos os agendamentos do período (concluídos + pendentes +

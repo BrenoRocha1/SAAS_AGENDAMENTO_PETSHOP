@@ -5,15 +5,9 @@ import { format, parseISO, differenceInYears } from 'date-fns'
 import { formatarTelefone } from '@/lib/format'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import { IconChevronLeft, IconDog, IconPencil, IconUsers } from '@/components/icons'
+import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 
 export const metadata: Metadata = { title: 'Detalhes do Pet — Lojista' }
-
-const STATUS_BADGE: Record<string, string> = {
-  Pendente: 'badge-pendente',
-  Confirmado: 'badge-confirmado',
-  'Concluído': 'badge-concluido',
-  Cancelado: 'badge-cancelado',
-}
 
 interface Props {
   params: Promise<{ id: string }>
@@ -77,7 +71,7 @@ export default async function DetalhePetPage({ params }: Props) {
     id_agendamento: string
     dt_agendamento: string
     hr_agendamento: string
-    status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+    status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
     valor: number
     servico: { nome: string } | null
     funcionario: { nome: string } | null
@@ -164,7 +158,7 @@ export default async function DetalhePetPage({ params }: Props) {
                     <td>{a.servico?.nome ?? '—'}</td>
                     <td>{a.funcionario?.nome ?? '—'}</td>
                     <td>R$ {Number(a.valor).toFixed(2)}</td>
-                    <td><span className={`badge ${STATUS_BADGE[a.status]}`}>{a.status}</span></td>
+                    <td><span className={`badge ${classeBadgeStatus(a.status)}`}>{rotuloStatus(a.status)}</span></td>
                   </tr>
                 ))}
               </tbody>

@@ -28,6 +28,7 @@ import {
   IconAlert,
 } from '@/components/icons'
 import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
+import { classeBadgeStatus, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
 import NovoAgendamentoModal from './NovoAgendamentoModal'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
 
@@ -36,7 +37,7 @@ export interface AgendamentoCalendario {
   dt_agendamento: string
   hr_agendamento: string
   duracao: number
-  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
   valor: number
   nome_pet: string
   nome_cliente: string
@@ -215,7 +216,7 @@ export default function AgendaCalendar({
 
   const horas = Array.from({ length: HORA_FIM - HORA_INICIO + 1 }, (_, i) => HORA_INICIO + i)
 
-  function mudarStatus(id: string, novoStatus: 'Confirmado' | 'Concluído' | 'Cancelado') {
+  function mudarStatus(id: string, novoStatus: 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado') {
     const atual = agendamentos.find(a => a.id_agendamento === id)
     if (!atual) return
     const statusAnterior = atual.status
@@ -431,7 +432,7 @@ export default function AgendaCalendar({
               <div className="dash-detail-row"><span>Data</span><span>{format(parseDia(selecionado.dt_agendamento), 'dd/MM/yyyy')}</span></div>
               <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>
               <div className="dash-detail-row"><span>Valor</span><span>R$ {selecionado.valor.toFixed(2)}</span></div>
-              <div className="dash-detail-row"><span>Status</span><span>{selecionado.status}</span></div>
+              <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(selecionado.status)}`}>{rotuloStatus(selecionado.status)}</span></span></div>
               {selecionado.obs && (
                 <div className="dash-detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
                   <span>Descrição</span>
@@ -456,20 +457,15 @@ export default function AgendaCalendar({
                 </div>
               )}
 
-              {selecionado.status === 'Pendente' && (
+              {(selecionado.status === 'Pendente' || selecionado.status === 'Confirmado' || selecionado.status === 'Em andamento') && (
                 <div className="dash-detail-actions">
-                  <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatus(selecionado.id_agendamento, 'Confirmado')}>
-                    <IconCheck style={{ width: 14, height: 14 }} /> Confirmar
-                  </button>
-                  <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatus(selecionado.id_agendamento, 'Cancelado')}>
-                    Cancelar
-                  </button>
-                </div>
-              )}
-              {selecionado.status === 'Confirmado' && (
-                <div className="dash-detail-actions">
-                  <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatus(selecionado.id_agendamento, 'Concluído')}>
-                    Concluir
+                  <button
+                    className="btn btn-success btn-sm"
+                    style={{ flex: 1 }}
+                    disabled={isPending}
+                    onClick={() => mudarStatus(selecionado.id_agendamento, PROXIMA_ETAPA[selecionado.status]!.status)}
+                  >
+                    <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[selecionado.status]!.acao}
                   </button>
                   <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatus(selecionado.id_agendamento, 'Cancelado')}>
                     Cancelar

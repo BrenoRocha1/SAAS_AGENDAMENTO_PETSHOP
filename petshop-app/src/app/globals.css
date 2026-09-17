@@ -73,6 +73,10 @@
   --status-aguardando-ring:  rgba(245,158,11,0.35);
   --status-aguardando-fg:    #92400e;
   --status-aguardando-solid: #f59e0b;
+  --status-aceito-bg:        rgba(191,219,254,0.6); /* #bfdbfe */
+  --status-aceito-ring:      rgba(59,130,246,0.35);
+  --status-aceito-fg:        #1e40af;
+  --status-aceito-solid:     #3b82f6;
   --status-andamento-bg:     rgba(221,214,254,0.6); /* #ddd6fe */
   --status-andamento-ring:   rgba(139,92,246,0.35);
   --status-andamento-fg:     #5b21b6;
@@ -666,12 +670,14 @@ a:hover { color: var(--primary-300); }
   letter-spacing: 0.04em;
 }
 
-/* Pendente = "Aguardando", Confirmado = "Em Andamento" (os nomes que o
-   Kanban usa nas colunas). */
-.badge-pendente   { background: var(--status-aguardando-bg); color: var(--status-aguardando-fg); border: 1px solid var(--status-aguardando-ring); }
-.badge-confirmado { background: var(--status-andamento-bg);  color: var(--status-andamento-fg);  border: 1px solid var(--status-andamento-ring); }
-.badge-concluido  { background: var(--status-concluido-bg);  color: var(--status-concluido-fg);  border: 1px solid var(--status-concluido-ring); }
-.badge-cancelado  { background: var(--status-cancelado-bg);  color: var(--status-cancelado-fg);  border: 1px solid var(--status-cancelado-ring); }
+/* As 4 etapas do atendimento (Pendente → Aceito → Em andamento →
+   Finalizado). Confirmado = "Aceito" e Concluído = "Finalizado" no
+   banco — ver src/lib/status-agendamento.ts. */
+.badge-pendente     { background: var(--status-aguardando-bg); color: var(--status-aguardando-fg); border: 1px solid var(--status-aguardando-ring); }
+.badge-aceito       { background: var(--status-aceito-bg);     color: var(--status-aceito-fg);     border: 1px solid var(--status-aceito-ring); }
+.badge-em-andamento { background: var(--status-andamento-bg);  color: var(--status-andamento-fg);  border: 1px solid var(--status-andamento-ring); }
+.badge-concluido    { background: var(--status-concluido-bg);  color: var(--status-concluido-fg);  border: 1px solid var(--status-concluido-ring); }
+.badge-cancelado    { background: var(--status-cancelado-bg);  color: var(--status-cancelado-fg);  border: 1px solid var(--status-cancelado-ring); }
 .badge-ativo      { background: var(--status-concluido-bg);  color: var(--status-concluido-fg);  border: 1px solid var(--status-concluido-ring); }
 .badge-inativo    { background: var(--gray-800);             color: var(--gray-400);             border: 1px solid var(--gray-700); }
 
@@ -1392,11 +1398,9 @@ a:hover { color: var(--primary-300); }
 }
 .timeline-item:last-child { border-bottom: none; }
 .timeline-item:hover { background: var(--gray-850); }
-.timeline-item.is-selected { background: var(--primary-soft-bg-8); border-left-color: var(--primary-500); }
-
-.timeline-item.status-Pendente   { border-left-color: var(--warning-500); }
-.timeline-item.status-Confirmado { border-left-color: var(--info-500); }
-.timeline-item.status-Concluído  { border-left-color: var(--success-500); }
+.timeline-item.is-selected { background: var(--primary-soft-bg-8); }
+/* A cor da borda por status vem inline (corSolidaStatus), não daqui —
+   "Em andamento" tem espaço e não dá pra virar nome de classe sozinho. */
 
 .timeline-time {
   width: 52px;
@@ -1643,9 +1647,9 @@ a:hover { color: var(--primary-300); }
 
 .kanban-columns {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-5);
-  /* "stretch" (o padrão do grid) em vez de "start": as 3 colunas ficam
+  /* "stretch" (o padrão do grid) em vez de "start": as 4 colunas ficam
      com a mesma altura (a da mais alta) — sem isso, uma coluna com poucos
      ou nenhum card ficava baixinha, e a área de "soltar" um card
      arrastado terminava logo abaixo do último card, exigindo mirar bem
@@ -1675,9 +1679,9 @@ a:hover { color: var(--primary-300); }
   border-top: 3px solid transparent;
   flex-shrink: 0;
 }
-.kanban-column-header--Pendente   { border-top-color: var(--status-aguardando-solid); }
-.kanban-column-header--Confirmado { border-top-color: var(--status-andamento-solid); }
-.kanban-column-header--Concluído  { border-top-color: var(--status-concluido-solid); }
+/* A cor da borda de cada coluna vem inline (style={{borderTopColor}}),
+   já que "Em andamento" tem espaço e não dá pra virar um nome de classe
+   sozinho (className com espaço vira dois seletores, não um). */
 
 .kanban-column-body {
   padding: var(--space-3);

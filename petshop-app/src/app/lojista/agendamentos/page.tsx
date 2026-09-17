@@ -92,7 +92,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     id_agendamento: string
     dt_agendamento: string
     hr_agendamento: string
-    status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+    status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
     valor: number
     id_funcionario: string | null
     obs: string | null

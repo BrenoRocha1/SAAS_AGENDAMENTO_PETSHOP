@@ -123,7 +123,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     id_agendamento: string
     dt_agendamento: string
     hr_agendamento: string
-    status: 'Pendente' | 'Confirmado' | 'Concluído'
+    status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído'
     valor: number
     id_funcionario: string | null
     id_servico: string

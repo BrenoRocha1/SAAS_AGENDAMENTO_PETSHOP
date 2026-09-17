@@ -6,6 +6,7 @@ import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { exportarRelatorioVendasCsvAction } from '@/lib/actions'
 import { PRESETS, variacaoPercentual, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
+import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import {
   IconAlert,
   IconCalendar,
@@ -53,7 +54,7 @@ export interface LinhaDetalhamento {
   dt_agendamento: string
   hr_agendamento: string
   valor: number
-  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
   nome_pet: string
   nome_servico: string
   nome_cliente: string
@@ -82,13 +83,7 @@ interface Props {
   detalhamento: LinhaDetalhamento[]
 }
 
-const STATUS_OPCOES = ['Pendente', 'Confirmado', 'Concluído', 'Cancelado'] as const
-const STATUS_BADGE: Record<string, string> = {
-  Pendente: 'badge-pendente',
-  Confirmado: 'badge-confirmado',
-  Concluído: 'badge-concluido',
-  Cancelado: 'badge-cancelado',
-}
+const STATUS_OPCOES = ['Pendente', 'Confirmado', 'Em andamento', 'Concluído', 'Cancelado'] as const
 
 function moeda(v: number) {
   return `R$ ${v.toFixed(2)}`
@@ -430,7 +425,7 @@ export default function RelatorioVendasClient({
               </select>
               <select className="form-select" value={filtroStatus} onChange={e => mudarFiltro('status', e.target.value)} disabled={isPending}>
                 <option value="">Todos os status</option>
-                {STATUS_OPCOES.map(s => <option key={s} value={s}>{s}</option>)}
+                {STATUS_OPCOES.map(s => <option key={s} value={s}>{rotuloStatus(s)}</option>)}
               </select>
               <select className="form-select" value={ordenar} onChange={e => mudarOrdenacao(e.target.value)} disabled={isPending}>
                 <option value="data_desc">Mais recentes primeiro</option>
@@ -471,7 +466,7 @@ export default function RelatorioVendasClient({
                           <td>{row.nome_servico}</td>
                           <td>{row.nome_funcionario ?? '—'}</td>
                           <td>{moeda(row.valor)}</td>
-                          <td><span className={`badge ${STATUS_BADGE[row.status]}`}>{row.status}</span></td>
+                          <td><span className={`badge ${classeBadgeStatus(row.status)}`}>{rotuloStatus(row.status)}</span></td>
                         </tr>
                       ))}
                     </tbody>

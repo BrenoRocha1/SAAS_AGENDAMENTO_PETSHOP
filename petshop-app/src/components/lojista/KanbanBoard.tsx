@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { format, addDays, subDays, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
+import { classeBadgeStatus, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
 import {
   IconAlert,
   IconArrowRight,
@@ -17,15 +18,15 @@ import {
   IconUserBadge,
 } from '@/components/icons'
 
-// Reaproveita exatamente o status_agendamento existente — não existe
-// (nem é criado aqui) nenhum status "Em Andamento" no banco. A coluna do
-// meio é 'Confirmado' com o rótulo "Em Andamento" só na interface.
+// As quatro etapas do atendimento (Pendente → Aceito → Em andamento →
+// Finalizado) reaproveitam o status_agendamento existente — ver
+// src/lib/status-agendamento.ts pros rótulos e a ordem de transição.
 // 'Cancelado' fica fora do board, igual à agenda e ao dashboard.
 export interface KanbanItem {
   id_agendamento: string
   dt_agendamento: string
   hr_agendamento: string
-  status: 'Pendente' | 'Confirmado' | 'Concluído'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído'
   valor: number
   nome_pet: string
   raca_pet: string | null
@@ -47,10 +48,11 @@ interface Props {
   servicos: { id_servico: string; nome: string }[]
 }
 
-const COLUNAS = [
-  { status: 'Pendente' as const, titulo: 'Agendamentos Pendentes', badge: 'badge-pendente', proximo: 'Confirmado' as const, acao: 'Iniciar atendimento' },
-  { status: 'Confirmado' as const, titulo: 'Em Andamento', badge: 'badge-confirmado', proximo: 'Concluído' as const, acao: 'Finalizar' },
-  { status: 'Concluído' as const, titulo: 'Finalizado', badge: 'badge-concluido', proximo: null, acao: null },
+const COLUNAS: { status: KanbanItem['status']; titulo: string; borda: string }[] = [
+  { status: 'Pendente', titulo: 'Pendentes', borda: 'var(--status-aguardando-solid)' },
+  { status: 'Confirmado', titulo: 'Aceitos', borda: 'var(--status-aceito-solid)' },
+  { status: 'Em andamento', titulo: 'Em Andamento', borda: 'var(--status-andamento-solid)' },
+  { status: 'Concluído', titulo: 'Finalizado', borda: 'var(--status-concluido-solid)' },
 ]
 
 function parseDia(iso: string) {
@@ -283,9 +285,9 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
             const itensDaColuna = itensFiltrados.filter(it => it.status === coluna.status)
             return (
               <div key={coluna.status} className="kanban-column">
-                <div className={`kanban-column-header kanban-column-header--${coluna.status}`}>
+                <div className="kanban-column-header" style={{ borderTopColor: coluna.borda }}>
                   <span>{coluna.titulo}</span>
-                  <span className={`badge ${coluna.badge}`}>{itensDaColuna.length}</span>
+                  <span className={`badge ${classeBadgeStatus(coluna.status)}`}>{itensDaColuna.length}</span>
                 </div>
 
                 <div
@@ -334,15 +336,15 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                             {item.nome_funcionario ?? 'Sem profissional'}
                           </div>
 
-                          {coluna.proximo && (
+                          {PROXIMA_ETAPA[coluna.status] && (
                             <button
                               type="button"
                               className="btn btn-secondary btn-sm btn-full"
                               style={{ marginTop: 'var(--space-3)' }}
-                              onClick={e => { e.stopPropagation(); moverParaStatus(item, coluna.proximo!) }}
+                              onClick={e => { e.stopPropagation(); moverParaStatus(item, PROXIMA_ETAPA[coluna.status]!.status) }}
                               disabled={isPending && pendingId === item.id_agendamento}
                             >
-                              {isPending && pendingId === item.id_agendamento ? 'Salvando...' : (<>{coluna.acao} <IconArrowRight style={{ width: 13, height: 13 }} /></>)}
+                              {isPending && pendingId === item.id_agendamento ? 'Salvando...' : (<>{PROXIMA_ETAPA[coluna.status]!.acao} <IconArrowRight style={{ width: 13, height: 13 }} /></>)}
                             </button>
                           )}
                         </div>
@@ -379,7 +381,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
               <div className="dash-detail-row"><span>Data</span><span>{format(parseDia(selecionado.dt_agendamento), 'dd/MM/yyyy')}</span></div>
               <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>
               <div className="dash-detail-row"><span>Valor</span><span>R$ {selecionado.valor.toFixed(2)}</span></div>
-              <div className="dash-detail-row"><span>Status</span><span>{selecionado.status}</span></div>
+              <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(selecionado.status)}`}>{rotuloStatus(selecionado.status)}</span></span></div>
               {selecionado.obs && (
                 <div className="dash-detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
                   <span>Descrição</span>
@@ -404,20 +406,15 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                 </div>
               )}
 
-              {selecionado.status === 'Pendente' && (
+              {(selecionado.status === 'Pendente' || selecionado.status === 'Confirmado' || selecionado.status === 'Em andamento') && (
                 <div className="dash-detail-actions">
-                  <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatusModal('Confirmado')}>
-                    <IconCheck style={{ width: 14, height: 14 }} /> Confirmar
-                  </button>
-                  <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={cancelarModal}>
-                    Cancelar
-                  </button>
-                </div>
-              )}
-              {selecionado.status === 'Confirmado' && (
-                <div className="dash-detail-actions">
-                  <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatusModal('Concluído')}>
-                    <IconCheck style={{ width: 14, height: 14 }} /> Concluir
+                  <button
+                    className="btn btn-success btn-sm"
+                    style={{ flex: 1 }}
+                    disabled={isPending}
+                    onClick={() => mudarStatusModal(PROXIMA_ETAPA[selecionado.status]!.status)}
+                  >
+                    <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[selecionado.status]!.acao}
                   </button>
                   <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={cancelarModal}>
                     Cancelar
@@ -426,7 +423,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
               )}
               {selecionado.status === 'Concluído' && (
                 <div className="dash-detail-actions">
-                  <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatusModal('Confirmado')}>
+                  <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatusModal('Em andamento')}>
                     Reabrir (voltar pra Em Andamento)
                   </button>
                 </div>

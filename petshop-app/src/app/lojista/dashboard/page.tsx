@@ -102,17 +102,10 @@ export default async function LojistaDashboard({ searchParams }: Props) {
   const faturamentoHoje = listaHoje.reduce((acc, a) => acc + Number(a.valor), 0)
   const faturamentoOntem = listaOntem.reduce((acc, a) => acc + Number(a.valor), 0)
 
-  // "Pets em atendimento agora": confirmados cujo horário de hoje já começou e ainda não terminou
-  const agoraMin = hoje.getHours() * 60 + hoje.getMinutes()
-  function minutos(hhmmss: string) {
-    const [h, mm] = hhmmss.split(':').map(Number)
-    return h * 60 + mm
-  }
-  const emAtendimento = listaHoje.filter(a => {
-    if (a.status !== 'Confirmado') return false
-    const inicio = minutos(a.hr_agendamento)
-    return agoraMin >= inicio && agoraMin < inicio + a.duracao
-  })
+  // "Pets em atendimento agora": a etapa 'Em andamento' já É o
+  // atendimento acontecendo agora (migration 032) — não precisa mais
+  // inferir pelo horário, o status é a fonte da verdade.
+  const emAtendimento = listaHoje.filter(a => a.status === 'Em andamento')
 
   // ── Horários livres hoje (reaproveita fn_horarios_disponiveis com slot-base de 30min) ──
   const slots = (slotsHoje ?? []) as { hr_slot: string; disponivel: boolean }[]

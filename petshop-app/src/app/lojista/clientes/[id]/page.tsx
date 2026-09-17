@@ -5,6 +5,7 @@ import { format, parseISO, differenceInCalendarDays } from 'date-fns'
 import { agoraBrasil } from '@/lib/agenda'
 import { formatarTelefone, formatarCpf } from '@/lib/format'
 import { obterContextoLojista } from '@/lib/lojista-context'
+import { classeBadgeStatus, ehEtapaAtiva, rotuloStatus } from '@/lib/status-agendamento'
 import {
   IconCalendar,
   IconChevronLeft,
@@ -20,13 +21,6 @@ import {
 
 export const metadata: Metadata = { title: 'Perfil do Cliente — Lojista' }
 
-const STATUS_BADGE: Record<string, string> = {
-  Pendente: 'badge-pendente',
-  Confirmado: 'badge-confirmado',
-  'Concluído': 'badge-concluido',
-  Cancelado: 'badge-cancelado',
-}
-
 interface Props {
   params: Promise<{ id: string }>
 }
@@ -35,7 +29,7 @@ interface AgendamentoRow {
   id_agendamento: string
   dt_agendamento: string
   hr_agendamento: string
-  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
   valor: number
   id_pet: string
   pet: { nome: string } | null
@@ -118,7 +112,7 @@ export default async function PerfilClientePage({ params }: Props) {
   const naoCancelados = agendamentos.filter(a => a.status !== 'Cancelado')
   const totalGasto = concluidos.reduce((acc, a) => acc + Number(a.valor), 0)
   const totalPendente = agendamentos
-    .filter(a => a.status === 'Pendente' || a.status === 'Confirmado')
+    .filter(a => ehEtapaAtiva(a.status))
     .reduce((acc, a) => acc + Number(a.valor), 0)
   const qtdVendas = concluidos.length
   const ticketMedio = qtdVendas > 0 ? totalGasto / qtdVendas : 0
@@ -140,7 +134,7 @@ export default async function PerfilClientePage({ params }: Props) {
     : null
 
   const proximoAgendamento = agendamentos
-    .filter(a => (a.status === 'Pendente' || a.status === 'Confirmado') && a.dt_agendamento >= hojeISO)
+    .filter(a => ehEtapaAtiva(a.status) && a.dt_agendamento >= hojeISO)
     .sort((a, b) => (a.dt_agendamento + a.hr_agendamento).localeCompare(b.dt_agendamento + b.hr_agendamento))[0] ?? null
 
   // ── Serviços mais utilizados — agrupado a partir do mesmo histórico já
@@ -162,7 +156,7 @@ export default async function PerfilClientePage({ params }: Props) {
     const concluidosDoPet = doPet.filter(a => a.status === 'Concluído')
       .sort((a, b) => (b.dt_agendamento + b.hr_agendamento).localeCompare(a.dt_agendamento + a.hr_agendamento))
     const proximoDoPet = doPet
-      .filter(a => (a.status === 'Pendente' || a.status === 'Confirmado') && a.dt_agendamento >= hojeISO)
+      .filter(a => ehEtapaAtiva(a.status) && a.dt_agendamento >= hojeISO)
       .sort((a, b) => (a.dt_agendamento + a.hr_agendamento).localeCompare(b.dt_agendamento + b.hr_agendamento))[0] ?? null
     return {
       ...pet,
@@ -286,7 +280,7 @@ export default async function PerfilClientePage({ params }: Props) {
               <div className="dash-detail-row"><span>Serviço</span><span>{proximoAgendamento.servico?.nome ?? '—'}</span></div>
               <div className="dash-detail-row"><span>Profissional</span><span>{proximoAgendamento.funcionario?.nome ?? '—'}</span></div>
               <div className="dash-detail-row"><span>Valor</span><span>{moeda(Number(proximoAgendamento.valor))}</span></div>
-              <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${STATUS_BADGE[proximoAgendamento.status]}`}>{proximoAgendamento.status}</span></span></div>
+              <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(proximoAgendamento.status)}`}>{rotuloStatus(proximoAgendamento.status)}</span></span></div>
             </>
           ) : (
             <p className="text-sm text-muted">Nenhum agendamento futuro.</p>
@@ -400,7 +394,7 @@ export default async function PerfilClientePage({ params }: Props) {
                   <span className="text-sm text-muted">Pet: {a.pet?.nome ?? '—'}</span>
                 </div>
                 <div className="text-sm font-semibold text-success">{moeda(Number(a.valor))}</div>
-                <span className={`badge ${STATUS_BADGE[a.status]}`}>{a.status}</span>
+                <span className={`badge ${classeBadgeStatus(a.status)}`}>{rotuloStatus(a.status)}</span>
               </div>
             ))}
           </div>
@@ -435,7 +429,7 @@ export default async function PerfilClientePage({ params }: Props) {
                     <td>{a.servico?.nome ?? '—'}</td>
                     <td>{a.funcionario?.nome ?? '—'}</td>
                     <td>{moeda(Number(a.valor))}</td>
-                    <td><span className={`badge ${STATUS_BADGE[a.status]}`}>{a.status}</span></td>
+                    <td><span className={`badge ${classeBadgeStatus(a.status)}`}>{rotuloStatus(a.status)}</span></td>
                   </tr>
                 ))}
               </tbody>

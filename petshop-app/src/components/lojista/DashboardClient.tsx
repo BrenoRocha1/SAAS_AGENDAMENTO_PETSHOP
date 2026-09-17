@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
+import { classeBadgeStatus, corSolidaStatus, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
 import {
   format,
   parseISO,
@@ -46,7 +47,7 @@ export interface AgendaItem {
   nome_pet: string
   nome_servico: string
   duracao: number
-  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
   valor: number
 }
 
@@ -103,13 +104,6 @@ type Selecionado =
   | { tipo: 'agenda'; item: AgendaItem }
   | { tipo: 'pendente'; item: PendenteItem }
   | null
-
-const badgeClass: Record<string, string> = {
-  Pendente: 'badge-pendente',
-  Confirmado: 'badge-confirmado',
-  'Concluído': 'badge-concluido',
-  Cancelado: 'badge-cancelado',
-}
 
 function parseDia(iso: string) {
   return parseISO(`${iso}T12:00:00`)
@@ -231,8 +225,8 @@ export default function DashboardClient({
     router.push(`/lojista/dashboard?data=${iso}`)
   }
 
-  // ── ações da agenda (confirmar / concluir / cancelar) ─────────────
-  function mudarStatus(id: string, novoStatus: 'Confirmado' | 'Concluído' | 'Cancelado') {
+  // ── ações da agenda (aceitar / iniciar / finalizar / cancelar) ────
+  function mudarStatus(id: string, novoStatus: 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado') {
     setAcaoErro(null)
     startTransition(async () => {
       const result = novoStatus === 'Cancelado'
@@ -344,7 +338,7 @@ export default function DashboardClient({
 
         <div className="stat-card animate-slide-up">
           <div className="flex items-center justify-between">
-            <div className="stat-card-icon tone-success">
+            <div className="stat-card-icon tone-primary">
               <IconUsers style={{ width: 20, height: 20 }} />
             </div>
           </div>
@@ -357,7 +351,7 @@ export default function DashboardClient({
 
         <div className="stat-card animate-slide-up">
           <div className="flex items-center justify-between">
-            <div className="stat-card-icon tone-warning">
+            <div className="stat-card-icon tone-primary">
               <IconMoney style={{ width: 20, height: 20 }} />
             </div>
             <DeltaTag atual={stats.faturamentoHoje} anterior={stats.faturamentoOntem} sufixo="vs ontem" moeda />
@@ -368,7 +362,7 @@ export default function DashboardClient({
 
         <div className="stat-card animate-slide-up">
           <div className="flex items-center justify-between">
-            <div className="stat-card-icon tone-info">
+            <div className="stat-card-icon tone-primary">
               <IconClock style={{ width: 20, height: 20 }} />
             </div>
           </div>
@@ -453,10 +447,13 @@ export default function DashboardClient({
               </div>
             ) : (
               <div className="timeline">
-                {agendaFiltrada.map(item => (
+                {agendaFiltrada.map(item => {
+                  const itemSelecionado = selecionado?.tipo === 'agenda' && selecionado.item.id_agendamento === item.id_agendamento
+                  return (
                   <div
                     key={item.id_agendamento}
-                    className={`timeline-item status-${item.status} ${selecionado?.tipo === 'agenda' && selecionado.item.id_agendamento === item.id_agendamento ? 'is-selected' : ''}`}
+                    className={`timeline-item ${itemSelecionado ? 'is-selected' : ''}`}
+                    style={{ borderLeftColor: itemSelecionado ? 'var(--primary-500)' : corSolidaStatus(item.status) }}
                     onClick={() => setSelecionado({ tipo: 'agenda', item })}
                   >
                     <div className="timeline-time">{item.hr_agendamento.slice(0, 5)}</div>
@@ -465,11 +462,12 @@ export default function DashboardClient({
                       <div className="timeline-sub">{item.nome_servico} · {item.duracao} min</div>
                     </div>
                     <div className="timeline-meta">
-                      <span className={`badge ${badgeClass[item.status]}`}>{item.status}</span>
+                      <span className={`badge ${classeBadgeStatus(item.status)}`}>{rotuloStatus(item.status)}</span>
                       <span className="text-sm text-success font-semibold">R$ {Number(item.valor).toFixed(2)}</span>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )
           ) : aggLoading ? (
@@ -583,7 +581,7 @@ function DetalheAgendamento({
 }: {
   selecionado: NonNullable<Selecionado>
   isPending: boolean
-  onMudarStatus: (id: string, status: 'Confirmado' | 'Concluído' | 'Cancelado') => void
+  onMudarStatus: (id: string, status: 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado') => void
 }) {
   const isAgenda = selecionado.tipo === 'agenda'
   const item = selecionado.item
@@ -604,22 +602,17 @@ function DetalheAgendamento({
       <div className="dash-detail-row"><span>Serviço</span><span>{servico}</span></div>
       <div className="dash-detail-row"><span>Horário</span><span>{hora}</span></div>
       <div className="dash-detail-row"><span>Valor</span><span>R$ {valor.toFixed(2)}</span></div>
-      <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${badgeClass[status]}`}>{status}</span></span></div>
+      <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(status)}`}>{rotuloStatus(status)}</span></span></div>
 
-      {status === 'Pendente' && (
+      {(status === 'Pendente' || status === 'Confirmado' || status === 'Em andamento') && (
         <div className="dash-detail-actions">
-          <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => onMudarStatus(id, 'Confirmado')}>
-            <IconCheck style={{ width: 14, height: 14 }} /> Confirmar
-          </button>
-          <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => onMudarStatus(id, 'Cancelado')}>
-            Cancelar
-          </button>
-        </div>
-      )}
-      {status === 'Confirmado' && (
-        <div className="dash-detail-actions">
-          <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => onMudarStatus(id, 'Concluído')}>
-            Concluir
+          <button
+            className="btn btn-success btn-sm"
+            style={{ flex: 1 }}
+            disabled={isPending}
+            onClick={() => onMudarStatus(id, PROXIMA_ETAPA[status]!.status)}
+          >
+            <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[status]!.acao}
           </button>
           <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => onMudarStatus(id, 'Cancelado')}>
             Cancelar
