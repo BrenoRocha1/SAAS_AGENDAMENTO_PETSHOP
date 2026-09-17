@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { hojeBrasilISO } from '@/lib/agenda'
+import { IconCalendar, IconDog, IconMoney, IconScissors, IconStore } from '@/components/icons'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Dashboard — Cliente' }
@@ -14,85 +15,88 @@ const statusConfig: Record<string, { label: string; cls: string }> = {
   Cancelado:  { label: 'Cancelado',  cls: 'badge-cancelado' },
 }
 
+interface AgendamentoProximo {
+  id_agendamento: string
+  dt_agendamento: string
+  hr_agendamento: string
+  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  valor: number
+  pet: { nome: string; raca: string } | null
+  servico: { nome: string } | null
+  lojista: { nome_loja: string } | null
+}
+
 export default async function ClienteDashboard() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Próximos agendamentos
-  const { data: agendamentos } = await supabase
-    .from('agendamento')
-    .select(`
-      id_agendamento, dt_agendamento, hr_agendamento, status, valor,
-      pet:id_pet ( nome, raca ),
-      servico:id_servico ( nome ),
-      lojista:id_lojista ( nome_loja )
-    `)
-    .eq('id_cliente', user!.id)
-    .gte('dt_agendamento', hojeBrasilISO())
-    .not('status', 'eq', 'Cancelado')
-    .order('dt_agendamento', { ascending: true })
-    .order('hr_agendamento', { ascending: true })
-    .limit(5)
+  const [{ data: cliente }, { data: agendamentosRaw }, { count: totalPets }, { count: totalAgendamentos }, { data: totalGasto }] = await Promise.all([
+    supabase.from('cliente').select('nome').eq('id_cliente', user!.id).maybeSingle(),
+    supabase
+      .from('agendamento')
+      .select(`
+        id_agendamento, dt_agendamento, hr_agendamento, status, valor,
+        pet:id_pet ( nome, raca ),
+        servico:id_servico ( nome ),
+        lojista:id_lojista ( nome_loja )
+      `)
+      .eq('id_cliente', user!.id)
+      .gte('dt_agendamento', hojeBrasilISO())
+      .not('status', 'eq', 'Cancelado')
+      .order('dt_agendamento', { ascending: true })
+      .order('hr_agendamento', { ascending: true })
+      .limit(5),
+    supabase.from('pet').select('*', { count: 'exact', head: true }).eq('id_cliente', user!.id).eq('ativo', true),
+    supabase.from('agendamento').select('*', { count: 'exact', head: true }).eq('id_cliente', user!.id),
+    supabase.from('agendamento').select('valor').eq('id_cliente', user!.id).eq('status', 'Concluído'),
+  ])
 
-  // Contagem de pets
-  const { count: totalPets } = await supabase
-    .from('pet')
-    .select('*', { count: 'exact', head: true })
-    .eq('id_cliente', user!.id)
-    .eq('ativo', true)
-
-  // Histórico
-  const { count: totalAgendamentos } = await supabase
-    .from('agendamento')
-    .select('*', { count: 'exact', head: true })
-    .eq('id_cliente', user!.id)
-
-  const { data: totalGasto } = await supabase
-    .from('agendamento')
-    .select('valor')
-    .eq('id_cliente', user!.id)
-    .eq('status', 'Concluído')
-
+  const agendamentos = (agendamentosRaw ?? []) as unknown as AgendamentoProximo[]
   const valorTotal = totalGasto?.reduce((acc, a) => acc + (a.valor ?? 0), 0) ?? 0
+  const primeiroNome = cliente?.nome?.split(' ')[0] ?? ''
 
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Olá! 👋</h1>
+        <h1 className="page-title">Olá{primeiroNome ? `, ${primeiroNome}` : ''}!</h1>
         <p className="page-subtitle">Aqui está um resumo da sua conta</p>
       </div>
 
-      {/* Stats */}
       <div className="grid-3" style={{ marginBottom: 'var(--space-8)' }}>
         <div className="stat-card animate-slide-up">
-          <div className="stat-card-icon" style={{ background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.25)' }}>🐕</div>
+          <div className="stat-card-icon" style={{ background: 'var(--primary-soft-bg)', border: '1px solid var(--primary-soft-border)', color: 'var(--primary-400)' }}>
+            <IconDog style={{ width: 20, height: 20 }} />
+          </div>
           <div className="stat-card-value">{totalPets ?? 0}</div>
           <div className="stat-card-label">Pets cadastrados</div>
         </div>
         <div className="stat-card animate-slide-up">
-          <div className="stat-card-icon" style={{ background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.25)' }}>📅</div>
+          <div className="stat-card-icon" style={{ background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.25)', color: 'var(--info-400)' }}>
+            <IconCalendar style={{ width: 20, height: 20 }} />
+          </div>
           <div className="stat-card-value">{totalAgendamentos ?? 0}</div>
           <div className="stat-card-label">Total de agendamentos</div>
         </div>
         <div className="stat-card animate-slide-up">
-          <div className="stat-card-icon" style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.25)' }}>💰</div>
+          <div className="stat-card-icon" style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.25)', color: 'var(--success-400)' }}>
+            <IconMoney style={{ width: 20, height: 20 }} />
+          </div>
           <div className="stat-card-value">R$ {valorTotal.toFixed(2)}</div>
           <div className="stat-card-label">Total investido</div>
         </div>
       </div>
 
-      {/* Próximos Agendamentos */}
       <div className="card">
         <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-6)' }}>
           <h3>Próximos Agendamentos</h3>
           <Link href="/cliente/novo-agendamento" className="btn btn-primary btn-sm">
-            + Novo Agendamento
+            Novo Agendamento
           </Link>
         </div>
 
-        {!agendamentos?.length ? (
+        {!agendamentos.length ? (
           <div className="empty-state">
-            <div className="empty-state-icon">📅</div>
+            <IconCalendar style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
             <div className="empty-state-title">Nenhum agendamento próximo</div>
             <p style={{ marginBottom: 'var(--space-4)' }}>Que tal agendar um serviço para seu pet?</p>
             <Link href="/cliente/novo-agendamento" className="btn btn-primary">
@@ -101,7 +105,7 @@ export default async function ClienteDashboard() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            {agendamentos.map((ag: any) => (
+            {agendamentos.map(ag => (
               <div
                 key={ag.id_agendamento}
                 className="card-elevated"
@@ -112,16 +116,16 @@ export default async function ClienteDashboard() {
                     width: 52,
                     height: 52,
                     borderRadius: 'var(--radius-md)',
-                    background: 'rgba(124,58,237,0.15)',
-                    border: '1px solid rgba(124,58,237,0.25)',
+                    background: 'var(--primary-soft-bg)',
+                    border: '1px solid var(--primary-soft-border)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '1.5rem',
+                    color: 'var(--primary-400)',
                     flexShrink: 0,
                   }}
                 >
-                  ✂️
+                  <IconScissors style={{ width: 22, height: 22 }} />
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -134,8 +138,8 @@ export default async function ClienteDashboard() {
                     </span>
                   </div>
                   <div className="flex gap-4 text-sm text-muted">
-                    <span>🐕 {ag.pet?.nome} ({ag.pet?.raca})</span>
-                    <span>🏪 {ag.lojista?.nome_loja}</span>
+                    <span className="flex items-center gap-1"><IconDog style={{ width: 13, height: 13 }} /> {ag.pet?.nome} ({ag.pet?.raca})</span>
+                    <span className="flex items-center gap-1"><IconStore style={{ width: 13, height: 13 }} /> {ag.lojista?.nome_loja}</span>
                   </div>
                 </div>
 

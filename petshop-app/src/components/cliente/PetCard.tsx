@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { desativarPetAction } from '@/lib/actions'
+import { IconDog, IconPencil, IconTrash } from '@/components/icons'
 
 interface Pet {
   id_pet: string
@@ -12,6 +13,7 @@ interface Pet {
   dt_nasc: string
   peso?: number
   obs?: string
+  foto_url?: string | null
 }
 
 interface Props {
@@ -32,7 +34,6 @@ export default function PetCard({ pet, idade }: Props) {
 
   return (
     <div className="card animate-slide-up" style={{ position: 'relative', overflow: 'visible' }}>
-      {/* Header do card */}
       <div
         style={{
           display: 'flex',
@@ -48,16 +49,21 @@ export default function PetCard({ pet, idade }: Props) {
             width: 52,
             height: 52,
             borderRadius: 'var(--radius-full)',
-            background: 'linear-gradient(135deg, rgba(124,58,237,0.2), rgba(245,158,11,0.1))',
-            border: '1px solid rgba(124,58,237,0.25)',
+            background: 'var(--primary-soft-bg)',
+            border: '1px solid var(--primary-soft-border)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '1.625rem',
+            overflow: 'hidden',
             flexShrink: 0,
           }}
         >
-          {pet.sexo === 'Macho' ? '🐶' : '🐩'}
+          {pet.foto_url ? (
+            // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+            <img src={pet.foto_url} alt={pet.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <IconDog style={{ width: 24, height: 24, color: 'var(--primary-400)' }} />
+          )}
         </div>
         <div>
           <h4 style={{ marginBottom: 2 }}>{pet.nome}</h4>
@@ -76,7 +82,6 @@ export default function PetCard({ pet, idade }: Props) {
         </span>
       </div>
 
-      {/* Detalhes */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-5)' }}>
         <div className="flex justify-between">
           <span className="text-sm text-muted">Idade</span>
@@ -99,22 +104,21 @@ export default function PetCard({ pet, idade }: Props) {
               color: 'var(--gray-400)',
             }}
           >
-            📝 {pet.obs}
+            {pet.obs}
           </div>
         )}
       </div>
 
-      {/* Ações */}
       {!confirmDelete ? (
         <div className="flex gap-2">
           <Link href={`/cliente/pets/${pet.id_pet}/editar`} className="btn btn-secondary btn-sm" style={{ flex: 1 }}>
-            ✏️ Editar
+            <IconPencil style={{ width: 14, height: 14 }} /> Editar
           </Link>
           <button
             className="btn btn-danger btn-sm"
             onClick={() => setConfirmDelete(true)}
           >
-            🗑️
+            <IconTrash style={{ width: 14, height: 14 }} />
           </button>
         </div>
       ) : (

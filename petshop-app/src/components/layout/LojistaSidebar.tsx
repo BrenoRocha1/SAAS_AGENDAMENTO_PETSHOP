@@ -12,26 +12,27 @@ import {
   IconChartBar,
   IconDog,
   IconScissors,
-  IconClock,
   IconUsers,
-  IconUserBadge,
-  IconStore,
+  IconSettings,
   IconLogout,
   IconChevronLeft,
   IconChevronRight,
 } from '@/components/icons'
 
+// Funcionários, Perfil da Loja e Horários saíram daqui — agora são
+// acessados via Configurações (Operação → Equipe / Loja → Dados da loja
+// / Horários), que já é a central de navegação pra essas telas. As telas
+// em si continuam existindo nas mesmas rotas de sempre, só não duplicam
+// mais a entrada no menu.
 const navItemsBase = [
   { href: '/lojista/dashboard',     icon: IconGrid,      label: 'Dashboard' },
   { href: '/lojista/agendamentos',  icon: IconCalendar,  label: 'Agendamentos' },
   { href: '/lojista/kanban',        icon: IconKanban,    label: 'Kanban', condicional: true },
   { href: '/lojista/relatorios',    icon: IconChartBar,  label: 'Relatórios de Vendas' },
   { href: '/lojista/servicos',      icon: IconScissors,  label: 'Serviços' },
-  { href: '/lojista/horarios',      icon: IconClock,     label: 'Horários' },
   { href: '/lojista/clientes',      icon: IconUsers,     label: 'Clientes' },
   { href: '/lojista/pets',          icon: IconDog,       label: 'Pets' },
-  { href: '/lojista/funcionarios',  icon: IconUserBadge, label: 'Funcionários' },
-  { href: '/lojista/perfil',        icon: IconStore,     label: 'Perfil da Loja' },
+  { href: '/lojista/configuracoes', icon: IconSettings,  label: 'Configurações' },
 ]
 
 const CHAVE_COLAPSADA = 'petagenda:lojista-sidebar-colapsada'

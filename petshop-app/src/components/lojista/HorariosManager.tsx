@@ -62,9 +62,18 @@ export default function HorariosManager({ horarios: inicial }: Props) {
   }
 
   function handleToggle(id_horario: string, ativo: boolean) {
+    setError(null)
     startTransition(async () => {
-      await toggleHorarioAction(id_horario, ativo)
-      await recarregar()
+      const result = await toggleHorarioAction(id_horario, ativo)
+      if (result?.error) {
+        setError(result.error)
+        return
+      }
+      // Atualiza só o campo "ativo" no estado local — nunca refaz o fetch
+      // aqui. hr_inicio/hr_fim já estavam certos no estado, e um refetch
+      // reintroduziria a mesma falha (o horário "sumir" da tela ao
+      // desativar) que já foi reportada com esse fluxo.
+      setHorarios(prev => prev.map(h => h.id_horario === id_horario ? { ...h, ativo } : h))
     })
   }
 
@@ -169,11 +178,15 @@ export default function HorariosManager({ horarios: inicial }: Props) {
                 <div className="flex gap-2">
                   {h && (
                     <button
-                      className={`btn btn-sm ${h.ativo ? 'btn-danger' : 'btn-success'}`}
+                      type="button"
+                      className={`switch ${h.ativo ? 'switch-on' : ''}`}
                       onClick={() => handleToggle(h.id_horario, !h.ativo)}
                       disabled={isPending}
+                      role="switch"
+                      aria-checked={h.ativo}
+                      title={h.ativo ? 'Desativar' : 'Ativar'}
                     >
-                      {h.ativo ? 'Desativar' : 'Ativar'}
+                      <span className="switch-thumb" />
                     </button>
                   )}
                   <button

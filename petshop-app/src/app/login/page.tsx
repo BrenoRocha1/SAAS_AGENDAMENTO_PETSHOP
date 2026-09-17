@@ -240,6 +240,7 @@ function LoginFormPane() {
   const [isPending, startTransition] = useTransition()
   const [oauthPending, setOauthPending] = useState(false)
 
+  const redirectTo = searchParams.get('redirectTo')
   const oauthError = searchParams.get('error')
   const paramMessage =
     oauthError === 'oauth'
@@ -290,6 +291,7 @@ function LoginFormPane() {
       {message && <ErrorBanner message={message} />}
 
       <form className="login-form" onSubmit={handleSubmit} noValidate>
+        {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
         <div className="login-field">
           <label htmlFor="email" className="login-label">E-mail</label>
           <div className="login-input-wrap">
@@ -307,7 +309,12 @@ function LoginFormPane() {
         </div>
 
         <div className="login-field">
-          <label htmlFor="senha" className="login-label">Senha</label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="senha" className="login-label">Senha</label>
+            <Link href="/esqueci-senha" style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--lg-accent-700)' }}>
+              Esqueceu a senha?
+            </Link>
+          </div>
           <div className="login-input-wrap">
             <IconLock />
             <input

@@ -40,6 +40,38 @@ export const editarClienteLojistaSchema = z.object({
   telefone: z.string().regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
 })
 
+// Cadastro de cliente PELO LOJISTA (fn_registrar_cliente_lojista,
+// migration 014) — sem senha: o lojista não deve saber/definir a senha
+// de outra pessoa. A conta é criada via convite (admin.inviteUserByEmail)
+// e o próprio cliente define a senha ao aceitar o link em /redefinir-senha.
+export const cadastroClienteLojistaSchema = z.object({
+  nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(120),
+  cpf: z
+    .string()
+    .regex(/^\d{11}$/, 'CPF deve conter 11 dígitos numéricos')
+    .refine(validarCPF, 'CPF inválido'),
+  email: z.string().email('E-mail inválido'),
+  telefone: z
+    .string()
+    .regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
+})
+
+// Definir uma nova senha (usado tanto por "esqueci minha senha" quanto
+// pelo convite de cliente/funcionário cadastrado pelo lojista) — a sessão
+// de recuperação já vem estabelecida pelos cookies antes desta tela.
+export const redefinirSenhaSchema = z.object({
+  senha: z
+    .string()
+    .min(8, 'Senha deve ter no mínimo 8 caracteres')
+    .regex(/[A-Z]/, 'Deve conter ao menos uma letra maiúscula')
+    .regex(/[0-9]/, 'Deve conter ao menos um número')
+    .regex(/[^A-Za-z0-9]/, 'Deve conter ao menos um caractere especial'),
+  confirmaSenha: z.string(),
+}).refine(d => d.senha === d.confirmaSenha, {
+  message: 'Senhas não conferem',
+  path: ['confirmaSenha'],
+})
+
 export const cadastroLojistSchema = z.object({
   nome_loja: z.string().min(2).max(150),
   email: z.string().email('E-mail inválido'),
@@ -60,6 +92,30 @@ export const cadastroLojistSchema = z.object({
   message: 'Senhas não conferem',
   path: ['confirmaSenha'],
 })
+
+// Link personalizado de agendamento (/agendamento/[slug]) — só letras
+// minúsculas, números e hífen simples entre eles, sem espaço/acento.
+// Unicidade é garantida por UNIQUE no banco (migration 024), não aqui.
+export const slugLojistaSchema = z.object({
+  slug: z
+    .string()
+    .min(3, 'O link precisa ter no mínimo 3 caracteres')
+    .max(60, 'O link pode ter no máximo 60 caracteres')
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Use só letras minúsculas, números e hífen — sem espaços, acentos ou símbolos'),
+})
+
+// Antecedência mínima/máxima do agendamento online (migration 025) —
+// cada uma com seu valor + unidade (horas ou dias), pedido explícito.
+export const janelaAgendamentoSchema = z.object({
+  minValor: z.number().int().min(0, 'Não pode ser negativo').max(999),
+  minUnidade: z.enum(['horas', 'dias']),
+  maxValor: z.number().int().min(1, 'Precisa ser pelo menos 1').max(999),
+  maxUnidade: z.enum(['horas', 'dias']),
+}).refine(d => {
+  const minHoras = d.minValor * (d.minUnidade === 'dias' ? 24 : 1)
+  const maxHoras = d.maxValor * (d.maxUnidade === 'dias' ? 24 : 1)
+  return maxHoras > minHoras
+}, { message: 'O máximo precisa ser maior que o mínimo', path: ['maxValor'] })
 
 export const petSchema = z.object({
   nome: z.string().min(1).max(80),
@@ -82,11 +138,27 @@ export const petSchema = z.object({
   obs: z.string().max(500).optional(),
 })
 
+// Complementar espécie/porte de um pet que já existe, sem mexer no resto
+// do cadastro — usado no link público de agendamento (/agendamento/[id])
+// quando o pet ainda não tem essa informação (precisa dela pra calcular
+// preço por variação, ver fn_calcular_preco_servico).
+export const classificacaoPetSchema = z.object({
+  especie: z.enum(['Cão', 'Gato']),
+  porte: z.enum(['Pequeno', 'Médio', 'Grande']),
+})
+
 // Pet cadastrado pelo LOJISTA em nome de um cliente já vinculado a ele
 // (walk-in que ainda não tem pet cadastrado) — ver fn_criar_pet_lojista
 // (migration 015). Mesmos campos de petSchema, mais o cliente dono do pet.
 export const petLojistaSchema = petSchema.extend({
   id_cliente: z.string().uuid('Selecione um cliente'),
+})
+
+// Perfil do CLIENTE (/cliente/perfil) — só nome e telefone são editáveis;
+// e-mail e CPF são identificadores fixos do cadastro.
+export const perfilClienteSchema = z.object({
+  nome: z.string().min(2, 'Nome muito curto').max(120),
+  telefone: z.string().regex(/^\d{10,11}$/, 'Telefone inválido'),
 })
 
 // Variação de preço de um serviço, por espécie+porte OU por
@@ -140,6 +212,19 @@ export const agendamentoSchema = z.object({
   obs: z.string().max(500).optional(),
 })
 
+// Carrinho com um ou mais serviços — link público /agendamento/[id_lojista]
+// (ver fn_criar_agendamento_multiplo, migration 022). Profissional é
+// opcional ("sem preferência" = null).
+export const agendamentoOnlineSchema = z.object({
+  id_lojista: z.string().uuid(),
+  id_pet: z.string().uuid(),
+  id_funcionario: z.string().uuid().nullable().optional(),
+  servicos: z.array(z.string().uuid()).min(1, 'Selecione ao menos um serviço').max(10),
+  dt_agendamento: z.string().refine(d => d >= hojeBrasilISO(), 'Data de agendamento não pode ser passada'),
+  hr_agendamento: z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM'),
+  obs: z.string().max(500).optional(),
+})
+
 // Agendamento criado pelo LOJISTA (walk-in/telefone) em nome de um cliente
 // já existente na base dele. Mesmas regras de data/hora de agendamentoSchema,
 // mais o cliente — ver fn_criar_agendamento_lojista (migration 008).
@@ -147,6 +232,9 @@ export const agendamentoLojistaSchema = agendamentoSchema.extend({
   id_cliente: z.string().uuid('Selecione um cliente'),
 })
 
+// Sem senha: o lojista não define a senha do funcionário, só o convida.
+// Conta criada via admin.inviteUserByEmail — o funcionário define a
+// própria senha ao aceitar o convite em /redefinir-senha.
 export const funcionarioSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(120),
   email: z.string().email('E-mail inválido'),
@@ -154,18 +242,8 @@ export const funcionarioSchema = z.object({
     .string()
     .regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
   cargo: z.string().max(100).optional(),
-  senha: z
-    .string()
-    .min(8, 'Senha deve ter no mínimo 8 caracteres')
-    .regex(/[A-Z]/, 'Deve conter ao menos uma letra maiúscula')
-    .regex(/[0-9]/, 'Deve conter ao menos um número')
-    .regex(/[^A-Za-z0-9]/, 'Deve conter ao menos um caractere especial'),
-  confirmaSenha: z.string(),
   pode_gerenciar_agenda: z.boolean().default(true),
   pode_gerenciar_servicos: z.boolean().default(false),
-}).refine(d => d.senha === d.confirmaSenha, {
-  message: 'Senhas não conferem',
-  path: ['confirmaSenha'],
 })
 
 export const editarFuncionarioSchema = z.object({
@@ -203,11 +281,16 @@ function validarCPF(cpf: string): boolean {
 export type LoginData = z.infer<typeof loginSchema>
 export type CadastroClienteData = z.infer<typeof cadastroClienteSchema>
 export type CadastroLojistaData = z.infer<typeof cadastroLojistSchema>
+export type SlugLojistaData = z.infer<typeof slugLojistaSchema>
+export type JanelaAgendamentoData = z.infer<typeof janelaAgendamentoSchema>
 export type PetData = z.infer<typeof petSchema>
 export type ServicoVariacaoData = z.infer<typeof servicoVariacaoSchema>
 export type ServicoData = z.infer<typeof servicoSchema>
 export type HorarioData = z.infer<typeof horarioSchema>
 export type AgendamentoData = z.infer<typeof agendamentoSchema>
+export type AgendamentoOnlineData = z.infer<typeof agendamentoOnlineSchema>
 export type AgendamentoLojistaData = z.infer<typeof agendamentoLojistaSchema>
 export type FuncionarioData = z.infer<typeof funcionarioSchema>
 export type EditarFuncionarioData = z.infer<typeof editarFuncionarioSchema>
+export type CadastroClienteLojistaData = z.infer<typeof cadastroClienteLojistaSchema>
+export type RedefinirSenhaData = z.infer<typeof redefinirSenhaSchema>

@@ -39,7 +39,7 @@ export default async function ClienteLayout({
     .single()
 
   return (
-    <div className="app-layout">
+    <div className="app-layout cliente-shell">
       <ClienteSidebar
         userName={cliente?.nome ?? user.email ?? 'Cliente'}
         userEmail={user.email ?? ''}

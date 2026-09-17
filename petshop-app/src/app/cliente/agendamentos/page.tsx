@@ -1,7 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
-import AgendamentosClienteList from '@/components/cliente/AgendamentosClienteList'
+import AgendamentosClienteList, { type AgendamentoCliente } from '@/components/cliente/AgendamentosClienteList'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Meus Agendamentos' }
@@ -25,11 +23,11 @@ export default async function AgendamentosPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Meus Agendamentos 📅</h1>
+        <h1 className="page-title">Meus Agendamentos</h1>
         <p className="page-subtitle">Histórico e agendamentos futuros</p>
       </div>
 
-      <AgendamentosClienteList agendamentos={agendamentos ?? []} />
+      <AgendamentosClienteList agendamentos={(agendamentos ?? []) as unknown as AgendamentoCliente[]} />
     </>
   )
 }

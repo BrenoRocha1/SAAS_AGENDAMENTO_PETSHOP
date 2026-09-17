@@ -4,20 +4,28 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import {
   cadastroClienteSchema,
+  cadastroClienteLojistaSchema,
   editarClienteLojistaSchema,
   cadastroLojistSchema,
+  slugLojistaSchema,
+  janelaAgendamentoSchema,
   loginSchema,
   petSchema,
+  classificacaoPetSchema,
   petLojistaSchema,
   servicoSchema,
   servicoVariacaoSchema,
   horarioSchema,
   agendamentoSchema,
+  agendamentoOnlineSchema,
   agendamentoLojistaSchema,
   funcionarioSchema,
   editarFuncionarioSchema,
+  perfilClienteSchema,
+  redefinirSenhaSchema,
 } from '@/lib/validations'
 import type { ServicoVariacaoData } from '@/lib/validations'
 
@@ -33,6 +41,19 @@ function devError(mensagemAmigavel: string, detalheTecnico?: string | null) {
     return `${mensagemAmigavel} [DEV: ${detalheTecnico}]`
   }
   return mensagemAmigavel
+}
+
+// ============================================================
+// HELPER: origin da requisição (pra montar redirectTo de e-mails do
+// Supabase Auth — convite, redefinição de senha). Não existe URL fixa
+// de produção configurada ainda, então deriva do header Host em vez de
+// hardcodar — funciona igual em localhost e no domínio real.
+// ============================================================
+async function obterOrigin() {
+  const h = await headers()
+  const host = h.get('host') ?? 'localhost:3000'
+  const protocolo = host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https'
+  return `${protocolo}://${host}`
 }
 
 // ============================================================
@@ -113,16 +134,85 @@ export async function loginAction(formData: FormData) {
 
   revalidatePath('/', 'layout')
 
+  // Só honra redirectTo de volta pro link público de agendamento (é onde a
+  // middleware manda quem clicou em /agendamento/[id] sem estar logado) —
+  // nunca redireciona pra fora do domínio nem pra rota arbitrária.
+  const redirectTo = formData.get('redirectTo') as string | null
+  if (role === 'cliente' && redirectTo?.startsWith('/agendamento/')) {
+    redirect(redirectTo)
+  }
+
   if (role === 'lojista') redirect('/lojista/dashboard')
   if (role === 'funcionario') redirect('/funcionario/dashboard')
   redirect('/cliente/dashboard')
 }
 
-export async function logoutAction() {
+// redirectTo opcional — usado em /agendamento/[id] quando quem clicou
+// "sair e entrar com outra conta" está logado com o papel errado (ex.:
+// lojista testando o próprio link) e precisa voltar pro mesmo link
+// depois de entrar de novo como cliente. Sem o parâmetro, comportamento
+// de sempre (volta pro /login genérico).
+export async function logoutAction(redirectTo?: string) {
   const supabase = await createClient()
   await supabase.auth.signOut()
   revalidatePath('/', 'layout')
-  redirect('/login')
+  redirect(redirectTo?.startsWith('/agendamento/') ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : '/login')
+}
+
+// ============================================================
+// REDEFINIÇÃO DE SENHA
+// ============================================================
+// Duas entradas pra mesma tela (/redefinir-senha): "esqueci minha senha"
+// (a própria pessoa pede) e o convite de cliente/funcionário cadastrado
+// pelo lojista (cadastrarClienteLojistaAction/cadastrarFuncionarioAction),
+// que nunca teve senha nenhuma. Ambas passam por /auth/callback, que
+// troca o código do link por uma sessão antes de chegar aqui.
+
+export async function solicitarRedefinicaoSenhaAction(formData: FormData) {
+  const email = (formData.get('email') as string)?.trim().toLowerCase()
+  if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+    return { error: 'Informe um e-mail válido.' }
+  }
+
+  const supabase = await createClient()
+  const origin = await obterOrigin()
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/redefinir-senha`,
+  })
+
+  if (error) {
+    console.error('[solicitarRedefinicaoSenhaAction] error:', error.message)
+  }
+
+  // Sempre "sucesso" pro chamador — nunca revela se o e-mail existe ou
+  // não no banco (evita enumeração de contas).
+  return { success: true }
+}
+
+export async function atualizarSenhaAction(formData: FormData) {
+  const raw = {
+    senha: formData.get('senha') as string,
+    confirmaSenha: formData.get('confirmaSenha') as string,
+  }
+
+  const parsed = redefinirSenhaSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: 'Link expirado ou inválido. Solicite um novo link de redefinição de senha.' }
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.senha })
+  if (error) {
+    return { error: devError('Não foi possível atualizar a senha. Tente novamente.', error.message) }
+  }
+
+  return { success: true }
 }
 
 export async function cadastroClienteAction(formData: FormData) {
@@ -140,18 +230,26 @@ export async function cadastroClienteAction(formData: FormData) {
     return { error: parsed.error.issues[0].message }
   }
 
-  const supabase = await createClient()
+  // Cria a conta via Admin API (email_confirm:true) em vez de signUp normal
+  // — mesmo padrão de cadastroLojistaAction/cadastrarClienteLojistaAction.
+  // Com "Confirm email" habilitado no projeto Supabase, signUp criava a
+  // conta mas o signInWithPassword logo abaixo falhava com "Email not
+  // confirmed", deixando o cliente com uma conta que não conseguia acessar.
+  const adminClient = createAdminClient()
+  if (!adminClient) {
+    return { error: 'Serviço temporariamente indisponível. Tente novamente em alguns minutos.' }
+  }
 
-  const { data: authData, error: authError } = await supabase.auth.signUp({
+  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
     email: parsed.data.email,
     password: parsed.data.senha,
-    options: {
-      data: { role: 'cliente', nome: parsed.data.nome },
-    },
+    email_confirm: true,
+    user_metadata: { role: 'cliente', nome: parsed.data.nome },
   })
 
   if (authError) {
-    if (authError.message.includes('already registered')) {
+    const msg = authError.message.toLowerCase()
+    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate') || msg.includes('registered')) {
       return { error: 'Este e-mail já está cadastrado' }
     }
     return { error: devError('Erro ao criar conta. Tente novamente.', authError.message) }
@@ -159,13 +257,6 @@ export async function cadastroClienteAction(formData: FormData) {
 
   if (!authData.user) {
     return { error: 'Erro interno. Tente novamente.' }
-  }
-
-  // Inserir na tabela cliente usando admin client (bypassa RLS pois a sessão
-  // ainda não foi propagada imediatamente após o signUp)
-  const adminClient = createAdminClient()
-  if (!adminClient) {
-    return { error: 'Serviço temporariamente indisponível. Tente novamente em alguns minutos.' }
   }
 
   const { error: clienteError } = await adminClient.from('cliente').insert({
@@ -183,10 +274,12 @@ export async function cadastroClienteAction(formData: FormData) {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // FIX: Estabelecer sessão nos cookies ANTES do redirect.
-  // O signUp cria o usuário mas não propaga o JWT nos cookies do response.
-  // Sem este signIn, o middleware bloqueará o acesso ao dashboard.
+  // Estabelecer sessão nos cookies ANTES do redirect.
+  // O adminClient não lida com cookies/sessão do browser — usamos o client
+  // normal pra fazer signIn e gravar o JWT nos cookies (mesmo padrão de
+  // cadastroLojistaAction).
   // ──────────────────────────────────────────────────────────────────────────
+  const supabase = await createClient()
   const { error: signInError } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
     password: parsed.data.senha,
@@ -401,6 +494,33 @@ export async function editarPetAction(id_pet: string, formData: FormData) {
   return { success: true }
 }
 
+// Complementar só espécie+porte de um pet que já existe, sem tocar no
+// resto do cadastro (nome/raça/sexo/dt_nasc) — usado no link público de
+// agendamento quando o pet ainda não tem essa classificação.
+export async function atualizarClassificacaoPetAction(id_pet: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const raw = {
+    especie: formData.get('especie') as string,
+    porte: formData.get('porte') as string,
+  }
+
+  const parsed = classificacaoPetSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase
+    .from('pet')
+    .update(parsed.data)
+    .eq('id_pet', id_pet)
+    .eq('id_cliente', user.id)
+
+  if (error) return { error: devError('Erro ao atualizar informações do pet.', error.message) }
+
+  return { success: true }
+}
+
 export async function desativarPetAction(id_pet: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -495,10 +615,13 @@ export async function editarServicoAction(id_servico: string, formData: FormData
     descricao: formData.get('descricao') as string,
     preco: parseFloat(formData.get('preco') as string),
     duracao: parseInt(formData.get('duracao') as string),
-    status: (formData.get('status') as string) || 'Ativo',
   }
 
-  const parsed = servicoSchema.safeParse(raw)
+  // Sem "status" aqui de propósito — esse formulário não tem mais o campo
+  // (o switch da listagem já cuida disso via alternarStatusServicoAction).
+  // Se voltasse a mandar status aqui, todo "Salvar Serviço" reativaria o
+  // serviço mesmo que o lojista tivesse acabado de desativá-lo pelo switch.
+  const parsed = servicoSchema.omit({ status: true }).safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   const { error } = await supabase
@@ -508,6 +631,30 @@ export async function editarServicoAction(id_servico: string, formData: FormData
     .eq('id_lojista', user.id)
 
   if (error) return { error: 'Erro ao atualizar serviço.' }
+
+  revalidatePath('/lojista/servicos')
+  return { success: true }
+}
+
+// Toggle rápido de status Ativo/Inativo, direto na listagem — não abre o
+// modal de edição inteiro. Serviço "Inativo" simplesmente para de
+// aparecer pro cliente na hora de agendar (fn_criar_agendamento já
+// filtra `status = 'Ativo'`); nada é excluído, histórico e agendamentos
+// já existentes continuam intactos.
+export async function alternarStatusServicoAction(id_servico: string, ativo: boolean) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const { error } = await supabase
+    .from('servico')
+    .update({ status: ativo ? 'Ativo' : 'Inativo' })
+    .eq('id_servico', id_servico)
+    .eq('id_lojista', user.id)
+
+  if (error) return { error: devError('Erro ao atualizar status do serviço.', error.message) }
 
   revalidatePath('/lojista/servicos')
   return { success: true }
@@ -704,7 +851,7 @@ export async function toggleHorarioAction(id_horario: string, ativo: boolean) {
     .eq('id_horario', id_horario)
     .eq('id_lojista', user.id)
 
-  if (error) return { error: 'Erro ao atualizar horário.' }
+  if (error) return { error: devError('Erro ao atualizar horário.', error.message) }
 
   revalidatePath('/lojista/horarios')
   return { success: true }
@@ -745,15 +892,78 @@ export async function criarAgendamentoAction(formData: FormData) {
   })
 
   if (error) {
-    return {
-      error: error.message.includes('Horário não disponível')
-        ? 'Horário não disponível. Escolha outro horário.'
-        : 'Erro ao criar agendamento. Tente novamente.'
+    if (error.message.includes('Horário não disponível')) {
+      return { error: 'Horário não disponível. Escolha outro horário.' }
     }
+    if (error.message.includes('não está aceitando agendamentos online')) {
+      return { error: 'Este petshop não está aceitando agendamentos online no momento. Entre em contato diretamente com a loja.' }
+    }
+    return { error: 'Erro ao criar agendamento. Tente novamente.' }
   }
 
   revalidatePath('/cliente/agendamentos')
   return { success: true, id_agendamento: data }
+}
+
+// Carrinho com um ou mais serviços, criado a partir do link público de
+// agendamento da loja (/agendamento/[id_lojista]) — ver
+// fn_criar_agendamento_multiplo (migration 022). Cria um agendamento por
+// serviço, encadeados, numa transação só (ou agenda tudo, ou nada).
+export async function criarAgendamentoOnlineAction(
+  formData: FormData
+): Promise<{ error?: string; success?: boolean; ids_agendamento?: string[] }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'cliente') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  let servicos: unknown
+  try {
+    servicos = JSON.parse((formData.get('servicos') as string) || '[]')
+  } catch {
+    return { error: 'Serviços inválidos.' }
+  }
+
+  const raw = {
+    id_lojista: formData.get('id_lojista') as string,
+    id_pet: formData.get('id_pet') as string,
+    id_funcionario: (formData.get('id_funcionario') as string) || null,
+    servicos,
+    dt_agendamento: formData.get('dt_agendamento') as string,
+    hr_agendamento: formData.get('hr_agendamento') as string,
+    obs: formData.get('obs') as string,
+  }
+
+  const parsed = agendamentoOnlineSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { data, error } = await supabase.rpc('fn_criar_agendamento_multiplo', {
+    p_id_pet: parsed.data.id_pet,
+    p_id_cliente: user.id,
+    p_id_lojista: parsed.data.id_lojista,
+    p_data: parsed.data.dt_agendamento,
+    p_hora_inicio: parsed.data.hr_agendamento,
+    p_servicos: parsed.data.servicos,
+    p_id_funcionario: parsed.data.id_funcionario || null,
+    p_obs: parsed.data.obs || null,
+  })
+
+  if (error) {
+    if (error.message.includes('Horário não disponível')) {
+      return { error: 'Horário não disponível. Escolha outro horário.' }
+    }
+    if (error.message.includes('não está aceitando agendamentos online')) {
+      return { error: 'Este petshop não está aceitando agendamentos online no momento. Entre em contato diretamente com a loja.' }
+    }
+    if (error.message.includes('fora do funcionamento')) {
+      return { error: 'Esse horário não cabe dentro do funcionamento da loja para os serviços escolhidos. Escolha outro horário.' }
+    }
+    return { error: devError('Erro ao criar agendamento. Tente novamente.', error.message) }
+  }
+
+  revalidatePath('/cliente/agendamentos')
+  return { success: true, ids_agendamento: data ?? [] }
 }
 
 // Agendamento manual criado pelo LOJISTA (walk-in / telefone) para um
@@ -926,6 +1136,117 @@ export async function atualizarPerfilLojistaAction(formData: FormData) {
   return { success: true }
 }
 
+// ============================================================
+// LOGO DA LOJA (migration 021 — bucket 'logos-loja')
+// ============================================================
+const LOGO_BUCKET = 'logos-loja'
+// Mesmo limite configurado no bucket (migration 021) — o Storage já
+// recusa no nível de API, isso aqui é só pra dar um erro amigável antes
+// de sequer tentar o upload.
+const LOGO_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB
+
+// Confere os primeiros bytes do arquivo (magic numbers), não o nome nem
+// o Content-Type declarado pelo navegador — os dois são fáceis de
+// forjar; o conteúdo real do arquivo não. Defesa em profundidade: o
+// preview/otimização já roda no navegador, mas o servidor nunca confia
+// só nisso.
+function detectarExtensaoImagem(bytes: Uint8Array): 'jpg' | 'png' | 'webp' | null {
+  if (bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'jpg'
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'png'
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && // "RIFF"
+    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50   // "WEBP"
+  ) return 'webp'
+  return null
+}
+
+// Apaga tudo que já existe na pasta do lojista antes de subir uma nova
+// imagem — evita ficar com arquivo órfão no Storage quando o formato
+// muda entre um upload e outro (ex.: era .png, virou .webp), sem
+// precisar fixar uma extensão única pra sempre.
+async function limparPastaDoLojista(supabase: Awaited<ReturnType<typeof createClient>>, idLojista: string) {
+  const { data: existentes } = await supabase.storage.from(LOGO_BUCKET).list(idLojista)
+  if (existentes && existentes.length > 0) {
+    await supabase.storage.from(LOGO_BUCKET).remove(existentes.map(f => `${idLojista}/${f.name}`))
+  }
+}
+
+export async function atualizarLogoLojistaAction(
+  formData: FormData
+): Promise<{ error?: string; success?: boolean; url?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const arquivo = formData.get('logo') as File | null
+  if (!arquivo || arquivo.size === 0) {
+    return { error: 'Selecione uma imagem.' }
+  }
+  if (arquivo.size > LOGO_TAMANHO_MAXIMO) {
+    return { error: 'Imagem muito grande. O limite é 5 MB.' }
+  }
+
+  const bytes = new Uint8Array(await arquivo.arrayBuffer())
+  const extensao = detectarExtensaoImagem(bytes)
+  if (!extensao) {
+    return { error: 'Formato de imagem inválido. Envie um arquivo JPG, PNG ou WEBP.' }
+  }
+
+  await limparPastaDoLojista(supabase, user.id)
+
+  const caminho = `${user.id}/logo.${extensao}`
+  const { error: uploadError } = await supabase.storage
+    .from(LOGO_BUCKET)
+    .upload(caminho, bytes, {
+      contentType: extensao === 'jpg' ? 'image/jpeg' : `image/${extensao}`,
+      upsert: true,
+    })
+
+  if (uploadError) {
+    console.error('[atualizarLogoLojistaAction] upload error:', uploadError.message)
+    return { error: devError('Não foi possível enviar a imagem. Tente novamente.', uploadError.message) }
+  }
+
+  const { data: { publicUrl } } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(caminho)
+  // Cache-busting: o caminho pode ser idêntico ao da imagem anterior
+  // (mesma extensão) — sem isso, o navegador continuaria mostrando a
+  // versão antiga em cache mesmo depois de trocar a imagem.
+  const urlComVersao = `${publicUrl}?v=${Date.now()}`
+
+  const { error: dbError } = await supabase
+    .from('lojista')
+    .update({ logo_url: urlComVersao })
+    .eq('id_lojista', user.id)
+
+  if (dbError) {
+    return { error: devError('Imagem enviada, mas não foi possível salvar a referência. Tente novamente.', dbError.message) }
+  }
+
+  revalidatePath('/lojista/perfil')
+  return { success: true, url: urlComVersao }
+}
+
+export async function removerLogoLojistaAction(): Promise<{ error?: string; success?: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  await limparPastaDoLojista(supabase, user.id)
+
+  const { error } = await supabase.from('lojista').update({ logo_url: null }).eq('id_lojista', user.id)
+  if (error) {
+    return { error: devError('Não foi possível remover a imagem. Tente novamente.', error.message) }
+  }
+
+  revalidatePath('/lojista/perfil')
+  return { success: true }
+}
+
 // Liga/desliga o Kanban de agendamentos (migration 013). Mesmo padrão
 // de toggleHorarioAction/toggleFuncionarioAction — troca só essa coluna,
 // sem passar pelo formulário inteiro de perfil.
@@ -953,17 +1274,124 @@ export async function alternarKanbanAction(ativo: boolean) {
   return { success: true }
 }
 
+// Liga/desliga o agendamento online (migration 020) — mesmo padrão de
+// alternarKanbanAction, só troca a coluna. Não mexe em nada da RPC de
+// agendamento do lojista (walk-in continua funcionando sempre); só
+// fn_criar_agendamento (a do cliente) passa a checar essa coluna.
+export async function alternarAgendamentoOnlineAction(ativo: boolean) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const { error } = await supabase
+    .from('lojista')
+    .update({ aceita_agendamento_online: ativo })
+    .eq('id_lojista', user.id)
+
+  if (error) {
+    if (error.code === '42703' || error.message?.includes('aceita_agendamento_online')) {
+      return { error: 'Coluna aceita_agendamento_online não encontrada no banco. Execute a migration 020_configuracoes_loja.sql.' }
+    }
+    return { error: 'Erro ao atualizar configuração de agendamento online.' }
+  }
+
+  revalidatePath('/lojista/configuracoes/agendamentos')
+  revalidatePath('/lojista/configuracoes')
+  revalidatePath('/cliente/novo-agendamento')
+  return { success: true }
+}
+
+// Link personalizado de agendamento (/agendamento/[slug]) — migration 024.
+// Unicidade é garantida pelo UNIQUE do banco; aqui só traduz a violação
+// (código 23505) numa mensagem amigável, sem checar disponibilidade
+// antes (evita race condition entre checar e salvar).
+export async function atualizarSlugLojistaAction(formData: FormData): Promise<{ error?: string; success?: boolean; slug?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const raw = { slug: ((formData.get('slug') as string) || '').trim().toLowerCase() }
+  const parsed = slugLojistaSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase
+    .from('lojista')
+    .update({ slug: parsed.data.slug })
+    .eq('id_lojista', user.id)
+
+  if (error) {
+    if (error.code === '23505') {
+      return { error: 'Esse link já está em uso por outra loja. Tente outro nome.' }
+    }
+    if (error.code === '42703' || error.message?.includes('column "slug"')) {
+      return { error: 'Coluna slug não encontrada no banco. Execute a migration 024_slug_lojista.sql.' }
+    }
+    return { error: devError('Erro ao salvar o link personalizado.', error.message) }
+  }
+
+  revalidatePath('/lojista/configuracoes/agendamentos')
+  revalidatePath('/lojista/dashboard')
+  return { success: true, slug: parsed.data.slug }
+}
+
+// Antecedência mínima/máxima do agendamento online (migration 025) —
+// só afeta o que o CLIENTE agenda sozinho (fn_criar_agendamento e
+// fn_criar_agendamento_multiplo), nunca o walk-in criado pelo lojista.
+export async function atualizarJanelaAgendamentoAction(formData: FormData): Promise<{ error?: string; success?: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'lojista') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const raw = {
+    minValor: Number(formData.get('minValor')),
+    minUnidade: formData.get('minUnidade') as string,
+    maxValor: Number(formData.get('maxValor')),
+    maxUnidade: formData.get('maxUnidade') as string,
+  }
+
+  const parsed = janelaAgendamentoSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase
+    .from('lojista')
+    .update({
+      agendamento_min_valor: parsed.data.minValor,
+      agendamento_min_unidade: parsed.data.minUnidade,
+      agendamento_max_valor: parsed.data.maxValor,
+      agendamento_max_unidade: parsed.data.maxUnidade,
+    })
+    .eq('id_lojista', user.id)
+
+  if (error) {
+    if (error.code === '42703') {
+      return { error: 'Colunas de antecedência não encontradas no banco. Execute a migration 025_janela_agendamento.sql.' }
+    }
+    return { error: devError('Erro ao salvar a configuração de antecedência.', error.message) }
+  }
+
+  revalidatePath('/lojista/configuracoes/agendamentos')
+  return { success: true }
+}
+
 // ============================================================
 // CLIENTE ACTIONS (Lojista)
 // ============================================================
 
 // Cadastra um cliente direto pelo lojista (walk-in, telefone — cliente
-// que não usa o app). Mesmo padrão de cadastrarFuncionarioAction: cria
-// a conta Auth via admin API (o lojista logado não pode usar signUp
-// pra outra pessoa sem deslogar a própria sessão) e insere na tabela
-// `cliente` via RPC SECURITY DEFINER (migration 014), que também grava
-// o vínculo em cliente_lojista pra o cliente aparecer na lista e já
-// poder receber o primeiro agendamento manual.
+// que não usa o app). O lojista informa só os dados, nunca uma senha —
+// a conta é criada via convite (admin.inviteUserByEmail), que dispara um
+// e-mail com um link de acesso único; o cliente define a própria senha
+// ao abrir esse link em /redefinir-senha (mesma tela usada por "esqueci
+// minha senha"). Insere na tabela `cliente` via RPC SECURITY DEFINER
+// (migration 014), que também grava o vínculo em cliente_lojista pra o
+// cliente aparecer na lista e já poder receber o primeiro agendamento
+// manual.
 export async function cadastrarClienteLojistaAction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -976,11 +1404,9 @@ export async function cadastrarClienteLojistaAction(formData: FormData) {
     cpf: (formData.get('cpf') as string).replace(/\D/g, ''),
     email: formData.get('email') as string,
     telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
-    senha: formData.get('senha') as string,
-    confirmaSenha: formData.get('confirmaSenha') as string,
   }
 
-  const parsed = cadastroClienteSchema.safeParse(raw)
+  const parsed = cadastroClienteLojistaSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
   }
@@ -990,20 +1416,19 @@ export async function cadastrarClienteLojistaAction(formData: FormData) {
     return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
   }
 
-  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
-    email: parsed.data.email,
-    password: parsed.data.senha,
-    email_confirm: true,
-    user_metadata: { role: 'cliente', nome: parsed.data.nome },
+  const origin = await obterOrigin()
+  const { data: authData, error: authError } = await adminClient.auth.admin.inviteUserByEmail(parsed.data.email, {
+    redirectTo: `${origin}/auth/callback?next=/redefinir-senha`,
+    data: { role: 'cliente', nome: parsed.data.nome },
   })
 
   if (authError) {
-    console.error('[cadastrarClienteLojistaAction] createUser error:', authError.message)
+    console.error('[cadastrarClienteLojistaAction] inviteUserByEmail error:', authError.message)
     const msg = authError.message.toLowerCase()
-    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate')) {
+    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate') || msg.includes('registered')) {
       return { error: 'Este e-mail já está cadastrado no sistema.' }
     }
-    return { error: devError('Não foi possível criar a conta do cliente. Tente novamente.', authError.message) }
+    return { error: devError('Não foi possível convidar o cliente. Tente novamente.', authError.message) }
   }
 
   if (!authData.user) {
@@ -1283,8 +1708,6 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     email: formData.get('email') as string,
     telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
     cargo: formData.get('cargo') as string,
-    senha: formData.get('senha') as string,
-    confirmaSenha: formData.get('confirmaSenha') as string,
     pode_gerenciar_agenda: formData.get('pode_gerenciar_agenda') === 'true',
     pode_gerenciar_servicos: formData.get('pode_gerenciar_servicos') === 'true',
   }
@@ -1301,12 +1724,13 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
   }
 
-  // Criar conta Auth para o funcionário via admin API
-  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
-    email: parsed.data.email,
-    password: parsed.data.senha,
-    email_confirm: true, // Confirma email automaticamente (funcionário convidado pelo lojista)
-    user_metadata: {
+  // Convida o funcionário por e-mail em vez de o lojista definir a senha
+  // dele — o funcionário define a própria senha ao aceitar o convite em
+  // /redefinir-senha.
+  const origin = await obterOrigin()
+  const { data: authData, error: authError } = await adminClient.auth.admin.inviteUserByEmail(parsed.data.email, {
+    redirectTo: `${origin}/auth/callback?next=/redefinir-senha`,
+    data: {
       role: 'funcionario',
       nome: parsed.data.nome,
       id_lojista: user.id,
@@ -1314,12 +1738,12 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
   })
 
   if (authError) {
-    console.error('[cadastrarFuncionarioAction] createUser error:', authError.message)
+    console.error('[cadastrarFuncionarioAction] inviteUserByEmail error:', authError.message)
     const msg = authError.message.toLowerCase()
-    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate')) {
+    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate') || msg.includes('registered')) {
       return { error: 'Este e-mail já está cadastrado no sistema.' }
     }
-    return { error: devError('Não foi possível criar a conta do funcionário. Tente novamente.', authError.message) }
+    return { error: devError('Não foi possível convidar o funcionário. Tente novamente.', authError.message) }
   }
 
   if (!authData.user) {
@@ -1406,5 +1830,132 @@ export async function toggleFuncionarioAction(id_funcionario: string, ativo: boo
   if (error) return { error: ativo ? 'Erro ao reativar funcionário.' : 'Erro ao desativar funcionário.' }
 
   revalidatePath('/lojista/funcionarios')
+  return { success: true }
+}
+
+// ============================================================
+// PERFIL DO CLIENTE
+// ============================================================
+
+export async function atualizarPerfilClienteAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const raw = {
+    nome: (formData.get('nome') as string)?.trim(),
+    telefone: (formData.get('telefone') as string)?.replace(/\D/g, ''),
+  }
+
+  const parsed = perfilClienteSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase
+    .from('cliente')
+    .update(parsed.data)
+    .eq('id_cliente', user.id)
+
+  if (error) return { error: devError('Erro ao atualizar perfil.', error.message) }
+
+  revalidatePath('/cliente/perfil')
+  revalidatePath('/cliente', 'layout')
+  return { success: true }
+}
+
+// ============================================================
+// FOTO DO PET — Storage (migration 026), mesmo padrão de
+// atualizarLogoLojistaAction/removerLogoLojistaAction acima, mas a pasta
+// é por CLIENTE (não por pet) já que um cliente pode ter vários pets —
+// cada foto é um arquivo {id_pet}.{ext} dentro da pasta do cliente.
+// ============================================================
+
+const PET_FOTO_BUCKET = 'fotos-pet'
+const PET_FOTO_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB
+
+async function limparArquivosDoPet(supabase: Awaited<ReturnType<typeof createClient>>, idCliente: string, idPet: string) {
+  const { data: existentes } = await supabase.storage.from(PET_FOTO_BUCKET).list(idCliente)
+  const doPet = existentes?.filter(f => f.name.startsWith(`${idPet}.`)) ?? []
+  if (doPet.length > 0) {
+    await supabase.storage.from(PET_FOTO_BUCKET).remove(doPet.map(f => `${idCliente}/${f.name}`))
+  }
+}
+
+export async function atualizarFotoPetAction(
+  id_pet: string,
+  formData: FormData
+): Promise<{ error?: string; success?: boolean; url?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const arquivo = formData.get('foto') as File | null
+  if (!arquivo || arquivo.size === 0) {
+    return { error: 'Selecione uma imagem.' }
+  }
+  if (arquivo.size > PET_FOTO_TAMANHO_MAXIMO) {
+    return { error: 'Imagem muito grande. O limite é 5 MB.' }
+  }
+
+  const bytes = new Uint8Array(await arquivo.arrayBuffer())
+  const extensao = detectarExtensaoImagem(bytes)
+  if (!extensao) {
+    return { error: 'Formato de imagem inválido. Envie um arquivo JPG, PNG ou WEBP.' }
+  }
+
+  const { data: pet } = await supabase
+    .from('pet')
+    .select('id_pet')
+    .eq('id_pet', id_pet)
+    .eq('id_cliente', user.id)
+    .maybeSingle()
+  if (!pet) return { error: 'Pet não encontrado.' }
+
+  await limparArquivosDoPet(supabase, user.id, id_pet)
+
+  const caminho = `${user.id}/${id_pet}.${extensao}`
+  const { error: uploadError } = await supabase.storage
+    .from(PET_FOTO_BUCKET)
+    .upload(caminho, bytes, {
+      contentType: extensao === 'jpg' ? 'image/jpeg' : `image/${extensao}`,
+      upsert: true,
+    })
+
+  if (uploadError) {
+    return { error: devError('Não foi possível enviar a imagem. Tente novamente.', uploadError.message) }
+  }
+
+  const { data: { publicUrl } } = supabase.storage.from(PET_FOTO_BUCKET).getPublicUrl(caminho)
+  const urlComVersao = `${publicUrl}?v=${Date.now()}`
+
+  const { error: dbError } = await supabase
+    .from('pet')
+    .update({ foto_url: urlComVersao })
+    .eq('id_pet', id_pet)
+    .eq('id_cliente', user.id)
+
+  if (dbError) {
+    return { error: devError('Imagem enviada, mas não foi possível salvar a referência. Tente novamente.', dbError.message) }
+  }
+
+  revalidatePath('/cliente/pets')
+  return { success: true, url: urlComVersao }
+}
+
+export async function removerFotoPetAction(id_pet: string): Promise<{ error?: string; success?: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  await limparArquivosDoPet(supabase, user.id, id_pet)
+
+  const { error } = await supabase
+    .from('pet')
+    .update({ foto_url: null })
+    .eq('id_pet', id_pet)
+    .eq('id_cliente', user.id)
+
+  if (error) return { error: devError('Não foi possível remover a imagem. Tente novamente.', error.message) }
+
+  revalidatePath('/cliente/pets')
   return { success: true }
 }
