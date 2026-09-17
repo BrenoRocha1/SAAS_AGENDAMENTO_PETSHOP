@@ -31,6 +31,7 @@ export interface KanbanItem {
   raca_pet: string | null
   especie_pet: 'Cão' | 'Gato' | null
   porte_pet: 'Pequeno' | 'Médio' | 'Grande' | null
+  foto_pet: string | null
   nome_cliente: string
   nome_servico: string
   id_servico: string
@@ -323,7 +324,14 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                           </div>
 
                           <div className="kanban-card-main">
-                            <IconDog style={{ width: 16, height: 16, color: 'var(--gray-400)', flexShrink: 0, marginTop: 2 }} />
+                            <div className="pet-avatar">
+                              {item.foto_pet ? (
+                                // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+                                <img src={item.foto_pet} alt={item.nome_pet} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                <IconDog style={{ width: 14, height: 14, color: 'var(--gray-500)' }} />
+                              )}
+                            </div>
                             <div>
                               <div className="kanban-card-pet">{item.nome_pet}</div>
                               {pet && <div className="text-xs text-muted">{pet}</div>}
@@ -365,8 +373,22 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                 </div>
               )}
 
+              <div className="flex items-center gap-3" style={{ marginBottom: 'var(--space-4)' }}>
+                <div className="pet-avatar" style={{ width: 48, height: 48 }}>
+                  {selecionado.foto_pet ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+                    <img src={selecionado.foto_pet} alt={selecionado.nome_pet} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <IconDog style={{ width: 22, height: 22, color: 'var(--gray-500)' }} />
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, color: 'var(--gray-100)' }}>{selecionado.nome_pet}</div>
+                  {descricaoPet(selecionado) && <div className="text-xs text-muted">{descricaoPet(selecionado)}</div>}
+                </div>
+              </div>
+
               <div className="dash-detail-row"><span>Cliente</span><span>{selecionado.nome_cliente}</span></div>
-              <div className="dash-detail-row"><span>Pet</span><span>{selecionado.nome_pet}{descricaoPet(selecionado) ? ` · ${descricaoPet(selecionado)}` : ''}</span></div>
               <div className="dash-detail-row"><span>Serviço</span><span>{selecionado.nome_servico}</span></div>
               <div className="dash-detail-row"><span>Data</span><span>{format(parseDia(selecionado.dt_agendamento), 'dd/MM/yyyy')}</span></div>
               <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>

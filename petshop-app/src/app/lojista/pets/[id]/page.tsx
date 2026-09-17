@@ -30,7 +30,7 @@ export default async function DetalhePetPage({ params }: Props) {
     supabase
       .from('pet')
       .select(`
-        id_pet, nome, raca, sexo, especie, porte, dt_nasc, peso, obs, created_at,
+        id_pet, nome, raca, sexo, especie, porte, dt_nasc, peso, obs, foto_url, created_at,
         cliente:id_cliente ( id_cliente, nome, telefone, email )
       `)
       .eq('id_pet', id)
@@ -84,11 +84,21 @@ export default async function DetalhePetPage({ params }: Props) {
       </Link>
 
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
-        <div>
-          <h1 className="page-title">{pet.nome}</h1>
-          <p className="page-subtitle">
-            {[pet.especie, pet.porte, pet.raca].filter(Boolean).join(' · ')}
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+          <div className="pet-avatar" style={{ width: 64, height: 64 }}>
+            {pet.foto_url ? (
+              // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+              <img src={pet.foto_url} alt={pet.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <IconDog style={{ width: 30, height: 30, color: 'var(--gray-500)' }} />
+            )}
+          </div>
+          <div>
+            <h1 className="page-title">{pet.nome}</h1>
+            <p className="page-subtitle">
+              {[pet.especie, pet.porte, pet.raca].filter(Boolean).join(' · ')}
+            </p>
+          </div>
         </div>
         {podeEditar && (
           <Link href={`/lojista/pets?editar=${pet.id_pet}`} className="btn btn-primary btn-sm">

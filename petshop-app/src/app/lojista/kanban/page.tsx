@@ -78,7 +78,7 @@ export default async function KanbanPage({ searchParams }: Props) {
       .from('agendamento')
       .select(`
         id_agendamento, dt_agendamento, hr_agendamento, status, valor, id_funcionario, id_servico, obs,
-        pet:id_pet ( nome, raca, especie, porte ),
+        pet:id_pet ( nome, raca, especie, porte, foto_url ),
         servico:id_servico ( nome ),
         cliente:id_cliente ( nome ),
         funcionario:id_funcionario ( nome )
@@ -128,7 +128,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     id_funcionario: string | null
     id_servico: string
     obs: string | null
-    pet: { nome: string; raca: string; especie: 'Cão' | 'Gato' | null; porte: 'Pequeno' | 'Médio' | 'Grande' | null } | null
+    pet: { nome: string; raca: string; especie: 'Cão' | 'Gato' | null; porte: 'Pequeno' | 'Médio' | 'Grande' | null; foto_url: string | null } | null
     servico: { nome: string } | null
     cliente: { nome: string } | null
     funcionario: { nome: string } | null
@@ -142,6 +142,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     raca_pet: a.pet?.raca ?? null,
     especie_pet: a.pet?.especie ?? null,
     porte_pet: a.pet?.porte ?? null,
+    foto_pet: a.pet?.foto_url ?? null,
     nome_cliente: a.cliente?.nome ?? '—',
     nome_servico: a.servico?.nome ?? 'Serviço',
     id_servico: a.id_servico,
