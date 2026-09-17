@@ -422,3 +422,22 @@ export function IconMapPin(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export function IconPhone(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 4h3.2l1.3 4-2 1.4a11 11 0 0 0 5.1 5.1l1.4-2 4 1.3V17a2 2 0 0 1-2.2 2A15 15 0 0 1 3 5.2 2 2 0 0 1 5 4Z" />
+    </svg>
+  )
+}
+
+export function IconIdCard(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <circle cx="8.5" cy="11" r="2" />
+      <path d="M5 16c.6-1.6 1.9-2.4 3.5-2.4S11.4 14.4 12 16" />
+      <path d="M14 9.5h4M14 13h4" />
+    </svg>
+  )
+}
