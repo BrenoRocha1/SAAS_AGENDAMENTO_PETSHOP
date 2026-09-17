@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   cadastrarFuncionarioAction,
   editarFuncionarioAction,
+  excluirFuncionarioAction,
   toggleFuncionarioAction,
 } from '@/lib/actions'
 import {
@@ -17,6 +18,7 @@ import {
   IconPlus,
   IconScissors,
   IconShield,
+  IconTrash,
   IconUserBadge,
 } from '@/components/icons'
 
@@ -48,6 +50,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
   const [editId, setEditId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [confirmarExclusao, setConfirmarExclusao] = useState<Funcionario | null>(null)
   const [isPending, startTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -108,6 +111,22 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
     startTransition(async () => {
       const result = await toggleFuncionarioAction(id, ativo)
       if (result?.error) setError(result.error)
+    })
+  }
+
+  function confirmarExclusaoDoMembro() {
+    if (!confirmarExclusao) return
+    const alvo = confirmarExclusao
+    setError(null)
+    startTransition(async () => {
+      const result = await excluirFuncionarioAction(alvo.id_funcionario)
+      setConfirmarExclusao(null)
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        closeModal()
+        setSuccess('Membro excluído com sucesso!')
+      }
     })
   }
 
@@ -314,27 +333,90 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
 
               <PermissoesCampos editFunc={editFunc} podeConcederAcessoTotal={podeConcederAcessoTotal} />
 
-              <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="btn btn-ghost"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
-                  disabled={isPending}
-                  id="btn-salvar-funcionario"
-                >
-                  {isPending
-                    ? (editId ? 'Salvando...' : 'Convidando...')
-                    : (editId ? 'Salvar Alterações' : 'Convidar Membro')
-                  }
-                </button>
+              <div style={{
+                display: 'flex',
+                gap: 'var(--space-3)',
+                justifyContent: editFunc ? 'space-between' : 'flex-end',
+              }}>
+                {editFunc && (podeConcederAcessoTotal || !editFunc.acesso_total) && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmarExclusao(editFunc)}
+                    className="btn btn-danger"
+                    disabled={isPending}
+                  >
+                    <IconTrash style={{ width: 14, height: 14 }} /> Excluir Membro
+                  </button>
+                )}
+                <div style={{ display: 'flex', gap: 'var(--space-3)', marginLeft: 'auto' }}>
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="btn btn-ghost"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
+                    disabled={isPending}
+                    id="btn-salvar-funcionario"
+                  >
+                    {isPending
+                      ? (editId ? 'Salvando...' : 'Convidando...')
+                      : (editId ? 'Salvar Alterações' : 'Convidar Membro')
+                    }
+                  </button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmação de exclusão — fica por cima do modal de edição */}
+      {confirmarExclusao && (
+        <div
+          className="modal-overlay"
+          onClick={() => !isPending && setConfirmarExclusao(null)}
+          style={{ zIndex: 1100 }}
+        >
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Excluir membro</h3>
+              <button className="modal-close" onClick={() => setConfirmarExclusao(null)} aria-label="Fechar" disabled={isPending}>
+                <IconClose style={{ width: 15, height: 15 }} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="flex gap-3" style={{ alignItems: 'flex-start' }}>
+                <span style={{
+                  width: 36, height: 36, borderRadius: 'var(--radius-full)', flexShrink: 0,
+                  background: 'rgba(239,68,68,0.1)', color: 'var(--danger-400)',
+                  display: 'grid', placeItems: 'center',
+                }}>
+                  <IconAlert style={{ width: 18, height: 18 }} />
+                </span>
+                <p style={{ color: 'var(--gray-200)' }}>
+                  Tem certeza que deseja excluir <strong style={{ color: 'var(--gray-100)' }}>{confirmarExclusao.nome}</strong> da
+                  equipe? Essa ação não pode ser desfeita — a pessoa perde o acesso ao sistema
+                  imediatamente. O histórico de agendamentos já realizados por ela é mantido.
+                </p>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setConfirmarExclusao(null)} disabled={isPending}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className={`btn btn-danger ${isPending ? 'btn-loading' : ''}`}
+                onClick={confirmarExclusaoDoMembro}
+                disabled={isPending}
+              >
+                {isPending ? 'Excluindo...' : 'Excluir'}
+              </button>
+            </div>
           </div>
         </div>
       )}

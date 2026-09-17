@@ -1982,6 +1982,57 @@ export async function toggleFuncionarioAction(id_funcionario: string, ativo: boo
   return { success: true }
 }
 
+export async function excluirFuncionarioAction(id_funcionario: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  if (id_funcionario === user.id) {
+    return { error: 'Você não pode excluir a si mesmo.' }
+  }
+
+  // Lê com o client normal (RLS) antes de excluir — garante que o membro
+  // pertence mesmo à sua loja, e não a outra (defesa em profundidade,
+  // igual ao resto das actions de escrita neste arquivo).
+  const { data: alvo } = await supabase
+    .from('funcionario')
+    .select('id_lojista, acesso_total')
+    .eq('id_funcionario', id_funcionario)
+    .maybeSingle()
+
+  if (!alvo || alvo.id_lojista !== contexto.idLojista) {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  // Mesma regra de "quem pode mexer em acesso total": só o responsável
+  // pela conta pode remover um administrador.
+  if (alvo.acesso_total && !ehResponsavelPelaConta(contexto)) {
+    return { error: 'Apenas o responsável pela conta pode remover um administrador.' }
+  }
+
+  const adminClient = createAdminClient()
+  if (!adminClient) {
+    return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+  }
+
+  // Exclui a conta de autenticação — a linha em `funcionario` some junto
+  // (FK id_funcionario -> auth.users ON DELETE CASCADE, migration 005), e
+  // os agendamentos que ele atendeu ficam com id_funcionario = NULL em vez
+  // de sumir (FK ON DELETE SET NULL, migration 012), preservando o histórico.
+  const { error } = await adminClient.auth.admin.deleteUser(id_funcionario)
+  if (error) {
+    return { error: devError('Não foi possível excluir o membro. Tente novamente.', error.message) }
+  }
+
+  revalidatePath('/lojista/equipe')
+  return { success: true }
+}
+
 // ============================================================
 // PERFIL DO CLIENTE
 // ============================================================
