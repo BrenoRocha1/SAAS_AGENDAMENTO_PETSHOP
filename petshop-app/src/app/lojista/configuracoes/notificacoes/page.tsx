@@ -29,7 +29,7 @@ export default function ConfiguracoesNotificacoesPage() {
         <div className="alert alert-warning" style={{ marginBottom: 'var(--space-4)' }}>
           <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
           <span>
-            O PetSaaS hoje não envia e-mail, SMS, push ou qualquer outro aviso automático — nem para o
+            O SAIP hoje não envia e-mail, SMS, push ou qualquer outro aviso automático — nem para o
             lojista, nem para o cliente — quando um agendamento é criado, alterado, cancelado ou concluído.
             Por isso esta tela não tem nenhum interruptor: eles não controlariam nada de verdade, e criar
             toggles que não ligam a nada real seria simular uma funcionalidade que não existe.

@@ -67,7 +67,7 @@ interface Props {
   funcionarioIdPadraoInicial?: string | null
 }
 
-const CORES = ['#0d9488', '#2563eb', '#7c3aed', '#db2777', '#d97706', '#16a34a', '#0891b2']
+const CORES = ['#4f46e5', '#0891b2', '#db2777', '#d97706', '#16a34a', '#7c3aed', '#2563eb']
 const SEM_PROFISSIONAL = '__sem_profissional__'
 const HORA_INICIO = 7
 const HORA_FIM = 20
@@ -83,9 +83,9 @@ function minutosDoDia(hhmmss: string) {
 }
 
 function corDoFuncionario(id: string | null, funcionarios: FuncionarioFiltro[]) {
-  if (!id) return '#78716c'
+  if (!id) return '#6b7280'
   const idx = funcionarios.findIndex(f => f.id_funcionario === id)
-  return CORES[idx % CORES.length] ?? '#78716c'
+  return CORES[idx % CORES.length] ?? '#6b7280'
 }
 
 interface EventoPosicionado extends AgendamentoCalendario {
@@ -318,7 +318,7 @@ export default function AgendaCalendar({
                   checked={filtroProfissionais.has(SEM_PROFISSIONAL)}
                   onChange={() => toggleProfissional(SEM_PROFISSIONAL)}
                 />
-                <span className="cal-prof-dot" style={{ background: '#78716c' }} />
+                <span className="cal-prof-dot" style={{ background: '#6b7280' }} />
                 Sem profissional
               </label>
               {funcionarios.map(f => (

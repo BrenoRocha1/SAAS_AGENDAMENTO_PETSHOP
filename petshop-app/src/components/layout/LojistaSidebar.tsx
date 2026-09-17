@@ -37,7 +37,7 @@ const navItemsBase = [
   { href: '/lojista/configuracoes', icon: IconSettings,  label: 'Configurações', restrito: true },
 ]
 
-const CHAVE_COLAPSADA = 'petagenda:lojista-sidebar-colapsada'
+const CHAVE_COLAPSADA = 'saip:lojista-sidebar-colapsada'
 
 interface Props {
   nomeLoja: string
@@ -125,7 +125,7 @@ export default function LojistaSidebar({
               <IconPaw style={{ width: 18, height: 18 }} />
             </div>
             <span className="sidebar-logo-text">
-              Pet<span>Agenda</span>
+              SA<span>IP</span>
             </span>
           </>
         )}
@@ -164,7 +164,7 @@ export default function LojistaSidebar({
       {/* Loja + Logout */}
       <div className="sidebar-footer">
         <div className="sidebar-user" title={userEmail}>
-          <div className="sidebar-avatar" style={{ background: 'linear-gradient(135deg, var(--accent-500), var(--accent-600))' }}>
+          <div className="sidebar-avatar" style={{ background: 'linear-gradient(135deg, var(--primary-400), var(--primary-700))' }}>
             {initial}
           </div>
           {!colapsada && (

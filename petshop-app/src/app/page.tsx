@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'PetShop Agenda — Plataforma de Agendamento para Pet Shops',
+  title: 'SAIP — Plataforma de Agendamento para Pet Shops',
   description:
     'Gerencie agendamentos de banho e tosa com facilidade. Plataforma completa para pet shops e clientes.',
 }
@@ -50,7 +50,7 @@ export default function LandingPage() {
             🐾
           </div>
           <span className="sidebar-logo-text">
-            Pet<span>Agenda</span>
+            SA<span>IP</span>
           </span>
         </div>
         <div className="flex items-center gap-3">

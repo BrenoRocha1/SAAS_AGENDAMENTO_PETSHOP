@@ -32,7 +32,7 @@ export default function AdminSidebar({ nome, email }: Props) {
           <IconStore style={{ width: 18, height: 18 }} />
         </div>
         <span className="sidebar-logo-text">
-          Admin<span>PetAgenda</span>
+          SA<span>IP</span> Admin
         </span>
       </div>
 
