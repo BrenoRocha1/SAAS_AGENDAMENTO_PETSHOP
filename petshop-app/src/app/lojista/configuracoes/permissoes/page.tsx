@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { IconCalendar, IconChevronLeft, IconScissors, IconShield, IconStore, IconUserBadge } from '@/components/icons'
+import { IconCalendar, IconChevronLeft, IconDog, IconScissors, IconShield, IconStore, IconUserBadge } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'Usuários e Permissões — Lojista' }
 
@@ -18,22 +18,22 @@ export default function ConfiguracoesPermissoesPage() {
 
       <div className="card" style={{ maxWidth: 700, marginBottom: 'var(--space-6)' }}>
         <h3 className="relatorio-secao-titulo">
-          <IconStore style={{ width: 15, height: 15 }} /> Lojista (você)
+          <IconStore style={{ width: 15, height: 15 }} /> Responsável pela conta (você)
         </h3>
         <p className="text-sm text-muted" style={{ margin: 0 }}>
           Acesso completo a todas as telas administrativas: Dashboard, Agendamentos, Kanban, Relatórios,
-          Serviços, Horários, Clientes, Pets, Funcionários, Perfil da Loja e estas Configurações. Não existe
-          hoje uma segunda conta de &quot;administrador&quot; separada — quem cadastra a loja é quem tem esse
-          acesso total.
+          Serviços, Horários, Clientes, Pets, Equipe, Perfil da Loja e estas Configurações. Só quem cadastrou
+          a loja tem esse papel, e só ele pode conceder &quot;Acesso total&quot; (administrador) pra outra
+          pessoa em <strong>Equipe</strong> — ninguém mais, nem outro administrador, pode fazer isso.
         </p>
       </div>
 
       <div className="card" style={{ maxWidth: 700, marginBottom: 'var(--space-6)' }}>
         <h3 className="relatorio-secao-titulo">
-          <IconUserBadge style={{ width: 15, height: 15 }} /> Funcionário
+          <IconUserBadge style={{ width: 15, height: 15 }} /> Membros da equipe
         </h3>
         <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-4)' }}>
-          Cada funcionário cadastrado em <strong>Equipe</strong> tem duas permissões próprias, configuráveis
+          Cada membro cadastrado em <strong>Equipe</strong> tem permissões próprias, configuráveis
           individualmente na hora do cadastro ou da edição:
         </p>
         <div className="dash-detail-row">
@@ -52,26 +52,30 @@ export default function ConfiguracoesPermissoesPage() {
             Cadastrar e editar serviços do petshop
           </span>
         </div>
+        <div className="dash-detail-row">
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <IconDog style={{ width: 14, height: 14 }} /> Gerenciar Pets e Clientes
+          </span>
+          <span style={{ fontWeight: 400, color: 'var(--gray-400)', textAlign: 'left' }}>
+            Visualizar os pets e clientes cadastrados no sistema (sem editar)
+          </span>
+        </div>
+        <div className="dash-detail-row">
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <IconShield style={{ width: 14, height: 14 }} /> Acesso Total (Administrador)
+          </span>
+          <span style={{ fontWeight: 400, color: 'var(--gray-400)', textAlign: 'left' }}>
+            Mesmo acesso do responsável pela conta em tudo, menos conceder acesso total pra outra pessoa
+          </span>
+        </div>
         <p className="text-sm text-muted" style={{ marginTop: 'var(--space-4)' }}>
-          Um funcionário nunca acessa as telas exclusivas do lojista (Relatórios de Vendas, Configurações,
-          Perfil da Loja) — essa restrição já é validada no backend, não é só uma tela escondida.
+          Um membro sem &quot;Acesso total&quot; nunca acessa as telas exclusivas (Relatórios de Vendas,
+          Configurações, Perfil da Loja, Equipe) — essa restrição já é validada no backend, não é só uma tela
+          escondida.
         </p>
-        <Link href="/lojista/funcionarios" className="btn btn-secondary btn-sm" style={{ marginTop: 'var(--space-4)' }}>
+        <Link href="/lojista/equipe" className="btn btn-secondary btn-sm" style={{ marginTop: 'var(--space-4)' }}>
           <IconUserBadge style={{ width: 14, height: 14 }} /> Ver equipe
         </Link>
-      </div>
-
-      <div className="card" style={{ maxWidth: 700, borderStyle: 'dashed' }}>
-        <h3 className="relatorio-secao-titulo">
-          <IconShield style={{ width: 15, height: 15 }} /> Sobre roles como &quot;Admin&quot;, &quot;Atendente/Caixa&quot;
-        </h3>
-        <p className="text-sm text-muted" style={{ margin: 0 }}>
-          O sistema hoje tem só os dois papéis acima (Lojista e Funcionário), mais o Cliente (que só acessa a
-          área dele). Não existe um papel &quot;Atendente/Caixa&quot; separado, nem um sistema de permissões
-          granulares por tela — as duas permissões de funcionário listadas em cima são tudo que já existe
-          hoje. Se no futuro fizer sentido ter papéis mais específicos, o caminho natural é ampliar essas
-          mesmas duas flags de <code>funcionario</code> em vez de criar um sistema de permissões paralelo.
-        </p>
       </div>
     </>
   )

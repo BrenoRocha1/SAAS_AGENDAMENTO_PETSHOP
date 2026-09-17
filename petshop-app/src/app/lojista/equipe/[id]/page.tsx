@@ -3,12 +3,13 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { IconAlert, IconChevronLeft, IconUserBadge } from '@/components/icons'
 import { calcularPeriodo, calcularPeriodoAnterior, type PeriodoPreset } from '@/lib/relatorios'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import PerfilFuncionarioClient, {
   type AgendamentoFuncionario,
   type FuncionarioInfo,
 } from '@/components/lojista/PerfilFuncionarioClient'
 
-export const metadata: Metadata = { title: 'Perfil do Funcionário — Lojista' }
+export const metadata: Metadata = { title: 'Perfil do Membro — Lojista' }
 
 const PRESETS_VALIDOS: PeriodoPreset[] = ['hoje', '7dias', '30dias', 'este-mes', 'mes-anterior', 'personalizado']
 // Cobre com folga qualquer período (personalizado é limitado a 366 dias,
@@ -40,7 +41,9 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
   const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const lojistaId = user!.id
+  const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
+  if (!contexto) return null
+  const lojistaId = contexto.idLojista
 
   const preset: PeriodoPreset = PRESETS_VALIDOS.includes(sp.periodo as PeriodoPreset)
     ? (sp.periodo as PeriodoPreset)
@@ -54,7 +57,7 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
   const [{ data: funcionarioRow }, { data: agendaRaw, error: agendaErro }] = await Promise.all([
     supabase
       .from('funcionario')
-      .select('id_funcionario, nome, email, telefone, cargo, pode_gerenciar_agenda, pode_gerenciar_servicos, ativo, created_at')
+      .select('id_funcionario, nome, email, telefone, cargo, pode_gerenciar_agenda, pode_gerenciar_servicos, pode_gerenciar_clientes_pets, acesso_total, ativo, created_at')
       .eq('id_funcionario', id)
       .eq('id_lojista', lojistaId)
       .maybeSingle(),
@@ -82,12 +85,12 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
   if (!funcionarioRow) {
     return (
       <>
-        <Link href="/lojista/funcionarios" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
-          <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Funcionários
+        <Link href="/lojista/equipe" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
+          <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Equipe
         </Link>
         <div className="empty-state card">
           <IconUserBadge style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
-          <div className="empty-state-title">Funcionário não encontrado</div>
+          <div className="empty-state-title">Membro não encontrado</div>
           <p>Ele pode ter sido removido, ou não pertence ao seu petshop.</p>
         </div>
       </>
@@ -99,8 +102,8 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
   if (agendaErro) {
     return (
       <>
-        <Link href="/lojista/funcionarios" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
-          <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Funcionários
+        <Link href="/lojista/equipe" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
+          <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Equipe
         </Link>
         <div className="page-header">
           <h1 className="page-title">{funcionario.nome}</h1>
@@ -135,8 +138,8 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
 
   return (
     <>
-      <Link href="/lojista/funcionarios" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
-        <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Funcionários
+      <Link href="/lojista/equipe" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
+        <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Equipe
       </Link>
 
       <PerfilFuncionarioClient

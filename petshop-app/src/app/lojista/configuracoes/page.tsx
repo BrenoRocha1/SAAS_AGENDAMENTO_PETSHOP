@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import {
@@ -27,6 +28,8 @@ interface ItemConfig {
 export default async function ConfiguracoesPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
+  if (!contexto) return null
 
   // Só pra mostrar o status (Ativado/Desativado) ao lado dos itens que
   // são toggles — a página em si (Configurações → Agendamentos) é quem
@@ -34,7 +37,7 @@ export default async function ConfiguracoesPage() {
   const { data: lojista } = await supabase
     .from('lojista')
     .select('kanban_ativo, aceita_agendamento_online')
-    .eq('id_lojista', user!.id)
+    .eq('id_lojista', contexto.idLojista)
     .maybeSingle()
 
   const kanbanAtivo = lojista?.kanban_ativo ?? true
@@ -77,10 +80,10 @@ export default async function ConfiguracoesPage() {
       titulo: 'Operação',
       itens: [
         {
-          href: '/lojista/funcionarios',
+          href: '/lojista/equipe',
           icon: <IconUserBadge style={{ width: 18, height: 18 }} />,
           titulo: 'Equipe',
-          descricao: 'Cadastre e gerencie os profissionais da loja',
+          descricao: 'Cadastre membros da equipe e administradores, e gerencie as permissões de cada um',
         },
       ],
     },

@@ -12,6 +12,7 @@ import {
   IconCalendar,
   IconCheck,
   IconClose,
+  IconDog,
   IconPencil,
   IconPlus,
   IconScissors,
@@ -27,15 +28,22 @@ interface Funcionario {
   cargo: string | null
   pode_gerenciar_agenda: boolean
   pode_gerenciar_servicos: boolean
+  pode_gerenciar_clientes_pets: boolean
+  acesso_total: boolean
   ativo: boolean
   created_at: string
 }
 
 interface Props {
   funcionarios: Funcionario[]
+  // Só o responsável pela conta (o lojista de verdade) pode conceder
+  // "Acesso total" — um administrador (funcionário com acesso_total)
+  // gerencia a equipe normalmente, mas nunca vê essa opção pra si mesmo
+  // nem pra ninguém (migration 029 garante isso de novo no banco).
+  podeConcederAcessoTotal: boolean
 }
 
-export default function FuncionariosList({ funcionarios: initial }: Props) {
+export default function FuncionariosList({ funcionarios: initial, podeConcederAcessoTotal }: Props) {
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -79,7 +87,7 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
         if (result?.error) {
           setError(result.error)
         } else {
-          setSuccess('Funcionário atualizado com sucesso!')
+          setSuccess('Membro atualizado com sucesso!')
           closeModal()
         }
       } else {
@@ -87,7 +95,7 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
         if (result?.error) {
           setError(result.error)
         } else {
-          setSuccess('Convite enviado! O funcionário vai receber um e-mail para definir a própria senha e acessar o sistema.')
+          setSuccess('Convite enviado! A pessoa vai receber um e-mail para definir a própria senha e acessar o sistema.')
           closeModal()
           formRef.current?.reset()
         }
@@ -129,20 +137,20 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
           className="btn btn-primary"
           id="btn-novo-funcionario"
         >
-          <IconPlus style={{ width: 16, height: 16 }} /> Cadastrar Funcionário
+          <IconPlus style={{ width: 16, height: 16 }} /> Cadastrar Membro
         </button>
       </div>
 
-      {/* Lista de funcionários ativos */}
+      {/* Lista de membros ativos */}
       {ativos.length === 0 && inativos.length === 0 ? (
         <div className="empty-state card">
           <IconUserBadge style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
-          <div className="empty-state-title">Nenhum funcionário cadastrado</div>
+          <div className="empty-state-title">Nenhum membro cadastrado</div>
           <p style={{ marginBottom: 'var(--space-5)' }}>
-            Cadastre funcionários para ajudar na gestão do seu petshop
+            Cadastre membros da equipe para ajudar na gestão do seu petshop
           </p>
           <button onClick={openNew} className="btn btn-primary">
-            Cadastrar primeiro funcionário
+            Cadastrar primeiro membro
           </button>
         </div>
       ) : (
@@ -226,7 +234,7 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
                 gap: 'var(--space-2)',
               }}>
                 {editId ? <IconPencil style={{ width: 18, height: 18 }} /> : <IconUserBadge style={{ width: 18, height: 18 }} />}
-                {editId ? 'Editar Funcionário' : 'Novo Funcionário'}
+                {editId ? 'Editar Membro' : 'Novo Membro'}
               </h2>
               <button
                 onClick={closeModal}
@@ -266,11 +274,11 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
                     name="email"
                     type="email"
                     className="form-input"
-                    placeholder="funcionario@email.com"
+                    placeholder="membro@email.com"
                     required
                   />
                   <span className="form-hint">
-                    O funcionário vai receber um e-mail nesse endereço para definir a própria senha
+                    A pessoa vai receber um e-mail nesse endereço para definir a própria senha
                   </span>
                 </div>
               )}
@@ -378,6 +386,72 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
                       </div>
                     </div>
                   </label>
+
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-3)',
+                    padding: 'var(--space-3)',
+                    background: 'var(--gray-800)',
+                    borderRadius: 'var(--radius-md)',
+                    cursor: 'pointer',
+                  }}>
+                    <input
+                      type="checkbox"
+                      name="pode_gerenciar_clientes_pets_check"
+                      defaultChecked={editFunc?.pode_gerenciar_clientes_pets ?? false}
+                      onChange={(e) => {
+                        const hidden = e.target.form?.querySelector('#func-pode-clientes-pets') as HTMLInputElement
+                        if (hidden) hidden.value = String(e.target.checked)
+                      }}
+                      style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
+                    />
+                    <input type="hidden" id="func-pode-clientes-pets" name="pode_gerenciar_clientes_pets" defaultValue={String(editFunc?.pode_gerenciar_clientes_pets ?? false)} />
+                    <div>
+                      <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <IconDog style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Pets e Clientes
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
+                        Visualizar os pets e clientes cadastrados no sistema
+                      </div>
+                    </div>
+                  </label>
+
+                  {(podeConcederAcessoTotal || editFunc?.acesso_total) && (
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 'var(--space-3)',
+                      padding: 'var(--space-3)',
+                      background: 'var(--gray-800)',
+                      borderRadius: 'var(--radius-md)',
+                      cursor: podeConcederAcessoTotal ? 'pointer' : 'not-allowed',
+                      opacity: podeConcederAcessoTotal ? 1 : 0.6,
+                    }}>
+                      <input
+                        type="checkbox"
+                        name="acesso_total_check"
+                        defaultChecked={editFunc?.acesso_total ?? false}
+                        disabled={!podeConcederAcessoTotal}
+                        onChange={(e) => {
+                          const hidden = e.target.form?.querySelector('#func-acesso-total') as HTMLInputElement
+                          if (hidden) hidden.value = String(e.target.checked)
+                        }}
+                        style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
+                      />
+                      <input type="hidden" id="func-acesso-total" name="acesso_total" defaultValue={String(editFunc?.acesso_total ?? false)} />
+                      <div>
+                        <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                          <IconShield style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Acesso Total (Administrador)
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
+                          {podeConcederAcessoTotal
+                            ? 'Mesmo acesso que você tem, em todas as telas — só você pode conceder isso'
+                            : 'Só o responsável pela conta pode conceder ou remover acesso total'}
+                        </div>
+                      </div>
+                    </label>
+                  )}
                 </div>
               </div>
 
@@ -397,7 +471,7 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
                 >
                   {isPending
                     ? (editId ? 'Salvando...' : 'Convidando...')
-                    : (editId ? 'Salvar Alterações' : 'Convidar Funcionário')
+                    : (editId ? 'Salvar Alterações' : 'Convidar Membro')
                   }
                 </button>
               </div>
@@ -435,7 +509,7 @@ function FuncCard({
   return (
     <div
       className="card"
-      onClick={() => router.push(`/lojista/funcionarios/${func.id_funcionario}`)}
+      onClick={() => router.push(`/lojista/equipe/${func.id_funcionario}`)}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -507,6 +581,34 @@ function FuncCard({
               gap: 4,
             }}>
               <IconScissors style={{ width: 11, height: 11 }} /> Serviços
+            </span>
+          )}
+          {func.pode_gerenciar_clientes_pets && (
+            <span style={{
+              fontSize: '0.7rem',
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--warning-900)',
+              color: 'var(--warning-400)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}>
+              <IconDog style={{ width: 11, height: 11 }} /> Clientes/Pets
+            </span>
+          )}
+          {func.acesso_total && (
+            <span style={{
+              fontSize: '0.7rem',
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--primary-900)',
+              color: 'var(--primary-400)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}>
+              <IconShield style={{ width: 11, height: 11 }} /> Administrador
             </span>
           )}
         </div>

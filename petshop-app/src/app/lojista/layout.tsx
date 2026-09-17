@@ -88,6 +88,8 @@ export default async function LojistaLayout({
         role={contexto.role}
         podeGerenciarAgenda={contexto.podeGerenciarAgenda}
         podeGerenciarServicos={contexto.podeGerenciarServicos}
+        podeGerenciarClientesPets={contexto.podeGerenciarClientesPets}
+        acessoTotal={contexto.acessoTotal}
       />
       <main className="app-main">
         <div className="app-content">{children}</div>

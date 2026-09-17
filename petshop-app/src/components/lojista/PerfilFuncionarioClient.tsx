@@ -32,6 +32,8 @@ export interface FuncionarioInfo {
   cargo: string | null
   pode_gerenciar_agenda: boolean
   pode_gerenciar_servicos: boolean
+  pode_gerenciar_clientes_pets: boolean
+  acesso_total: boolean
   ativo: boolean
   created_at: string
 }
@@ -103,7 +105,7 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
       if (v) qs.set(k, v)
     }
     const query = qs.toString()
-    startTransition(() => router.push(`/lojista/funcionarios/${funcionario.id_funcionario}${query ? `?${query}` : ''}`))
+    startTransition(() => router.push(`/lojista/equipe/${funcionario.id_funcionario}${query ? `?${query}` : ''}`))
   }
 
   function handleToggle() {
@@ -179,7 +181,7 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
           >
             {isPendingToggle ? 'Salvando...' : funcionario.ativo ? 'Desativar' : 'Reativar'}
           </button>
-          <Link href="/lojista/funcionarios" className="btn btn-primary btn-sm">
+          <Link href="/lojista/equipe" className="btn btn-primary btn-sm">
             <IconPencil style={{ width: 14, height: 14 }} /> Editar
           </Link>
         </div>
@@ -429,8 +431,15 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
               </div>
               <div>
                 <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${funcionario.ativo ? 'badge-ativo' : 'badge-cancelado'}`}>{funcionario.ativo ? 'Ativo' : 'Inativo'}</span></span></div>
-                <div className="dash-detail-row"><span>Gerencia agenda</span><span>{funcionario.pode_gerenciar_agenda ? 'Sim' : 'Não'}</span></div>
-                <div className="dash-detail-row"><span>Gerencia serviços</span><span>{funcionario.pode_gerenciar_servicos ? 'Sim' : 'Não'}</span></div>
+                {funcionario.acesso_total ? (
+                  <div className="dash-detail-row"><span>Acesso</span><span>Administrador (acesso total)</span></div>
+                ) : (
+                  <>
+                    <div className="dash-detail-row"><span>Gerencia agenda</span><span>{funcionario.pode_gerenciar_agenda ? 'Sim' : 'Não'}</span></div>
+                    <div className="dash-detail-row"><span>Gerencia serviços</span><span>{funcionario.pode_gerenciar_servicos ? 'Sim' : 'Não'}</span></div>
+                    <div className="dash-detail-row"><span>Gerencia clientes e pets</span><span>{funcionario.pode_gerenciar_clientes_pets ? 'Sim' : 'Não'}</span></div>
+                  </>
+                )}
                 <div className="dash-detail-row"><span>Cadastro</span><span>{format(parseISO(funcionario.created_at), 'dd/MM/yyyy')}</span></div>
               </div>
             </div>

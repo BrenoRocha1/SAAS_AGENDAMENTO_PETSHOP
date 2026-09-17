@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import { IconAlert } from '@/components/icons'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import PetsList, { type PetLinha } from '@/components/lojista/PetsList'
 import type { ClienteBasico, PetParaEditar } from '@/components/lojista/PetFormModal'
 
@@ -25,7 +26,20 @@ export default async function PetsLojistaPage({ searchParams }: Props) {
   const params = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const lojistaId = user!.id
+  const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
+
+  if (!contexto) return null
+  if (!contexto.podeGerenciarClientesPets) {
+    return (
+      <div className="empty-state card">
+        <IconAlert style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+        <div className="empty-state-title">Sem permissão para ver pets</div>
+        <p>Fale com o responsável pelo petshop para liberar esse acesso.</p>
+      </div>
+    )
+  }
+  const podeEditar = contexto.role === 'lojista' || contexto.acessoTotal
+  const lojistaId = contexto.idLojista
 
   const busca = params.busca?.trim() ?? ''
   const especie = ESPECIES_VALIDAS.includes(params.especie ?? '') ? params.especie! : ''
@@ -176,6 +190,7 @@ export default async function PetsLojistaPage({ searchParams }: Props) {
         clientes={clientes}
         petParaEditarInicial={petParaEditarInicial}
         clienteFixoInicial={clienteFixoInicial}
+        podeEditar={podeEditar}
       />
     </>
   )

@@ -57,19 +57,30 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Funcionário usa o mesmo painel do lojista (mesma pasta /lojista),
-  // mas só as áreas cobertas pelas permissões que já existem no schema
-  // (pode_gerenciar_agenda/pode_gerenciar_servicos) — Relatórios,
-  // Clientes, Pets, Configurações, Funcionários e Perfil continuam
-  // sendo só do lojista. A checagem fina de QUAL permissão (agenda vs
-  // serviços) fica pra cada página; aqui é só o corte grosso de área.
+  // Funcionário usa o mesmo painel do lojista (mesma pasta /lojista). Um
+  // "administrador" (acesso_total, migration 029) tem acesso igual ao
+  // lojista em tudo — passa direto, sem nenhuma restrição de rota. Um
+  // funcionário comum só entra nas áreas cobertas pelas permissões que
+  // já existem (agenda/serviços/clientes-pets); Relatórios, Configurações,
+  // Equipe e Perfil da Loja continuam exclusivos de lojista e admin. A
+  // checagem fina de QUAL permissão (agenda vs serviços vs clientes-pets)
+  // fica pra cada página; aqui é só o corte grosso de área.
   if (user?.user_metadata?.role === 'funcionario' && pathname.startsWith('/lojista')) {
-    const areasPermitidas = ['/lojista/agendamentos', '/lojista/kanban', '/lojista/servicos']
-    const permitido = areasPermitidas.some(p => pathname === p || pathname.startsWith(`${p}/`))
-    if (!permitido) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/lojista/agendamentos'
-      return NextResponse.redirect(url)
+    const { data: funcionario } = await supabase
+      .from('funcionario')
+      .select('acesso_total')
+      .eq('id_funcionario', user.id)
+      .eq('ativo', true)
+      .maybeSingle()
+
+    if (!funcionario?.acesso_total) {
+      const areasPermitidas = ['/lojista/agendamentos', '/lojista/kanban', '/lojista/servicos', '/lojista/clientes', '/lojista/pets']
+      const permitido = areasPermitidas.some(p => pathname === p || pathname.startsWith(`${p}/`))
+      if (!permitido) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/lojista/agendamentos'
+        return NextResponse.redirect(url)
+      }
     }
   }
 
