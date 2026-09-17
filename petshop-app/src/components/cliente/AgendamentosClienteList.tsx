@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cancelarAgendamentoAction } from '@/lib/actions'
+import { IconAlert, IconScissors, IconTrash } from '@/components/icons'
 
 const statusConfig: Record<string, { label: string; cls: string }> = {
   Pendente:   { label: 'Pendente',   cls: 'badge-pendente' },
@@ -12,8 +13,20 @@ const statusConfig: Record<string, { label: string; cls: string }> = {
   Cancelado:  { label: 'Cancelado',  cls: 'badge-cancelado' },
 }
 
+export interface AgendamentoCliente {
+  id_agendamento: string
+  dt_agendamento: string
+  hr_agendamento: string
+  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  valor: number
+  obs: string | null
+  pet: { nome: string; raca: string } | null
+  servico: { nome: string; duracao: number } | null
+  lojista: { nome_loja: string; telefone: string } | null
+}
+
 interface Props {
-  agendamentos: any[]
+  agendamentos: AgendamentoCliente[]
 }
 
 export default function AgendamentosClienteList({ agendamentos }: Props) {
@@ -37,7 +50,7 @@ export default function AgendamentosClienteList({ agendamentos }: Props) {
   if (!agendamentos.length) {
     return (
       <div className="empty-state card">
-        <div className="empty-state-icon">📅</div>
+        <IconScissors style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
         <div className="empty-state-title">Nenhum agendamento encontrado</div>
         <p>Você ainda não realizou nenhum agendamento</p>
       </div>
@@ -48,12 +61,12 @@ export default function AgendamentosClienteList({ agendamentos }: Props) {
     <>
       {error && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
-          <span>⚠️</span><span>{error}</span>
+          <IconAlert style={{ width: 16, height: 16 }} /><span>{error}</span>
         </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        {agendamentos.map((ag: any) => {
+        {agendamentos.map(ag => {
           const podeCanc = ['Pendente', 'Confirmado'].includes(ag.status)
           const isCanceling = cancelId === ag.id_agendamento
 
@@ -66,15 +79,16 @@ export default function AgendamentosClienteList({ agendamentos }: Props) {
                       width: 44,
                       height: 44,
                       borderRadius: 'var(--radius-md)',
-                      background: 'rgba(124,58,237,0.15)',
-                      border: '1px solid rgba(124,58,237,0.25)',
+                      background: 'var(--primary-soft-bg)',
+                      border: '1px solid var(--primary-soft-border)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '1.25rem',
+                      color: 'var(--primary-400)',
+                      flexShrink: 0,
                     }}
                   >
-                    ✂️
+                    <IconScissors style={{ width: 20, height: 20 }} />
                   </div>
                   <div>
                     <h4 style={{ marginBottom: 2 }}>{ag.servico?.nome}</h4>
@@ -119,7 +133,7 @@ export default function AgendamentosClienteList({ agendamentos }: Props) {
                     marginBottom: 'var(--space-4)',
                   }}
                 >
-                  📝 {ag.obs}
+                  {ag.obs}
                 </div>
               )}
 
@@ -128,7 +142,7 @@ export default function AgendamentosClienteList({ agendamentos }: Props) {
                   className="btn btn-danger btn-sm"
                   onClick={() => { setCancelId(ag.id_agendamento); setMotivo('') }}
                 >
-                  🗑️ Cancelar Agendamento
+                  <IconTrash style={{ width: 14, height: 14 }} /> Cancelar Agendamento
                 </button>
               )}
 

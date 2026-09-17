@@ -122,6 +122,13 @@ export const petLojistaSchema = petSchema.extend({
   id_cliente: z.string().uuid('Selecione um cliente'),
 })
 
+// Perfil do CLIENTE (/cliente/perfil) — só nome e telefone são editáveis;
+// e-mail e CPF são identificadores fixos do cadastro.
+export const perfilClienteSchema = z.object({
+  nome: z.string().min(2, 'Nome muito curto').max(120),
+  telefone: z.string().regex(/^\d{10,11}$/, 'Telefone inválido'),
+})
+
 // Variação de preço de um serviço, por espécie+porte OU por
 // espécie+raça específica — ver fn_calcular_preco_servico (migration 010).
 export const servicoVariacaoSchema = z.discriminatedUnion('tipo', [

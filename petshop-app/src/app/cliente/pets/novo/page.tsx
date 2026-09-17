@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { criarPetAction } from '@/lib/actions'
+import { IconAlert } from '@/components/icons'
 
 export default function NovoPetPage() {
   const router = useRouter()
@@ -23,14 +24,15 @@ export default function NovoPetPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Cadastrar Pet 🐾</h1>
+        <h1 className="page-title">Cadastrar Pet</h1>
         <p className="page-subtitle">Adicione um novo pet ao seu perfil</p>
       </div>
 
       <div className="card" style={{ maxWidth: 580 }}>
         {error && (
           <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
-            <span>⚠️</span><span>{error}</span>
+            <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+            <span>{error}</span>
           </div>
         )}
 

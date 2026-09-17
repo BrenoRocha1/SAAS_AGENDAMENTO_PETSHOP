@@ -22,6 +22,7 @@ import {
   agendamentoLojistaSchema,
   funcionarioSchema,
   editarFuncionarioSchema,
+  perfilClienteSchema,
 } from '@/lib/validations'
 import type { ServicoVariacaoData } from '@/lib/validations'
 
@@ -1756,5 +1757,132 @@ export async function toggleFuncionarioAction(id_funcionario: string, ativo: boo
   if (error) return { error: ativo ? 'Erro ao reativar funcionário.' : 'Erro ao desativar funcionário.' }
 
   revalidatePath('/lojista/funcionarios')
+  return { success: true }
+}
+
+// ============================================================
+// PERFIL DO CLIENTE
+// ============================================================
+
+export async function atualizarPerfilClienteAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const raw = {
+    nome: (formData.get('nome') as string)?.trim(),
+    telefone: (formData.get('telefone') as string)?.replace(/\D/g, ''),
+  }
+
+  const parsed = perfilClienteSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase
+    .from('cliente')
+    .update(parsed.data)
+    .eq('id_cliente', user.id)
+
+  if (error) return { error: devError('Erro ao atualizar perfil.', error.message) }
+
+  revalidatePath('/cliente/perfil')
+  revalidatePath('/cliente', 'layout')
+  return { success: true }
+}
+
+// ============================================================
+// FOTO DO PET — Storage (migration 026), mesmo padrão de
+// atualizarLogoLojistaAction/removerLogoLojistaAction acima, mas a pasta
+// é por CLIENTE (não por pet) já que um cliente pode ter vários pets —
+// cada foto é um arquivo {id_pet}.{ext} dentro da pasta do cliente.
+// ============================================================
+
+const PET_FOTO_BUCKET = 'fotos-pet'
+const PET_FOTO_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB
+
+async function limparArquivosDoPet(supabase: Awaited<ReturnType<typeof createClient>>, idCliente: string, idPet: string) {
+  const { data: existentes } = await supabase.storage.from(PET_FOTO_BUCKET).list(idCliente)
+  const doPet = existentes?.filter(f => f.name.startsWith(`${idPet}.`)) ?? []
+  if (doPet.length > 0) {
+    await supabase.storage.from(PET_FOTO_BUCKET).remove(doPet.map(f => `${idCliente}/${f.name}`))
+  }
+}
+
+export async function atualizarFotoPetAction(
+  id_pet: string,
+  formData: FormData
+): Promise<{ error?: string; success?: boolean; url?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const arquivo = formData.get('foto') as File | null
+  if (!arquivo || arquivo.size === 0) {
+    return { error: 'Selecione uma imagem.' }
+  }
+  if (arquivo.size > PET_FOTO_TAMANHO_MAXIMO) {
+    return { error: 'Imagem muito grande. O limite é 5 MB.' }
+  }
+
+  const bytes = new Uint8Array(await arquivo.arrayBuffer())
+  const extensao = detectarExtensaoImagem(bytes)
+  if (!extensao) {
+    return { error: 'Formato de imagem inválido. Envie um arquivo JPG, PNG ou WEBP.' }
+  }
+
+  const { data: pet } = await supabase
+    .from('pet')
+    .select('id_pet')
+    .eq('id_pet', id_pet)
+    .eq('id_cliente', user.id)
+    .maybeSingle()
+  if (!pet) return { error: 'Pet não encontrado.' }
+
+  await limparArquivosDoPet(supabase, user.id, id_pet)
+
+  const caminho = `${user.id}/${id_pet}.${extensao}`
+  const { error: uploadError } = await supabase.storage
+    .from(PET_FOTO_BUCKET)
+    .upload(caminho, bytes, {
+      contentType: extensao === 'jpg' ? 'image/jpeg' : `image/${extensao}`,
+      upsert: true,
+    })
+
+  if (uploadError) {
+    return { error: devError('Não foi possível enviar a imagem. Tente novamente.', uploadError.message) }
+  }
+
+  const { data: { publicUrl } } = supabase.storage.from(PET_FOTO_BUCKET).getPublicUrl(caminho)
+  const urlComVersao = `${publicUrl}?v=${Date.now()}`
+
+  const { error: dbError } = await supabase
+    .from('pet')
+    .update({ foto_url: urlComVersao })
+    .eq('id_pet', id_pet)
+    .eq('id_cliente', user.id)
+
+  if (dbError) {
+    return { error: devError('Imagem enviada, mas não foi possível salvar a referência. Tente novamente.', dbError.message) }
+  }
+
+  revalidatePath('/cliente/pets')
+  return { success: true, url: urlComVersao }
+}
+
+export async function removerFotoPetAction(id_pet: string): Promise<{ error?: string; success?: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  await limparArquivosDoPet(supabase, user.id, id_pet)
+
+  const { error } = await supabase
+    .from('pet')
+    .update({ foto_url: null })
+    .eq('id_pet', id_pet)
+    .eq('id_cliente', user.id)
+
+  if (error) return { error: devError('Não foi possível remover a imagem. Tente novamente.', error.message) }
+
+  revalidatePath('/cliente/pets')
   return { success: true }
 }

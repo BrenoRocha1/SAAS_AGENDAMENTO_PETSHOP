@@ -1480,21 +1480,21 @@ a:hover { color: var(--primary-300); }
 .picker-item svg.picker-check { width: 18px; height: 18px; color: var(--primary-400); flex-shrink: 0; }
 
 /* ============================================================
-   TEMA CLARO — ÁREA DO LOJISTA (.lojista-shell)
+   TEMA CLARO — ÁREA DO LOJISTA E DO CLIENTE (.lojista-shell / .cliente-shell)
    ============================================================
-   O resto do sistema (cliente, funcionário, landing) continua no dark
-   mode roxo original — nada abaixo os afeta, porque só redefine as
-   MESMAS variáveis (--gray-*, --primary-*, etc.) escopadas dentro de
-   .lojista-shell. Como são as mesmas classes (.card, .table, .btn-*,
-   .badge-*, .stat-card*, .sidebar-*, .modal*...) usadas em toda a área
-   do lojista, elas se re-tematizam sozinhas — nenhuma precisou ser
-   reescrita ou duplicada.
+   Só funcionário e landing continuam no dark mode roxo original — nada
+   abaixo os afeta, porque só redefine as MESMAS variáveis (--gray-*,
+   --primary-*, etc.) escopadas dentro de .lojista-shell/.cliente-shell.
+   Como são as mesmas classes (.card, .table, .btn-*, .badge-*,
+   .stat-card*, .sidebar-*, .modal*...) usadas em toda a área do
+   lojista E do cliente, elas se re-tematizam sozinhas — nenhuma
+   precisou ser reescrita ou duplicada.
 
    Paleta: mesma paleta neutra quente + acento verde-azulado (teal) da
-   tela de login (.login-shell), para as duas telas seguirem o mesmo
-   design, como pedido.
+   tela de login (.login-shell), pra login/lojista/cliente seguirem o
+   mesmo design, como pedido.
    ============================================================ */
-.lojista-shell {
+.lojista-shell, .cliente-shell {
   background: var(--gray-950);
 
   /* Superfícies e texto — invertido do dark mode: onde --gray-900 era
@@ -1572,7 +1572,9 @@ a:hover { color: var(--primary-300); }
 /* Ajustes pontuais que não são cor — algumas regras do dark mode original
    contavam com o fundo escuro pra funcionar (ex.: overlay de modal). */
 .lojista-shell .app-sidebar,
-.lojista-shell .app-topbar {
+.lojista-shell .app-topbar,
+.cliente-shell .app-sidebar,
+.cliente-shell .app-topbar {
   box-shadow: none;
 }
 
