@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import LojistaSidebar from '@/components/layout/LojistaSidebar'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Dashboard — Lojista' }
@@ -20,7 +21,7 @@ export default async function LojistaLayout({
   const metaRole = user.user_metadata?.role
   let isLojista = metaRole === 'lojista'
 
-  if (!isLojista && metaRole !== 'cliente') {
+  if (!isLojista && metaRole !== 'cliente' && metaRole !== 'funcionario') {
     // role indefinido — consulta o banco como fonte de verdade
     const { data: lojistaRow } = await supabase
       .from('lojista')
@@ -30,7 +31,15 @@ export default async function LojistaLayout({
     isLojista = !!lojistaRow
   }
 
-  if (!isLojista) redirect('/cliente/dashboard')
+  // Funcionário também usa este layout (mesmo painel do lojista, limitado
+  // pelas permissões dele — o corte de quais rotas ele pode acessar já
+  // acontece no middleware). obterContextoLojista resolve o id_lojista de
+  // verdade nos dois casos.
+  const contexto = isLojista
+    ? await obterContextoLojista(supabase, user.id, 'lojista')
+    : await obterContextoLojista(supabase, user.id, 'funcionario')
+
+  if (!contexto) redirect('/cliente/dashboard')
 
   // kanban_ativo (migration 013) decide se o item "Kanban" aparece no menu.
   // Se a migration ainda não rodou, a coluna não existe e o select abaixo
@@ -42,14 +51,14 @@ export default async function LojistaLayout({
   const { data: lojista, error: lojistaError } = await supabase
     .from('lojista')
     .select('nome_loja, kanban_ativo')
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
     .single()
 
   if (lojistaError) {
     const { data: fallback } = await supabase
       .from('lojista')
       .select('nome_loja')
-      .eq('id_lojista', user.id)
+      .eq('id_lojista', contexto.idLojista)
       .single()
     nomeLoja = fallback?.nome_loja ?? nomeLoja
   } else {
@@ -57,12 +66,28 @@ export default async function LojistaLayout({
     kanbanAtivo = lojista?.kanban_ativo ?? true
   }
 
+  // Nome próprio do funcionário, pro rodapé da sidebar mostrar quem está
+  // logado (não o nome da loja, que já aparece separado).
+  let nomeUsuario = nomeLoja
+  if (contexto.role === 'funcionario') {
+    const { data: funcionario } = await supabase
+      .from('funcionario')
+      .select('nome')
+      .eq('id_funcionario', user.id)
+      .maybeSingle()
+    nomeUsuario = funcionario?.nome ?? 'Funcionário'
+  }
+
   return (
     <div className="app-layout lojista-shell">
       <LojistaSidebar
         nomeLoja={nomeLoja}
+        nomeUsuario={nomeUsuario}
         userEmail={user.email ?? ''}
         kanbanAtivo={kanbanAtivo}
+        role={contexto.role}
+        podeGerenciarAgenda={contexto.podeGerenciarAgenda}
+        podeGerenciarServicos={contexto.podeGerenciarServicos}
       />
       <main className="app-main">
         <div className="app-content">{children}</div>

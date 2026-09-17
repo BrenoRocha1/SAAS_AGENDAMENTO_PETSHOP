@@ -2,8 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import { format, startOfWeek, addDays } from 'date-fns'
 import { agoraBrasil } from '@/lib/agenda'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import AgendaCalendar, { type AgendamentoCalendario, type FuncionarioFiltro } from '@/components/lojista/AgendaCalendar'
 import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/DashboardClient'
+import { IconCalendar } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'Agendamentos' }
 
@@ -15,7 +17,21 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
   const params = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const lojistaId = user!.id
+  const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
+
+  if (!contexto) return null
+
+  if (!contexto.podeGerenciarAgenda) {
+    return (
+      <div className="empty-state card">
+        <IconCalendar style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+        <div className="empty-state-title">Sem permissão para gerenciar a agenda</div>
+        <p>Fale com o responsável pelo petshop para liberar esse acesso.</p>
+      </div>
+    )
+  }
+
+  const lojistaId = contexto.idLojista
 
   const referencia = params.semana && /^\d{4}-\d{2}-\d{2}$/.test(params.semana)
     ? new Date(`${params.semana}T12:00:00`)

@@ -27,6 +27,7 @@ import {
   perfilClienteSchema,
   redefinirSenhaSchema,
 } from '@/lib/validations'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import type { ServicoVariacaoData } from '@/lib/validations'
 
 // ============================================================
@@ -119,16 +120,22 @@ export async function loginAction(formData: FormData) {
     }
   }
 
-  // Verificar se funcionário está ativo
+  // Verificar se funcionário está ativo, e pra onde mandar ele — o
+  // funcionário usa o mesmo painel do lojista (agenda/serviços), então
+  // vai direto pra primeira área que ele tem permissão de usar.
+  let destinoFuncionario = '/lojista/agendamentos'
   if (role === 'funcionario') {
     const { data: func } = await supabase
       .from('funcionario')
-      .select('ativo')
+      .select('ativo, pode_gerenciar_agenda, pode_gerenciar_servicos')
       .eq('id_funcionario', user!.id)
       .maybeSingle()
     if (!func?.ativo) {
       await supabase.auth.signOut()
       return { error: 'Sua conta de funcionário foi desativada. Entre em contato com o responsável pelo petshop.' }
+    }
+    if (!func.pode_gerenciar_agenda && func.pode_gerenciar_servicos) {
+      destinoFuncionario = '/lojista/servicos'
     }
   }
 
@@ -143,7 +150,7 @@ export async function loginAction(formData: FormData) {
   }
 
   if (role === 'lojista') redirect('/lojista/dashboard')
-  if (role === 'funcionario') redirect('/funcionario/dashboard')
+  if (role === 'funcionario') redirect(destinoFuncionario)
   redirect('/cliente/dashboard')
 }
 
@@ -545,9 +552,11 @@ export async function desativarPetAction(id_pet: string) {
 export async function criarServicoAction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar serviços.' }
 
   const raw = {
     nome: formData.get('nome') as string,
@@ -581,7 +590,7 @@ export async function criarServicoAction(formData: FormData) {
 
   const { data: novoServico, error } = await supabase
     .from('servico')
-    .insert({ id_lojista: user.id, ...parsed.data })
+    .insert({ id_lojista: contexto.idLojista, ...parsed.data })
     .select('id_servico')
     .single()
 
@@ -606,9 +615,11 @@ export async function criarServicoAction(formData: FormData) {
 export async function editarServicoAction(id_servico: string, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar serviços.' }
 
   const raw = {
     nome: formData.get('nome') as string,
@@ -628,7 +639,7 @@ export async function editarServicoAction(id_servico: string, formData: FormData
     .from('servico')
     .update(parsed.data)
     .eq('id_servico', id_servico)
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) return { error: 'Erro ao atualizar serviço.' }
 
@@ -644,15 +655,17 @@ export async function editarServicoAction(id_servico: string, formData: FormData
 export async function alternarStatusServicoAction(id_servico: string, ativo: boolean) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar serviços.' }
 
   const { error } = await supabase
     .from('servico')
     .update({ status: ativo ? 'Ativo' : 'Inativo' })
     .eq('id_servico', id_servico)
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) return { error: devError('Erro ao atualizar status do serviço.', error.message) }
 
@@ -706,9 +719,11 @@ export async function excluirServicoAction(id_servico: string) {
 export async function adicionarVariacaoServicoAction(id_servico: string, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar serviços.' }
 
   const tipo = formData.get('tipo') as string
   const raw = tipo === 'raca'
@@ -735,7 +750,7 @@ export async function adicionarVariacaoServicoAction(id_servico: string, formDat
     .from('servico')
     .select('id_servico')
     .eq('id_servico', id_servico)
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
     .maybeSingle()
   if (!servico) return { error: 'Serviço não encontrado' }
 
@@ -758,9 +773,11 @@ export async function adicionarVariacaoServicoAction(id_servico: string, formDat
 export async function removerVariacaoServicoAction(id_variacao: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar serviços.' }
 
   const { error } = await supabase
     .from('servico_variacao')
@@ -976,12 +993,14 @@ export async function criarAgendamentoLojistaAction(
 ): Promise<{ error?: string; success?: boolean; id_agendamento?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarAgenda) return { error: 'Você não tem permissão para gerenciar a agenda.' }
 
   const raw = {
-    id_lojista: user.id,
+    id_lojista: contexto.idLojista,
     id_cliente: formData.get('id_cliente') as string,
     id_pet: formData.get('id_pet') as string,
     id_servico: formData.get('id_servico') as string,
@@ -1046,20 +1065,22 @@ export async function atualizarStatusAgendamentoAction(
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarAgenda) return { error: 'Você não tem permissão para gerenciar a agenda.' }
 
   const updateData: Record<string, string> = { status }
   if (status === 'Cancelado') {
-    updateData.cancelado_por = 'lojista'
+    updateData.cancelado_por = contexto.role === 'funcionario' ? 'funcionario' : 'lojista'
   }
 
   const { error } = await supabase
     .from('agendamento')
     .update(updateData)
     .eq('id_agendamento', id_agendamento)
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) return { error: 'Erro ao atualizar status.' }
 
@@ -1070,20 +1091,23 @@ export async function atualizarStatusAgendamentoAction(
 // Atribui (ou remove, se id_funcionario vier null) o profissional
 // responsável por um agendamento. Ver migration 012 — todo agendamento
 // nasce sem funcionário, mesmo os que o cliente cria sozinho; o
-// lojista atribui manualmente pela tela de agenda.
+// lojista (ou um funcionário com permissão de agenda) atribui
+// manualmente pela tela de agenda.
 export async function atribuirFuncionarioAction(id_agendamento: string, id_funcionario: string | null) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarAgenda) return { error: 'Você não tem permissão para gerenciar a agenda.' }
 
   if (id_funcionario) {
     const { data: func } = await supabase
       .from('funcionario')
       .select('id_funcionario')
       .eq('id_funcionario', id_funcionario)
-      .eq('id_lojista', user.id)
+      .eq('id_lojista', contexto.idLojista)
       .eq('ativo', true)
       .maybeSingle()
     if (!func) return { error: 'Funcionário não encontrado ou inativo' }
@@ -1093,7 +1117,7 @@ export async function atribuirFuncionarioAction(id_agendamento: string, id_funci
     .from('agendamento')
     .update({ id_funcionario })
     .eq('id_agendamento', id_agendamento)
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
 
   if (error) return { error: 'Erro ao atribuir profissional.' }
 
@@ -1508,9 +1532,11 @@ export async function editarClienteLojistaAction(id_cliente: string, formData: F
 export async function criarPetLojistaAction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
-    return { error: 'Acesso não autorizado' }
-  }
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarAgenda) return { error: 'Você não tem permissão para gerenciar a agenda.' }
 
   const raw = {
     id_cliente: formData.get('id_cliente') as string,
@@ -1528,7 +1554,7 @@ export async function criarPetLojistaAction(formData: FormData) {
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   const { data: id_pet, error } = await supabase.rpc('fn_criar_pet_lojista', {
-    p_id_lojista: user.id,
+    p_id_lojista: contexto.idLojista,
     p_id_cliente: parsed.data.id_cliente,
     p_nome: parsed.data.nome,
     p_raca: parsed.data.raca,
