@@ -12,11 +12,18 @@ export default async function EquipePage() {
 
   if (!contexto) return null
 
-  const { data: funcionarios } = await supabase
-    .from('funcionario')
-    .select('*')
-    .eq('id_lojista', contexto.idLojista)
-    .order('created_at', { ascending: false })
+  const [{ data: funcionarios }, { data: donoLojista }] = await Promise.all([
+    supabase
+      .from('funcionario')
+      .select('*')
+      .eq('id_lojista', contexto.idLojista)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('lojista')
+      .select('nome_loja, email')
+      .eq('id_lojista', contexto.idLojista)
+      .maybeSingle(),
+  ])
 
   return (
     <>
@@ -27,7 +34,11 @@ export default async function EquipePage() {
         </div>
       </div>
 
-      <FuncionariosList funcionarios={funcionarios ?? []} podeConcederAcessoTotal={ehResponsavelPelaConta(contexto)} />
+      <FuncionariosList
+        funcionarios={funcionarios ?? []}
+        podeConcederAcessoTotal={ehResponsavelPelaConta(contexto)}
+        donoConta={donoLojista ? { nome: donoLojista.nome_loja, email: donoLojista.email } : null}
+      />
     </>
   )
 }

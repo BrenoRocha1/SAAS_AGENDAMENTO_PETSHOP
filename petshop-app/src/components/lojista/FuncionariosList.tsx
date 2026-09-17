@@ -14,6 +14,7 @@ import {
   IconCheck,
   IconClose,
   IconDog,
+  IconLock,
   IconPencil,
   IconPlus,
   IconScissors,
@@ -43,9 +44,13 @@ interface Props {
   // gerencia a equipe normalmente, mas nunca vê essa opção pra si mesmo
   // nem pra ninguém (migration 029 garante isso de novo no banco).
   podeConcederAcessoTotal: boolean
+  // Quem criou a conta do petshop — não é uma linha da tabela funcionario
+  // (é a própria lojista), então aparece aqui só como um card fixo,
+  // sempre "Administrador" e nunca editável ou removível.
+  donoConta: { nome: string; email: string } | null
 }
 
-export default function FuncionariosList({ funcionarios: initial, podeConcederAcessoTotal }: Props) {
+export default function FuncionariosList({ funcionarios: initial, podeConcederAcessoTotal, donoConta }: Props) {
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -160,11 +165,30 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
         </button>
       </div>
 
+      {/* Responsável pela conta — não é um registro de funcionario, é a
+          própria lojista, sempre "Administrador" e fixo (não dá pra
+          editar nem excluir por aqui). */}
+      {donoConta && (
+        <div style={{ marginBottom: 'var(--space-8)' }}>
+          <h2 style={{
+            fontSize: '1rem',
+            fontWeight: 600,
+            color: 'var(--gray-300)',
+            marginBottom: 'var(--space-4)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}>
+            Responsável pela conta
+          </h2>
+          <DonoContaCard donoConta={donoConta} />
+        </div>
+      )}
+
       {/* Lista de membros ativos */}
       {ativos.length === 0 && inativos.length === 0 ? (
         <div className="empty-state card">
           <IconUserBadge style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
-          <div className="empty-state-title">Nenhum membro cadastrado</div>
+          <div className="empty-state-title">Nenhum outro membro cadastrado</div>
           <p style={{ marginBottom: 'var(--space-5)' }}>
             Cadastre membros da equipe para ajudar na gestão do seu petshop
           </p>
@@ -421,6 +445,72 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
         </div>
       )}
     </>
+  )
+}
+
+// ============================================================
+// Sub-componente: Card do responsável pela conta — mesma linguagem
+// visual do FuncCard, mas sem nenhuma ação (não edita, não desativa,
+// não navega pra lugar nenhum e não conta pro total de "Ativos").
+// ============================================================
+function DonoContaCard({ donoConta }: { donoConta: { nome: string; email: string } }) {
+  const initials = donoConta.nome
+    .split(' ')
+    .slice(0, 2)
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+
+  return (
+    <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', padding: 'var(--space-4)' }}>
+      <div style={{
+        width: 48,
+        height: 48,
+        borderRadius: '50%',
+        background: 'var(--primary-600)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: 700,
+        color: 'white',
+        fontSize: '0.9rem',
+        flexShrink: 0,
+      }}>
+        {initials}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, color: 'var(--gray-100)' }}>{donoConta.nome}</div>
+        <div style={{ fontSize: '0.85rem', color: 'var(--gray-400)' }}>{donoConta.email}</div>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-1)', flexWrap: 'wrap' }}>
+          <span style={{
+            fontSize: '0.7rem',
+            padding: '2px 8px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'rgba(13,148,136,0.12)',
+            color: 'var(--primary-700)',
+            border: '1px solid rgba(13,148,136,0.3)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+          }}>
+            <IconShield style={{ width: 11, height: 11 }} /> Administrador
+          </span>
+          <span style={{
+            fontSize: '0.7rem',
+            padding: '2px 8px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--gray-800)',
+            color: 'var(--gray-400)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+          }}>
+            <IconLock style={{ width: 11, height: 11 }} /> Fixo — dono da conta
+          </span>
+        </div>
+      </div>
+    </div>
   )
 }
 
