@@ -453,7 +453,7 @@ a:hover { color: var(--primary-300); }
 .stat-card-icon {
   width: 44px;
   height: 44px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;

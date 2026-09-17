@@ -77,9 +77,7 @@ export interface ServicoAtivo {
 
 interface Stats {
   agendamentosHoje: number
-  agendamentosOntem: number
   faturamentoHoje: number
-  faturamentoOntem: number
   petsEmAtendimento: string[]
   horariosLivresHoje: number
   proximoHorarioLivre: string | null
@@ -330,7 +328,6 @@ export default function DashboardClient({
             <div className="stat-card-icon tone-primary">
               <IconCalendar style={{ width: 20, height: 20 }} />
             </div>
-            <DeltaTag atual={stats.agendamentosHoje} anterior={stats.agendamentosOntem} sufixo="vs ontem" />
           </div>
           <div className="stat-card-value">{stats.agendamentosHoje}</div>
           <div className="stat-card-label">Agendamentos hoje</div>
@@ -354,7 +351,6 @@ export default function DashboardClient({
             <div className="stat-card-icon tone-primary">
               <IconMoney style={{ width: 20, height: 20 }} />
             </div>
-            <DeltaTag atual={stats.faturamentoHoje} anterior={stats.faturamentoOntem} sufixo="vs ontem" moeda />
           </div>
           <div className="stat-card-value">R$ {stats.faturamentoHoje.toFixed(0)}</div>
           <div className="stat-card-label">Faturamento do dia</div>
@@ -559,18 +555,6 @@ export default function DashboardClient({
         />
       )}
     </>
-  )
-}
-
-function DeltaTag({ atual, anterior, sufixo, moeda }: { atual: number; anterior: number; sufixo: string; moeda?: boolean }) {
-  const diff = atual - anterior
-  if (diff === 0) return <span className="badge badge-inativo">= {sufixo}</span>
-  const positivo = diff > 0
-  const valor = moeda ? `R$ ${Math.abs(diff).toFixed(0)}` : Math.abs(diff)
-  return (
-    <span className={`badge ${positivo ? 'badge-ativo' : 'badge-cancelado'}`}>
-      {positivo ? '+' : '-'}{valor} {sufixo}
-    </span>
   )
 }
 
