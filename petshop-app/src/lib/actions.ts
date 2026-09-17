@@ -1872,12 +1872,50 @@ export async function atualizarPerfilClienteAction(formData: FormData) {
 const PET_FOTO_BUCKET = 'fotos-pet'
 const PET_FOTO_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB
 
-async function limparArquivosDoPet(supabase: Awaited<ReturnType<typeof createClient>>, idCliente: string, idPet: string) {
-  const { data: existentes } = await supabase.storage.from(PET_FOTO_BUCKET).list(idCliente)
+type ClienteSupabase = Awaited<ReturnType<typeof createClient>>
+
+async function limparArquivosDoPet(cliente: ClienteSupabase, idCliente: string, idPet: string) {
+  const { data: existentes } = await cliente.storage.from(PET_FOTO_BUCKET).list(idCliente)
   const doPet = existentes?.filter(f => f.name.startsWith(`${idPet}.`)) ?? []
   if (doPet.length > 0) {
-    await supabase.storage.from(PET_FOTO_BUCKET).remove(doPet.map(f => `${idCliente}/${f.name}`))
+    await cliente.storage.from(PET_FOTO_BUCKET).remove(doPet.map(f => `${idCliente}/${f.name}`))
   }
+}
+
+// Descobre o dono (id_cliente) do pet e QUAL client usar pra gravar
+// (Storage + tabela pet): o cliente edita a própria foto com o client
+// normal (RLS já permite); o lojista só pode mexer na foto de um pet de
+// um cliente vinculado a ele (cliente_lojista) — e como não existe
+// policy de UPDATE em `pet`/Storage pra lojista (só RPCs SECURITY
+// DEFINER pros outros campos), usa o adminClient depois de confirmar a
+// autorização pela própria SELECT com RLS abaixo (que já só devolve a
+// linha se o lojista realmente tiver esse cliente vinculado).
+async function resolverAutorizacaoFotoPet(
+  supabase: ClienteSupabase,
+  userId: string,
+  role: string | undefined,
+  id_pet: string
+): Promise<{ error: string } | { idCliente: string; clienteParaEscrita: ClienteSupabase }> {
+  const { data: pet } = await supabase
+    .from('pet')
+    .select('id_cliente')
+    .eq('id_pet', id_pet)
+    .maybeSingle()
+
+  if (!pet) return { error: 'Pet não encontrado.' }
+
+  if (role === 'cliente') {
+    if (pet.id_cliente !== userId) return { error: 'Pet não encontrado.' }
+    return { idCliente: pet.id_cliente, clienteParaEscrita: supabase }
+  }
+
+  if (role === 'lojista') {
+    const adminClient = createAdminClient()
+    if (!adminClient) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+    return { idCliente: pet.id_cliente, clienteParaEscrita: adminClient }
+  }
+
+  return { error: 'Acesso não autorizado' }
 }
 
 export async function atualizarFotoPetAction(
@@ -1902,18 +1940,14 @@ export async function atualizarFotoPetAction(
     return { error: 'Formato de imagem inválido. Envie um arquivo JPG, PNG ou WEBP.' }
   }
 
-  const { data: pet } = await supabase
-    .from('pet')
-    .select('id_pet')
-    .eq('id_pet', id_pet)
-    .eq('id_cliente', user.id)
-    .maybeSingle()
-  if (!pet) return { error: 'Pet não encontrado.' }
+  const autorizacao = await resolverAutorizacaoFotoPet(supabase, user.id, user.user_metadata?.role, id_pet)
+  if ('error' in autorizacao) return { error: autorizacao.error }
+  const { idCliente, clienteParaEscrita } = autorizacao
 
-  await limparArquivosDoPet(supabase, user.id, id_pet)
+  await limparArquivosDoPet(clienteParaEscrita, idCliente, id_pet)
 
-  const caminho = `${user.id}/${id_pet}.${extensao}`
-  const { error: uploadError } = await supabase.storage
+  const caminho = `${idCliente}/${id_pet}.${extensao}`
+  const { error: uploadError } = await clienteParaEscrita.storage
     .from(PET_FOTO_BUCKET)
     .upload(caminho, bytes, {
       contentType: extensao === 'jpg' ? 'image/jpeg' : `image/${extensao}`,
@@ -1924,20 +1958,20 @@ export async function atualizarFotoPetAction(
     return { error: devError('Não foi possível enviar a imagem. Tente novamente.', uploadError.message) }
   }
 
-  const { data: { publicUrl } } = supabase.storage.from(PET_FOTO_BUCKET).getPublicUrl(caminho)
+  const { data: { publicUrl } } = clienteParaEscrita.storage.from(PET_FOTO_BUCKET).getPublicUrl(caminho)
   const urlComVersao = `${publicUrl}?v=${Date.now()}`
 
-  const { error: dbError } = await supabase
+  const { error: dbError } = await clienteParaEscrita
     .from('pet')
     .update({ foto_url: urlComVersao })
     .eq('id_pet', id_pet)
-    .eq('id_cliente', user.id)
 
   if (dbError) {
     return { error: devError('Imagem enviada, mas não foi possível salvar a referência. Tente novamente.', dbError.message) }
   }
 
   revalidatePath('/cliente/pets')
+  revalidatePath('/lojista/pets')
   return { success: true, url: urlComVersao }
 }
 
@@ -1946,16 +1980,20 @@ export async function removerFotoPetAction(id_pet: string): Promise<{ error?: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
 
-  await limparArquivosDoPet(supabase, user.id, id_pet)
+  const autorizacao = await resolverAutorizacaoFotoPet(supabase, user.id, user.user_metadata?.role, id_pet)
+  if ('error' in autorizacao) return { error: autorizacao.error }
+  const { idCliente, clienteParaEscrita } = autorizacao
 
-  const { error } = await supabase
+  await limparArquivosDoPet(clienteParaEscrita, idCliente, id_pet)
+
+  const { error } = await clienteParaEscrita
     .from('pet')
     .update({ foto_url: null })
     .eq('id_pet', id_pet)
-    .eq('id_cliente', user.id)
 
   if (error) return { error: devError('Não foi possível remover a imagem. Tente novamente.', error.message) }
 
   revalidatePath('/cliente/pets')
+  revalidatePath('/lojista/pets')
   return { success: true }
 }

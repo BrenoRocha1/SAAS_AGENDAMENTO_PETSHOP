@@ -82,6 +82,7 @@ export default async function PetsLojistaPage({ searchParams }: Props) {
     dt_nasc: string
     peso: number | null
     obs: string | null
+    foto_url: string | null
     id_cliente: string
     nome_cliente: string
     telefone_cliente: string
@@ -99,6 +100,7 @@ export default async function PetsLojistaPage({ searchParams }: Props) {
     dt_nasc: r.dt_nasc,
     peso: r.peso,
     obs: r.obs,
+    foto_url: r.foto_url,
     id_cliente: r.id_cliente,
     nome_cliente: r.nome_cliente,
     telefone_cliente: r.telefone_cliente,
@@ -122,7 +124,7 @@ export default async function PetsLojistaPage({ searchParams }: Props) {
     const { data: petRow } = await supabase
       .from('pet')
       .select(`
-        id_pet, nome, raca, sexo, especie, porte, dt_nasc, peso, obs,
+        id_pet, nome, raca, sexo, especie, porte, dt_nasc, peso, obs, foto_url,
         cliente:id_cliente ( id_cliente, nome, telefone )
       `)
       .eq('id_pet', params.editar)
@@ -141,6 +143,7 @@ export default async function PetsLojistaPage({ searchParams }: Props) {
           dt_nasc: petRow.dt_nasc,
           peso: petRow.peso,
           obs: petRow.obs,
+          foto_url: petRow.foto_url,
           id_cliente: c.id_cliente,
           nome_cliente: c.nome,
         }
