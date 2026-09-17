@@ -53,11 +53,6 @@ interface Servico {
   preco: number
   duracao: number
 }
-interface Funcionario {
-  id_funcionario: string
-  nome: string
-  cargo: string | null
-}
 interface Pet {
   id_pet: string
   nome: string
@@ -76,7 +71,6 @@ interface Props {
   horarios: Horario[]
   janela: Janela
   servicos: Servico[]
-  funcionarios: Funcionario[]
   pets: Pet[]
   cliente: Cliente
   autenticado: boolean
@@ -114,7 +108,7 @@ function ProgressoEtapas({ passo }: { passo: number }) {
 }
 
 export default function AgendamentoOnlineWizard({
-  lojista, horarios, janela, servicos, funcionarios, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
+  lojista, horarios, janela, servicos, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [step, setStep] = useState<Step>(1)
@@ -130,7 +124,6 @@ export default function AgendamentoOnlineWizard({
   const [carrinho, setCarrinho] = useState<string[]>(carrinhoInicial)
   const [pets, setPets] = useState<Pet[]>(petsIniciais)
   const [petId, setPetId] = useState('')
-  const [funcionarioId, setFuncionarioId] = useState('')
   const [data, setData] = useState('')
   const [horaInicio, setHoraInicio] = useState('')
   const [obs, setObs] = useState('')
@@ -148,7 +141,6 @@ export default function AgendamentoOnlineWizard({
   const servicosCarrinho = servicos.filter(s => carrinho.includes(s.id_servico))
   const duracaoTotal = servicosCarrinho.reduce((acc, s) => acc + s.duracao, 0)
   const valorTotal = servicosCarrinho.reduce((acc, s) => acc + Number(precos[s.id_servico] ?? s.preco), 0)
-  const funcionarioSel = funcionarios.find(f => f.id_funcionario === funcionarioId) ?? null
   const precisaClassificar = !!petSel && (!petSel.especie || !petSel.porte)
 
   // Preço real (considerando variação por porte/raça) assim que há pet + carrinho
@@ -168,7 +160,9 @@ export default function AgendamentoOnlineWizard({
     return () => { cancelado = true }
   }, [petId, carrinho]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Horários disponíveis (considerando o profissional escolhido, se houver)
+  // Horários disponíveis — o cliente não escolhe mais o profissional (a
+  // loja atribui depois), então sempre chama a RPC sem esse filtro
+  // (p_id_funcionario usa o próprio DEFAULT NULL dela).
   useEffect(() => {
     if (!data || duracaoTotal === 0) return
     const dataSelecionada = data
@@ -177,13 +171,12 @@ export default function AgendamentoOnlineWizard({
         p_id_lojista: lojista.id,
         p_data: data,
         p_duracao: duracaoTotal,
-        p_id_funcionario: funcionarioId || null,
       })
       .then(({ data: rows }) => {
         setSlots(removerHorariosPassados((rows ?? []) as Slot[], dataSelecionada))
         setHoraInicio('')
       })
-  }, [data, duracaoTotal, funcionarioId, lojista.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, duracaoTotal, lojista.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function alternarServico(id: string) {
     setCarrinho(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -230,7 +223,6 @@ export default function AgendamentoOnlineWizard({
     const fd = new FormData()
     fd.set('id_lojista', lojista.id)
     fd.set('id_pet', petId)
-    if (funcionarioId) fd.set('id_funcionario', funcionarioId)
     fd.set('servicos', JSON.stringify(carrinho))
     fd.set('dt_agendamento', data)
     fd.set('hr_agendamento', horaInicio)
@@ -511,17 +503,9 @@ export default function AgendamentoOnlineWizard({
         </div>
       )}
 
-      {/* STEP 4 — Profissional, dia e hora */}
+      {/* STEP 4 — Dia e hora */}
       {step === 4 && (
         <div className="card">
-          <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-4)' }}>Escolha o profissional</h2>
-          <select className="form-select" value={funcionarioId} onChange={e => setFuncionarioId(e.target.value)} style={{ marginBottom: 'var(--space-6)' }}>
-            <option value="">Sem preferência</option>
-            {funcionarios.map(f => (
-              <option key={f.id_funcionario} value={f.id_funcionario}>{f.nome}{f.cargo ? ` — ${f.cargo}` : ''}</option>
-            ))}
-          </select>
-
           <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-3)' }}>Selecione o dia</h2>
           <div style={{ marginBottom: 'var(--space-6)' }}>
             <SeletorDeData
@@ -591,7 +575,6 @@ export default function AgendamentoOnlineWizard({
           <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 'var(--space-5)' }}>
             <div className="agenonline-resumo-row"><span className="text-muted">Pet</span><span>{petSel?.nome} — {petSel?.raca}</span></div>
             <div className="agenonline-resumo-row"><span className="text-muted">Tutor</span><span>{cliente.nome}</span></div>
-            <div className="agenonline-resumo-row"><span className="text-muted">Profissional</span><span>{funcionarioSel?.nome ?? 'Sem preferência'}</span></div>
             <div className="agenonline-resumo-row">
               <span className="text-muted">Data e hora</span>
               <span>{format(new Date(data + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })} às {horaInicio}</span>

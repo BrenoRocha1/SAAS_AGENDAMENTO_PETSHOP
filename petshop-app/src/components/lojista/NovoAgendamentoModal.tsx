@@ -47,11 +47,17 @@ interface Props {
   // inicial pro select de profissional (esse campo já era opcional e
   // continua editável, diferente do cliente, que vem travado).
   funcionarioIdPadrao?: string
+  // Só o responsável pela conta ou um administrador pode escolher o
+  // profissional na criação — ver atribuirFuncionarioAction. Default
+  // true porque quem usa este modal a partir do Dashboard já só pode
+  // chegar lá sendo lojista ou admin (rota bloqueada pro resto no
+  // middleware); só a Agenda precisa passar isso explicitamente.
+  podeAtribuirProfissional?: boolean
   onClose: () => void
   onCreated: (item: NovoAgendamentoCriado, dataISO: string) => void
 }
 
-export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes, servicos, funcionarios, clienteIdFixo, funcionarioIdPadrao, onClose, onCreated }: Props) {
+export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes, servicos, funcionarios, clienteIdFixo, funcionarioIdPadrao, podeAtribuirProfissional = true, onClose, onCreated }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [isPending, startTransition] = useTransition()
   const [isPendingPet, startPetTransition] = useTransition()
@@ -466,8 +472,10 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                 </div>
               )}
 
-              {/* Profissional — opcional, dá pra deixar sem e atribuir depois */}
-              {servicoId && funcionarios.length > 0 && (
+              {/* Profissional — opcional, dá pra deixar sem e atribuir depois.
+                  Só aparece pra quem pode atribuir (responsável pela conta ou
+                  administrador) — um funcionário comum não escolhe. */}
+              {servicoId && funcionarios.length > 0 && podeAtribuirProfissional && (
                 <div className="form-group">
                   <label className="form-label">Profissional (opcional)</label>
                   <select

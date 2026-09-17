@@ -66,6 +66,9 @@ interface Props {
   // perfil do funcionário) — abre o modal com esse profissional já
   // pré-selecionado (não travado, o campo já era opcional).
   funcionarioIdPadraoInicial?: string | null
+  // Só o responsável pela conta ou um administrador pode atribuir/trocar
+  // o profissional responsável — ver atribuirFuncionarioAction.
+  podeAtribuirProfissional: boolean
 }
 
 const CORES = ['#4f46e5', '#0891b2', '#db2777', '#d97706', '#16a34a', '#7c3aed', '#2563eb']
@@ -159,6 +162,7 @@ export default function AgendaCalendar({
   servicos,
   clienteFixoInicial,
   funcionarioIdPadraoInicial,
+  podeAtribuirProfissional,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -441,20 +445,24 @@ export default function AgendaCalendar({
               )}
 
               {funcionarios.length > 0 && (
-                <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-                  <label className="form-label">Profissional responsável</label>
-                  <select
-                    className="form-select"
-                    defaultValue={selecionado.id_funcionario ?? ''}
-                    onChange={e => atribuir(selecionado.id_agendamento, e.target.value)}
-                    disabled={isPending}
-                  >
-                    <option value="">Sem profissional</option>
-                    {funcionarios.map(f => (
-                      <option key={f.id_funcionario} value={f.id_funcionario}>{f.nome}</option>
-                    ))}
-                  </select>
-                </div>
+                podeAtribuirProfissional ? (
+                  <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+                    <label className="form-label">Profissional responsável</label>
+                    <select
+                      className="form-select"
+                      defaultValue={selecionado.id_funcionario ?? ''}
+                      onChange={e => atribuir(selecionado.id_agendamento, e.target.value)}
+                      disabled={isPending}
+                    >
+                      <option value="">Sem profissional</option>
+                      {funcionarios.map(f => (
+                        <option key={f.id_funcionario} value={f.id_funcionario}>{f.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="dash-detail-row"><span>Profissional responsável</span><span>{selecionado.nome_funcionario ?? 'Sem profissional'}</span></div>
+                )
               )}
 
               {(selecionado.status === 'Pendente' || selecionado.status === 'Confirmado' || selecionado.status === 'Em andamento') && (
@@ -484,6 +492,7 @@ export default function AgendaCalendar({
           clientes={clientesComPets}
           servicos={servicos}
           funcionarios={funcionarios}
+          podeAtribuirProfissional={podeAtribuirProfissional}
           clienteIdFixo={clienteFixoInicial?.id_cliente}
           funcionarioIdPadrao={funcionarioIdPadraoInicial ?? undefined}
           onClose={() => {

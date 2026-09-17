@@ -1133,7 +1133,11 @@ export async function atribuirFuncionarioAction(id_agendamento: string, id_funci
 
   const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
   if (!contexto) return { error: 'Acesso não autorizado' }
-  if (!contexto.podeGerenciarAgenda) return { error: 'Você não tem permissão para gerenciar a agenda.' }
+  // Só o responsável pela conta ou um administrador (funcionário com
+  // acesso_total) pode atribuir/trocar o profissional responsável — um
+  // funcionário comum, mesmo com "Gerenciar Agenda", não pode se
+  // auto-atribuir nem reatribuir outro agendamento.
+  if (!contexto.acessoTotal) return { error: 'Apenas administradores podem atribuir o profissional responsável.' }
 
   if (id_funcionario) {
     const { data: func } = await supabase
@@ -1152,7 +1156,7 @@ export async function atribuirFuncionarioAction(id_agendamento: string, id_funci
     .eq('id_agendamento', id_agendamento)
     .eq('id_lojista', contexto.idLojista)
 
-  if (error) return { error: 'Erro ao atribuir profissional.' }
+  if (error) return { error: devError('Erro ao atribuir profissional.', error.message) }
 
   revalidatePath('/lojista/agendamentos')
   revalidatePath('/lojista/dashboard')

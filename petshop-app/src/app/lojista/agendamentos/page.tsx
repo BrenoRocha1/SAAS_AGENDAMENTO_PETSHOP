@@ -163,6 +163,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
       servicos={servicos}
       clienteFixoInicial={clienteFixoInicial}
       funcionarioIdPadraoInicial={funcionarioIdPadraoInicial}
+      podeAtribuirProfissional={contexto.acessoTotal}
     />
   )
 }

@@ -127,15 +127,12 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   }
 
   // Dados do próprio cliente — só buscados quando logado como cliente,
-  // já que dependem de RLS de auth.uid() (pets, cadastro) ou de uma RPC
-  // que só authenticated pode chamar (fn_funcionarios_publicos).
-  let funcionarios: { id_funcionario: string; nome: string; cargo: string | null }[] = []
+  // já que dependem de RLS de auth.uid().
   let pets: { id_pet: string; nome: string; raca: string; especie: 'Cão' | 'Gato' | null; porte: 'Pequeno' | 'Médio' | 'Grande' | null; sexo: string }[] = []
   let cliente = { nome: '', telefone: '', cpf: '' }
 
   if (autenticado) {
-    const [{ data: f }, { data: p }, { data: c }] = await Promise.all([
-      supabase.rpc('fn_funcionarios_publicos', { p_id_lojista: lojista.id_lojista }),
+    const [{ data: p }, { data: c }] = await Promise.all([
       supabase
         .from('pet')
         .select('id_pet, nome, raca, especie, porte, sexo')
@@ -144,7 +141,6 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
         .order('nome'),
       supabase.from('cliente').select('nome, telefone, cpf').eq('id_cliente', user!.id).maybeSingle(),
     ])
-    funcionarios = f ?? []
     pets = p ?? []
     cliente = c ?? cliente
   }
@@ -175,7 +171,6 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
           horarios={horarios ?? []}
           janela={janela}
           servicos={servicos ?? []}
-          funcionarios={funcionarios}
           pets={pets}
           cliente={cliente}
           autenticado={autenticado}

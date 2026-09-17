@@ -157,6 +157,7 @@ export default async function KanbanPage({ searchParams }: Props) {
       itensIniciais={itens}
       funcionarios={(funcionariosRaw ?? []) as { id_funcionario: string; nome: string }[]}
       servicos={(servicosRaw ?? []) as { id_servico: string; nome: string }[]}
+      podeAtribuirProfissional={contexto.acessoTotal}
     />
   )
 }
