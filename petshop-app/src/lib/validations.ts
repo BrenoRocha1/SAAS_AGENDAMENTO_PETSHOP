@@ -40,6 +40,38 @@ export const editarClienteLojistaSchema = z.object({
   telefone: z.string().regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
 })
 
+// Cadastro de cliente PELO LOJISTA (fn_registrar_cliente_lojista,
+// migration 014) — sem senha: o lojista não deve saber/definir a senha
+// de outra pessoa. A conta é criada via convite (admin.inviteUserByEmail)
+// e o próprio cliente define a senha ao aceitar o link em /redefinir-senha.
+export const cadastroClienteLojistaSchema = z.object({
+  nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(120),
+  cpf: z
+    .string()
+    .regex(/^\d{11}$/, 'CPF deve conter 11 dígitos numéricos')
+    .refine(validarCPF, 'CPF inválido'),
+  email: z.string().email('E-mail inválido'),
+  telefone: z
+    .string()
+    .regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
+})
+
+// Definir uma nova senha (usado tanto por "esqueci minha senha" quanto
+// pelo convite de cliente/funcionário cadastrado pelo lojista) — a sessão
+// de recuperação já vem estabelecida pelos cookies antes desta tela.
+export const redefinirSenhaSchema = z.object({
+  senha: z
+    .string()
+    .min(8, 'Senha deve ter no mínimo 8 caracteres')
+    .regex(/[A-Z]/, 'Deve conter ao menos uma letra maiúscula')
+    .regex(/[0-9]/, 'Deve conter ao menos um número')
+    .regex(/[^A-Za-z0-9]/, 'Deve conter ao menos um caractere especial'),
+  confirmaSenha: z.string(),
+}).refine(d => d.senha === d.confirmaSenha, {
+  message: 'Senhas não conferem',
+  path: ['confirmaSenha'],
+})
+
 export const cadastroLojistSchema = z.object({
   nome_loja: z.string().min(2).max(150),
   email: z.string().email('E-mail inválido'),
@@ -200,6 +232,9 @@ export const agendamentoLojistaSchema = agendamentoSchema.extend({
   id_cliente: z.string().uuid('Selecione um cliente'),
 })
 
+// Sem senha: o lojista não define a senha do funcionário, só o convida.
+// Conta criada via admin.inviteUserByEmail — o funcionário define a
+// própria senha ao aceitar o convite em /redefinir-senha.
 export const funcionarioSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(120),
   email: z.string().email('E-mail inválido'),
@@ -207,18 +242,8 @@ export const funcionarioSchema = z.object({
     .string()
     .regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
   cargo: z.string().max(100).optional(),
-  senha: z
-    .string()
-    .min(8, 'Senha deve ter no mínimo 8 caracteres')
-    .regex(/[A-Z]/, 'Deve conter ao menos uma letra maiúscula')
-    .regex(/[0-9]/, 'Deve conter ao menos um número')
-    .regex(/[^A-Za-z0-9]/, 'Deve conter ao menos um caractere especial'),
-  confirmaSenha: z.string(),
   pode_gerenciar_agenda: z.boolean().default(true),
   pode_gerenciar_servicos: z.boolean().default(false),
-}).refine(d => d.senha === d.confirmaSenha, {
-  message: 'Senhas não conferem',
-  path: ['confirmaSenha'],
 })
 
 export const editarFuncionarioSchema = z.object({
@@ -267,3 +292,5 @@ export type AgendamentoOnlineData = z.infer<typeof agendamentoOnlineSchema>
 export type AgendamentoLojistaData = z.infer<typeof agendamentoLojistaSchema>
 export type FuncionarioData = z.infer<typeof funcionarioSchema>
 export type EditarFuncionarioData = z.infer<typeof editarFuncionarioSchema>
+export type CadastroClienteLojistaData = z.infer<typeof cadastroClienteLojistaSchema>
+export type RedefinirSenhaData = z.infer<typeof redefinirSenhaSchema>

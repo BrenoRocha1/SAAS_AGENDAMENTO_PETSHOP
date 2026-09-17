@@ -1496,6 +1496,15 @@ a:hover { color: var(--primary-300); }
    ============================================================ */
 .lojista-shell, .cliente-shell {
   background: var(--gray-950);
+  /* Sem isso, todo texto "puro" (sem cor própria) dentro do shell claro
+     herdaria o `color` do <body>, que é resolvido no escopo do :root
+     (dark mode) ANTES de chegar aqui — herança de propriedade herda o
+     valor já computado, não a variável. Um monte de texto (ex.: valores
+     dos cards em Meus Agendamentos) ficava cinza-claro sobre fundo
+     branco, quase ilegível. Declarar `color` aqui força reavaliar
+     var(--gray-100) já com a ligação clara definida abaixo, e propaga
+     certo para tudo que não define a própria cor. */
+  color: var(--gray-100);
 
   /* Superfícies e texto — invertido do dark mode: onde --gray-900 era
      "quase preto" (fundo de card), agora é branco; onde --gray-100 era
@@ -1974,6 +1983,15 @@ a:hover { color: var(--primary-300); }
   color: var(--lg-ink);
   font-family: var(--font-body);
 }
+
+/* Links "soltos" sem classe própria (ex.: "Voltar para o login", dentro
+   de .login-signup-hint) herdam `color` do <a> global (--primary-400,
+   roxo do dark mode) em vez do `.login-shell` — uma regra que mira o
+   elemento em si sempre vence a herdada do ancestral. Escopado só pra
+   esses links de texto puro; .login-btn-outline já define a própria cor
+   e não deve ser afetado. */
+.login-signup-hint a { color: var(--lg-accent-700); }
+.login-signup-hint a:hover { color: var(--lg-accent); }
 
 /* ---------- painel do formulário (claro, seco) ---------- */
 .login-form-pane {

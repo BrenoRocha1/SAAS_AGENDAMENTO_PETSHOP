@@ -4,8 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import {
   cadastroClienteSchema,
+  cadastroClienteLojistaSchema,
   editarClienteLojistaSchema,
   cadastroLojistSchema,
   slugLojistaSchema,
@@ -23,6 +25,7 @@ import {
   funcionarioSchema,
   editarFuncionarioSchema,
   perfilClienteSchema,
+  redefinirSenhaSchema,
 } from '@/lib/validations'
 import type { ServicoVariacaoData } from '@/lib/validations'
 
@@ -38,6 +41,19 @@ function devError(mensagemAmigavel: string, detalheTecnico?: string | null) {
     return `${mensagemAmigavel} [DEV: ${detalheTecnico}]`
   }
   return mensagemAmigavel
+}
+
+// ============================================================
+// HELPER: origin da requisição (pra montar redirectTo de e-mails do
+// Supabase Auth — convite, redefinição de senha). Não existe URL fixa
+// de produção configurada ainda, então deriva do header Host em vez de
+// hardcodar — funciona igual em localhost e no domínio real.
+// ============================================================
+async function obterOrigin() {
+  const h = await headers()
+  const host = h.get('host') ?? 'localhost:3000'
+  const protocolo = host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https'
+  return `${protocolo}://${host}`
 }
 
 // ============================================================
@@ -141,6 +157,62 @@ export async function logoutAction(redirectTo?: string) {
   await supabase.auth.signOut()
   revalidatePath('/', 'layout')
   redirect(redirectTo?.startsWith('/agendamento/') ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : '/login')
+}
+
+// ============================================================
+// REDEFINIÇÃO DE SENHA
+// ============================================================
+// Duas entradas pra mesma tela (/redefinir-senha): "esqueci minha senha"
+// (a própria pessoa pede) e o convite de cliente/funcionário cadastrado
+// pelo lojista (cadastrarClienteLojistaAction/cadastrarFuncionarioAction),
+// que nunca teve senha nenhuma. Ambas passam por /auth/callback, que
+// troca o código do link por uma sessão antes de chegar aqui.
+
+export async function solicitarRedefinicaoSenhaAction(formData: FormData) {
+  const email = (formData.get('email') as string)?.trim().toLowerCase()
+  if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+    return { error: 'Informe um e-mail válido.' }
+  }
+
+  const supabase = await createClient()
+  const origin = await obterOrigin()
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/redefinir-senha`,
+  })
+
+  if (error) {
+    console.error('[solicitarRedefinicaoSenhaAction] error:', error.message)
+  }
+
+  // Sempre "sucesso" pro chamador — nunca revela se o e-mail existe ou
+  // não no banco (evita enumeração de contas).
+  return { success: true }
+}
+
+export async function atualizarSenhaAction(formData: FormData) {
+  const raw = {
+    senha: formData.get('senha') as string,
+    confirmaSenha: formData.get('confirmaSenha') as string,
+  }
+
+  const parsed = redefinirSenhaSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: 'Link expirado ou inválido. Solicite um novo link de redefinição de senha.' }
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.senha })
+  if (error) {
+    return { error: devError('Não foi possível atualizar a senha. Tente novamente.', error.message) }
+  }
+
+  return { success: true }
 }
 
 export async function cadastroClienteAction(formData: FormData) {
@@ -1312,12 +1384,14 @@ export async function atualizarJanelaAgendamentoAction(formData: FormData): Prom
 // ============================================================
 
 // Cadastra um cliente direto pelo lojista (walk-in, telefone — cliente
-// que não usa o app). Mesmo padrão de cadastrarFuncionarioAction: cria
-// a conta Auth via admin API (o lojista logado não pode usar signUp
-// pra outra pessoa sem deslogar a própria sessão) e insere na tabela
-// `cliente` via RPC SECURITY DEFINER (migration 014), que também grava
-// o vínculo em cliente_lojista pra o cliente aparecer na lista e já
-// poder receber o primeiro agendamento manual.
+// que não usa o app). O lojista informa só os dados, nunca uma senha —
+// a conta é criada via convite (admin.inviteUserByEmail), que dispara um
+// e-mail com um link de acesso único; o cliente define a própria senha
+// ao abrir esse link em /redefinir-senha (mesma tela usada por "esqueci
+// minha senha"). Insere na tabela `cliente` via RPC SECURITY DEFINER
+// (migration 014), que também grava o vínculo em cliente_lojista pra o
+// cliente aparecer na lista e já poder receber o primeiro agendamento
+// manual.
 export async function cadastrarClienteLojistaAction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -1330,11 +1404,9 @@ export async function cadastrarClienteLojistaAction(formData: FormData) {
     cpf: (formData.get('cpf') as string).replace(/\D/g, ''),
     email: formData.get('email') as string,
     telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
-    senha: formData.get('senha') as string,
-    confirmaSenha: formData.get('confirmaSenha') as string,
   }
 
-  const parsed = cadastroClienteSchema.safeParse(raw)
+  const parsed = cadastroClienteLojistaSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
   }
@@ -1344,20 +1416,19 @@ export async function cadastrarClienteLojistaAction(formData: FormData) {
     return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
   }
 
-  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
-    email: parsed.data.email,
-    password: parsed.data.senha,
-    email_confirm: true,
-    user_metadata: { role: 'cliente', nome: parsed.data.nome },
+  const origin = await obterOrigin()
+  const { data: authData, error: authError } = await adminClient.auth.admin.inviteUserByEmail(parsed.data.email, {
+    redirectTo: `${origin}/auth/callback?next=/redefinir-senha`,
+    data: { role: 'cliente', nome: parsed.data.nome },
   })
 
   if (authError) {
-    console.error('[cadastrarClienteLojistaAction] createUser error:', authError.message)
+    console.error('[cadastrarClienteLojistaAction] inviteUserByEmail error:', authError.message)
     const msg = authError.message.toLowerCase()
-    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate')) {
+    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate') || msg.includes('registered')) {
       return { error: 'Este e-mail já está cadastrado no sistema.' }
     }
-    return { error: devError('Não foi possível criar a conta do cliente. Tente novamente.', authError.message) }
+    return { error: devError('Não foi possível convidar o cliente. Tente novamente.', authError.message) }
   }
 
   if (!authData.user) {
@@ -1637,8 +1708,6 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     email: formData.get('email') as string,
     telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
     cargo: formData.get('cargo') as string,
-    senha: formData.get('senha') as string,
-    confirmaSenha: formData.get('confirmaSenha') as string,
     pode_gerenciar_agenda: formData.get('pode_gerenciar_agenda') === 'true',
     pode_gerenciar_servicos: formData.get('pode_gerenciar_servicos') === 'true',
   }
@@ -1655,12 +1724,13 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
   }
 
-  // Criar conta Auth para o funcionário via admin API
-  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
-    email: parsed.data.email,
-    password: parsed.data.senha,
-    email_confirm: true, // Confirma email automaticamente (funcionário convidado pelo lojista)
-    user_metadata: {
+  // Convida o funcionário por e-mail em vez de o lojista definir a senha
+  // dele — o funcionário define a própria senha ao aceitar o convite em
+  // /redefinir-senha.
+  const origin = await obterOrigin()
+  const { data: authData, error: authError } = await adminClient.auth.admin.inviteUserByEmail(parsed.data.email, {
+    redirectTo: `${origin}/auth/callback?next=/redefinir-senha`,
+    data: {
       role: 'funcionario',
       nome: parsed.data.nome,
       id_lojista: user.id,
@@ -1668,12 +1738,12 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
   })
 
   if (authError) {
-    console.error('[cadastrarFuncionarioAction] createUser error:', authError.message)
+    console.error('[cadastrarFuncionarioAction] inviteUserByEmail error:', authError.message)
     const msg = authError.message.toLowerCase()
-    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate')) {
+    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate') || msg.includes('registered')) {
       return { error: 'Este e-mail já está cadastrado no sistema.' }
     }
-    return { error: devError('Não foi possível criar a conta do funcionário. Tente novamente.', authError.message) }
+    return { error: devError('Não foi possível convidar o funcionário. Tente novamente.', authError.message) }
   }
 
   if (!authData.user) {

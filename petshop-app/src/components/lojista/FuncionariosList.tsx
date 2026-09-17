@@ -87,7 +87,7 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
         if (result?.error) {
           setError(result.error)
         } else {
-          setSuccess('Funcionário cadastrado com sucesso! Ele já pode fazer login.')
+          setSuccess('Convite enviado! O funcionário vai receber um e-mail para definir a própria senha e acessar o sistema.')
           closeModal()
           formRef.current?.reset()
         }
@@ -269,6 +269,9 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
                     placeholder="funcionario@email.com"
                     required
                   />
+                  <span className="form-hint">
+                    O funcionário vai receber um e-mail nesse endereço para definir a própria senha
+                  </span>
                 </div>
               )}
 
@@ -298,34 +301,6 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
                 </div>
               </div>
 
-              {!editId && (
-                <>
-                  <div className="separator" />
-                  <div className="form-group">
-                    <label htmlFor="func-senha" className="form-label form-label-required">Senha de acesso</label>
-                    <input
-                      id="func-senha"
-                      name="senha"
-                      type="password"
-                      className="form-input"
-                      placeholder="Mín. 8 chars, 1 maiúscula, 1 número, 1 especial"
-                      required
-                    />
-                    <span className="form-hint">O funcionário usará este e-mail e senha para acessar o sistema</span>
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="func-confirmaSenha" className="form-label form-label-required">Confirmar senha</label>
-                    <input
-                      id="func-confirmaSenha"
-                      name="confirmaSenha"
-                      type="password"
-                      className="form-input"
-                      placeholder="••••••••"
-                      required
-                    />
-                  </div>
-                </>
-              )}
 
               <div className="separator" />
 
@@ -421,8 +396,8 @@ export default function FuncionariosList({ funcionarios: initial }: Props) {
                   id="btn-salvar-funcionario"
                 >
                   {isPending
-                    ? (editId ? 'Salvando...' : 'Cadastrando...')
-                    : (editId ? 'Salvar Alterações' : 'Cadastrar Funcionário')
+                    ? (editId ? 'Salvando...' : 'Convidando...')
+                    : (editId ? 'Salvar Alterações' : 'Convidar Funcionário')
                   }
                 </button>
               </div>

@@ -309,7 +309,12 @@ function LoginFormPane() {
         </div>
 
         <div className="login-field">
-          <label htmlFor="senha" className="login-label">Senha</label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="senha" className="login-label">Senha</label>
+            <Link href="/esqueci-senha" style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--lg-accent-700)' }}>
+              Esqueceu a senha?
+            </Link>
+          </div>
           <div className="login-input-wrap">
             <IconLock />
             <input

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { cadastrarClienteLojistaAction, editarClienteLojistaAction } from '@/lib/actions'
-import { IconAlert, IconClose, IconUsers } from '@/components/icons'
+import { IconAlert, IconCheck, IconClose, IconUsers } from '@/components/icons'
 
 export interface ClienteParaEditar {
   id_cliente: string
@@ -19,6 +19,7 @@ interface Props {
 export default function ClienteFormModal({ cliente, onClose, onSaved }: Props) {
   const isEdicao = !!cliente
   const [error, setError] = useState<string | null>(null)
+  const [convidado, setConvidado] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -34,8 +35,39 @@ export default function ClienteFormModal({ cliente, onClose, onSaved }: Props) {
         setError(result.error)
         return
       }
-      onSaved()
+      if (isEdicao) {
+        onSaved()
+      } else {
+        setConvidado(true)
+      }
     })
+  }
+
+  if (convidado) {
+    return (
+      <div className="modal-overlay" onClick={onSaved}>
+        <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h3 className="modal-title">Convite enviado</h3>
+            <button className="modal-close" onClick={onSaved} aria-label="Fechar">
+              <IconClose style={{ width: 15, height: 15 }} />
+            </button>
+          </div>
+          <div className="modal-body">
+            <div className="alert alert-success">
+              <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+              <span>
+                O cliente já aparece na sua lista e recebeu um e-mail para definir a própria senha
+                e acessar o sistema.
+              </span>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-primary" onClick={onSaved}>Fechar</button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -130,34 +162,9 @@ export default function ClienteFormModal({ cliente, onClose, onSaved }: Props) {
                     required
                     disabled={isPending}
                   />
-                </div>
-
-                <div className="separator" />
-
-                <div className="form-group">
-                  <label htmlFor="cli-senha" className="form-label form-label-required">Senha de acesso</label>
-                  <input
-                    id="cli-senha"
-                    name="senha"
-                    type="password"
-                    className="form-input"
-                    placeholder="Mín. 8 chars, 1 maiúscula, 1 número, 1 especial"
-                    required
-                    disabled={isPending}
-                  />
-                  <span className="form-hint">O cliente usará este e-mail e senha para acessar o sistema</span>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="cli-confirmaSenha" className="form-label form-label-required">Confirmar senha</label>
-                  <input
-                    id="cli-confirmaSenha"
-                    name="confirmaSenha"
-                    type="password"
-                    className="form-input"
-                    placeholder="••••••••"
-                    required
-                    disabled={isPending}
-                  />
+                  <span className="form-hint">
+                    O cliente vai receber um e-mail nesse endereço para definir a própria senha
+                  </span>
                 </div>
               </>
             )}
@@ -173,7 +180,7 @@ export default function ClienteFormModal({ cliente, onClose, onSaved }: Props) {
               disabled={isPending}
               id="btn-salvar-cliente"
             >
-              {isPending ? 'Salvando...' : isEdicao ? 'Salvar Alterações' : 'Cadastrar Cliente'}
+              {isPending ? 'Salvando...' : isEdicao ? 'Salvar Alterações' : 'Convidar Cliente'}
             </button>
           </div>
         </form>
