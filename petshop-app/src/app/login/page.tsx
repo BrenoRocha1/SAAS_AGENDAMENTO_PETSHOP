@@ -79,6 +79,13 @@ function IconGoogle() {
     </svg>
   )
 }
+function IconApple() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.52-3.23 0-1.44.64-2.2.46-3.06-.4C3.79 16.17 4.36 9.53 8.7 9.28c1.23.06 2.09.72 2.81.76.98-.2 1.92-.77 2.98-.7 1.27.1 2.22.6 2.84 1.53-2.6 1.54-1.98 4.93.37 5.87-.47 1.22-.67 1.76-1.27 2.84l-.38.7ZM12.05 9.18c-.14-2.42 1.82-4.5 4.1-4.68.32 2.71-2.44 4.82-4.1 4.68Z" />
+    </svg>
+  )
+}
 function IconCalendar() {
   return (
     <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
@@ -217,10 +224,11 @@ function ErrorBanner({ message }: { message: string }) {
   )
 }
 
-function SecondaryButtons({ googleSlot }: { googleSlot: React.ReactNode }) {
+function SecondaryButtons({ googleSlot, appleSlot }: { googleSlot: React.ReactNode; appleSlot: React.ReactNode }) {
   return (
     <div className="login-secondary-stack">
       {googleSlot}
+      {appleSlot}
       <Link href="/cadastro" className="login-btn-outline">
         <IconPaw />
         Criar conta como cliente
@@ -273,7 +281,20 @@ function LoginFormPane() {
       setOauthPending(false)
       setError('Não foi possível conectar com o Google. Tente novamente.')
     }
-    // Em caso de sucesso o browser é redirecionado para o Google.
+  }
+
+  async function handleApple() {
+    setError(null)
+    setOauthPending(true)
+    const supabase = createClient()
+    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
+    if (oauthErr) {
+      setOauthPending(false)
+      setError('Não foi possível conectar com a Apple. Tente novamente.')
+    }
   }
 
   return (
@@ -358,6 +379,17 @@ function LoginFormPane() {
             {oauthPending ? 'Conectando...' : 'Continuar com o Google'}
           </button>
         }
+        appleSlot={
+          <button
+            type="button"
+            className="login-btn-outline"
+            onClick={handleApple}
+            disabled={oauthPending}
+          >
+            <IconApple />
+            {oauthPending ? 'Conectando...' : 'Continuar com a Apple'}
+          </button>
+        }
       />
 
       <p className="login-signup-hint">
@@ -407,6 +439,12 @@ function LoginFormFallback() {
           <button type="button" className="login-btn-outline" disabled>
             <IconGoogle />
             Continuar com o Google
+          </button>
+        }
+        appleSlot={
+          <button type="button" className="login-btn-outline" disabled>
+            <IconApple />
+            Continuar com a Apple
           </button>
         }
       />

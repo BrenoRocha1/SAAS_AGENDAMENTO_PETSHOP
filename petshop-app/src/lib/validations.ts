@@ -283,6 +283,33 @@ function validarCPF(cpf: string): boolean {
 }
 
 // ============================================================
+// Schemas para "completar cadastro" via Google OAuth
+// (o usuário já tem conta auth, falta os dados de perfil)
+// ============================================================
+
+// Cliente via Google: precisa de CPF e telefone (nome e email vêm do Google)
+export const completarCadastroClienteGoogleSchema = z.object({
+  cpf: z
+    .string()
+    .regex(/^\d{11}$/, 'CPF deve conter 11 dígitos numéricos')
+    .refine(validarCPF, 'CPF inválido'),
+  telefone: z
+    .string()
+    .regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
+})
+
+// Lojista via Google: precisa de nome_loja e telefone (email vem do Google)
+export const completarCadastroLojistaGoogleSchema = z.object({
+  nome_loja: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(150),
+  telefone: z.string().regex(/^\d{10,11}$/, 'Telefone inválido'),
+  descricao: z.string().max(500).optional(),
+  endereco: z.string().max(200).optional(),
+  cidade: z.string().max(100).optional(),
+  estado: z.string().length(2).optional(),
+  cep: z.string().regex(/^\d{8}$/, 'CEP deve ter 8 dígitos').optional(),
+})
+
+// ============================================================
 // Tipos derivados dos schemas
 // ============================================================
 export type LoginData = z.infer<typeof loginSchema>

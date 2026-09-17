@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { cadastroLojistaAction } from '@/lib/actions'
+import { createClient } from '@/lib/supabase/client'
 import { IconMapPin, IconPhone, IconStore } from '@/components/icons'
 
 const UF = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
@@ -66,11 +67,29 @@ function IconAlert() {
     </svg>
   )
 }
+function IconGoogle() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#4285F4" d="M23 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.2a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7C21.8 18.9 23 15.9 23 12.3Z" />
+      <path fill="#34A853" d="M12 23c3.1 0 5.7-1 7.6-2.8l-3.7-2.9c-1 .7-2.3 1.1-3.9 1.1-3 0-5.6-2-6.5-4.8H1.7v3C3.6 20.5 7.5 23 12 23Z" />
+      <path fill="#FBBC05" d="M5.5 13.6a6.6 6.6 0 0 1 0-4.2v-3H1.7a11 11 0 0 0 0 10.2l3.8-3Z" />
+      <path fill="#EA4335" d="M12 4.6c1.7 0 3.2.6 4.4 1.7l3.3-3.3C17.7 1.1 15.1 0 12 0 7.5 0 3.6 2.5 1.7 6.4l3.8 3C6.4 6.6 9 4.6 12 4.6Z" />
+    </svg>
+  )
+}
+function IconApple() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.52-3.23 0-1.44.64-2.2.46-3.06-.4C3.79 16.17 4.36 9.53 8.7 9.28c1.23.06 2.09.72 2.81.76.98-.2 1.92-.77 2.98-.7 1.27.1 2.22.6 2.84 1.53-2.6 1.54-1.98 4.93.37 5.87-.47 1.22-.67 1.76-1.27 2.84l-.38.7ZM12.05 9.18c-.14-2.42 1.82-4.5 4.1-4.68.32 2.71-2.44 4.82-4.1 4.68Z" />
+    </svg>
+  )
+}
 
 export default function CadastroLojistaPage() {
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [oauthPending, setOauthPending] = useState(false)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -80,6 +99,34 @@ export default function CadastroLojistaPage() {
       const result = await cadastroLojistaAction(new FormData(form))
       if (result?.error) setError(result.error)
     })
+  }
+
+  async function handleGoogle() {
+    setError(null)
+    setOauthPending(true)
+    const supabase = createClient()
+    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback?role=lojista` },
+    })
+    if (oauthErr) {
+      setOauthPending(false)
+      setError('Não foi possível conectar com o Google. Tente novamente.')
+    }
+  }
+
+  async function handleApple() {
+    setError(null)
+    setOauthPending(true)
+    const supabase = createClient()
+    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: { redirectTo: `${window.location.origin}/auth/callback?role=lojista` },
+    })
+    if (oauthErr) {
+      setOauthPending(false)
+      setError('Não foi possível conectar com a Apple. Tente novamente.')
+    }
   }
 
   return (
@@ -102,6 +149,32 @@ export default function CadastroLojistaPage() {
               <span>{error}</span>
             </div>
           )}
+
+          {/* ── Botões OAuth ── */}
+          <div className="login-secondary-stack">
+            <button
+              type="button"
+              className="login-btn-outline"
+              onClick={handleGoogle}
+              disabled={oauthPending}
+            >
+              <IconGoogle />
+              {oauthPending ? 'Conectando...' : 'Cadastrar com o Google'}
+            </button>
+            <button
+              type="button"
+              className="login-btn-outline"
+              onClick={handleApple}
+              disabled={oauthPending}
+            >
+              <IconApple />
+              {oauthPending ? 'Conectando...' : 'Cadastrar com a Apple'}
+            </button>
+          </div>
+
+          <div className="login-divider">
+            <span>ou</span>
+          </div>
 
           <form className="login-form" onSubmit={handleSubmit} noValidate>
             <div className="login-field">
