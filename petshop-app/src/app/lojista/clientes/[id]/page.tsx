@@ -222,28 +222,28 @@ export default async function PerfilClientePage({ params }: Props) {
       {/* ── Resumo ── */}
       <div className="grid-4" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="stat-card">
-          <div className="stat-card-icon" style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.25)', color: 'var(--warning-400)' }}>
+          <div className="stat-card-icon tone-warning">
             <IconMoney style={{ width: 20, height: 20 }} />
           </div>
           <div className="stat-card-value">{moeda(totalGasto)}</div>
           <div className="stat-card-label">Total gasto</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-icon" style={{ background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.25)', color: 'var(--info-400)' }}>
+          <div className="stat-card-icon tone-info">
             <IconMoney style={{ width: 20, height: 20 }} />
           </div>
           <div className="stat-card-value">{moeda(ticketMedio)}</div>
           <div className="stat-card-label">Ticket médio</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-icon" style={{ background: 'var(--primary-soft-bg)', border: '1px solid var(--primary-soft-border)', color: 'var(--primary-400)' }}>
+          <div className="stat-card-icon tone-primary">
             <IconCalendar style={{ width: 20, height: 20 }} />
           </div>
           <div className="stat-card-value">{naoCancelados.length}</div>
           <div className="stat-card-label">Agendamentos ({qtdVendas} concluídos)</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-icon" style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.25)', color: 'var(--success-400)' }}>
+          <div className="stat-card-icon tone-success">
             <IconDog style={{ width: 20, height: 20 }} />
           </div>
           <div className="stat-card-value">{pets.length}</div>

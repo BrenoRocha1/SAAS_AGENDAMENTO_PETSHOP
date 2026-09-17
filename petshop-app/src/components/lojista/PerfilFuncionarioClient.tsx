@@ -507,18 +507,10 @@ function Card({
   valor: string
   comparacao?: { atual: number; anterior: number }
 }) {
-  const cores: Record<string, { bg: string; border: string; fg: string }> = {
-    primary: { bg: 'var(--primary-soft-bg)', border: 'var(--primary-soft-border)', fg: 'var(--primary-400)' },
-    success: { bg: 'rgba(52,211,153,0.15)', border: 'rgba(52,211,153,0.25)', fg: 'var(--success-400)' },
-    warning: { bg: 'rgba(251,191,36,0.15)', border: 'rgba(251,191,36,0.25)', fg: 'var(--warning-400)' },
-    info: { bg: 'rgba(96,165,250,0.15)', border: 'rgba(96,165,250,0.25)', fg: 'var(--info-400)' },
-    danger: { bg: 'rgba(248,113,113,0.15)', border: 'rgba(248,113,113,0.25)', fg: 'var(--danger-400)' },
-  }
-  const c = cores[cor]
   return (
     <div className="stat-card">
       <div className="flex items-center justify-between">
-        <div className="stat-card-icon" style={{ background: c.bg, border: `1px solid ${c.border}`, color: c.fg }}>{icon}</div>
+        <div className={`stat-card-icon tone-${cor}`}>{icon}</div>
         {comparacao && <ComparacaoBadge {...comparacao} />}
       </div>
       <div className="stat-card-value">{valor}</div>

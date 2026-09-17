@@ -64,21 +64,21 @@ export default async function ClienteDashboard() {
 
       <div className="grid-3" style={{ marginBottom: 'var(--space-8)' }}>
         <div className="stat-card animate-slide-up">
-          <div className="stat-card-icon" style={{ background: 'var(--primary-soft-bg)', border: '1px solid var(--primary-soft-border)', color: 'var(--primary-400)' }}>
+          <div className="stat-card-icon tone-primary">
             <IconDog style={{ width: 20, height: 20 }} />
           </div>
           <div className="stat-card-value">{totalPets ?? 0}</div>
           <div className="stat-card-label">Pets cadastrados</div>
         </div>
         <div className="stat-card animate-slide-up">
-          <div className="stat-card-icon" style={{ background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.25)', color: 'var(--info-400)' }}>
+          <div className="stat-card-icon tone-info">
             <IconCalendar style={{ width: 20, height: 20 }} />
           </div>
           <div className="stat-card-value">{totalAgendamentos ?? 0}</div>
           <div className="stat-card-label">Total de agendamentos</div>
         </div>
         <div className="stat-card animate-slide-up">
-          <div className="stat-card-icon" style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.25)', color: 'var(--success-400)' }}>
+          <div className="stat-card-icon tone-success">
             <IconMoney style={{ width: 20, height: 20 }} />
           </div>
           <div className="stat-card-value">R$ {valorTotal.toFixed(2)}</div>
