@@ -158,18 +158,26 @@ export async function cadastroClienteAction(formData: FormData) {
     return { error: parsed.error.issues[0].message }
   }
 
-  const supabase = await createClient()
+  // Cria a conta via Admin API (email_confirm:true) em vez de signUp normal
+  // — mesmo padrão de cadastroLojistaAction/cadastrarClienteLojistaAction.
+  // Com "Confirm email" habilitado no projeto Supabase, signUp criava a
+  // conta mas o signInWithPassword logo abaixo falhava com "Email not
+  // confirmed", deixando o cliente com uma conta que não conseguia acessar.
+  const adminClient = createAdminClient()
+  if (!adminClient) {
+    return { error: 'Serviço temporariamente indisponível. Tente novamente em alguns minutos.' }
+  }
 
-  const { data: authData, error: authError } = await supabase.auth.signUp({
+  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
     email: parsed.data.email,
     password: parsed.data.senha,
-    options: {
-      data: { role: 'cliente', nome: parsed.data.nome },
-    },
+    email_confirm: true,
+    user_metadata: { role: 'cliente', nome: parsed.data.nome },
   })
 
   if (authError) {
-    if (authError.message.includes('already registered')) {
+    const msg = authError.message.toLowerCase()
+    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate') || msg.includes('registered')) {
       return { error: 'Este e-mail já está cadastrado' }
     }
     return { error: devError('Erro ao criar conta. Tente novamente.', authError.message) }
@@ -177,13 +185,6 @@ export async function cadastroClienteAction(formData: FormData) {
 
   if (!authData.user) {
     return { error: 'Erro interno. Tente novamente.' }
-  }
-
-  // Inserir na tabela cliente usando admin client (bypassa RLS pois a sessão
-  // ainda não foi propagada imediatamente após o signUp)
-  const adminClient = createAdminClient()
-  if (!adminClient) {
-    return { error: 'Serviço temporariamente indisponível. Tente novamente em alguns minutos.' }
   }
 
   const { error: clienteError } = await adminClient.from('cliente').insert({
@@ -201,10 +202,12 @@ export async function cadastroClienteAction(formData: FormData) {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // FIX: Estabelecer sessão nos cookies ANTES do redirect.
-  // O signUp cria o usuário mas não propaga o JWT nos cookies do response.
-  // Sem este signIn, o middleware bloqueará o acesso ao dashboard.
+  // Estabelecer sessão nos cookies ANTES do redirect.
+  // O adminClient não lida com cookies/sessão do browser — usamos o client
+  // normal pra fazer signIn e gravar o JWT nos cookies (mesmo padrão de
+  // cadastroLojistaAction).
   // ──────────────────────────────────────────────────────────────────────────
+  const supabase = await createClient()
   const { error: signInError } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
     password: parsed.data.senha,
