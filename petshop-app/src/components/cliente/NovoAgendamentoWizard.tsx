@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { criarAgendamentoAction } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
-import { format, addDays, startOfDay } from 'date-fns'
+import { format } from 'date-fns'
 import { removerHorariosPassados } from '@/lib/agenda'
 import { ptBR } from 'date-fns/locale'
+import SeletorDeData from './SeletorDeData'
 import {
   IconAlert, IconCalendar, IconCheck, IconClock, IconDog,
   IconMapPin, IconMoney, IconScissors, IconStore,
@@ -40,6 +41,20 @@ interface Slot {
   hr_slot: string
   disponivel: boolean
 }
+
+interface Horario {
+  dia_semana: string
+  ativo: boolean
+}
+
+interface Janela {
+  minValor: number
+  minUnidade: 'horas' | 'dias'
+  maxValor: number
+  maxUnidade: 'horas' | 'dias'
+}
+
+const JANELA_PADRAO: Janela = { minValor: 0, minUnidade: 'horas', maxValor: 30, maxUnidade: 'dias' }
 
 interface Props {
   pets: Pet[]
@@ -84,6 +99,8 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const [petId, setPetId] = useState('')
   const [servicos, setServicos] = useState<Servico[]>([])
   const [servicoId, setServicoId] = useState('')
+  const [horarios, setHorarios] = useState<Horario[]>([])
+  const [janela, setJanela] = useState<Janela>(JANELA_PADRAO)
   const [data, setData] = useState('')
   const [slots, setSlots] = useState<Slot[]>([])
   const [hora, setHora] = useState('')
@@ -97,6 +114,34 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       .eq('id_lojista', lojistaId)
       .eq('status', 'Ativo')
       .then(({ data }) => setServicos(data ?? []))
+  }, [lojistaId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dias abertos + janela de antecedência da loja escolhida — precisa pra
+  // desenhar o calendário (SeletorDeData) desabilitando dias fechados e
+  // fora da janela, igual ao Agendamento Online. fn_criar_agendamento já
+  // recusa no servidor uma data fora dessas regras; isso aqui é só pra
+  // não deixar o cliente escolher uma data que sempre vai ser rejeitada.
+  useEffect(() => {
+    if (!lojistaId) return
+    supabase
+      .from('horario')
+      .select('dia_semana, ativo')
+      .eq('id_lojista', lojistaId)
+      .then(({ data }) => setHorarios(data ?? []))
+    supabase
+      .from('lojista')
+      .select('agendamento_min_valor, agendamento_min_unidade, agendamento_max_valor, agendamento_max_unidade')
+      .eq('id_lojista', lojistaId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return
+        setJanela({
+          minValor: data.agendamento_min_valor,
+          minUnidade: data.agendamento_min_unidade,
+          maxValor: data.agendamento_max_valor,
+          maxUnidade: data.agendamento_max_unidade,
+        })
+      })
   }, [lojistaId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -137,11 +182,12 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const lojistaSel = lojistas.find(l => l.id_lojista === lojistaId)
   const petSel = pets.find(p => p.id_pet === petId)
 
-  const today = startOfDay(new Date())
-  const datasDisponiveis = Array.from({ length: 30 }, (_, i) => {
-    const d = addDays(today, i + 1)
-    return { value: format(d, 'yyyy-MM-dd'), label: format(d, "EEE, dd/MM", { locale: ptBR }) }
-  })
+  // "agora" via useState(() => ...) — lazy initializer, não chamada direta
+  // de Date.now() no corpo do componente (regra de pureza).
+  const [agora] = useState(() => Date.now())
+  const diasAbertos = useMemo(() => new Set(horarios.filter(h => h.ativo).map(h => h.dia_semana)), [horarios])
+  const minInstante = useMemo(() => new Date(agora + (janela.minUnidade === 'dias' ? janela.minValor * 24 : janela.minValor) * 3600_000), [agora, janela])
+  const maxInstante = useMemo(() => new Date(agora + (janela.maxUnidade === 'dias' ? janela.maxValor * 24 : janela.maxValor) * 3600_000), [agora, janela])
 
   return (
     <div style={{ maxWidth: 680 }}>
@@ -320,16 +366,13 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
 
           <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
             <label className="form-label form-label-required">Data</label>
-            <select
-              className="form-select"
-              value={data}
-              onChange={e => setData(e.target.value)}
-            >
-              <option value="">Selecione uma data</option>
-              {datasDisponiveis.map(d => (
-                <option key={d.value} value={d.value}>{d.label}</option>
-              ))}
-            </select>
+            <SeletorDeData
+              diasAbertos={diasAbertos}
+              minInstante={minInstante}
+              maxInstante={maxInstante}
+              dataSelecionada={data}
+              onSelecionar={setData}
+            />
           </div>
 
           {data && (
