@@ -9,7 +9,6 @@ import {
   IconClock,
   IconShield,
   IconStore,
-  IconUserBadge,
 } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'Configurações — Lojista' }
@@ -81,8 +80,8 @@ export default async function ConfiguracoesPage() {
       itens: [
         {
           href: '/lojista/equipe',
-          icon: <IconUserBadge style={{ width: 18, height: 18 }} />,
-          titulo: 'Equipe',
+          icon: <IconShield style={{ width: 18, height: 18 }} />,
+          titulo: 'Usuários e Permissões',
           descricao: 'Cadastre membros da equipe e administradores, e gerencie as permissões de cada um',
         },
       ],
@@ -90,12 +89,6 @@ export default async function ConfiguracoesPage() {
     {
       titulo: 'Sistema',
       itens: [
-        {
-          href: '/lojista/configuracoes/permissoes',
-          icon: <IconShield style={{ width: 18, height: 18 }} />,
-          titulo: 'Usuários e permissões',
-          descricao: 'Entenda quem acessa o quê e o que pode ser configurado por funcionário',
-        },
         {
           href: '/lojista/configuracoes/notificacoes',
           icon: <IconBell style={{ width: 18, height: 18 }} />,

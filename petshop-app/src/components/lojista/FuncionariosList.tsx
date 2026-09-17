@@ -312,148 +312,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
 
               <div className="separator" />
 
-              {/* Permissões */}
-              <div style={{ marginBottom: 'var(--space-4)' }}>
-                <h3 style={{
-                  fontSize: '0.95rem',
-                  fontWeight: 600,
-                  color: 'var(--gray-200)',
-                  marginBottom: 'var(--space-3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-2)',
-                }}>
-                  <IconShield style={{ width: 16, height: 16 }} /> Permissões
-                </h3>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-3)',
-                    padding: 'var(--space-3)',
-                    background: 'var(--gray-800)',
-                    borderRadius: 'var(--radius-md)',
-                    cursor: 'pointer',
-                  }}>
-                    <input
-                      type="checkbox"
-                      name="pode_gerenciar_agenda_check"
-                      defaultChecked={editFunc?.pode_gerenciar_agenda ?? true}
-                      onChange={(e) => {
-                        const hidden = e.target.form?.querySelector('#func-pode-agenda') as HTMLInputElement
-                        if (hidden) hidden.value = String(e.target.checked)
-                      }}
-                      style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
-                    />
-                    <input type="hidden" id="func-pode-agenda" name="pode_gerenciar_agenda" defaultValue={String(editFunc?.pode_gerenciar_agenda ?? true)} />
-                    <div>
-                      <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                        <IconCalendar style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Agenda
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
-                        Visualizar e alterar status de agendamentos
-                      </div>
-                    </div>
-                  </label>
-
-                  <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-3)',
-                    padding: 'var(--space-3)',
-                    background: 'var(--gray-800)',
-                    borderRadius: 'var(--radius-md)',
-                    cursor: 'pointer',
-                  }}>
-                    <input
-                      type="checkbox"
-                      name="pode_gerenciar_servicos_check"
-                      defaultChecked={editFunc?.pode_gerenciar_servicos ?? false}
-                      onChange={(e) => {
-                        const hidden = e.target.form?.querySelector('#func-pode-servicos') as HTMLInputElement
-                        if (hidden) hidden.value = String(e.target.checked)
-                      }}
-                      style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
-                    />
-                    <input type="hidden" id="func-pode-servicos" name="pode_gerenciar_servicos" defaultValue={String(editFunc?.pode_gerenciar_servicos ?? false)} />
-                    <div>
-                      <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                        <IconScissors style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Serviços
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
-                        Cadastrar e editar serviços do petshop
-                      </div>
-                    </div>
-                  </label>
-
-                  <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-3)',
-                    padding: 'var(--space-3)',
-                    background: 'var(--gray-800)',
-                    borderRadius: 'var(--radius-md)',
-                    cursor: 'pointer',
-                  }}>
-                    <input
-                      type="checkbox"
-                      name="pode_gerenciar_clientes_pets_check"
-                      defaultChecked={editFunc?.pode_gerenciar_clientes_pets ?? false}
-                      onChange={(e) => {
-                        const hidden = e.target.form?.querySelector('#func-pode-clientes-pets') as HTMLInputElement
-                        if (hidden) hidden.value = String(e.target.checked)
-                      }}
-                      style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
-                    />
-                    <input type="hidden" id="func-pode-clientes-pets" name="pode_gerenciar_clientes_pets" defaultValue={String(editFunc?.pode_gerenciar_clientes_pets ?? false)} />
-                    <div>
-                      <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                        <IconDog style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Pets e Clientes
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
-                        Visualizar os pets e clientes cadastrados no sistema
-                      </div>
-                    </div>
-                  </label>
-
-                  {(podeConcederAcessoTotal || editFunc?.acesso_total) && (
-                    <label style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 'var(--space-3)',
-                      padding: 'var(--space-3)',
-                      background: 'var(--gray-800)',
-                      borderRadius: 'var(--radius-md)',
-                      cursor: podeConcederAcessoTotal ? 'pointer' : 'not-allowed',
-                      opacity: podeConcederAcessoTotal ? 1 : 0.6,
-                    }}>
-                      <input
-                        type="checkbox"
-                        name="acesso_total_check"
-                        defaultChecked={editFunc?.acesso_total ?? false}
-                        disabled={!podeConcederAcessoTotal}
-                        onChange={(e) => {
-                          const hidden = e.target.form?.querySelector('#func-acesso-total') as HTMLInputElement
-                          if (hidden) hidden.value = String(e.target.checked)
-                        }}
-                        style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
-                      />
-                      <input type="hidden" id="func-acesso-total" name="acesso_total" defaultValue={String(editFunc?.acesso_total ?? false)} />
-                      <div>
-                        <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                          <IconShield style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Acesso Total (Administrador)
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
-                          {podeConcederAcessoTotal
-                            ? 'Mesmo acesso que você tem, em todas as telas — só você pode conceder isso'
-                            : 'Só o responsável pela conta pode conceder ou remover acesso total'}
-                        </div>
-                      </div>
-                    </label>
-                  )}
-                </div>
-              </div>
+              <PermissoesCampos editFunc={editFunc} podeConcederAcessoTotal={podeConcederAcessoTotal} />
 
               <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
                 <button
@@ -480,6 +339,168 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
         </div>
       )}
     </>
+  )
+}
+
+// ============================================================
+// Sub-componente: Campos de permissão do modal (estado próprio, reseta
+// a cada abertura do modal porque só é montado enquanto ele está aberto)
+// ============================================================
+function PermissoesCampos({
+  editFunc,
+  podeConcederAcessoTotal,
+}: {
+  editFunc: Funcionario | null
+  podeConcederAcessoTotal: boolean
+}) {
+  const [podeAgenda, setPodeAgenda] = useState(editFunc?.pode_gerenciar_agenda ?? true)
+  const [podeServicos, setPodeServicos] = useState(editFunc?.pode_gerenciar_servicos ?? false)
+  const [podeClientesPets, setPodeClientesPets] = useState(editFunc?.pode_gerenciar_clientes_pets ?? false)
+  const [acessoTotal, setAcessoTotal] = useState(editFunc?.acesso_total ?? false)
+
+  // "Acesso total" é paridade completa com o lojista — marcar ele já
+  // implica todas as outras permissões, então elas seguem juntas (e
+  // ficam travadas, já que desmarcar uma sozinha não faria sentido
+  // enquanto o administrador continua com acesso total).
+  function handleAcessoTotal(checked: boolean) {
+    setAcessoTotal(checked)
+    setPodeAgenda(checked)
+    setPodeServicos(checked)
+    setPodeClientesPets(checked)
+  }
+
+  return (
+    <div style={{ marginBottom: 'var(--space-4)' }}>
+      <h3 style={{
+        fontSize: '0.95rem',
+        fontWeight: 600,
+        color: 'var(--gray-200)',
+        marginBottom: 'var(--space-3)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--space-2)',
+      }}>
+        <IconShield style={{ width: 16, height: 16 }} /> Permissões
+      </h3>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-3)',
+          padding: 'var(--space-3)',
+          background: 'var(--gray-800)',
+          borderRadius: 'var(--radius-md)',
+          cursor: acessoTotal ? 'not-allowed' : 'pointer',
+          opacity: acessoTotal ? 0.6 : 1,
+        }}>
+          <input
+            type="checkbox"
+            checked={podeAgenda}
+            disabled={acessoTotal}
+            onChange={(e) => setPodeAgenda(e.target.checked)}
+            style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
+          />
+          <input type="hidden" name="pode_gerenciar_agenda" value={String(podeAgenda)} />
+          <div>
+            <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <IconCalendar style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Agenda
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
+              Visualizar e alterar status de agendamentos
+            </div>
+          </div>
+        </label>
+
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-3)',
+          padding: 'var(--space-3)',
+          background: 'var(--gray-800)',
+          borderRadius: 'var(--radius-md)',
+          cursor: acessoTotal ? 'not-allowed' : 'pointer',
+          opacity: acessoTotal ? 0.6 : 1,
+        }}>
+          <input
+            type="checkbox"
+            checked={podeServicos}
+            disabled={acessoTotal}
+            onChange={(e) => setPodeServicos(e.target.checked)}
+            style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
+          />
+          <input type="hidden" name="pode_gerenciar_servicos" value={String(podeServicos)} />
+          <div>
+            <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <IconScissors style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Serviços
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
+              Cadastrar e editar serviços do petshop
+            </div>
+          </div>
+        </label>
+
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-3)',
+          padding: 'var(--space-3)',
+          background: 'var(--gray-800)',
+          borderRadius: 'var(--radius-md)',
+          cursor: acessoTotal ? 'not-allowed' : 'pointer',
+          opacity: acessoTotal ? 0.6 : 1,
+        }}>
+          <input
+            type="checkbox"
+            checked={podeClientesPets}
+            disabled={acessoTotal}
+            onChange={(e) => setPodeClientesPets(e.target.checked)}
+            style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
+          />
+          <input type="hidden" name="pode_gerenciar_clientes_pets" value={String(podeClientesPets)} />
+          <div>
+            <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <IconDog style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Pets e Clientes
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
+              Visualizar os pets e clientes cadastrados no sistema
+            </div>
+          </div>
+        </label>
+
+        {(podeConcederAcessoTotal || editFunc?.acesso_total) && (
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-3)',
+            padding: 'var(--space-3)',
+            background: 'var(--gray-800)',
+            borderRadius: 'var(--radius-md)',
+            cursor: podeConcederAcessoTotal ? 'pointer' : 'not-allowed',
+            opacity: podeConcederAcessoTotal ? 1 : 0.6,
+          }}>
+            <input
+              type="checkbox"
+              checked={acessoTotal}
+              disabled={!podeConcederAcessoTotal}
+              onChange={(e) => handleAcessoTotal(e.target.checked)}
+              style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
+            />
+            <input type="hidden" name="acesso_total" value={String(acessoTotal)} />
+            <div>
+              <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <IconShield style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Acesso Total (Administrador)
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
+                {podeConcederAcessoTotal
+                  ? 'Mesmo acesso que você tem, em todas as telas — só você pode conceder isso'
+                  : 'Só o responsável pela conta pode conceder ou remover acesso total'}
+              </div>
+            </div>
+          </label>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -602,8 +623,9 @@ function FuncCard({
               fontSize: '0.7rem',
               padding: '2px 8px',
               borderRadius: 'var(--radius-sm)',
-              background: 'var(--primary-900)',
-              color: 'var(--primary-400)',
+              background: 'rgba(13,148,136,0.12)',
+              color: 'var(--primary-700)',
+              border: '1px solid rgba(13,148,136,0.3)',
               display: 'inline-flex',
               alignItems: 'center',
               gap: 4,
