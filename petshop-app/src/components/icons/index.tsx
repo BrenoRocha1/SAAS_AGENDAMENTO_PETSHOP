@@ -452,3 +452,14 @@ export function IconStar(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+// Botão "Ouvir" de cada som de notificação. Preenchido (fill="currentColor")
+// por padrão, diferente dos outros ícones — um triângulo de play vazado
+// fica visualmente estranho/pouco reconhecível nesse tamanho pequeno.
+export function IconPlay(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} fill="currentColor" stroke="none" {...props}>
+      <path d="M7.5 5.2c0-.9 1-1.5 1.8-1L17 8.8c.8.5.8 1.7 0 2.2l-7.7 4.6c-.8.5-1.8-.1-1.8-1V5.2Z" />
+    </svg>
+  )
+}

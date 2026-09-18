@@ -27,6 +27,7 @@ import {
   perfilClienteSchema,
   redefinirSenhaSchema,
   avaliacaoSchema,
+  somNotificacaoSchema,
 } from '@/lib/validations'
 import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } from '@/lib/lojista-context'
 import type { ServicoVariacaoData } from '@/lib/validations'
@@ -1387,6 +1388,50 @@ export async function alternarAgendamentoOnlineAction(ativo: boolean) {
   revalidatePath('/lojista/configuracoes/agendamentos')
   revalidatePath('/lojista/configuracoes')
   revalidatePath('/cliente/novo-agendamento')
+  return { success: true }
+}
+
+// Som de novos agendamentos (migration 036) — ativo + qual dos 5 sons,
+// salvos juntos num "Salvar alterações" só (diferente do toggle solo do
+// Kanban/Agendamento Online, que salva na hora). revalidatePath('/lojista',
+// 'layout') é o que importa aqui: é o layout que lê essas duas colunas pra
+// alimentar o listener de Realtime (NotificacaoNovoAgendamento), então
+// precisa recarregar em QUALQUER página do painel, não só nesta tela.
+export async function atualizarSomNotificacaoAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
+    return { error: 'Acesso não autorizado' }
+  }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+
+  const parsed = somNotificacaoSchema.safeParse({
+    ativo: formData.get('ativo') === 'true',
+    tipo: formData.get('tipo'),
+  })
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await db
+    .from('lojista')
+    .update({
+      som_novo_agendamento_ativo: parsed.data.ativo,
+      som_novo_agendamento_tipo: parsed.data.tipo,
+    })
+    .eq('id_lojista', contexto.idLojista)
+
+  if (error) {
+    if (error.code === '42703' || error.message?.includes('som_novo_agendamento')) {
+      return { error: 'Colunas de som ainda não encontradas no banco. Execute a migration 036_som_novo_agendamento.sql.' }
+    }
+    return { error: devError('Erro ao salvar a configuração de som.', error.message) }
+  }
+
+  revalidatePath('/lojista/configuracoes/notificacoes')
+  revalidatePath('/lojista', 'layout')
   return { success: true }
 }
 

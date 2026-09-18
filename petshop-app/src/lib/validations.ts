@@ -268,6 +268,13 @@ export const editarFuncionarioSchema = z.object({
 // (SMALLINT + CHECK BETWEEN 1 AND 5), porque validação de formulário não
 // é segurança. Comentário é opcional e segue o limite de 500 caracteres
 // que o resto do sistema já usa pra texto livre (agendamento.obs).
+// Som de novos agendamentos (migration 036) — mesma lista de 5 valores
+// que o CHECK do banco aceita; manter os dois sincronizados.
+export const somNotificacaoSchema = z.object({
+  ativo: z.boolean(),
+  tipo: z.enum(['sino', 'notificacao', 'campainha', 'alerta_suave', 'alerta_duplo']),
+})
+
 export const avaliacaoSchema = z.object({
   nota: z
     .number()
@@ -316,3 +323,4 @@ export type EditarFuncionarioData = z.infer<typeof editarFuncionarioSchema>
 export type CadastroClienteLojistaData = z.infer<typeof cadastroClienteLojistaSchema>
 export type RedefinirSenhaData = z.infer<typeof redefinirSenhaSchema>
 export type AvaliacaoData = z.infer<typeof avaliacaoSchema>
+export type SomNotificacaoData = z.infer<typeof somNotificacaoSchema>
