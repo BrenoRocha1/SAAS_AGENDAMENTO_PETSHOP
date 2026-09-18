@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import './landing.css'
 
 /* ------------------------------------------------------------------ *
- * ÍCONES DE LINHA MINIMALISTAS (1.75 stroke)
+ * LINE ICONS (1.75 STROKE - ULTRA CRISP)
  * ------------------------------------------------------------------ */
 const stroke = {
   fill: 'none',
@@ -120,7 +120,7 @@ function IconChevronDown({ open }: { open: boolean }) {
       height="18"
       style={{
         transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-        transition: 'transform 0.2s ease',
+        transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
       }}
       aria-hidden="true"
     >
@@ -130,17 +130,55 @@ function IconChevronDown({ open }: { open: boolean }) {
 }
 
 /* ------------------------------------------------------------------ *
- * COMPONENTE PRINCIPAL
+ * LANDING PAGE COMPONENT
  * ------------------------------------------------------------------ */
 export default function LandingPage() {
+  // 3D Perspective Tilt State
+  const sceneRef = useRef<HTMLDivElement>(null)
+  const [tilt, setTilt] = useState({ x: 0, y: 0 })
+
+  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (!sceneRef.current) return
+    const rect = sceneRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left - rect.width / 2
+    const y = e.clientY - rect.top - rect.height / 2
+    // Limit rotation to max 8 degrees for a luxurious 3D feel
+    const rotX = -(y / (rect.height / 2)) * 7
+    const rotY = (x / (rect.width / 2)) * 7
+    setTilt({ x: rotX, y: rotY })
+  }
+
+  function handleMouseLeave() {
+    setTilt({ x: 0, y: 0 })
+  }
+
+  // Interactive Demo State
+  const [activeTab, setActiveTab] = useState<'grade' | 'whatsapp' | 'prontuario' | 'financeiro'>('grade')
+  const [waConfirmed, setWaConfirmed] = useState(false)
+
+  // Interactive ROI Calculator State
+  const [petsPerDay, setPetsPerDay] = useState(24)
+  const monthlyRevenue = petsPerDay * 95 * 26 // R$ 95 ticket médio, 26 dias úteis
+  const noShowSavings = Math.round(monthlyRevenue * 0.12) // 12% a menos de faltas
+  const hoursSaved = Math.round(petsPerDay * 3.5) // ~3.5h por dia no mês
+
+  // Interactive Booking Simulator State
+  const [simPet, setSimPet] = useState<'thor' | 'pipoca'>('thor')
+  const [simService, setSimService] = useState<'banho' | 'tosa'>('banho')
+  const [simTime, setSimTime] = useState('14:00')
+  const [simBooked, setSimBooked] = useState(false)
+
+  // Perspective & FAQ State
   const [perspective, setPerspective] = useState<'lojista' | 'cliente'>('lojista')
   const [pricingCycle, setPricingCycle] = useState<'mensal' | 'anual'>('mensal')
   const [openFaq, setOpenFaq] = useState<number | null>(0)
-  const [activeTabPreview, setActiveTabPreview] = useState<'agenda' | 'whatsapp' | 'pet'>('agenda')
 
   return (
     <div className="lp-wrapper">
-      {/* ── 1. NAVBAR REFINADA COM STATUS LIVE ── */}
+      {/* Background ambient grid mesh */}
+      <div className="lp-bg-grid-mesh" />
+
+      {/* ── 1. NAVBAR GLASS ── */}
       <nav className="lp-nav">
         <div className="lp-container">
           <div className="lp-nav-inner">
@@ -148,16 +186,16 @@ export default function LandingPage() {
               <div className="lp-brand-logo">
                 <IconPaw />
               </div>
-              <div className="lp-brand-text">
+              <div className="lp-brand-title">
                 PetShop<span>Agenda</span>
               </div>
             </Link>
 
             <ul className="lp-nav-links">
+              <li><a href="#demonstracao" className="lp-nav-link">Demonstração 3D</a></li>
               <li><a href="#recursos" className="lp-nav-link">Recursos</a></li>
-              <li><a href="#demonstracao" className="lp-nav-link">Demonstração</a></li>
-              <li><a href="#experiencia" className="lp-nav-link">Para Petshops</a></li>
-              <li><a href="#comparativo" className="lp-nav-link">Diferenciais</a></li>
+              <li><a href="#calculadora" className="lp-nav-link">Calculadora ROI</a></li>
+              <li><a href="#simulador" className="lp-nav-link">Simulador Tutor</a></li>
               <li><a href="#precos" className="lp-nav-link">Planos</a></li>
               <li><a href="#faq" className="lp-nav-link">Dúvidas</a></li>
             </ul>
@@ -167,7 +205,7 @@ export default function LandingPage() {
                 Entrar
               </Link>
               <Link href="/cadastro/lojista" className="lp-btn lp-btn-primary">
-                Começar Grátis
+                + Novo Agendamento
                 <IconArrowUpRight />
               </Link>
             </div>
@@ -175,513 +213,728 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* ── 2. HERO SECTION COM IDENTIDADE EDITORIAL ── */}
+      {/* ── 2. HERO 3D COM CONTROLE DE PERSPECTIVA ── */}
       <header className="lp-hero">
         <div className="lp-container">
-          <div className="lp-hero-header">
-            <div className="lp-pill">
+          <div className="lp-hero-center">
+            <div className="lp-badge-tech">
               <span className="lp-dot-pulse" />
-              <span>SISTEMA DE AGENDAMENTO INTELIGENTE • V2.4</span>
+              <span>MOTOR DE AGENDAMENTO AUTÔNOMO V3.0 • TEMPO REAL</span>
             </div>
 
             <h1 className="lp-hero-title">
-              A agenda que <em>elimina o caos no balcão</em> e lota o banho e tosa.
+              A infraestrutura definitiva para <em>petshops de alta performance.</em>
             </h1>
 
-            <p className="lp-hero-desc">
-              Chega de perder agendamentos no WhatsApp ou sofrer com clientes que faltam sem avisar.
-              Uma plataforma especializada que confirma horários no automático, organiza tosadores
-              e oferece agendamento online 24h para seus tutores.
+            <p className="lp-hero-subtitle">
+              Automatize 100% da sua recepção, elimine faltas com confirmações no WhatsApp
+              e dê aos tutores o poder de agendar em 30 segundos — sem instalar nada.
             </p>
 
             <div className="lp-hero-actions">
-              <Link href="/cadastro/lojista" className="lp-btn lp-btn-primary" style={{ padding: '0.85rem 1.75rem', fontSize: '0.95rem' }}>
-                Cadastrar meu Petshop gratuitamente
+              <Link
+                href="/cadastro/lojista"
+                className="lp-btn lp-btn-primary"
+                style={{ padding: '0.95rem 2rem', fontSize: '1rem', borderRadius: 12 }}
+              >
+                Iniciar teste grátis de 14 dias
                 <IconArrowRight />
               </Link>
-              <Link href="/cadastro" className="lp-btn lp-btn-outline" style={{ padding: '0.85rem 1.5rem', fontSize: '0.95rem' }}>
-                Sou Tutor e quero agendar
-              </Link>
+              <a
+                href="#demonstracao"
+                className="lp-btn lp-btn-secondary"
+                style={{ padding: '0.95rem 1.65rem', fontSize: '1rem', borderRadius: 12 }}
+              >
+                Explorar Painel 3D
+                <IconSliders />
+              </a>
             </div>
 
-            <div className="lp-hero-microcopy">
-              <span>✓ Teste grátis por 14 dias</span>
-              <span>✓ Sem necessidade de cartão</span>
-              <span>✓ Configuração guiada em 5 min</span>
-            </div>
-          </div>
-
-          {/* METRICS RIBBON */}
-          <div className="lp-metrics-ribbon">
-            <div className="lp-metric-item">
-              <span className="lp-metric-value">+180</span>
-              <span className="lp-metric-label">Petshops operando diariamente</span>
-            </div>
-            <div className="lp-metric-item">
-              <span className="lp-metric-value">85%</span>
-              <span className="lp-metric-label">Menos faltas com lembrete WhatsApp</span>
-            </div>
-            <div className="lp-metric-item">
-              <span className="lp-metric-value">3.5h</span>
-              <span className="lp-metric-label">Economizadas por dia no balcão</span>
-            </div>
-            <div className="lp-metric-item">
-              <span className="lp-metric-value">4.9 / 5</span>
-              <span className="lp-metric-label">Satisfação dos tutores de pets</span>
+            <div className="lp-hero-trust">
+              <span>✓ Sem cartão de crédito</span>
+              <span>✓ Configuração em 4 minutos</span>
+              <span>✓ Suporte VIP via WhatsApp</span>
             </div>
           </div>
 
-          {/* ── 3. HERO CONSOLE INTERATIVO / DEMO REALISTA ── */}
-          <section id="demonstracao" className="lp-console">
-            <div className="lp-console-topbar">
-              <div className="lp-console-dots">
-                <span className="lp-console-dot" />
-                <span className="lp-console-dot" />
-                <span className="lp-console-dot" />
-                <span className="lp-mono-tag" style={{ marginLeft: '0.5rem' }}>
-                  PAINEL OPERACIONAL // HOJE, 14:00 - 18:00
-                </span>
+          {/* ── 3D INTERACTIVE CHASSIS (MOUSE TILT VIBRANTE) ── */}
+          <div
+            id="demonstracao"
+            ref={sceneRef}
+            className="lp-3d-scene"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          >
+            {/* Floating Badge 1 (Top Left) */}
+            <div className="lp-floating-card lp-float-top-left">
+              <div className="lp-float-icon-box">
+                <IconCalendar />
               </div>
-
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setActiveTabPreview('agenda')}
-                  className={`lp-btn ${activeTabPreview === 'agenda' ? 'lp-btn-primary' : 'lp-btn-ghost'}`}
-                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.775rem' }}
-                >
-                  Grade de Horários
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTabPreview('whatsapp')}
-                  className={`lp-btn ${activeTabPreview === 'whatsapp' ? 'lp-btn-primary' : 'lp-btn-ghost'}`}
-                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.775rem' }}
-                >
-                  Automação WhatsApp
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTabPreview('pet')}
-                  className={`lp-btn ${activeTabPreview === 'pet' ? 'lp-btn-primary' : 'lp-btn-ghost'}`}
-                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.775rem' }}
-                >
-                  Prontuário do Pet
-                </button>
+              <div>
+                <span className="lp-mono-code" style={{ color: 'var(--lp-primary)' }}>NOVO AGENDAMENTO</span>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--lp-text-main)' }}>
+                  Thor (Golden) • Banho & Tosa
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--lp-text-muted)' }}>Hoje às 14:00 • Lucas M.</div>
               </div>
             </div>
 
-            <div className="lp-console-main">
-              {/* Painel Principal de Demonstração */}
-              <div className="lp-console-schedule">
-                {activeTabPreview === 'agenda' && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                      <div>
-                        <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Quinta-feira, 17 de Setembro</h4>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--lp-ink-faint)', margin: 0 }}>4 profissionais ativos • 18 atendimentos previstos</p>
-                      </div>
-                      <span className="lp-pill" style={{ background: '#f0fdf4', color: '#166534', borderColor: '#bbf7d0' }}>
-                        ● 92% de ocupação
-                      </span>
-                    </div>
-
-                    {/* Slot 1 */}
-                    <div className="lp-slot-card">
-                      <div className="lp-slot-time">14:00 - 15:30</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <div>
-                            <strong style={{ fontSize: '0.95rem', color: 'var(--lp-ink)' }}>Thor</strong>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--lp-ink-faint)', marginLeft: '0.5rem' }}>Golden Retriever (32 kg)</span>
-                          </div>
-                          <span className="lp-status-chip lp-status-active">Em Atendimento 🚿</span>
-                        </div>
-                        <div style={{ fontSize: '0.825rem', color: 'var(--lp-ink-secondary)', marginTop: '0.35rem' }}>
-                          Banho Terapêutico + Tosa Tesoura • Tosador: <strong>Lucas Martins</strong>
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--lp-amber)', marginTop: '0.25rem', background: 'var(--lp-amber-soft)', padding: '0.25rem 0.5rem', borderRadius: 4, display: 'inline-block' }}>
-                          ⚠️ Pelo denso nas orelhas — usar shampoo hipoalergênico
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Slot 2 */}
-                    <div className="lp-slot-card">
-                      <div className="lp-slot-time">14:30 - 15:15</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <div>
-                            <strong style={{ fontSize: '0.95rem', color: 'var(--lp-ink)' }}>Mel</strong>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--lp-ink-faint)', marginLeft: '0.5rem' }}>Shih Tzu (5.2 kg)</span>
-                          </div>
-                          <span className="lp-status-chip lp-status-done">Finalizado ✨</span>
-                        </div>
-                        <div style={{ fontSize: '0.825rem', color: 'var(--lp-ink-secondary)', marginTop: '0.35rem' }}>
-                          Banho Completo + Hidratação Argan • Banhista: <strong>Beatriz Silva</strong>
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--lp-ink-faint)', marginTop: '0.25rem' }}>
-                          Tutor avisado via WhatsApp às 15:12 para retirada
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Slot 3 */}
-                    <div className="lp-slot-card">
-                      <div className="lp-slot-time">15:30 - 16:30</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <div>
-                            <strong style={{ fontSize: '0.95rem', color: 'var(--lp-ink)' }}>Bob</strong>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--lp-ink-faint)', marginLeft: '0.5rem' }}>Spitz Alemão (3.8 kg)</span>
-                          </div>
-                          <span className="lp-status-chip lp-status-wait">Confirmado pelo Tutor ✓</span>
-                        </div>
-                        <div style={{ fontSize: '0.825rem', color: 'var(--lp-ink-secondary)', marginTop: '0.35rem' }}>
-                          Tosa Bebê + Escovação de Dentes • Tosador: <strong>Lucas Martins</strong>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTabPreview === 'whatsapp' && (
-                  <div className="lp-chat-box">
-                    <div className="lp-chat-msg lp-chat-in">
-                      <strong>PetCare Estética Animal</strong><br />
-                      Olá, Mariana! Lembrete do agendamento do <strong>Bob</strong> amanhã (18/09) às <strong>15:30</strong> para Tosa Bebê.
-                      <div className="lp-chat-btn-group">
-                        <button type="button" className="lp-chat-btn">✓ Confirmar presença</button>
-                        <button type="button" className="lp-chat-btn" style={{ borderColor: '#ccc', color: '#666' }}>Reagendar horário</button>
-                      </div>
-                    </div>
-
-                    <div className="lp-chat-msg lp-chat-out">
-                      Confirmar presença
-                    </div>
-
-                    <div className="lp-chat-msg lp-chat-in">
-                      Perfeito! Seu horário está confirmado com o Lucas. Estamos ansiosos para receber o Bob! 🐾
-                    </div>
-                  </div>
-                )}
-
-                {activeTabPreview === 'pet' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                      <div style={{ width: 54, height: 54, borderRadius: 12, background: 'var(--lp-bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.75rem', border: '1px solid var(--lp-border)' }}>
-                        🐕
-                      </div>
-                      <div>
-                        <h4 style={{ margin: 0, fontSize: '1.1rem' }}>Thor — Golden Retriever</h4>
-                        <p style={{ margin: 0, fontSize: '0.825rem', color: 'var(--lp-ink-faint)' }}>Tutor: Marcelo Albuquerque • (11) 98765-4321</p>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-                      <div style={{ background: 'var(--lp-bg-subtle)', padding: '0.75rem', borderRadius: 8, border: '1px solid var(--lp-border-light)' }}>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--lp-ink-faint)' }}>PESO ATUAL</span>
-                        <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>32.4 kg</div>
-                      </div>
-                      <div style={{ background: 'var(--lp-bg-subtle)', padding: '0.75rem', borderRadius: 8, border: '1px solid var(--lp-border-light)' }}>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--lp-ink-faint)' }}>FREQUÊNCIA</span>
-                        <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Quinzenal</div>
-                      </div>
-                      <div style={{ background: 'var(--lp-bg-subtle)', padding: '0.75rem', borderRadius: 8, border: '1px solid var(--lp-border-light)' }}>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--lp-ink-faint)' }}>TOTAL VISITAS</span>
-                        <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>14 banhos</div>
-                      </div>
-                    </div>
-
-                    <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: 8, padding: '0.85rem', fontSize: '0.85rem', color: '#92400e' }}>
-                      <strong>Observações do Tosador:</strong> Não gosta do soprador próximo aos olhos. Usar toalha morna e finalizador sem perfume.
-                    </div>
-                  </div>
-                )}
+            {/* Floating Badge 2 (Bottom Right) */}
+            <div className="lp-floating-card lp-float-bottom-right">
+              <div className="lp-float-icon-box" style={{ background: '#ecfdf5', color: '#047857' }}>
+                <IconTrendingUp />
               </div>
+              <div>
+                <span className="lp-mono-code" style={{ color: '#047857' }}>TAXA DE OCUPAÇÃO</span>
+                <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--lp-text-main)' }}>
+                  94.8% da capacidade
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--lp-text-muted)' }}>+32% faturamento este mês</div>
+              </div>
+            </div>
 
-              {/* Barra Lateral do Console */}
-              <div className="lp-console-sidebar">
-                <span className="lp-mono-tag" style={{ display: 'block', marginBottom: '1rem' }}>
-                  REGISTRO OPERACIONAL
-                </span>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', fontSize: '0.825rem' }}>
-                  <div style={{ paddingBottom: '0.75rem', borderBottom: '1px solid var(--lp-border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--lp-ink-faint)', fontSize: '0.725rem' }}>
-                      <span>WHATSAPP BOT</span>
-                      <span>14:15</span>
-                    </div>
-                    <p style={{ margin: '0.25rem 0 0', color: 'var(--lp-ink)' }}>
-                      Confirmação recebida de <strong>Mariana F.</strong> (Bob). Grade atualizada.
-                    </p>
+            {/* Viewport 3D rotativo */}
+            <div
+              className="lp-3d-viewport"
+              style={{
+                transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
+              }}
+            >
+              <div className="lp-3d-chassis">
+                {/* Header do Chassis */}
+                <div className="lp-chassis-bar">
+                  <div className="lp-chassis-dots">
+                    <span className="lp-chassis-dot" />
+                    <span className="lp-chassis-dot" />
+                    <span className="lp-chassis-dot" />
+                    <span className="lp-mono-code" style={{ marginLeft: '0.75rem' }}>
+                      CENTRO DE COMANDO // HOJE: 17 DE SETEMBRO
+                    </span>
                   </div>
 
-                  <div style={{ paddingBottom: '0.75rem', borderBottom: '1px solid var(--lp-border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--lp-ink-faint)', fontSize: '0.725rem' }}>
-                      <span>RECEPÇÃO</span>
-                      <span>14:02</span>
-                    </div>
-                    <p style={{ margin: '0.25rem 0 0', color: 'var(--lp-ink)' }}>
-                      Check-in efetuado para <strong>Thor</strong>. Encaminhado para banheira 02.
-                    </p>
-                  </div>
-
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--lp-ink-faint)', fontSize: '0.725rem' }}>
-                      <span>AUTOMAÇÃO DE RETORNO</span>
-                      <span>13:40</span>
-                    </div>
-                    <p style={{ margin: '0.25rem 0 0', color: 'var(--lp-ink)' }}>
-                      Lembrete de retorno disparado para 3 tutores ausentes há +25 dias.
-                    </p>
+                  <div className="lp-chassis-tabs">
+                    <button
+                      type="button"
+                      className={`lp-chassis-tab-btn ${activeTab === 'grade' ? 'active' : ''}`}
+                      onClick={() => setActiveTab('grade')}
+                    >
+                      Grade de Horários
+                    </button>
+                    <button
+                      type="button"
+                      className={`lp-chassis-tab-btn ${activeTab === 'whatsapp' ? 'active' : ''}`}
+                      onClick={() => setActiveTab('whatsapp')}
+                    >
+                      WhatsApp Agent
+                    </button>
+                    <button
+                      type="button"
+                      className={`lp-chassis-tab-btn ${activeTab === 'prontuario' ? 'active' : ''}`}
+                      onClick={() => setActiveTab('prontuario')}
+                    >
+                      Prontuário Pet
+                    </button>
+                    <button
+                      type="button"
+                      className={`lp-chassis-tab-btn ${activeTab === 'financeiro' ? 'active' : ''}`}
+                      onClick={() => setActiveTab('financeiro')}
+                    >
+                      Comissões & Caixa
+                    </button>
                   </div>
                 </div>
 
-                <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--lp-border)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--lp-ink-faint)' }}>Faturamento Hoje:</span>
-                    <strong style={{ fontSize: '1rem', color: 'var(--lp-accent-700)' }}>R$ 1.840,00</strong>
+                {/* Grid interno da visualização */}
+                <div className="lp-console-grid">
+                  {/* Painel Esquerdo */}
+                  <div className="lp-console-main-pane">
+                    {activeTab === 'grade' && (
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                          <div>
+                            <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--lp-text-main)' }}>
+                              Quinta-feira • 18 Atendimentos Programados
+                            </h4>
+                            <p style={{ margin: 0, fontSize: '0.825rem', color: 'var(--lp-text-muted)' }}>
+                              Mesa 1 (Lucas M.), Mesa 2 (Beatriz S.), Banheira 1 e 2 operando
+                            </p>
+                          </div>
+                          <span className="lp-tag-status lp-tag-active">● 3 em andamento</span>
+                        </div>
+
+                        {/* Card 1 */}
+                        <div className="lp-item-card">
+                          <div className="lp-time-badge">14:00 - 15:30</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <strong style={{ fontSize: '1rem', color: 'var(--lp-text-main)' }}>Thor</strong>
+                              <span className="lp-tag-status lp-tag-active">Em Secagem 🚿</span>
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--lp-text-secondary)', marginTop: '0.2rem' }}>
+                              Golden Retriever (32 kg) • Banho Terapêutico + Tosa Higiênica • Tosador: <strong>Lucas M.</strong>
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#92400e', background: '#fffbeb', padding: '0.2rem 0.5rem', borderRadius: 4, display: 'inline-block', marginTop: '0.35rem' }}>
+                              ⚠️ Alergia a perfumes cítricos — Usar toalha morna e finalizador neutro
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Card 2 */}
+                        <div className="lp-item-card">
+                          <div className="lp-time-badge">14:30 - 15:15</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <strong style={{ fontSize: '1rem', color: 'var(--lp-text-main)' }}>Mel</strong>
+                              <span className="lp-tag-status lp-tag-done">Pronta para Retirada ✨</span>
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--lp-text-secondary)', marginTop: '0.2rem' }}>
+                              Shih Tzu (5.2 kg) • Tosa Bebê Tesoura + Hidratação • Banhista: <strong>Beatriz S.</strong>
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--lp-text-muted)', marginTop: '0.25rem' }}>
+                              WhatsApp automático disparado às 15:10 comunicando a tutora
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Card 3 */}
+                        <div className="lp-item-card">
+                          <div className="lp-time-badge">15:30 - 16:30</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <strong style={{ fontSize: '1rem', color: 'var(--lp-text-main)' }}>Pipoca</strong>
+                              <span className="lp-tag-status lp-tag-indigo">Confirmado pelo Tutor ✓</span>
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--lp-text-secondary)', marginTop: '0.2rem' }}>
+                              Spitz Alemão (3.8 kg) • Desembolo + Banho de Hidratação • Tosador: <strong>Lucas M.</strong>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {activeTab === 'whatsapp' && (
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                          <span className="lp-mono-code" style={{ color: 'var(--lp-primary)' }}>SIMULAÇÃO DO BOT WHATSAPP EM NUVEM</span>
+                          <span className="lp-tag-status lp-tag-active">Status: Online</span>
+                        </div>
+
+                        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '1.25rem', marginBottom: '1rem' }}>
+                          <div style={{ fontWeight: 700, color: '#166534', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <IconMessageCircle />
+                            Mensagem Automática Enviada ao Tutor:
+                          </div>
+                          <p style={{ margin: 0, fontSize: '0.9rem', color: '#1e3a5f', lineHeight: 1.5 }}>
+                            &quot;Olá, Camila! 🐾 O horário da <strong>Pipoca</strong> para Banho & Tosa está agendado para amanhã às <strong>15:30</strong> na PetCare. Por favor, confirme se comparecerá:&quot;
+                          </p>
+
+                          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                            <button
+                              type="button"
+                              onClick={() => setWaConfirmed(true)}
+                              className="lp-btn lp-btn-primary"
+                              style={{ padding: '0.45rem 1rem', fontSize: '0.8rem', borderRadius: 6 }}
+                            >
+                              {waConfirmed ? '✓ Presença Confirmada!' : 'Confirmar Presença (Simular Clique)'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setWaConfirmed(false)}
+                              className="lp-btn lp-btn-secondary"
+                              style={{ padding: '0.45rem 0.85rem', fontSize: '0.8rem', borderRadius: 6 }}
+                            >
+                              Reagendar Horário
+                            </button>
+                          </div>
+                        </div>
+
+                        {waConfirmed && (
+                          <div style={{ background: '#ffffff', border: '1px solid var(--lp-primary-border)', borderRadius: 10, padding: '0.85rem', fontSize: '0.85rem', color: 'var(--lp-text-main)' }}>
+                            ⚡ <strong>Ação Instantânea no Painel:</strong> O status do agendamento foi atualizado para verde e a vaga está 100% garantida sem que você precisasse digitar nada.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {activeTab === 'prontuario' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
+                          <div style={{ width: 60, height: 60, borderRadius: 14, background: 'var(--lp-primary-soft)', color: 'var(--lp-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', border: '1px solid var(--lp-primary-border)' }}>
+                            🐕
+                          </div>
+                          <div>
+                            <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--lp-text-main)' }}>
+                              Thor — Golden Retriever
+                            </h4>
+                            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--lp-text-muted)' }}>
+                              Tutor: Ricardo Camargo • Fone: (11) 99882-1100 • Microchip: #BR-882910
+                            </p>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                          <div style={{ background: '#ffffff', border: '1px solid var(--lp-border)', padding: '1rem', borderRadius: 10 }}>
+                            <span className="lp-mono-code">PESO CORPÓREO</span>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--lp-text-main)', marginTop: 4 }}>32.4 kg</div>
+                          </div>
+                          <div style={{ background: '#ffffff', border: '1px solid var(--lp-border)', padding: '1rem', borderRadius: 10 }}>
+                            <span className="lp-mono-code">FREQUÊNCIA MÉDIA</span>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--lp-primary)', marginTop: 4 }}>A cada 14 dias</div>
+                          </div>
+                          <div style={{ background: '#ffffff', border: '1px solid var(--lp-border)', padding: '1rem', borderRadius: 10 }}>
+                            <span className="lp-mono-code">LTV ACUMULADO</span>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#047857', marginTop: 4 }}>R$ 2.480,00</div>
+                          </div>
+                        </div>
+
+                        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '1rem', fontSize: '0.875rem', color: '#92400e' }}>
+                          <strong>Ficha de Cuidados Especiais:</strong> Cão dócil, mas fica inquieto durante o corte de unhas das patas traseiras. Recomenda-se realizar em dupla no final do atendimento.
+                        </div>
+                      </div>
+                    )}
+
+                    {activeTab === 'financeiro' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+                          <div style={{ background: '#ffffff', border: '1px solid var(--lp-border)', borderRadius: 12, padding: '1.25rem' }}>
+                            <span className="lp-mono-code">FATURAMENTO DO DIA</span>
+                            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--lp-text-main)', marginTop: '0.25rem' }}>
+                              R$ 2.340,00
+                            </div>
+                            <span style={{ fontSize: '0.8rem', color: '#047857' }}>+18% acima da média da quinta-feira</span>
+                          </div>
+                          <div style={{ background: '#ffffff', border: '1px solid var(--lp-border)', borderRadius: 12, padding: '1.25rem' }}>
+                            <span className="lp-mono-code">COMISSÕES ESTIMADAS</span>
+                            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--lp-primary)', marginTop: '0.25rem' }}>
+                              R$ 702,00
+                            </div>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--lp-text-muted)' }}>Dividido entre Lucas M. e Beatriz S.</span>
+                          </div>
+                        </div>
+
+                        <div style={{ background: '#ffffff', border: '1px solid var(--lp-border)', borderRadius: 12, padding: '1.25rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Meta Semanal da Loja</span>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--lp-primary)' }}>84% alcançada</span>
+                          </div>
+                          <div style={{ width: '100%', height: 10, background: 'var(--lp-primary-soft)', borderRadius: 9999, overflow: 'hidden' }}>
+                            <div style={{ width: '84%', height: '100%', background: 'linear-gradient(90deg, var(--lp-primary), #3b82f6)', borderRadius: 9999 }} />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Painel Direito (Feed de Eventos em Tempo Real) */}
+                  <div className="lp-console-side-pane">
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                        <span className="lp-mono-code" style={{ color: 'var(--lp-primary)' }}>FEED OPERACIONAL</span>
+                        <span className="lp-dot-pulse" />
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.825rem' }}>
+                        <div style={{ borderLeft: '2px solid var(--lp-primary)', paddingLeft: '0.75rem' }}>
+                          <div style={{ color: 'var(--lp-text-muted)', fontSize: '0.725rem' }}>14:15 • WHATSAPP CLOUD</div>
+                          <div style={{ color: 'var(--lp-text-main)', fontWeight: 600 }}>Confirmação recebida</div>
+                          <div style={{ color: 'var(--lp-text-secondary)' }}>Tutor do Bob confirmou presença para amanhã</div>
+                        </div>
+
+                        <div style={{ borderLeft: '2px solid #10b981', paddingLeft: '0.75rem' }}>
+                          <div style={{ color: 'var(--lp-text-muted)', fontSize: '0.725rem' }}>14:02 • RECEPÇÃO</div>
+                          <div style={{ color: 'var(--lp-text-main)', fontWeight: 600 }}>Check-in realizado</div>
+                          <div style={{ color: 'var(--lp-text-secondary)' }}>Thor entrou na Banheira 1 com Lucas</div>
+                        </div>
+
+                        <div style={{ borderLeft: '2px solid #f59e0b', paddingLeft: '0.75rem' }}>
+                          <div style={{ color: 'var(--lp-text-muted)', fontSize: '0.725rem' }}>13:45 • REENGAJAMENTO</div>
+                          <div style={{ color: 'var(--lp-text-main)', fontWeight: 600 }}>Lembrete de retorno</div>
+                          <div style={{ color: 'var(--lp-text-secondary)' }}>4 tutores ausentes há +20 dias notificados</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid var(--lp-border)' }}>
+                      <Link
+                        href="/cadastro/lojista"
+                        className="lp-btn lp-btn-primary"
+                        style={{ width: '100%', fontSize: '0.85rem' }}
+                      >
+                        Experimentar este painel na prática
+                        <IconArrowUpRight />
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </section>
+          </div>
+
+          {/* ── METRICS STRIP ── */}
+          <div className="lp-metrics-strip">
+            <div className="lp-metric-tile">
+              <span className="lp-metric-num">+180</span>
+              <span className="lp-metric-desc">Petshops e clínicas ativas diariamente</span>
+            </div>
+            <div className="lp-metric-tile">
+              <span className="lp-metric-num">85%</span>
+              <span className="lp-metric-desc">Redução drástica de clientes ausentes</span>
+            </div>
+            <div className="lp-metric-tile">
+              <span className="lp-metric-num">3.5h</span>
+              <span className="lp-metric-desc">Economizadas por atendente por dia</span>
+            </div>
+            <div className="lp-metric-tile">
+              <span className="lp-metric-num">4.9/5</span>
+              <span className="lp-metric-desc">Avaliação média feita por tutores</span>
+            </div>
+          </div>
         </div>
       </header>
 
-      {/* ── 4. BENTO GRID: RECURSOS DETALHADOS ── */}
-      <section id="recursos" className="lp-section">
+      {/* ── 3. BENTO GRID 3D: ARQUITETURA DO SISTEMA ── */}
+      <section id="recursos" className="lp-section-wrap">
         <div className="lp-container">
-          <div className="lp-section-heading">
-            <span className="lp-mono-tag">[ 01 // ARQUITETURA DO SISTEMA ]</span>
-            <h2 className="lp-section-title">Construído com a precisão que seu petshop exige.</h2>
-            <p className="lp-section-desc">
-              Não somos um sistema genérico de agendamento de barbearia adaptado. Cada detalhe
-              foi pensado para o fluxo real de recepção, banheira, mesa de tosa e tutores de pets.
+          <div className="lp-section-head">
+            <span className="lp-mono-code" style={{ color: 'var(--lp-primary)' }}>[ 01 // ARQUITETURA DE DADOS & CAPACIDADE ]</span>
+            <h2 className="lp-section-h2">Desenvolvido sob medida para a física real de um petshop.</h2>
+            <p className="lp-section-sub">
+              Sistemas comuns não entendem que um Golden Retriever leva 1h40 de secador enquanto um Shih Tzu leva 40min.
+              Nossa inteligência de grade calcula banheiras, mesas, sopradores e tosadores para evitar filas.
             </p>
           </div>
 
-          <div className="lp-bento-grid">
-            {/* Card 1: Grande (Agenda Multiprofissional) */}
-            <div className="lp-bento-card col-span-2">
-              <div className="lp-bento-header">
-                <span className="lp-mono-tag">[ GESTÃO DE CAPACIDADE ]</span>
-                <h3>Agenda Multiprofissional sem Sobreposição</h3>
+          <div className="lp-bento-layout">
+            {/* Card 1: Anti-Overbooking Engine */}
+            <div className="lp-card-3d span-2">
+              <div>
+                <span className="lp-mono-code">[ CAPACIDADE FÍSICA ]</span>
+                <h3>Motor Anti-Conflito de Banheiras & Mesas</h3>
                 <p>
-                  Configure a capacidade real do seu espaço: quantas banheiras estão livres, quais tosadores
-                  são especialistas em tesoura e o tempo específico de secagem por porte de cão. O sistema
-                  impede marcações impossíveis e respeita os intervalos de higienização.
+                  O sistema bloqueia automaticamente novas reservas caso todas as banheiras estejam ocupadas ou se o
+                  único tosador especialista em corte na tesoura já estiver com horário preenchido. Zero atrasos no balcão.
                 </p>
               </div>
 
-              <div className="lp-bento-preview">
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', textAlign: 'center' }}>
-                  <div style={{ background: '#fff', padding: '0.75rem', borderRadius: 8, border: '1px solid var(--lp-border)' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--lp-ink-faint)' }}>MESA 01 (LUCAS)</span>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--lp-accent-600)', marginTop: 2 }}>Tosa Tesoura</div>
+              <div className="lp-card-preview-area">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', textAlign: 'center' }}>
+                  <div style={{ background: '#ffffff', border: '1px solid var(--lp-border)', borderRadius: 10, padding: '0.85rem' }}>
+                    <span className="lp-mono-code">MESA 01 (TESOURA)</span>
+                    <div style={{ fontWeight: 700, color: 'var(--lp-primary)', marginTop: 4 }}>Lucas M. • Ocupado</div>
                   </div>
-                  <div style={{ background: '#fff', padding: '0.75rem', borderRadius: 8, border: '1px solid var(--lp-border)' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--lp-ink-faint)' }}>BANHEIRA 01 (BEATRIZ)</span>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#166534', marginTop: 2 }}>Banho Porte G</div>
+                  <div style={{ background: '#ffffff', border: '1px solid var(--lp-border)', borderRadius: 10, padding: '0.85rem' }}>
+                    <span className="lp-mono-code">BANHEIRA 01 (PORTE G)</span>
+                    <div style={{ fontWeight: 700, color: '#047857', marginTop: 4 }}>Disponível (14:30)</div>
                   </div>
-                  <div style={{ background: '#fff', padding: '0.75rem', borderRadius: 8, border: '1px solid var(--lp-border)' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--lp-ink-faint)' }}>SOPRADOR / SECAGEM</span>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--lp-ink)', marginTop: 2 }}>Livre (10 min)</div>
+                  <div style={{ background: '#ffffff', border: '1px solid var(--lp-border)', borderRadius: 10, padding: '0.85rem' }}>
+                    <span className="lp-mono-code">SOPRADOR / SECAGEM</span>
+                    <div style={{ fontWeight: 700, color: 'var(--lp-text-main)', marginTop: 4 }}>Higienização OK</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Card 2: WhatsApp Automation */}
-            <div className="lp-bento-card">
-              <div className="lp-bento-header">
-                <span className="lp-mono-tag">[ ZERO NO-SHOW ]</span>
-                <h3>Confirmação Ativa de Presença</h3>
+            {/* Card 2: WhatsApp Autônomo */}
+            <div className="lp-card-3d">
+              <div>
+                <span className="lp-mono-code">[ AGENTE EM NUVEM ]</span>
+                <h3>Confirmação Ativa pelo WhatsApp</h3>
                 <p>
-                  Disparo automático de lembretes antes do horário agendado. O tutor confirma com 1 toque
-                  e seu painel muda de cor na hora. Se ele cancelar, o slot fica imediatamente disponível para encaixe.
+                  Chega de passar 2 horas da manhã ligando para tutores. O sistema dispara lembretes com botão de confirmação.
+                  Se o cliente cancelar, a vaga é liberada na hora.
                 </p>
               </div>
-              <div className="lp-bento-preview" style={{ textAlign: 'center' }}>
-                <span style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--lp-accent)' }}>-85%</span>
-                <p style={{ fontSize: '0.8rem', color: 'var(--lp-ink-muted)', margin: 0 }}>taxa de ausência reduzida</p>
+
+              <div className="lp-card-preview-area" style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '3rem', fontWeight: 800, color: 'var(--lp-primary)', lineHeight: 1 }}>
+                  -85%
+                </div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--lp-text-muted)', marginTop: '0.35rem' }}>
+                  Faltas e desistências no banho e tosa
+                </div>
               </div>
             </div>
 
-            {/* Card 3: Link de Bio / Autoagendamento */}
-            <div className="lp-bento-card">
-              <div className="lp-bento-header">
-                <span className="lp-mono-tag">[ PORTAL DO TUTOR ]</span>
-                <h3>Link na Bio do Instagram</h3>
+            {/* Card 3: Link Personalizado da Bio */}
+            <div className="lp-card-3d">
+              <div>
+                <span className="lp-mono-code">[ PORTAL DE AGENDAMENTO ]</span>
+                <h3>Link Exclusivo para sua Bio do Instagram</h3>
                 <p>
-                  Seu cliente escolhe o pet cadastrado, seleciona o serviço e vê os horários vagos em tempo real.
-                  Sem precisar esperar alguém responder no direct no domingo à noite.
+                  Seu cliente entra em <code>petagenda.com.br/@seupetshop</code>, escolhe o pet, o pacote de serviços e marca
+                  em menos de 30 segundos, sem precisar mandar direct.
                 </p>
               </div>
-              <div className="lp-bento-preview" style={{ fontFamily: 'var(--lp-font-mono)', fontSize: '0.8rem', color: 'var(--lp-ink-secondary)' }}>
-                petagenda.com.br/@seupetshop
+
+              <div className="lp-card-preview-area" style={{ fontFamily: 'var(--lp-font-mono)', fontSize: '0.85rem', color: 'var(--lp-primary)' }}>
+                👉 petagenda.com.br/petcare-alpha
               </div>
             </div>
 
-            {/* Card 4: Comissões e Equipe */}
-            <div className="lp-bento-card">
-              <div className="lp-bento-header">
-                <span className="lp-mono-tag">[ CONTROLE DE EQUIPE ]</span>
-                <h3>Comissões Calculadas sem Planilhas</h3>
+            {/* Card 4: Comissões Automáticas */}
+            <div className="lp-card-3d">
+              <div>
+                <span className="lp-mono-code">[ FECHAMENTO DE CAIXA ]</span>
+                <h3>Comissões em 1 Clique sem Excel</h3>
                 <p>
-                  Defina porcentagens ou valores fixos por procedimento para cada funcionário.
-                  O relatório de comissão fecha automaticamente sem discussões no fim do mês.
+                  Regras flexíveis: porcentagem por serviço, bônus por hidratação vendida ou valor fixo por procedimento.
+                  Relatório transparente para o colaborador auditar no próprio celular.
                 </p>
               </div>
-              <div className="lp-bento-preview" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Comissão Quinzenal</span>
-                <span style={{ fontSize: '0.85rem', color: 'var(--lp-accent-700)', fontWeight: 700 }}>R$ 1.420,00</span>
+
+              <div className="lp-card-preview-area" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Extrato do Colaborador:</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#047857' }}>R$ 1.840,00</span>
               </div>
             </div>
 
-            {/* Card 5: Prontuário & Histórico */}
-            <div className="lp-bento-card">
-              <div className="lp-bento-header">
-                <span className="lp-mono-tag">[ HISTÓRICO VETERINÁRIO ]</span>
-                <h3>Ficha de Saúde e Preferências</h3>
+            {/* Card 5: Prontuário Veterinário */}
+            <div className="lp-card-3d">
+              <div>
+                <span className="lp-mono-code">[ FICHA CLÍNICA ]</span>
+                <h3>Histórico Veterinário & Fotos</h3>
                 <p>
-                  Registre alergias, se o cão morde para cortar as unhas, remédios controlados e fotos de tosas
-                  anteriores para repetir o corte exatamente do jeito que a tutora gosta.
+                  Mantenha anotações sobre pulgas, lesões de pele pré-existentes, fotos do corte anterior e preferências
+                  específicas de cada tutor gravadas com segurança.
                 </p>
               </div>
-              <div className="lp-bento-preview" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <span className="lp-status-chip lp-status-active">Sem pulgas ✓</span>
-                <span className="lp-status-chip" style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a' }}>Alergia a perfume</span>
+
+              <div className="lp-card-preview-area" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <span className="lp-tag-status lp-tag-active">Vacinas em dia ✓</span>
+                <span className="lp-tag-status lp-tag-indigo">Pelo Duplo Subpelo</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── 5. PERSPECTIVAS: PARA O LOJISTA VS PARA O CLIENTE ── */}
-      <section id="experiencia" className="lp-section" style={{ background: 'var(--lp-bg-subtle)' }}>
+      {/* ── 4. CALCULADORA INTERATIVA DE ROI ── */}
+      <section id="calculadora" className="lp-section-wrap" style={{ background: '#ffffff' }}>
         <div className="lp-container">
-          <div className="lp-section-heading" style={{ textAlign: 'center', maxWidth: 700, margin: '0 auto 3rem' }}>
-            <span className="lp-mono-tag">[ DUAL EXPERIENCE ]</span>
-            <h2 className="lp-section-title">Pensado tanto para quem opera quanto para quem ama seu pet.</h2>
-            <p className="lp-section-desc" style={{ margin: '0 auto' }}>
-              Uma experiência fluida e sem atritos para os dois lados do balcão.
+          <div className="lp-section-head">
+            <span className="lp-mono-code" style={{ color: 'var(--lp-primary)' }}>[ 02 // IMPACTO FINANCEIRO MENSAL ]</span>
+            <h2 className="lp-section-h2">Calcule o impacto do sistema no seu caixa.</h2>
+            <p className="lp-section-sub">
+              Arraste o número de pets que seu estabelecimento atende por dia e veja a economia e receita adicionais.
             </p>
-
-            <div style={{ marginTop: '2rem' }}>
-              <div className="lp-toggle-wrap">
-                <button
-                  type="button"
-                  className={`lp-toggle-btn ${perspective === 'lojista' ? 'active' : ''}`}
-                  onClick={() => setPerspective('lojista')}
-                >
-                  Para Donos de Petshop & Equipe
-                </button>
-                <button
-                  type="button"
-                  className={`lp-toggle-btn ${perspective === 'cliente' ? 'active' : ''}`}
-                  onClick={() => setPerspective('cliente')}
-                >
-                  Para Tutores & Clientes
-                </button>
-              </div>
-            </div>
           </div>
 
-          <div className="lp-perspective-grid">
-            {perspective === 'lojista' ? (
-              <>
-                <div className="lp-role-card">
-                  <div className="lp-role-card-icon"><IconCalendar /></div>
-                  <h4>Controle de Grade em Tempo Real</h4>
-                  <p>Visualize toda a semana por profissional ou por espaço. Encaixe clientes de última hora sem desorganizar os horários seguintes.</p>
+          <div className="lp-calc-box">
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <label htmlFor="pets-slider" style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--lp-text-main)' }}>
+                  Pets atendidos por dia:
+                </label>
+                <span style={{ fontFamily: 'var(--lp-font-mono)', fontSize: '1.5rem', fontWeight: 800, color: 'var(--lp-primary)' }}>
+                  {petsPerDay} pets / dia
+                </span>
+              </div>
+
+              <input
+                id="pets-slider"
+                type="range"
+                min={8}
+                max={60}
+                step={2}
+                value={petsPerDay}
+                onChange={(e) => setPetsPerDay(Number(e.target.value))}
+                className="lp-slider-ui"
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--lp-text-muted)', marginTop: '0.5rem' }}>
+                <span>8 pets (início)</span>
+                <span>30 pets (médio porte)</span>
+                <span>60 pets (grande centro)</span>
+              </div>
+
+              <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div className="lp-check-pill"><IconCheck /></div>
+                  <span style={{ fontSize: '0.925rem', color: 'var(--lp-text-secondary)' }}>
+                    Recuperação média de <strong>R$ {noShowSavings.toLocaleString('pt-BR')}</strong> em faltas que seriam perdidas.
+                  </span>
                 </div>
-                <div className="lp-role-card">
-                  <div className="lp-role-card-icon"><IconUsers /></div>
-                  <h4>Níveis de Permissão Seguros</h4>
-                  <p>Cada tosador vê apenas a sua própria agenda e seus clientes, mantendo o faturamento e os dados sigilosos protegidos.</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div className="lp-check-pill"><IconCheck /></div>
+                  <span style={{ fontSize: '0.925rem', color: 'var(--lp-text-secondary)' }}>
+                    Poupados <strong>{hoursSaved} horas/mês</strong> em atendimento manual no WhatsApp.
+                  </span>
                 </div>
-                <div className="lp-role-card">
-                  <div className="lp-role-card-icon"><IconTrendingUp /></div>
-                  <h4>Recuperação de Clientes Inativos</h4>
-                  <p>Notificação automática para cães que não voltam há mais de 25 dias. Reative clientes adormecidos sem esforço manual.</p>
+              </div>
+            </div>
+
+            {/* Card de Resultado */}
+            <div className="lp-calc-result-card">
+              <div>
+                <span className="lp-mono-code" style={{ color: '#a5b4fc' }}>FATURAMENTO MENSAL POTENCIAL</span>
+                <div className="lp-calc-val-glow">
+                  R$ {monthlyRevenue.toLocaleString('pt-BR')},00
                 </div>
-              </>
-            ) : (
-              <>
-                <div className="lp-role-card">
-                  <div className="lp-role-card-icon"><IconClock /></div>
-                  <h4>Agendamento em 30 Segundos</h4>
-                  <p>Escolha o pet, o tosador preferido e o horário perfeito direto pelo celular, mesmo fora do horário comercial.</p>
+              </div>
+
+              <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.15)', paddingTop: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: '#c7d2fe' }}>
+                  <span>Mensalidade do Sistema:</span>
+                  <strong style={{ color: '#ffffff' }}>R$ 149,00</strong>
                 </div>
-                <div className="lp-role-card">
-                  <div className="lp-role-card-icon"><IconMessageCircle /></div>
-                  <h4>Avisos de Quando Buscar</h4>
-                  <p>Receba uma notificação carinhosa no WhatsApp assim que o pet terminar de secar e estiver pronto para ir pra casa.</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: '#c7d2fe', marginTop: '0.5rem' }}>
+                  <span>Retorno do Investimento (ROI):</span>
+                  <strong style={{ color: '#86efac' }}>+3.200%</strong>
                 </div>
-                <div className="lp-role-card">
-                  <div className="lp-role-card-icon"><IconShieldCheck /></div>
-                  <h4>Histórico Completo do seu Filho de 4 Patas</h4>
-                  <p>Acompanhe peso, datas de banho, tosas realizadas e observações veterinárias registradas pelo petshop.</p>
-                </div>
-              </>
-            )}
+              </div>
+
+              <Link
+                href="/cadastro/lojista"
+                className="lp-btn lp-btn-primary"
+                style={{ width: '100%', background: '#ffffff', color: 'var(--lp-primary) !important', fontWeight: 700 }}
+              >
+                Garantir este resultado no meu Petshop
+                <IconArrowRight />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── 6. COMPARATIVO DIRETO (DIFERENCIAIS) ── */}
-      <section id="comparativo" className="lp-section">
+      {/* ── 5. SIMULADOR DO TUTOR (EXPERIÊNCIA DO CLIENTE) ── */}
+      <section id="simulador" className="lp-section-wrap">
         <div className="lp-container">
-          <div className="lp-section-heading">
-            <span className="lp-mono-tag">[ COMPARATIVO DE MERCADO ]</span>
-            <h2 className="lp-section-title">Por que substituir o caderno ou sistemas genéricos?</h2>
-            <p className="lp-section-desc">
-              Veja a diferença prática entre ferramentas improvisadas e um sistema feito sob medida para banho e tosa.
+          <div className="lp-section-head">
+            <span className="lp-mono-code" style={{ color: 'var(--lp-primary)' }}>[ 03 // PORTAL DE AUTO-AGENDAMENTO ]</span>
+            <h2 className="lp-section-h2">Experimente como seu cliente agendará em 3 passos.</h2>
+            <p className="lp-section-sub">
+              Faça uma simulação agora mesmo para ver a velocidade com que seus clientes marcam horários:
             </p>
           </div>
 
-          <div className="lp-compare-table-wrap">
-            <table className="lp-compare-table">
+          <div className="lp-booking-sim-wrap">
+            <div className="lp-sim-steps">
+              {/* Passo 1 */}
+              <div>
+                <div className="lp-mono-code" style={{ marginBottom: '0.75rem' }}>PASSO 1: ESCOLHA O PET</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div
+                    className={`lp-sim-step-item ${simPet === 'thor' ? 'selected' : ''}`}
+                    onClick={() => { setSimPet('thor'); setSimBooked(false) }}
+                  >
+                    <strong>Thor</strong>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--lp-text-muted)' }}>Golden Retriever (Grande)</div>
+                  </div>
+                  <div
+                    className={`lp-sim-step-item ${simPet === 'pipoca' ? 'selected' : ''}`}
+                    onClick={() => { setSimPet('pipoca'); setSimBooked(false) }}
+                  >
+                    <strong>Pipoca</strong>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--lp-text-muted)' }}>Spitz Alemão (Pequeno)</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Passo 2 */}
+              <div>
+                <div className="lp-mono-code" style={{ marginBottom: '0.75rem' }}>PASSO 2: SERVIÇO</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div
+                    className={`lp-sim-step-item ${simService === 'banho' ? 'selected' : ''}`}
+                    onClick={() => { setSimService('banho'); setSimBooked(false) }}
+                  >
+                    <strong>Banho Completo + Hidratação</strong>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--lp-primary)', fontWeight: 700 }}>R$ 110,00</div>
+                  </div>
+                  <div
+                    className={`lp-sim-step-item ${simService === 'tosa' ? 'selected' : ''}`}
+                    onClick={() => { setSimService('tosa'); setSimBooked(false) }}
+                  >
+                    <strong>Tosa Tesoura Especializada</strong>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--lp-primary)', fontWeight: 700 }}>R$ 160,00</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Passo 3 */}
+              <div>
+                <div className="lp-mono-code" style={{ marginBottom: '0.75rem' }}>PASSO 3: HORÁRIO LIVRE</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div
+                    className={`lp-sim-step-item ${simTime === '14:00' ? 'selected' : ''}`}
+                    onClick={() => { setSimTime('14:00'); setSimBooked(false) }}
+                  >
+                    <strong>14:00 com Lucas M.</strong>
+                    <div style={{ fontSize: '0.8rem', color: '#047857' }}>Vaga Confirmada</div>
+                  </div>
+                  <div
+                    className={`lp-sim-step-item ${simTime === '16:30' ? 'selected' : ''}`}
+                    onClick={() => { setSimTime('16:30'); setSimBooked(false) }}
+                  >
+                    <strong>16:30 com Beatriz S.</strong>
+                    <div style={{ fontSize: '0.8rem', color: '#047857' }}>Vaga Confirmada</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '2rem', textAlign: 'center', borderTop: '1px solid var(--lp-border)', paddingTop: '1.5rem' }}>
+              <button
+                type="button"
+                className="lp-btn lp-btn-primary"
+                onClick={() => setSimBooked(true)}
+                style={{ padding: '0.85rem 2rem', fontSize: '0.95rem' }}
+              >
+                {simBooked ? '✓ Horário Agendado com Sucesso!' : `Agendar ${simPet === 'thor' ? 'Thor' : 'Pipoca'} para às ${simTime}`}
+              </button>
+
+              {simBooked && (
+                <div style={{ marginTop: '1rem', color: '#047857', fontWeight: 600, fontSize: '0.9rem' }}>
+                  🎉 Notificação automática disparada para o WhatsApp do tutor e do tosador!
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 6. COMPARATIVO DIRETO ── */}
+      <section className="lp-section-wrap" style={{ background: '#ffffff' }}>
+        <div className="lp-container">
+          <div className="lp-section-head">
+            <span className="lp-mono-code" style={{ color: 'var(--lp-primary)' }}>[ 04 // BENCHMARK ]</span>
+            <h2 className="lp-section-h2">Caderno vs Sistemas Genéricos vs PetShop Agenda</h2>
+          </div>
+
+          <div style={{ border: '1px solid var(--lp-border)', borderRadius: 16, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr>
-                  <th style={{ width: '30%' }}>Funcionalidade</th>
-                  <th style={{ width: '22%' }}>Caderno & WhatsApp</th>
-                  <th style={{ width: '22%' }}>Sistemas Genéricos</th>
-                  <th className="highlight" style={{ width: '26%' }}>PetShop Agenda</th>
+                <tr style={{ background: 'var(--lp-bg-subtle)', borderBottom: '1px solid var(--lp-border)' }}>
+                  <th style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--lp-font-mono)', fontSize: '0.75rem', color: 'var(--lp-text-muted)' }}>RECURSO</th>
+                  <th style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--lp-font-mono)', fontSize: '0.75rem', color: 'var(--lp-text-muted)' }}>CADERNO / WHATSAPP</th>
+                  <th style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--lp-font-mono)', fontSize: '0.75rem', color: 'var(--lp-text-muted)' }}>SISTEMA DE SALÃO GENÉRICO</th>
+                  <th style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--lp-font-mono)', fontSize: '0.75rem', color: 'var(--lp-primary)', background: 'var(--lp-primary-soft)' }}>PETSHOP AGENDA V3.0</th>
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td><strong>Confirmação de Agendamento</strong></td>
-                  <td>Manual (1 a 2 horas/dia)</td>
-                  <td>E-mail (baixa taxa de abertura)</td>
-                  <td className="highlight">WhatsApp Automático com 1 clique</td>
+                <tr style={{ borderBottom: '1px solid var(--lp-border)' }}>
+                  <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>Confirmação Automática</td>
+                  <td style={{ padding: '1.25rem 1.5rem', color: 'var(--lp-text-muted)' }}>Manual (Horas gastas)</td>
+                  <td style={{ padding: '1.25rem 1.5rem', color: 'var(--lp-text-muted)' }}>Apenas E-mail (ignorado)</td>
+                  <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700, color: 'var(--lp-primary)', background: 'var(--lp-primary-soft)' }}>WhatsApp Ativo 24h</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid var(--lp-border)' }}>
+                  <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>Tempo Dinâmico por Porte</td>
+                  <td style={{ padding: '1.25rem 1.5rem', color: 'var(--lp-text-muted)' }}>Depende da memória</td>
+                  <td style={{ padding: '1.25rem 1.5rem', color: 'var(--lp-text-muted)' }}>Tempo fixo (Gera fila)</td>
+                  <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700, color: 'var(--lp-primary)', background: 'var(--lp-primary-soft)' }}>Diferenciado por peso/pelo</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid var(--lp-border)' }}>
+                  <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>Ficha Clínica & Alergias</td>
+                  <td style={{ padding: '1.25rem 1.5rem', color: 'var(--lp-text-muted)' }}>Fichas de papel que somem</td>
+                  <td style={{ padding: '1.25rem 1.5rem', color: 'var(--lp-text-muted)' }}>Apenas nome do humano</td>
+                  <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700, color: 'var(--lp-primary)', background: 'var(--lp-primary-soft)' }}>Histórico completo do pet</td>
                 </tr>
                 <tr>
-                  <td><strong>Diferenciação por Porte & Raça</strong></td>
-                  <td>Depende da memória do atendente</td>
-                  <td>Tempo fixo igual para todos</td>
-                  <td className="highlight">Tempo dinâmico por peso e pelagem</td>
-                </tr>
-                <tr>
-                  <td><strong>Agendamento pelo Cliente 24/7</strong></td>
-                  <td>Não (apenas horário de atendimento)</td>
-                  <td>Geralmente exige download de app</td>
-                  <td className="highlight">Link direto na bio sem baixar nada</td>
-                </tr>
-                <tr>
-                  <td><strong>Prontuário com Histórico e Alergias</strong></td>
-                  <td>Papel solto ou fichas perdidas</td>
-                  <td>Apenas nome e telefone</td>
-                  <td className="highlight">Fotos, alertas de saúde e histórico</td>
-                </tr>
-                <tr>
-                  <td><strong>Cálculo Automático de Comissões</strong></td>
-                  <td>Contas no fim do mês no papel</td>
-                  <td>Módulo financeiro complexo</td>
-                  <td className="highlight">1 clique por serviço ou tosador</td>
+                  <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>Cálculo de Comissões</td>
+                  <td style={{ padding: '1.25rem 1.5rem', color: 'var(--lp-text-muted)' }}>Dias fazendo conta no fim do mês</td>
+                  <td style={{ padding: '1.25rem 1.5rem', color: 'var(--lp-text-muted)' }}>Complicado e burocrático</td>
+                  <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700, color: 'var(--lp-primary)', background: 'var(--lp-primary-soft)' }}>1 clique no extrato</td>
                 </tr>
               </tbody>
             </table>
@@ -689,76 +942,78 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 7. PLANOS TRANSPARENTES (PRICING) ── */}
-      <section id="precos" className="lp-section" style={{ background: 'var(--lp-bg-subtle)' }}>
+      {/* ── 7. PLANOS TRANSPARENTES ── */}
+      <section id="precos" className="lp-section-wrap">
         <div className="lp-container">
-          <div className="lp-section-heading" style={{ textAlign: 'center', maxWidth: 650, margin: '0 auto 3rem' }}>
-            <span className="lp-mono-tag">[ INVESTIMENTO TRANSPARENTE ]</span>
-            <h2 className="lp-section-title">Planos previsíveis. Sem taxas ocultas por agendamento.</h2>
-            <p className="lp-section-desc" style={{ margin: '0 auto 1.5rem' }}>
-              Teste por 14 dias sem compromisso. Cancele a qualquer momento com um clique.
+          <div className="lp-section-head" style={{ textAlign: 'center', margin: '0 auto 3.5rem' }}>
+            <span className="lp-mono-code" style={{ color: 'var(--lp-primary)' }}>[ 05 // INVESTIMENTO ]</span>
+            <h2 className="lp-section-h2">Planos claros sem taxas sobre seus agendamentos.</h2>
+            <p className="lp-section-sub" style={{ margin: '0 auto 1.5rem' }}>
+              Teste por 14 dias sem compromisso. Se não lotar sua agenda, não pague nada.
             </p>
 
-            <div className="lp-toggle-wrap">
+            <div style={{ display: 'inline-flex', background: 'var(--lp-bg-subtle)', padding: 4, borderRadius: 10, border: '1px solid var(--lp-border)' }}>
               <button
                 type="button"
-                className={`lp-toggle-btn ${pricingCycle === 'mensal' ? 'active' : ''}`}
+                className={`lp-btn ${pricingCycle === 'mensal' ? 'lp-btn-primary' : 'lp-btn-ghost'}`}
                 onClick={() => setPricingCycle('mensal')}
+                style={{ padding: '0.45rem 1.25rem', fontSize: '0.85rem' }}
               >
-                Cobrança Mensal
+                Mensal
               </button>
               <button
                 type="button"
-                className={`lp-toggle-btn ${pricingCycle === 'anual' ? 'active' : ''}`}
+                className={`lp-btn ${pricingCycle === 'anual' ? 'lp-btn-primary' : 'lp-btn-ghost'}`}
                 onClick={() => setPricingCycle('anual')}
+                style={{ padding: '0.45rem 1.25rem', fontSize: '0.85rem' }}
               >
-                Cobrança Anual (2 meses grátis)
+                Anual (2 Meses Grátis)
               </button>
             </div>
           </div>
 
-          <div className="lp-pricing-grid">
-            {/* Plano Inicial */}
-            <div className="lp-price-card">
-              <span className="lp-mono-tag">INICIANTE</span>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: '0.5rem', marginBottom: '0.25rem' }}>Essencial</h3>
-              <p style={{ fontSize: '0.875rem', color: 'var(--lp-ink-muted)' }}>Para petshops individuais ou banhistas autônomos.</p>
+          <div className="lp-pricing-deck">
+            {/* Plano 1 */}
+            <div className="lp-plan-box">
+              <span className="lp-mono-code">AUTÔNOMO / START</span>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.5rem', marginBottom: '0.25rem' }}>Essencial</h3>
+              <p style={{ fontSize: '0.875rem', color: 'var(--lp-text-muted)' }}>Ideal para banhistas autônomos ou petshops com 1 a 2 pessoas.</p>
 
-              <div className="lp-price-val">
+              <div className="lp-plan-price">
                 {pricingCycle === 'mensal' ? 'R$ 89' : 'R$ 74'}
                 <span>/mês</span>
               </div>
 
-              <ul className="lp-price-features">
-                <li className="lp-price-feature-item"><span className="lp-check-icon"><IconCheck /></span> Até 2 profissionais</li>
-                <li className="lp-price-feature-item"><span className="lp-check-icon"><IconCheck /></span> Agendamentos ilimitados</li>
-                <li className="lp-price-feature-item"><span className="lp-check-icon"><IconCheck /></span> Link personalizado da bio</li>
-                <li className="lp-price-feature-item"><span className="lp-check-icon"><IconCheck /></span> Prontuário básico do pet</li>
+              <ul className="lp-plan-list">
+                <li className="lp-plan-check-item"><div className="lp-check-pill"><IconCheck /></div> Até 2 profissionais</li>
+                <li className="lp-plan-check-item"><div className="lp-check-pill"><IconCheck /></div> Agendamentos ilimitados</li>
+                <li className="lp-plan-check-item"><div className="lp-check-pill"><IconCheck /></div> Link personalizado da bio</li>
+                <li className="lp-plan-check-item"><div className="lp-check-pill"><IconCheck /></div> Prontuário básico do pet</li>
               </ul>
 
-              <Link href="/cadastro/lojista" className="lp-btn lp-btn-outline" style={{ width: '100%' }}>
+              <Link href="/cadastro/lojista" className="lp-btn lp-btn-secondary" style={{ width: '100%' }}>
                 Começar 14 dias grátis
               </Link>
             </div>
 
-            {/* Plano Pro (Destaque) */}
-            <div className="lp-price-card featured">
-              <span className="lp-featured-badge">RECOMENDADO</span>
-              <span className="lp-mono-tag">CRESCIMENTO</span>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: '0.5rem', marginBottom: '0.25rem' }}>Profissional</h3>
-              <p style={{ fontSize: '0.875rem', color: 'var(--lp-ink-muted)' }}>O mais escolhido por petshops consolidados.</p>
+            {/* Plano 2 (Destaque) */}
+            <div className="lp-plan-box highlight">
+              <span className="lp-plan-crown">MAIS ESCOLHIDO</span>
+              <span className="lp-mono-code" style={{ color: 'var(--lp-primary)' }}>PROFISSIONAL PRO</span>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.5rem', marginBottom: '0.25rem' }}>Profissional</h3>
+              <p style={{ fontSize: '0.875rem', color: 'var(--lp-text-muted)' }}>Para petshops estabelecidos com equipe de banho e tosa.</p>
 
-              <div className="lp-price-val">
+              <div className="lp-plan-price">
                 {pricingCycle === 'mensal' ? 'R$ 149' : 'R$ 124'}
                 <span>/mês</span>
               </div>
 
-              <ul className="lp-price-features">
-                <li className="lp-price-feature-item"><span className="lp-check-icon"><IconCheck /></span> <strong>Equipe ilimitada</strong></li>
-                <li className="lp-price-feature-item"><span className="lp-check-icon"><IconCheck /></span> Lembretes automáticos via WhatsApp</li>
-                <li className="lp-price-feature-item"><span className="lp-check-icon"><IconCheck /></span> Gestão de comissões por funcionário</li>
-                <li className="lp-price-feature-item"><span className="lp-check-icon"><IconCheck /></span> Ficha de saúde e histórico completo</li>
-                <li className="lp-price-feature-item"><span className="lp-check-icon"><IconCheck /></span> Suporte prioritário via WhatsApp</li>
+              <ul className="lp-plan-list">
+                <li className="lp-plan-check-item"><div className="lp-check-pill"><IconCheck /></div> <strong>Equipe ilimitada</strong></li>
+                <li className="lp-plan-check-item"><div className="lp-check-pill"><IconCheck /></div> Lembretes e confirmação via WhatsApp</li>
+                <li className="lp-plan-check-item"><div className="lp-check-pill"><IconCheck /></div> Gestão automática de comissões</li>
+                <li className="lp-plan-check-item"><div className="lp-check-pill"><IconCheck /></div> Prontuário de saúde com fotos</li>
+                <li className="lp-plan-check-item"><div className="lp-check-pill"><IconCheck /></div> Suporte prioritário com especialista</li>
               </ul>
 
               <Link href="/cadastro/lojista" className="lp-btn lp-btn-primary" style={{ width: '100%' }}>
@@ -767,25 +1022,25 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            {/* Plano Redes / Multi-loja */}
-            <div className="lp-price-card">
-              <span className="lp-mono-tag">MULTI-UNIDADES</span>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: '0.5rem', marginBottom: '0.25rem' }}>Franquias & Redes</h3>
-              <p style={{ fontSize: '0.875rem', color: 'var(--lp-ink-muted)' }}>Para quem gerencia 2 ou mais filiais em conjunto.</p>
+            {/* Plano 3 */}
+            <div className="lp-plan-box">
+              <span className="lp-mono-code">REDE & FRANQUIA</span>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.5rem', marginBottom: '0.25rem' }}>Multi-Loja</h3>
+              <p style={{ fontSize: '0.875rem', color: 'var(--lp-text-muted)' }}>Para proprietários com 2 ou mais filiais em operação.</p>
 
-              <div className="lp-price-val">
+              <div className="lp-plan-price">
                 {pricingCycle === 'mensal' ? 'R$ 269' : 'R$ 219'}
                 <span>/mês</span>
               </div>
 
-              <ul className="lp-price-features">
-                <li className="lp-price-feature-item"><span className="lp-check-icon"><IconCheck /></span> Múltiplas filiais no mesmo painel</li>
-                <li className="lp-price-feature-item"><span className="lp-check-icon"><IconCheck /></span> Painel financeiro consolidado</li>
-                <li className="lp-price-feature-item"><span className="lp-check-icon"><IconCheck /></span> Migração assistida dos seus dados</li>
-                <li className="lp-price-feature-item"><span className="lp-check-icon"><IconCheck /></span> Gerente de conta dedicado</li>
+              <ul className="lp-plan-list">
+                <li className="lp-plan-check-item"><div className="lp-check-pill"><IconCheck /></div> Painel integrado multi-loja</li>
+                <li className="lp-plan-check-item"><div className="lp-check-pill"><IconCheck /></div> Migração assistida do seu sistema atual</li>
+                <li className="lp-plan-check-item"><div className="lp-check-pill"><IconCheck /></div> Gerente de sucesso exclusivo</li>
+                <li className="lp-plan-check-item"><div className="lp-check-pill"><IconCheck /></div> Treinamento ao vivo para toda a equipe</li>
               </ul>
 
-              <Link href="/cadastro/lojista" className="lp-btn lp-btn-outline" style={{ width: '100%' }}>
+              <Link href="/cadastro/lojista" className="lp-btn lp-btn-secondary" style={{ width: '100%' }}>
                 Falar com consultor
               </Link>
             </div>
@@ -793,57 +1048,49 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 8. FAQ ACCORDION INTERATIVO ── */}
-      <section id="faq" className="lp-section">
+      {/* ── 8. FAQ ACCORDION ── */}
+      <section id="faq" className="lp-section-wrap" style={{ background: '#ffffff' }}>
         <div className="lp-container">
-          <div className="lp-section-heading" style={{ textAlign: 'center', maxWidth: 650, margin: '0 auto 3rem' }}>
-            <span className="lp-mono-tag">[ ESCLARECIMENTOS ]</span>
-            <h2 className="lp-section-title">Perguntas frequentes</h2>
-            <p className="lp-section-desc" style={{ margin: '0 auto' }}>
-              Tudo o que você precisa saber antes de transformar a rotina do seu petshop.
-            </p>
+          <div className="lp-section-head" style={{ textAlign: 'center', margin: '0 auto 3.5rem' }}>
+            <span className="lp-mono-code" style={{ color: 'var(--lp-primary)' }}>[ 06 // DÚVIDAS FREQUENTES ]</span>
+            <h2 className="lp-section-h2">Tudo explicado sem letras miúdas.</h2>
           </div>
 
-          <div className="lp-faq-list">
+          <div className="lp-faq-container">
             {[
               {
-                q: 'Preciso instalar algum aplicativo no computador da loja?',
-                a: 'Não. O PetShop Agenda é 100% online e funciona direto no navegador de qualquer dispositivo: computador, notebook, tablet ou smartphone. Seus dados ficam salvos em nuvem de alta segurança.',
+                q: 'Preciso deixar o computador ou celular ligado para o WhatsApp funcionar?',
+                a: 'Não. Nossa infraestrutura de disparo opera 100% em nuvem. Os lembretes são disparados automaticamente mesmo que sua loja esteja fechada ou sem energia elétrica.',
               },
               {
-                q: 'Como funciona a confirmação pelo WhatsApp? Meu celular precisa ficar ligado?',
-                a: 'O sistema possui integração em nuvem direta com servidores de mensagens. Você não precisa manter celular conectado ou computador ligado para que os lembretes automáticos sejam disparados.',
+                q: 'O sistema entende as diferenças de tempo entre cães de pequeno e grande porte?',
+                a: 'Com certeza! Você configura a duração de cada serviço de acordo com o porte ou raça (ex: 45 min para Poodle Toy e 1h40 para Chow Chow), evitando gargalos nas mesas e secadores.',
               },
               {
-                q: 'Meus clientes precisam baixar aplicativo para agendar um banho?',
-                a: 'Não! O tutor acessa um link leve e rápido (ideal para colocar na bio do Instagram ou enviar pelo WhatsApp). Em menos de 30 segundos ele seleciona o pet, o serviço e confirma.',
+                q: 'Meus tosadores têm acesso ao faturamento total da empresa?',
+                a: 'Não. Cada colaborador possui um login específico onde visualiza estritamente os seus agendamentos e o valor da sua própria comissão, mantendo os dados financeiros do proprietário protegidos.',
               },
               {
-                q: 'Consigo controlar comissões de tosadores e banhistas?',
-                a: 'Sim. Você pode definir regras individuais de comissão (porcentagem por serviço ou valor fixo por tosa/banho). Ao final da semana ou do mês, o sistema gera o extrato pronto de pagamento.',
+                q: 'O cliente precisa baixar algum aplicativo?',
+                a: 'Não! O cliente acessa diretamente pelo navegador através do link da sua bio do Instagram ou link enviado no WhatsApp. Em menos de 30 segundos o agendamento é finalizado.',
               },
               {
-                q: 'E se um cliente faltar sem avisar?',
-                a: 'Nossa taxa média de no-show é inferior a 3% porque enviamos lembretes com antecedência de 24h e 2h. Caso o cliente responda que não poderá comparecer, o horário fica vago para encaixe imediatamente.',
+                q: 'Como funciona o cancelamento? Há período de fidelidade?',
+                a: 'Não temos fidelidade nem multas. Você tem total liberdade para cancelar a assinatura quando desejar diretamente pelo seu painel administrativo.',
               },
-              {
-                q: 'Tenho fidelidade ou multa se quiser cancelar?',
-                a: 'Nenhuma fidelidade. Você pode cancelar sua assinatura a qualquer momento com um único clique no painel, sem taxas extras e sem pegadinhas.',
-              },
-            ].map((faq, i) => {
-              const isOpen = openFaq === i
+            ].map((item, index) => {
+              const isOpen = openFaq === index
               return (
-                <div key={i} className="lp-faq-item">
+                <div key={index} className="lp-faq-row">
                   <button
                     type="button"
-                    className="lp-faq-trigger"
-                    onClick={() => setOpenFaq(isOpen ? null : i)}
-                    aria-expanded={isOpen}
+                    className="lp-faq-btn"
+                    onClick={() => setOpenFaq(isOpen ? null : index)}
                   >
-                    <span>{faq.q}</span>
+                    <span>{item.q}</span>
                     <IconChevronDown open={isOpen} />
                   </button>
-                  {isOpen && <div className="lp-faq-content">{faq.a}</div>}
+                  {isOpen && <div className="lp-faq-answer">{item.a}</div>}
                 </div>
               )
             })}
@@ -851,100 +1098,99 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 9. CTA FINAL EDITORIAL ── */}
-      <section className="lp-section" style={{ padding: '0 0 5.5rem' }}>
+      {/* ── 9. FINAL CALL TO ACTION 3D ── */}
+      <section className="lp-section-wrap" style={{ padding: '2rem 0 6rem' }}>
         <div className="lp-container">
-          <div className="lp-cta-box">
-            <span className="lp-mono-tag" style={{ marginBottom: '1rem', display: 'inline-block' }}>
-              [ INÍCIO IMEDIATO ]
+          <div className="lp-final-cta-chassis">
+            <span className="lp-badge-tech" style={{ background: 'rgba(255, 255, 255, 0.1)', color: '#ffffff', borderColor: 'rgba(255, 255, 255, 0.2)', marginBottom: '1.5rem' }}>
+              TRANSFORME SEU PETSHOP HOJE
             </span>
-            <h2>Eleve a operação do seu petshop hoje mesmo.</h2>
+            <h2>Elimine o estresse do balcão e veja sua receita crescer.</h2>
             <p>
-              Junte-se a mais de 180 petshops que deixaram o caderno para trás e conquistaram
-              uma rotina tranquila e previsível.
+              Mais de 180 petshops já aposentaram o caderno de papel. Junte-se a quem tem uma rotina organizada e clientes fiéis.
             </p>
 
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '1.25rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link
                 href="/cadastro/lojista"
                 className="lp-btn lp-btn-primary"
-                style={{ padding: '0.85rem 2rem', fontSize: '1rem' }}
+                style={{ padding: '1rem 2.25rem', fontSize: '1rem', background: 'var(--lp-primary)', color: '#ffffff' }}
               >
-                Criar conta do meu Petshop
+                + Começar teste grátis de 14 dias
                 <IconArrowRight />
               </Link>
               <Link
                 href="/login"
-                className="lp-btn lp-btn-outline"
-                style={{ padding: '0.85rem 1.5rem', fontSize: '1rem' }}
+                className="lp-btn lp-btn-secondary"
+                style={{ padding: '1rem 1.75rem', fontSize: '1rem', background: 'rgba(255, 255, 255, 0.12)', color: '#ffffff', borderColor: 'rgba(255, 255, 255, 0.25)' }}
               >
-                Acessar conta existente
+                Acessar meu Petshop
               </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── 10. FOOTER ESTILO OXISIUS (METADADOS TÉCNICOS) ── */}
-      <footer className="lp-footer">
+      {/* ── 10. FOOTER ── */}
+      <footer className="lp-footer-chassis">
         <div className="lp-container">
-          <div className="lp-footer-grid">
-            <div className="lp-footer-col">
-              <div className="lp-brand" style={{ marginBottom: '1rem' }}>
+          <div className="lp-footer-nav-grid">
+            <div>
+              <div className="lp-brand" style={{ marginBottom: '1.25rem' }}>
                 <div className="lp-brand-logo">
                   <IconPaw />
                 </div>
-                <div className="lp-brand-text">
+                <div className="lp-brand-title">
                   PetShop<span>Agenda</span>
                 </div>
               </div>
-              <p style={{ fontSize: '0.875rem', color: 'var(--lp-ink-muted)', maxWidth: 320, lineHeight: 1.6 }}>
-                Tecnologia especializada em agendamento, gestão de equipe e fidelização para o mercado pet.
+              <p style={{ fontSize: '0.9rem', color: 'var(--lp-text-muted)', lineHeight: 1.6, maxWidth: 320 }}>
+                Plataforma de alta precisão para agendamentos, gestão de equipes e fidelização do mercado pet.
               </p>
             </div>
 
             <div className="lp-footer-col">
               <h5>Navegação</h5>
-              <ul className="lp-footer-links">
-                <li><a href="#recursos" className="lp-footer-link">Recursos</a></li>
-                <li><a href="#demonstracao" className="lp-footer-link">Demonstração</a></li>
-                <li><a href="#precos" className="lp-footer-link">Planos & Preços</a></li>
-                <li><a href="#faq" className="lp-footer-link">Perguntas Frequentes</a></li>
+              <ul className="lp-footer-link-stack">
+                <li><a href="#demonstracao">Demonstração 3D</a></li>
+                <li><a href="#recursos">Recursos da Grade</a></li>
+                <li><a href="#calculadora">Calculadora ROI</a></li>
+                <li><a href="#precos">Planos & Preços</a></li>
               </ul>
             </div>
 
             <div className="lp-footer-col">
               <h5>Acessos</h5>
-              <ul className="lp-footer-links">
-                <li><Link href="/cadastro/lojista" className="lp-footer-link">Cadastrar Petshop</Link></li>
-                <li><Link href="/cadastro" className="lp-footer-link">Cadastro de Tutor</Link></li>
-                <li><Link href="/login" className="lp-footer-link">Entrar no Painel</Link></li>
-                <li><Link href="/esqueci-senha" className="lp-footer-link">Recuperar Senha</Link></li>
+              <ul className="lp-footer-link-stack">
+                <li><Link href="/cadastro/lojista">Cadastrar Petshop</Link></li>
+                <li><Link href="/cadastro">Cadastrar como Tutor</Link></li>
+                <li><Link href="/login">Entrar na Plataforma</Link></li>
+                <li><Link href="/esqueci-senha">Recuperar Senha</Link></li>
               </ul>
             </div>
 
             <div className="lp-footer-col">
-              <h5>Segurança & SLA</h5>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--lp-ink-secondary)' }}>
-                <span className="lp-pill" style={{ fontSize: '0.7rem' }}>
+              <h5>SLA & Infraestrutura</h5>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.825rem', color: 'var(--lp-text-secondary)' }}>
+                <span className="lp-badge-tech" style={{ fontSize: '0.7rem' }}>
                   <span className="lp-dot-pulse" />
                   SISTEMA 100% OPERACIONAL
                 </span>
-                <span>• Criptografia SSL ponta a ponta</span>
-                <span>• Servidores PostgreSQL / Supabase</span>
-                <span>• Conforme diretrizes LGPD</span>
+                <span>• Banco de Dados Supabase (PostgreSQL)</span>
+                <span>• Criptografia TLS 1.3 / SSL 256-bit</span>
+                <span>• SLA Garantido: 99.98%</span>
               </div>
             </div>
           </div>
 
-          <div className="lp-footer-bottom">
-            <span style={{ fontSize: '0.8rem', color: 'var(--lp-ink-faint)' }}>
-              © {new Date().getFullYear()} PetShop Agenda Tecnologia Ltda. Todos os direitos reservados.
+          <div className="lp-footer-base">
+            <span style={{ fontSize: '0.825rem', color: 'var(--lp-text-muted)' }}>
+              © {new Date().getFullYear()} PetShop Agenda Tecnologia. Todos os direitos reservados.
             </span>
-            <div className="lp-footer-meta">
-              <span>LATÊNCIA: 24ms</span>
-              <span>SLA: 99.98%</span>
-              <span>VERSÃO: 2.4.1</span>
+            <div style={{ display: 'flex', gap: '1.5rem', fontFamily: 'var(--lp-font-mono)', fontSize: '0.75rem', color: 'var(--lp-text-faint)' }}>
+              <span>LATÊNCIA: 18ms</span>
+              <span>DEPLOY: VERCEL EDGE</span>
+              <span>VERSÃO: 3.0.0</span>
             </div>
           </div>
         </div>
