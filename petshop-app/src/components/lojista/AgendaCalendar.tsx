@@ -69,12 +69,14 @@ interface Props {
   // Só o responsável pela conta ou um administrador pode atribuir/trocar
   // o profissional responsável — ver atribuirFuncionarioAction.
   podeAtribuirProfissional: boolean
+  // Intervalo de horas mostrado na grade — calculado no servidor a partir
+  // do horário de funcionamento da loja (tabela horario), não fixo.
+  horaInicioGrade: number
+  horaFimGrade: number
 }
 
 const CORES = ['#4f46e5', '#0891b2', '#db2777', '#d97706', '#16a34a', '#7c3aed', '#2563eb']
 const SEM_PROFISSIONAL = '__sem_profissional__'
-const HORA_INICIO = 7
-const HORA_FIM = 20
 const ALTURA_HORA = 56 // px
 
 function parseDia(iso: string) {
@@ -99,7 +101,7 @@ interface EventoPosicionado extends AgendamentoCalendario {
   totalLanes: number
 }
 
-function posicionarDia(eventos: AgendamentoCalendario[]): EventoPosicionado[] {
+function posicionarDia(eventos: AgendamentoCalendario[], horaInicioGrade: number, horaFimGrade: number): EventoPosicionado[] {
   const comMinutos = eventos
     .map(e => {
       const inicio = minutosDoDia(e.hr_agendamento)
@@ -126,11 +128,11 @@ function posicionarDia(eventos: AgendamentoCalendario[]): EventoPosicionado[] {
     })
     const totalLanes = lanesFim.length
     for (const { ev, lane } of comLane) {
-      const inicioClamp = Math.max(ev.inicioMin, HORA_INICIO * 60)
-      const fimClamp = Math.min(ev.fimMin, HORA_FIM * 60)
+      const inicioClamp = Math.max(ev.inicioMin, horaInicioGrade * 60)
+      const fimClamp = Math.min(ev.fimMin, horaFimGrade * 60)
       resultado.push({
         ...ev,
-        top: ((inicioClamp - HORA_INICIO * 60) / 60) * ALTURA_HORA,
+        top: ((inicioClamp - horaInicioGrade * 60) / 60) * ALTURA_HORA,
         height: Math.max(((fimClamp - inicioClamp) / 60) * ALTURA_HORA, 18),
         lane,
         totalLanes,
@@ -139,7 +141,15 @@ function posicionarDia(eventos: AgendamentoCalendario[]): EventoPosicionado[] {
     cluster = []
   }
 
-  for (const ev of comMinutos) {
+  // Um agendamento fora do intervalo da grade (ex.: horário antigo, de
+  // antes de mudar o funcionamento da loja) não entra — só a grade em si
+  // já reflete o horário de funcionamento; deixar ele passar faria a
+  // altura/posição estourar pra fora do quadro em vez de simplesmente
+  // não aparecer (ele continua visível na Agenda do dia, no Kanban etc.,
+  // só não cabe nesta grade semanal).
+  const dentroDaGrade = comMinutos.filter(ev => ev.fimMin > horaInicioGrade * 60 && ev.inicioMin < horaFimGrade * 60)
+
+  for (const ev of dentroDaGrade) {
     if (ev.inicioMin >= fimCluster) {
       flush()
       fimCluster = ev.fimMin
@@ -163,6 +173,8 @@ export default function AgendaCalendar({
   clienteFixoInicial,
   funcionarioIdPadraoInicial,
   podeAtribuirProfissional,
+  horaInicioGrade,
+  horaFimGrade,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -218,7 +230,7 @@ export default function AgendaCalendar({
     return eachDayOfInterval({ start: inicio, end: fim })
   }, [mesMini])
 
-  const horas = Array.from({ length: HORA_FIM - HORA_INICIO + 1 }, (_, i) => HORA_INICIO + i)
+  const horas = Array.from({ length: horaFimGrade - horaInicioGrade + 1 }, (_, i) => horaInicioGrade + i)
 
   function mudarStatus(id: string, novoStatus: 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado') {
     const atual = agendamentos.find(a => a.id_agendamento === id)
@@ -369,10 +381,10 @@ export default function AgendaCalendar({
               ))}
             </div>
 
-            <div className="cal-body" style={{ height: (HORA_FIM - HORA_INICIO) * ALTURA_HORA }}>
+            <div className="cal-body" style={{ height: (horaFimGrade - horaInicioGrade) * ALTURA_HORA }}>
               <div className="cal-gutter">
                 {horas.map(h => (
-                  <div key={h} className="cal-gutter-hour" style={{ top: (h - HORA_INICIO) * ALTURA_HORA }}>
+                  <div key={h} className="cal-gutter-hour" style={{ top: (h - horaInicioGrade) * ALTURA_HORA }}>
                     {String(h).padStart(2, '0')}:00
                   </div>
                 ))}
@@ -381,11 +393,11 @@ export default function AgendaCalendar({
               {diasSemana.map(dia => {
                 const diaISO = format(dia, 'yyyy-MM-dd')
                 const eventosDoDia = agendamentosFiltrados.filter(a => a.dt_agendamento === diaISO)
-                const posicionados = posicionarDia(eventosDoDia)
+                const posicionados = posicionarDia(eventosDoDia, horaInicioGrade, horaFimGrade)
                 return (
                   <div key={diaISO} className="cal-day-col">
                     {horas.map(h => (
-                      <div key={h} className="cal-hour-line" style={{ top: (h - HORA_INICIO) * ALTURA_HORA }} />
+                      <div key={h} className="cal-hour-line" style={{ top: (h - horaInicioGrade) * ALTURA_HORA }} />
                     ))}
                     {posicionados.map(ev => {
                       const cor = corDoFuncionario(ev.id_funcionario, funcionarios)
