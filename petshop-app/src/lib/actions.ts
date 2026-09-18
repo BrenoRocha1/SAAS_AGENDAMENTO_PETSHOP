@@ -26,6 +26,7 @@ import {
   editarFuncionarioSchema,
   perfilClienteSchema,
   redefinirSenhaSchema,
+  avaliacaoSchema,
 } from '@/lib/validations'
 import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } from '@/lib/lojista-context'
 import type { ServicoVariacaoData } from '@/lib/validations'
@@ -2199,5 +2200,83 @@ export async function removerFotoPetAction(id_pet: string): Promise<{ error?: st
 
   revalidatePath('/cliente/pets')
   revalidatePath('/lojista/pets')
+  return { success: true }
+}
+
+// ============================================================
+// AVALIAÇÕES (migration 034)
+// ============================================================
+// O cliente avalia um atendimento finalizado. Quem valida de verdade são
+// as funções fn_criar_avaliacao / fn_editar_avaliacao no banco — elas
+// conferem dono do agendamento, status 'Concluído' e copiam do próprio
+// agendamento a loja/pet/serviço/profissional, então o cliente só manda
+// id do agendamento + nota + comentário. Aqui em cima fica a validação
+// de formato (Zod) e a tradução dos erros do Postgres pra mensagem
+// amigável — a mesma divisão de responsabilidade das outras actions.
+
+// Erros vindos das funções SQL viram mensagem de usuário. A UNIQUE de
+// id_agendamento é o que garante "uma avaliação por atendimento": se
+// duas tentativas correrem juntas, uma delas volta 23505 e cai aqui.
+function traduzirErroAvaliacao(mensagem: string): string {
+  const msg = mensagem.toLowerCase()
+  if (msg.includes('duplicate key') || msg.includes('23505') || msg.includes('avaliacao_id_agendamento_key')) {
+    return 'Você já avaliou este atendimento.'
+  }
+  if (msg.includes('finalizado')) return 'Só é possível avaliar um atendimento finalizado.'
+  if (msg.includes('não autorizado')) return 'Este atendimento não é seu.'
+  if (msg.includes('não encontrado')) return 'Atendimento não encontrado.'
+  if (msg.includes('nota')) return 'A nota precisa ser de 1 a 5.'
+  return devError('Não foi possível salvar sua avaliação. Tente novamente.', mensagem)
+}
+
+function lerFormAvaliacao(formData: FormData) {
+  const comentarioBruto = ((formData.get('comentario') as string) ?? '').trim()
+  return avaliacaoSchema.safeParse({
+    nota: Number(formData.get('nota')),
+    comentario: comentarioBruto === '' ? undefined : comentarioBruto,
+  })
+}
+
+export async function criarAvaliacaoAction(id_agendamento: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'cliente') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const parsed = lerFormAvaliacao(formData)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase.rpc('fn_criar_avaliacao', {
+    p_id_agendamento: id_agendamento,
+    p_nota: parsed.data.nota,
+    p_comentario: parsed.data.comentario ?? null,
+  })
+
+  if (error) return { error: traduzirErroAvaliacao(error.message) }
+
+  revalidatePath('/cliente/agendamentos')
+  return { success: true }
+}
+
+export async function editarAvaliacaoAction(id_avaliacao: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'cliente') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const parsed = lerFormAvaliacao(formData)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase.rpc('fn_editar_avaliacao', {
+    p_id_avaliacao: id_avaliacao,
+    p_nota: parsed.data.nota,
+    p_comentario: parsed.data.comentario ?? null,
+  })
+
+  if (error) return { error: traduzirErroAvaliacao(error.message) }
+
+  revalidatePath('/cliente/agendamentos')
   return { success: true }
 }

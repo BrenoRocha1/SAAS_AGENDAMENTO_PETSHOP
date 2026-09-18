@@ -9,6 +9,7 @@ import { formatarCpf, formatarTelefone } from '@/lib/format'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
+import { Estrelas, formatarMedia } from './Estrelas'
 import {
   IconAlert,
   IconCheck,
@@ -66,11 +67,20 @@ interface Cliente {
   telefone: string
   cpf: string
 }
+// Recorte público das avaliações (fn_avaliacoes_resumo_publico +
+// fn_avaliacoes_publicas, migration 034) — só primeiro nome de quem
+// avaliou, nunca telefone/e-mail/CPF/id.
+interface AvaliacoesPublicas {
+  media: number | null
+  total: number
+  recentes: { nota: number; comentario: string; primeiro_nome: string; created_at: string }[]
+}
 interface Props {
   lojista: Lojista
   horarios: Horario[]
   janela: Janela
   servicos: Servico[]
+  avaliacoes: AvaliacoesPublicas
   pets: Pet[]
   cliente: Cliente
   autenticado: boolean
@@ -108,7 +118,7 @@ function ProgressoEtapas({ passo }: { passo: number }) {
 }
 
 export default function AgendamentoOnlineWizard({
-  lojista, horarios, janela, servicos, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
+  lojista, horarios, janela, servicos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [step, setStep] = useState<Step>(1)
@@ -706,9 +716,36 @@ export default function AgendamentoOnlineWizard({
                 </div>
               </div>
 
-              <p className="text-xs text-muted">
-                Avaliações de clientes ainda não estão disponíveis nesta loja.
-              </p>
+              <div>
+                <div className="font-semibold text-sm" style={{ color: 'var(--gray-100)', marginBottom: 'var(--space-2)' }}>Avaliações</div>
+                {avaliacoes.total === 0 || avaliacoes.media == null ? (
+                  // Sem avaliação nenhuma: nada de "0 estrelas" nem média inventada.
+                  <p className="text-sm text-muted">Ainda não há avaliações para esta loja.</p>
+                ) : (
+                  <>
+                    <div className="avaliacao-media" style={{ marginBottom: 'var(--space-2)' }}>
+                      <Estrelas nota={avaliacoes.media} />
+                      <span className="avaliacao-media-valor" style={{ fontSize: '1.125rem' }}>{formatarMedia(avaliacoes.media)}</span>
+                      <span className="text-sm text-muted">
+                        {avaliacoes.total} {avaliacoes.total === 1 ? 'avaliação' : 'avaliações'}
+                      </span>
+                    </div>
+                    {avaliacoes.recentes.map((a, i) => (
+                      <div key={i} className="avaliacao-item" style={{ padding: 'var(--space-3) 0' }}>
+                        <div className="avaliacao-item-topo" style={{ marginBottom: 'var(--space-1)' }}>
+                          <Estrelas nota={a.nota} tamanho={13} />
+                          <span className="text-xs text-muted">
+                            {a.primeiro_nome || 'Cliente'} · {format(new Date(a.created_at), 'dd/MM/yyyy')}
+                          </span>
+                        </div>
+                        <p className="avaliacao-item-comentario" style={{ fontSize: '0.875rem', marginBottom: 0 }}>
+                          &ldquo;{a.comentario}&rdquo;
+                        </p>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => setMostrarDetalheLoja(false)}>Fechar</button>

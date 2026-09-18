@@ -441,3 +441,14 @@ export function IconIdCard(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+// Estrela das avaliações. Vazia por padrão (só o contorno, como todo
+// ícone daqui); pra preencher, quem usa passa fill="currentColor" — os
+// props vêm depois de {...base}, então sobrescrevem o fill: none.
+export function IconStar(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m12 3.5 2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 16.95 6.75 19.7l1-5.85L3.5 9.7l5.9-.9L12 3.5Z" />
+    </svg>
+  )
+}

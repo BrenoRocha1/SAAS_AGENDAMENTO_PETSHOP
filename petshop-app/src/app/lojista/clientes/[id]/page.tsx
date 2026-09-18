@@ -15,9 +15,11 @@ import {
   IconPencil,
   IconPlus,
   IconScissors,
+  IconStar,
   IconUsers,
   IconWhatsapp,
 } from '@/components/icons'
+import { Estrelas, formatarMedia } from '@/components/cliente/Estrelas'
 
 export const metadata: Metadata = { title: 'Perfil do Cliente — Lojista' }
 
@@ -38,6 +40,16 @@ interface AgendamentoRow {
   funcionario: { nome: string } | null
 }
 
+interface AvaliacaoRow {
+  id_avaliacao: string
+  nota: number
+  comentario: string | null
+  created_at: string
+  pet: { nome: string } | null
+  servico: { nome: string } | null
+  funcionario: { nome: string } | null
+}
+
 function moeda(v: number) {
   return `R$ ${v.toFixed(2)}`
 }
@@ -53,7 +65,7 @@ export default async function PerfilClientePage({ params }: Props) {
 
   // RLS ("cliente: lojista ve vinculados", migration 014) já garante que
   // só vem resultado se este cliente pertencer ao seu petshop.
-  const [{ data: cliente }, { data: petsRaw }, { data: agendaRaw }] = await Promise.all([
+  const [{ data: cliente }, { data: petsRaw }, { data: agendaRaw }, { data: avaliacoesRaw }] = await Promise.all([
     supabase
       .from('cliente')
       .select('id_cliente, nome, telefone, email, cpf, created_at, updated_at')
@@ -84,6 +96,24 @@ export default async function PerfilClientePage({ params }: Props) {
       .order('hr_agendamento', { ascending: false })
       .limit(200)
       .returns<AgendamentoRow[]>(),
+    // Avaliações que ESTE cliente deixou pra ESTA loja (migration 034).
+    // RLS ("avaliacao: lojista/funcionario ve da loja") já isola por loja;
+    // o .eq('id_lojista') é a segunda camada. Mesmo raciocínio do
+    // histórico acima: conjunto pequeno (um cliente só), então total e
+    // média saem daqui em JS, sem outra consulta.
+    supabase
+      .from('avaliacao')
+      .select(`
+        id_avaliacao, nota, comentario, created_at,
+        pet:id_pet ( nome ),
+        servico:id_servico ( nome ),
+        funcionario:id_funcionario ( nome )
+      `)
+      .eq('id_cliente', id)
+      .eq('id_lojista', lojistaId)
+      .order('created_at', { ascending: false })
+      .limit(50)
+      .returns<AvaliacaoRow[]>(),
   ])
 
   if (!cliente) {
@@ -173,6 +203,13 @@ export default async function PerfilClientePage({ params }: Props) {
   // reais, mesma fonte da tabela abaixo), só que resumida e mais recente
   // primeiro, pra dar uma visão rápida sem abrir a tabela inteira.
   const timeline = agendamentos.slice(0, 8)
+
+  // ── Avaliações DADAS por este cliente — a média aqui é das notas que
+  // ELE deu, não a média da loja (essa fica em Configurações → Avaliações).
+  const avaliacoesCliente = avaliacoesRaw ?? []
+  const mediaNotasCliente = avaliacoesCliente.length > 0
+    ? avaliacoesCliente.reduce((acc, a) => acc + a.nota, 0) / avaliacoesCliente.length
+    : null
 
   return (
     <>
@@ -375,6 +412,48 @@ export default async function PerfilClientePage({ params }: Props) {
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      {/* ── Avaliações feitas pelo cliente ── */}
+      <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
+        <h3 className="relatorio-secao-titulo">
+          <IconStar style={{ width: 15, height: 15 }} /> Avaliações do cliente
+        </h3>
+        {avaliacoesCliente.length === 0 || mediaNotasCliente == null ? (
+          <p className="text-sm text-muted">Este cliente ainda não avaliou nenhum atendimento.</p>
+        ) : (
+          <>
+            <div className="flex gap-6" style={{ flexWrap: 'wrap', marginBottom: 'var(--space-3)' }}>
+              <div>
+                <div className="text-xs text-muted">Total de avaliações feitas</div>
+                <div className="font-semibold" style={{ color: 'var(--gray-100)', fontSize: '1.125rem' }}>{avaliacoesCliente.length}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted">Média das notas que deu</div>
+                <div className="avaliacao-media">
+                  <span className="font-semibold" style={{ color: 'var(--gray-100)', fontSize: '1.125rem' }}>{formatarMedia(mediaNotasCliente)}</span>
+                  <Estrelas nota={mediaNotasCliente} tamanho={14} />
+                </div>
+              </div>
+            </div>
+            {avaliacoesCliente.map(a => (
+              <div key={a.id_avaliacao} className="avaliacao-item">
+                <div className="avaliacao-item-topo">
+                  <Estrelas nota={a.nota} />
+                  <span className="text-xs text-muted">{format(new Date(a.created_at), 'dd/MM/yyyy')}</span>
+                </div>
+                <p className={`avaliacao-item-comentario ${a.comentario ? '' : 'is-vazio'}`}>
+                  {a.comentario ? <>&ldquo;{a.comentario}&rdquo;</> : 'Sem comentário'}
+                </p>
+                <div className="avaliacao-item-meta">
+                  <span>Pet: <strong>{a.pet?.nome ?? '—'}</strong></span>
+                  <span>Serviço: <strong>{a.servico?.nome ?? '—'}</strong></span>
+                  {a.funcionario?.nome && <span>Profissional: <strong>{a.funcionario.nome}</strong></span>}
+                </div>
+              </div>
+            ))}
+          </>
         )}
       </div>
 

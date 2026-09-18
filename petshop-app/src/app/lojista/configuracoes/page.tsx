@@ -8,6 +8,7 @@ import {
   IconChevronRight,
   IconClock,
   IconShield,
+  IconStar,
   IconStore,
 } from '@/components/icons'
 
@@ -57,6 +58,12 @@ export default async function ConfiguracoesPage() {
           icon: <IconClock style={{ width: 18, height: 18 }} />,
           titulo: 'Horários de funcionamento',
           descricao: 'Configure os dias e horários de atendimento',
+        },
+        {
+          href: '/lojista/configuracoes/avaliacoes',
+          icon: <IconStar style={{ width: 18, height: 18 }} />,
+          titulo: 'Avaliações',
+          descricao: 'Veja o que seus clientes estão dizendo sobre sua loja.',
         },
       ],
     },

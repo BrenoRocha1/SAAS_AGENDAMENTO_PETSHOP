@@ -263,6 +263,20 @@ export const editarFuncionarioSchema = z.object({
   acesso_total: z.boolean().default(false),
 })
 
+// Avaliação deixada pelo cliente depois de um atendimento finalizado
+// (migration 034). Nota inteira de 1 a 5 — o banco repete a mesma regra
+// (SMALLINT + CHECK BETWEEN 1 AND 5), porque validação de formulário não
+// é segurança. Comentário é opcional e segue o limite de 500 caracteres
+// que o resto do sistema já usa pra texto livre (agendamento.obs).
+export const avaliacaoSchema = z.object({
+  nota: z
+    .number()
+    .int('Escolha uma nota de 1 a 5')
+    .min(1, 'Escolha uma nota de 1 a 5')
+    .max(5, 'Escolha uma nota de 1 a 5'),
+  comentario: z.string().max(500, 'O comentário pode ter no máximo 500 caracteres').optional(),
+})
+
 // ============================================================
 // Validação de CPF (algoritmo oficial)
 // ============================================================
@@ -301,3 +315,4 @@ export type FuncionarioData = z.infer<typeof funcionarioSchema>
 export type EditarFuncionarioData = z.infer<typeof editarFuncionarioSchema>
 export type CadastroClienteLojistaData = z.infer<typeof cadastroClienteLojistaSchema>
 export type RedefinirSenhaData = z.infer<typeof redefinirSenhaSchema>
+export type AvaliacaoData = z.infer<typeof avaliacaoSchema>

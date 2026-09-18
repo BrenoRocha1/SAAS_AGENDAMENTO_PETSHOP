@@ -2501,3 +2501,46 @@ a:hover { color: var(--primary-300); }
   .login-aside { display: none; }
   .login-form-pane { padding: var(--space-10) var(--space-5); }
 }
+
+/* ============================================================
+   AVALIAÇÕES (migration 034)
+   Estrela cheia usa o âmbar — o acento que o sistema já reserva pra
+   "avisos e estrelas" (ver --accent-* no :root), nunca a cor da marca.
+   ============================================================ */
+.estrelas { display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; }
+.estrela-cheia { color: var(--accent-500); }
+.estrela-vazia { color: var(--gray-700); }
+
+.estrelas-input { gap: var(--space-1); }
+.estrelas-input button {
+  background: none; border: none; padding: 2px; cursor: pointer; line-height: 0;
+  border-radius: var(--radius-sm); transition: transform var(--transition-fast);
+}
+.estrelas-input button:hover:not(:disabled) { transform: scale(1.12); }
+.estrelas-input button:focus-visible { outline: 2px solid var(--primary-400); outline-offset: 2px; }
+.estrelas-input button:disabled { cursor: not-allowed; }
+.estrelas-input svg { width: 34px; height: 34px; }
+.estrelas-rotulo { font-size: 0.8125rem; color: var(--gray-400); margin-top: var(--space-1); min-height: 1.2em; }
+
+.avaliacao-contador { font-size: 0.75rem; color: var(--gray-500); text-align: right; margin-top: 4px; }
+.avaliacao-contador.is-limite { color: var(--danger-400); }
+
+/* Média grande + total (painel da loja, modal público, perfil do cliente) */
+.avaliacao-media { display: flex; align-items: center; gap: var(--space-2); }
+.avaliacao-media-valor { font-family: var(--font-heading); font-size: 1.5rem; font-weight: 800; color: var(--gray-100); line-height: 1; }
+
+/* Distribuição por nota: "5 estrelas ████ 82" */
+.avaliacao-dist { display: flex; flex-direction: column; gap: var(--space-2); }
+.avaliacao-dist-linha { display: grid; grid-template-columns: 72px minmax(0, 1fr) 40px; align-items: center; gap: var(--space-3); font-size: 0.8125rem; color: var(--gray-300); }
+.avaliacao-dist-barra { height: 8px; background: var(--gray-800); border-radius: var(--radius-full); overflow: hidden; }
+.avaliacao-dist-barra span { display: block; height: 100%; background: var(--accent-500); border-radius: var(--radius-full); }
+.avaliacao-dist-num { text-align: right; font-weight: 600; color: var(--gray-100); }
+
+/* Um item de avaliação na lista */
+.avaliacao-item { padding: var(--space-4) 0; border-bottom: 1px solid var(--gray-800); }
+.avaliacao-item:last-child { border-bottom: none; }
+.avaliacao-item-topo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-2); flex-wrap: wrap; }
+.avaliacao-item-comentario { color: var(--gray-200); font-size: 0.9375rem; line-height: 1.5; margin-bottom: var(--space-2); word-break: break-word; }
+.avaliacao-item-comentario.is-vazio { color: var(--gray-500); font-style: italic; }
+.avaliacao-item-meta { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); font-size: 0.8125rem; color: var(--gray-400); }
+.avaliacao-item-meta strong { color: var(--gray-300); font-weight: 600; }
