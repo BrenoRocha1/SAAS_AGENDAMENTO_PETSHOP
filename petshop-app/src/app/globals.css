@@ -1606,7 +1606,7 @@ a:hover { color: var(--primary-300); }
   border-radius: 50%; display: grid; place-items: center; margin: 2px auto 0;
 }
 
-.cal-body { position: relative; display: grid; grid-template-columns: 56px repeat(7, 1fr); overflow-y: auto; }
+.cal-body { position: relative; display: grid; grid-template-columns: 56px repeat(7, 1fr); }
 .cal-gutter { position: relative; }
 .cal-gutter-hour { position: absolute; left: 0; right: 0; font-size: 0.6875rem; color: var(--gray-500); text-align: right; padding-right: 8px; transform: translateY(-50%); }
 /* A primeira hora não centraliza na própria linha (top:0) — metade do
