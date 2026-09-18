@@ -3,15 +3,15 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: {
-    default: 'PetShop Agenda — Sistema de Agendamento para Pet Shops',
-    template: '%s | PetShop Agenda',
+    default: 'SAIP — Sistema de Agendamento Inteligente para Petshop',
+    template: '%s | SAIP',
   },
   description:
-    'Plataforma SaaS completa para agendamento de banho e tosa. Gerencie seu petshop com facilidade e segurança.',
-  keywords: ['petshop', 'agendamento', 'banho e tosa', 'pet', 'veterinário'],
-  authors: [{ name: 'PetShop Agenda' }],
+    'SAIP: plataforma SaaS de agendamento inteligente para petshops. Automatize sua recepção, elimine faltas e gerencie comissões.',
+  keywords: ['petshop', 'agendamento', 'banho e tosa', 'pet', 'SAIP', 'sistema agendamento'],
+  authors: [{ name: 'SAIP' }],
   viewport: 'width=device-width, initial-scale=1',
-  themeColor: '#7c3aed',
+  themeColor: '#4f46e5',
 }
 
 export default function RootLayout({
