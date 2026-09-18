@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { format, addDays, subDays, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
-import { classeBadgeStatus, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
+import { classeBadgeStatus, ORDEM_ETAPA, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
 import {
   IconAlert,
   IconCalendar,
@@ -94,16 +94,22 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
     })
   }, [itens, filtroFuncionario, filtroServico])
 
-  // Usada tanto pelos botões (Pendente→Confirmado→Concluído, só pra
-  // frente) quanto pelo arrastar-e-soltar (qualquer coluna → qualquer
-  // coluna, incluindo voltar — ex.: arrastar de volta de "Finalizado"
-  // pra "Em Andamento" se foi marcado por engano).
+  // Usada tanto pelos botões quanto pelo arrastar-e-soltar. O status só
+  // anda pra frente (Pendente→Confirmado→Em andamento→Concluído) — uma
+  // vez finalizado (ou numa etapa mais avançada), não existe caminho de
+  // volta, nem por drag-and-drop nem por botão. A Server Action recusa a
+  // mesma coisa do lado do servidor; esta checagem aqui é só pra dar o
+  // feedback na hora, sem esperar a viagem até o servidor.
   //
   // Otimista: o card troca de coluna na hora, antes da resposta do
   // servidor chegar — o salvamento continua rolando por baixo dos panos
   // (startTransition) e só reverte a troca se o servidor recusar.
   function moverParaStatus(item: KanbanItem, novoStatus: KanbanItem['status']) {
     if (item.status === novoStatus) return
+    if (ORDEM_ETAPA[novoStatus] <= ORDEM_ETAPA[item.status]) {
+      setErro('Não é possível voltar para uma etapa anterior. Um agendamento finalizado não pode ser reaberto.')
+      return
+    }
     setErro(null)
     const statusAnterior = item.status
     setItens(prev => prev.map(it => it.id_agendamento === item.id_agendamento ? { ...it, status: novoStatus } : it))
@@ -139,6 +145,11 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
   }
 
   function handleDragOverColuna(e: React.DragEvent, status: KanbanItem['status']) {
+    const item = itens.find(it => it.id_agendamento === draggingId)
+    // Etapa igual ou anterior à atual — não chama preventDefault(), então
+    // o navegador mantém o comportamento padrão de "não pode soltar aqui"
+    // (cursor de proibido, sem highlight na coluna).
+    if (item && ORDEM_ETAPA[status] <= ORDEM_ETAPA[item.status]) return
     e.preventDefault() // sem isso o navegador não permite soltar aqui
     e.dataTransfer.dropEffect = 'move'
     if (colunaAlvo !== status) setColunaAlvo(status)
@@ -310,7 +321,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                         <div
                           key={item.id_agendamento}
                           className={`kanban-card ${draggingId === item.id_agendamento ? 'is-dragging' : ''}`}
-                          draggable={!(isPending && pendingId === item.id_agendamento)}
+                          draggable={item.status !== 'Concluído' && !(isPending && pendingId === item.id_agendamento)}
                           onDragStart={e => handleDragStart(e, item)}
                           onDragEnd={handleDragEnd}
                           onClick={() => handleCardClick(item)}
@@ -438,11 +449,9 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                 </div>
               )}
               {selecionado.status === 'Concluído' && (
-                <div className="dash-detail-actions">
-                  <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatusModal('Em andamento')}>
-                    Reabrir (voltar pra Em Andamento)
-                  </button>
-                </div>
+                <p className="text-sm text-muted" style={{ marginTop: 'var(--space-3)' }}>
+                  Agendamento finalizado — o status não pode mais ser alterado.
+                </p>
               )}
             </div>
           </div>

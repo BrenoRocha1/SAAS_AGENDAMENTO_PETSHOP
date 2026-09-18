@@ -75,6 +75,24 @@ export function corSolidaStatus(status: string): string {
   return COR_SOLIDA_STATUS[status as StatusAgendamento] ?? COR_SOLIDA_STATUS.Pendente
 }
 
+// Posição de cada etapa na linha do tempo do atendimento — usada pra
+// impedir voltar uma etapa já passada (ex.: arrastar um card de
+// "Finalizado" de volta pra "Em andamento" no Kanban, ou qualquer outro
+// retrocesso). 'Cancelado' fica fora: é um desvio da linha do tempo, não
+// uma etapa anterior às outras.
+export const ORDEM_ETAPA: Record<'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído', number> = {
+  Pendente: 1,
+  Confirmado: 2,
+  'Em andamento': 3,
+  'Concluído': 4,
+}
+
+// Uma vez finalizado ou cancelado, o status não muda mais por nenhum
+// caminho (drag-and-drop, botão ou chamada direta da Server Action).
+export function etapaEncerrada(status: string): boolean {
+  return status === 'Concluído' || status === 'Cancelado'
+}
+
 // Ainda não terminou nem foi cancelado — cobre as 3 etapas antes de
 // "Finalizado". Usado pra somar "a receber", achar o próximo
 // agendamento de um cliente/pet etc. Continua valendo pros dados

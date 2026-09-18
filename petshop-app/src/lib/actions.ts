@@ -30,6 +30,7 @@ import {
   somNotificacaoSchema,
 } from '@/lib/validations'
 import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } from '@/lib/lojista-context'
+import { ORDEM_ETAPA, etapaEncerrada } from '@/lib/status-agendamento'
 import type { ServicoVariacaoData } from '@/lib/validations'
 
 // ============================================================
@@ -1105,6 +1106,28 @@ export async function atualizarStatusAgendamentoAction(
   const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
   if (!contexto) return { error: 'Acesso não autorizado' }
   if (!contexto.podeGerenciarAgenda) return { error: 'Você não tem permissão para gerenciar a agenda.' }
+
+  // O status não pode voltar — nem por drag-and-drop, nem por uma chamada
+  // direta a esta action (o front já bloqueia isso, mas quem garante de
+  // verdade é aqui: busca o status atual antes de aceitar a mudança).
+  const { data: atual, error: buscaError } = await supabase
+    .from('agendamento')
+    .select('status')
+    .eq('id_agendamento', id_agendamento)
+    .eq('id_lojista', contexto.idLojista)
+    .maybeSingle()
+
+  if (buscaError || !atual) return { error: 'Agendamento não encontrado.' }
+  if (etapaEncerrada(atual.status)) {
+    return { error: 'Este agendamento já foi finalizado e não pode mais mudar de status.' }
+  }
+  if (status !== 'Cancelado') {
+    const ordemAtual = ORDEM_ETAPA[atual.status as keyof typeof ORDEM_ETAPA] ?? 0
+    const ordemNova = ORDEM_ETAPA[status as keyof typeof ORDEM_ETAPA] ?? 0
+    if (ordemNova <= ordemAtual) {
+      return { error: 'Não é possível voltar para uma etapa anterior.' }
+    }
+  }
 
   const updateData: Record<string, string> = { status }
   if (status === 'Cancelado') {
