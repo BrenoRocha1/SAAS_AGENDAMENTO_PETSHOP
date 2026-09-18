@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   format,
@@ -90,16 +90,6 @@ function corDoFuncionario(id: string | null, funcionarios: FuncionarioFiltro[]) 
   if (!id) return '#6b7280'
   const idx = funcionarios.findIndex(f => f.id_funcionario === id)
   return CORES[idx % CORES.length] ?? '#6b7280'
-}
-
-// Fundo bem clarinho na cor do profissional (estilo Google Agenda: bloco
-// claro + barra colorida na esquerda, não um retângulo sólido) — só serve
-// pra isso, por isso fica só com alfa fixo em vez de virar utilitário geral.
-function corDeFundoSuave(hex: string) {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return `rgba(${r}, ${g}, ${b}, 0.12)`
 }
 
 interface EventoPosicionado extends AgendamentoCalendario {
@@ -203,21 +193,6 @@ export default function AgendaCalendar({
   const [selecionado, setSelecionado] = useState<AgendamentoCalendario | null>(null)
   const [modalAberto, setModalAberto] = useState(!!clienteFixoInicial || !!funcionarioIdPadraoInicial)
   const [acaoErro, setAcaoErro] = useState<string | null>(null)
-
-  // Linha do "agora" (estilo Google Agenda) — minuto do dia, recalculado a
-  // cada minuto. Começa null pra não desenhar a linha no horário errado
-  // antes do primeiro cálculo no cliente (o servidor não sabe que horas são
-  // no fuso do navegador de quem está olhando).
-  const [agoraMin, setAgoraMin] = useState<number | null>(null)
-  useEffect(() => {
-    function atualizar() {
-      const agora = new Date()
-      setAgoraMin(agora.getHours() * 60 + agora.getMinutes())
-    }
-    atualizar()
-    const id = setInterval(atualizar, 60_000)
-    return () => clearInterval(id)
-  }, [])
 
   function irParaSemana(dataRef: Date) {
     const iso = format(startOfWeek(dataRef, { weekStartsOn: 0 }), 'yyyy-MM-dd')
@@ -407,20 +382,11 @@ export default function AgendaCalendar({
                 const diaISO = format(dia, 'yyyy-MM-dd')
                 const eventosDoDia = agendamentosFiltrados.filter(a => a.dt_agendamento === diaISO)
                 const posicionados = posicionarDia(eventosDoDia)
-                const hojeNestaColuna = isToday(dia)
-                const minutoInicioGrade = HORA_INICIO * 60
-                const minutoFimGrade = HORA_FIM * 60
-                const mostrarLinhaAgora = hojeNestaColuna && agoraMin !== null && agoraMin >= minutoInicioGrade && agoraMin <= minutoFimGrade
                 return (
-                  <div key={diaISO} className={`cal-day-col ${hojeNestaColuna ? 'is-today' : ''}`}>
+                  <div key={diaISO} className="cal-day-col">
                     {horas.map(h => (
                       <div key={h} className="cal-hour-line" style={{ top: (h - HORA_INICIO) * ALTURA_HORA }} />
                     ))}
-                    {mostrarLinhaAgora && (
-                      <div className="cal-now-line" style={{ top: ((agoraMin! - minutoInicioGrade) / 60) * ALTURA_HORA }}>
-                        <div className="cal-now-dot" />
-                      </div>
-                    )}
                     {posicionados.map(ev => {
                       const cor = corDoFuncionario(ev.id_funcionario, funcionarios)
                       const largura = 100 / ev.totalLanes
@@ -428,15 +394,15 @@ export default function AgendaCalendar({
                         <button
                           key={ev.id_agendamento}
                           type="button"
-                          className={`cal-event ${ev.status === 'Cancelado' ? 'is-cancelado' : ''} ${ev.status === 'Pendente' ? 'is-pendente' : ''}`}
+                          className={`cal-event ${ev.status === 'Cancelado' ? 'is-cancelado' : ''}`}
                           style={{
                             top: ev.top,
                             height: ev.height,
                             left: `calc(${ev.lane * largura}% + 2px)`,
                             width: `calc(${largura}% - 4px)`,
-                            background: corDeFundoSuave(cor),
+                            background: cor,
                             borderLeftColor: cor,
-                            color: cor,
+                            filter: ev.status === 'Pendente' ? 'saturate(0.6)' : 'none',
                           }}
                           onClick={() => setSelecionado(ev)}
                           title={`${ev.hr_agendamento.slice(0, 5)} · ${ev.nome_pet} · ${ev.nome_servico}`}
