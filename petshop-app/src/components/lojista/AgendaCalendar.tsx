@@ -384,7 +384,11 @@ export default function AgendaCalendar({
             <div className="cal-body" style={{ height: (horaFimGrade - horaInicioGrade) * ALTURA_HORA }}>
               <div className="cal-gutter">
                 {horas.map(h => (
-                  <div key={h} className="cal-gutter-hour" style={{ top: (h - horaInicioGrade) * ALTURA_HORA }}>
+                  <div
+                    key={h}
+                    className={`cal-gutter-hour ${h === horaInicioGrade ? 'is-primeira' : ''}`}
+                    style={{ top: (h - horaInicioGrade) * ALTURA_HORA }}
+                  >
                     {String(h).padStart(2, '0')}:00
                   </div>
                 ))}
