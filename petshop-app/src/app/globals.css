@@ -1597,7 +1597,17 @@ a:hover { color: var(--primary-300); }
 .cal-toolbar-title { font-weight: 700; color: var(--gray-100); font-size: 1rem; }
 
 .cal-week { background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: var(--radius-lg); overflow: hidden; }
-.cal-week-head { display: grid; grid-template-columns: 56px repeat(7, 1fr); border-bottom: 1px solid var(--gray-800); }
+/* .cal-week-head não rola (é o cabeçalho fixo), mas precisa reservar o
+   mesmo espaço de scrollbar que .cal-body reserva — sem isso, com 7
+   colunas a barra de rolagem "rouba" ~15px só da última coluna do corpo,
+   e depois de 7 colunas o desalinhamento acumulado faz cada dia do corpo
+   não bater mais com o cabeçalho correspondente (parecia um bug de
+   posicionamento de evento, mas era isso). scrollbar-gutter:stable
+   reserva o espaço mesmo sem barra visível. */
+.cal-week-head {
+  display: grid; grid-template-columns: 56px repeat(7, 1fr); border-bottom: 1px solid var(--gray-800);
+  overflow-y: hidden; scrollbar-gutter: stable;
+}
 .cal-week-head-cell { padding: var(--space-2) var(--space-1); text-align: center; }
 .cal-week-head-dow { font-size: 0.6875rem; color: var(--gray-500); font-weight: 600; text-transform: uppercase; }
 .cal-week-head-num { font-size: 1.125rem; font-weight: 700; color: var(--gray-100); margin-top: 2px; }
@@ -1606,21 +1616,32 @@ a:hover { color: var(--primary-300); }
   border-radius: 50%; display: grid; place-items: center; margin: 2px auto 0;
 }
 
-.cal-body { position: relative; display: grid; grid-template-columns: 56px repeat(7, 1fr); overflow-y: auto; }
+.cal-body {
+  position: relative; display: grid; grid-template-columns: 56px repeat(7, 1fr);
+  overflow-y: auto; scrollbar-gutter: stable;
+}
 .cal-gutter { position: relative; }
 .cal-gutter-hour { position: absolute; left: 0; right: 0; font-size: 0.6875rem; color: var(--gray-500); text-align: right; padding-right: 8px; transform: translateY(-50%); }
 .cal-day-col { position: relative; border-left: 1px solid var(--gray-800); }
+.cal-day-col.is-today { background: var(--primary-soft-bg-8); }
 .cal-hour-line { position: absolute; left: 0; right: 0; border-top: 1px solid var(--gray-850); }
+
+/* Linha do "agora" — só aparece na coluna de hoje, mesma ideia do
+   Google Agenda: uma linha vermelha na altura do horário atual. */
+.cal-now-line { position: absolute; left: 0; right: 0; border-top: 2px solid var(--danger-500); z-index: 2; pointer-events: none; }
+.cal-now-dot { position: absolute; left: -4px; top: -4px; width: 9px; height: 9px; border-radius: 50%; background: var(--danger-500); }
 
 .cal-event {
   position: absolute; border-radius: var(--radius-sm); padding: 3px 6px; overflow: hidden;
   cursor: pointer; border: none; border-left: 3px solid; text-align: left;
-  font-size: 0.6875rem; line-height: 1.25; color: white; transition: filter var(--transition-fast);
+  font-size: 0.6875rem; line-height: 1.25; transition: filter var(--transition-fast), box-shadow var(--transition-fast);
+  background: var(--gray-900); box-shadow: 0 1px 2px rgba(17,24,39,0.08);
 }
-.cal-event:hover { filter: brightness(1.08); }
-.cal-event-time { font-weight: 700; opacity: 0.9; }
+.cal-event:hover { filter: brightness(0.97); box-shadow: 0 2px 6px rgba(17,24,39,0.15); }
+.cal-event-time { font-weight: 700; opacity: 0.85; }
 .cal-event-title { font-weight: 600; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 .cal-event.is-cancelado { opacity: 0.5; text-decoration: line-through; }
+.cal-event.is-pendente { opacity: 0.8; }
 
 @media (max-width: 1024px) {
   .cal-shell { grid-template-columns: 1fr; }
