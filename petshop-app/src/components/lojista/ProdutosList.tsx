@@ -254,26 +254,41 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
       const result = editando
         ? await editarProdutoAction(editando.id_produto, formData)
         : await criarProdutoAction(formData)
-      if (result?.error) {
-        setError(result.error)
+      if (result?.error || !result.produto) {
+        setError(result?.error ?? 'Erro ao salvar produto.')
         return
       }
 
-      const idProduto: string | undefined = editando?.id_produto ?? (result as { id_produto?: string }).id_produto
-      if (fotoPendente && idProduto) {
+      // A linha que volta do próprio insert/update (feito pelo client do
+      // servidor) é a fonte da verdade — mescla direto no estado local em
+      // vez de reconsultar a tabela pelo client do navegador depois.
+      let produtoSalvo = result.produto as unknown as Produto
+      const idProduto = produtoSalvo.id_produto
+
+      if (fotoPendente) {
         const fotoFd = new FormData()
         fotoFd.set('foto', fotoPendente.blob, `foto.${fotoPendente.extensao}`)
         const fotoResult = await atualizarFotoProdutoAction(idProduto, fotoFd)
         if (fotoResult?.error) {
           setError(`Produto salvo, mas a foto não pôde ser enviada: ${fotoResult.error}`)
+        } else if (fotoResult.url) {
+          produtoSalvo = { ...produtoSalvo, foto_url: fotoResult.url }
         }
-      } else if (removerFotoAoSalvar && idProduto) {
+      } else if (removerFotoAoSalvar) {
         await removerFotoProdutoAction(idProduto)
+        produtoSalvo = { ...produtoSalvo, foto_url: null }
       }
+
+      setProdutos(prev => {
+        const existe = prev.some(x => x.id_produto === idProduto)
+        const atualizados = existe
+          ? prev.map(x => x.id_produto === idProduto ? produtoSalvo : x)
+          : [...prev, produtoSalvo]
+        return atualizados.sort((a, b) => a.nome.localeCompare(b.nome))
+      })
 
       setShowModal(false)
       limparEstadoFoto()
-      await recarregar()
     })
   }
 

@@ -847,13 +847,19 @@ export async function criarProdutoAction(formData: FormData) {
   const { data: novoProduto, error } = await supabase
     .from('produto')
     .insert({ id_lojista: contexto.idLojista, ...parsed.data })
-    .select('id_produto')
+    .select('*')
     .single()
 
   if (error || !novoProduto) return { error: devError('Erro ao cadastrar produto.', error?.message) }
 
   revalidatePath('/lojista/produtos')
-  return { success: true, id_produto: novoProduto.id_produto as string }
+  // Devolve a linha inteira pra tela mesclar direto no estado local, em
+  // vez de reconsultar a tabela pelo client do navegador — esse refetch
+  // separado é quem causava o "lista some inteira depois de criar" (o
+  // resultado do próprio insert, feito pelo client do servidor, é sempre
+  // confiável; um SELECT * solto pelo lado do cliente logo em seguida
+  // não precisa existir).
+  return { success: true, produto: novoProduto as Record<string, unknown> }
 }
 
 // Estoque atual fica de fora de propósito — depois de criado, só muda
@@ -880,16 +886,20 @@ export async function editarProdutoAction(id_produto: string, formData: FormData
   const parsed = produtoSchema.omit({ estoque_atual: true }).safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  const { error } = await supabase
+  const { data: atualizado, error } = await supabase
     .from('produto')
     .update(parsed.data)
     .eq('id_produto', id_produto)
     .eq('id_lojista', contexto.idLojista)
+    .select('*')
+    .single()
 
-  if (error) return { error: devError('Erro ao atualizar produto.', error.message) }
+  if (error || !atualizado) return { error: devError('Erro ao atualizar produto.', error?.message) }
 
   revalidatePath('/lojista/produtos')
-  return { success: true }
+  // Mesmo motivo do criarProdutoAction: devolve a linha atualizada pra
+  // mesclar direto no estado, sem depender de um refetch separado.
+  return { success: true, produto: atualizado as Record<string, unknown> }
 }
 
 export async function alternarStatusProdutoAction(id_produto: string, ativo: boolean) {
