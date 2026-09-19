@@ -242,12 +242,23 @@ function LoginFormPane() {
 
   const redirectTo = searchParams.get('redirectTo')
   const oauthError = searchParams.get('error')
-  const paramMessage =
-    oauthError === 'oauth'
-      ? 'Não foi possível entrar com o Google. Tente novamente ou use e-mail e senha.'
-      : oauthError
-        ? 'Não foi possível concluir o login. Tente novamente.'
-        : null
+  const errorDetail = searchParams.get('error_detail')
+    ? decodeURIComponent(searchParams.get('error_detail')!)
+    : null
+
+  const ERROR_MESSAGES: Record<string, string> = {
+    oauth: 'Não foi possível conectar com o Google. Tente novamente.',
+    no_code: 'Nenhum código de autorização recebido. Tente novamente.',
+    session_exchange: 'Falha ao processar autenticação com o Google.',
+    no_user: 'Usuário não encontrado após autenticação.',
+    no_admin_key: 'Erro de configuração do servidor (service role key ausente).',
+    callback: 'Erro no retorno do login. Tente novamente.',
+  }
+
+  const paramMessage = oauthError
+    ? (errorDetail ?? ERROR_MESSAGES[oauthError] ?? `Erro: ${oauthError}`)
+    : null
+
 
   const message = error ?? paramMessage
 
