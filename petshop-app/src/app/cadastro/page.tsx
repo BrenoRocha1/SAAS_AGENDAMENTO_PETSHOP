@@ -2,8 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { cadastroClienteAction } from '@/lib/actions'
-import { createClient } from '@/lib/supabase/client'
+import { cadastroClienteAction, getGoogleOAuthUrlAction } from '@/lib/actions'
 import { IconIdCard, IconPhone, IconUser } from '@/components/icons'
 
 const stroke = {
@@ -95,15 +94,16 @@ export default function CadastroClientePage() {
   async function handleGoogle() {
     setError(null)
     setOauthPending(true)
-    const supabase = createClient()
-    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback?role=cliente` },
-    })
-    if (oauthErr) {
+    
+    const result = await getGoogleOAuthUrlAction('cliente')
+    
+    if (result.error || !result.url) {
       setOauthPending(false)
-      setError('Não foi possível conectar com o Google. Tente novamente.')
+      setError(result.error || 'Não foi possível conectar com o Google. Tente novamente.')
+      return
     }
+    
+    window.location.href = result.url
   }
 
 

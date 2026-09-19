@@ -71,20 +71,29 @@ async function obterOrigin() {
 // via Set-Cookie no servidor para que o /auth/callback consiga
 // encontrá-lo (não depende de document.cookie do browser).
 // ============================================================
-export async function googleSignInAction(): Promise<{ error: string } | never> {
+export async function getGoogleOAuthUrlAction(role?: string): Promise<{ error?: string; url?: string }> {
   const supabase = await createClient()
   const origin = await obterOrigin()
+  
+  const callbackUrl = role 
+    ? `${origin}/auth/callback?role=${role}`
+    : `${origin}/auth/callback`
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${origin}/auth/callback`,
+      redirectTo: callbackUrl,
       skipBrowserRedirect: true,
     },
   })
+
   if (error || !data.url) {
     return { error: `Não foi possível conectar com o Google: ${error?.message ?? 'URL não retornada'}` }
   }
-  redirect(data.url)
+  
+  // Retorna a URL para o cliente fazer o redirecionamento.
+  // Isso evita o bug do Next.js/Vercel onde Set-Cookie é perdido em redirects 30x para URLs externas.
+  return { url: data.url }
 }
 
 // ============================================================

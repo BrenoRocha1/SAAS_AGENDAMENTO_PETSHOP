@@ -3,8 +3,7 @@
 import { Suspense, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { loginAction } from '@/lib/actions'
-import { createClient } from '@/lib/supabase/client'
+import { loginAction, getGoogleOAuthUrlAction } from '@/lib/actions'
 /* ------------------------------------------------------------------ *
  * Ícones — line icons em SVG inline (sem biblioteca externa).
  * ------------------------------------------------------------------ */
@@ -275,16 +274,15 @@ function LoginFormPane() {
     setError(null)
     setOauthPending(true)
     
-    const supabase = createClient()
-    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    })
+    const result = await getGoogleOAuthUrlAction()
     
-    if (oauthErr) {
+    if (result.error || !result.url) {
       setOauthPending(false)
-      setError('Não foi possível conectar com o Google. Tente novamente.')
+      setError(result.error || 'Não foi possível conectar com o Google. Tente novamente.')
+      return
     }
+    
+    window.location.href = result.url
   }
 
   return (

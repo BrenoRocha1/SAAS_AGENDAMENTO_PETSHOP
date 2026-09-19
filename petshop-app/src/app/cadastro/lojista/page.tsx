@@ -2,8 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { cadastroLojistaAction } from '@/lib/actions'
-import { createClient } from '@/lib/supabase/client'
+import { cadastroLojistaAction, getGoogleOAuthUrlAction } from '@/lib/actions'
 import { IconMapPin, IconPhone, IconStore } from '@/components/icons'
 
 const UF = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
@@ -97,15 +96,16 @@ export default function CadastroLojistaPage() {
   async function handleGoogle() {
     setError(null)
     setOauthPending(true)
-    const supabase = createClient()
-    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback?role=lojista` },
-    })
-    if (oauthErr) {
+    
+    const result = await getGoogleOAuthUrlAction('lojista')
+    
+    if (result.error || !result.url) {
       setOauthPending(false)
-      setError('Não foi possível conectar com o Google. Tente novamente.')
+      setError(result.error || 'Não foi possível conectar com o Google. Tente novamente.')
+      return
     }
+    
+    window.location.href = result.url
   }
 
 
