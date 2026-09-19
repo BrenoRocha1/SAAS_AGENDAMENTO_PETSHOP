@@ -7,11 +7,12 @@ import { criarAgendamentoAction } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { removerHorariosPassados } from '@/lib/agenda'
+import { rotuloUnidade } from '@/lib/produto'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
 import {
   IconAlert, IconCalendar, IconCheck, IconClock, IconDog,
-  IconMapPin, IconMoney, IconScissors, IconStore,
+  IconMapPin, IconMoney, IconPackage, IconScissors, IconStore,
 } from '@/components/icons'
 
 interface Lojista {
@@ -35,6 +36,16 @@ interface Servico {
   descricao: string | null
   preco: number
   duracao: number
+}
+
+// Produtos com disponivel_agendamento_online=true (migration 039) — o
+// cliente pode adicionar junto do serviço, na etapa de confirmação.
+interface Produto {
+  id_produto: string
+  nome: string
+  preco_venda: number
+  unidade_venda: string
+  estoque_atual: number
 }
 
 interface Slot {
@@ -99,6 +110,8 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const [petId, setPetId] = useState('')
   const [servicos, setServicos] = useState<Servico[]>([])
   const [servicoId, setServicoId] = useState('')
+  const [produtosDisponiveis, setProdutosDisponiveis] = useState<Produto[]>([])
+  const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, string>>({})
   const [horarios, setHorarios] = useState<Horario[]>([])
   const [janela, setJanela] = useState<Janela>(JANELA_PADRAO)
   const [data, setData] = useState('')
@@ -114,6 +127,22 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       .eq('id_lojista', lojistaId)
       .eq('status', 'Ativo')
       .then(({ data }) => setServicos(data ?? []))
+  }, [lojistaId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Produtos que a loja liberou pra venda no agendamento online (migration
+  // 039) — só aparecem se tiverem estoque; a etapa de confirmação deixa
+  // adicionar junto do serviço.
+  useEffect(() => {
+    if (!lojistaId) return
+    supabase
+      .from('produto')
+      .select('id_produto, nome, preco_venda, unidade_venda, estoque_atual')
+      .eq('id_lojista', lojistaId)
+      .eq('status', 'Ativo')
+      .eq('disponivel_agendamento_online', true)
+      .gt('estoque_atual', 0)
+      .order('nome')
+      .then(({ data }) => setProdutosDisponiveis(data ?? []))
   }, [lojistaId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Dias abertos + janela de antecedência da loja escolhida — precisa pra
@@ -161,6 +190,19 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       })
   }, [data, servicoId, lojistaId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const servicoSel = servicos.find(s => s.id_servico === servicoId)
+  const lojistaSel = lojistas.find(l => l.id_lojista === lojistaId)
+  const petSel = pets.find(p => p.id_pet === petId)
+
+  const itensCarrinhoProdutos = useMemo(() =>
+    produtosDisponiveis
+      .map(produto => ({ produto, quantidade: parseFloat(quantidadesProdutos[produto.id_produto] || '0') }))
+      .filter(item => item.quantidade > 0),
+    [produtosDisponiveis, quantidadesProdutos]
+  )
+  const totalProdutos = itensCarrinhoProdutos.reduce((acc, i) => acc + i.produto.preco_venda * i.quantidade, 0)
+  const totalGeral = (servicoSel?.preco ?? 0) + totalProdutos
+
   function handleSubmit() {
     setError(null)
     const formData = new FormData()
@@ -170,6 +212,9 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
     formData.set('dt_agendamento', data)
     formData.set('hr_agendamento', hora)
     formData.set('obs', obs)
+    if (itensCarrinhoProdutos.length > 0) {
+      formData.set('produtos', JSON.stringify(itensCarrinhoProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))))
+    }
 
     startTransition(async () => {
       const result = await criarAgendamentoAction(formData)
@@ -177,10 +222,6 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       else router.push('/cliente/agendamentos')
     })
   }
-
-  const servicoSel = servicos.find(s => s.id_servico === servicoId)
-  const lojistaSel = lojistas.find(l => l.id_lojista === lojistaId)
-  const petSel = pets.find(p => p.id_pet === petId)
 
   // "agora" via useState(() => ...) — lazy initializer, não chamada direta
   // de Date.now() no corpo do componente (regra de pureza).
@@ -441,7 +482,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
               { Icon: IconCalendar, label: 'Data', value: format(new Date(data + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) },
               { Icon: IconClock, label: 'Horário', value: hora?.slice(0, 5) },
               { Icon: IconClock, label: 'Duração', value: `${servicoSel?.duracao} minutos` },
-              { Icon: IconMoney, label: 'Valor', value: `R$ ${Number(servicoSel?.preco).toFixed(2)}` },
+              { Icon: IconMoney, label: totalProdutos > 0 ? 'Total (serviço + produtos)' : 'Valor', value: `R$ ${totalGeral.toFixed(2)}` },
             ].map(item => (
               <div key={item.label} className="flex justify-between">
                 <span className="text-sm text-muted flex items-center gap-1">
@@ -451,6 +492,43 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
               </div>
             ))}
           </div>
+
+          {produtosDisponiveis.length > 0 && (
+            <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
+              <label className="form-label">Adicionar produtos (opcional)</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                {produtosDisponiveis.map(p => (
+                  <div
+                    key={p.id_produto}
+                    className="flex items-center gap-3"
+                    style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--gray-850)', border: '1px solid var(--gray-800)', borderRadius: 'var(--radius-sm)' }}
+                  >
+                    <IconPackage style={{ width: 15, height: 15, color: 'var(--gray-500)', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div className="text-sm font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</div>
+                      <div className="text-xs text-muted">R$ {Number(p.preco_venda).toFixed(2)} / {rotuloUnidade(p.unidade_venda)}</div>
+                    </div>
+                    <input
+                      type="number"
+                      className="form-input"
+                      style={{ width: 90 }}
+                      min="0"
+                      max={p.estoque_atual}
+                      step={p.unidade_venda === 'kg' || p.unidade_venda === 'litro' ? '0.1' : '1'}
+                      placeholder="0"
+                      value={quantidadesProdutos[p.id_produto] ?? ''}
+                      onChange={e => setQuantidadesProdutos(prev => ({ ...prev, [p.id_produto]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
+              {totalProdutos > 0 && (
+                <p className="text-sm text-success font-semibold" style={{ marginTop: 'var(--space-2)' }}>
+                  Subtotal produtos: R$ {totalProdutos.toFixed(2)}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
             <label className="form-label">Observações (opcional)</label>

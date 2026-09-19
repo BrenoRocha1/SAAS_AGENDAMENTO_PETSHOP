@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { criarAgendamentoOnlineAction, atualizarClassificacaoPetAction, logoutAction } from '@/lib/actions'
 import { removerHorariosPassados } from '@/lib/agenda'
+import { rotuloUnidade } from '@/lib/produto'
 import { formatarCpf, formatarTelefone } from '@/lib/format'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -18,6 +19,7 @@ import {
   IconClock,
   IconClose,
   IconDog,
+  IconPackage,
   IconPaw,
   IconScissors,
   IconWhatsapp,
@@ -62,6 +64,15 @@ interface Pet {
   porte: 'Pequeno' | 'Médio' | 'Grande' | null
   sexo: string
 }
+// Produtos com disponivel_agendamento_online=true (migration 039) — o
+// cliente pode adicionar junto do(s) serviço(s), no resumo (step 5).
+interface Produto {
+  id_produto: string
+  nome: string
+  preco_venda: number
+  unidade_venda: string
+  estoque_atual: number
+}
 interface Cliente {
   nome: string
   telefone: string
@@ -80,6 +91,7 @@ interface Props {
   horarios: Horario[]
   janela: Janela
   servicos: Servico[]
+  produtos: Produto[]
   avaliacoes: AvaliacoesPublicas
   pets: Pet[]
   cliente: Cliente
@@ -118,7 +130,7 @@ function ProgressoEtapas({ passo }: { passo: number }) {
 }
 
 export default function AgendamentoOnlineWizard({
-  lojista, horarios, janela, servicos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
+  lojista, horarios, janela, servicos, produtos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [step, setStep] = useState<Step>(1)
@@ -139,6 +151,7 @@ export default function AgendamentoOnlineWizard({
   const [obs, setObs] = useState('')
   const [slots, setSlots] = useState<Slot[] | null>(null)
   const [precos, setPrecos] = useState<Record<string, number>>({})
+  const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, string>>({})
 
   // Classificação pendente (espécie/porte) do pet escolhido, quando falta
   const [especieForm, setEspecieForm] = useState<'Cão' | 'Gato' | ''>('')
@@ -152,6 +165,14 @@ export default function AgendamentoOnlineWizard({
   const duracaoTotal = servicosCarrinho.reduce((acc, s) => acc + s.duracao, 0)
   const valorTotal = servicosCarrinho.reduce((acc, s) => acc + Number(precos[s.id_servico] ?? s.preco), 0)
   const precisaClassificar = !!petSel && (!petSel.especie || !petSel.porte)
+  const itensCarrinhoProdutos = useMemo(() =>
+    produtos
+      .map(produto => ({ produto, quantidade: parseFloat(quantidadesProdutos[produto.id_produto] || '0') }))
+      .filter(item => item.quantidade > 0),
+    [produtos, quantidadesProdutos]
+  )
+  const totalProdutos = itensCarrinhoProdutos.reduce((acc, i) => acc + i.produto.preco_venda * i.quantidade, 0)
+  const totalGeral = valorTotal + totalProdutos
 
   // Preço real (considerando variação por porte/raça) assim que há pet + carrinho
   useEffect(() => {
@@ -237,6 +258,9 @@ export default function AgendamentoOnlineWizard({
     fd.set('dt_agendamento', data)
     fd.set('hr_agendamento', horaInicio)
     fd.set('obs', obs)
+    if (itensCarrinhoProdutos.length > 0) {
+      fd.set('produtos', JSON.stringify(itensCarrinhoProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))))
+    }
 
     startTransition(async () => {
       const result = await criarAgendamentoOnlineAction(fd)
@@ -259,9 +283,10 @@ export default function AgendamentoOnlineWizard({
   const mensagemWhatsapp = [
     `Olá! Acabei de agendar em ${lojista.nome}:`,
     ...servicosCarrinho.map(s => `- ${s.nome}`),
+    ...itensCarrinhoProdutos.map(i => `- ${i.produto.nome} (${i.quantidade} ${rotuloUnidade(i.produto.unidade_venda)})`),
     `Pet: ${petSel?.nome ?? ''}`,
     `Data: ${data ? format(new Date(data + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR }) : ''} às ${horaInicio}`,
-    `Total: R$ ${valorTotal.toFixed(2)}`,
+    `Total: R$ ${totalGeral.toFixed(2)}`,
   ].join('\n')
 
   const enderecoCompleto = [lojista.endereco, lojista.cidade && lojista.estado ? `${lojista.cidade}, ${lojista.estado}` : lojista.cidade].filter(Boolean).join(' — ')
@@ -590,8 +615,45 @@ export default function AgendamentoOnlineWizard({
               <span>{format(new Date(data + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })} às {horaInicio}</span>
             </div>
             <div className="agenonline-resumo-row"><span className="text-muted">Duração total</span><span>{duracaoTotal} minutos</span></div>
-            <div className="agenonline-resumo-row"><span className="font-semibold">Valor Total</span><span className="font-semibold text-success">R$ {valorTotal.toFixed(2)}</span></div>
+            <div className="agenonline-resumo-row"><span className="font-semibold">{totalProdutos > 0 ? 'Total (serviços + produtos)' : 'Valor Total'}</span><span className="font-semibold text-success">R$ {totalGeral.toFixed(2)}</span></div>
           </div>
+
+          {produtos.length > 0 && (
+            <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
+              <label className="form-label">Adicionar produtos (opcional)</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                {produtos.map(p => (
+                  <div
+                    key={p.id_produto}
+                    className="flex items-center gap-3"
+                    style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--gray-850)', border: '1px solid var(--gray-800)', borderRadius: 'var(--radius-sm)' }}
+                  >
+                    <IconPackage style={{ width: 15, height: 15, color: 'var(--gray-500)', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div className="text-sm font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</div>
+                      <div className="text-xs text-muted">R$ {Number(p.preco_venda).toFixed(2)} / {rotuloUnidade(p.unidade_venda)}</div>
+                    </div>
+                    <input
+                      type="number"
+                      className="form-input"
+                      style={{ width: 90 }}
+                      min="0"
+                      max={p.estoque_atual}
+                      step={p.unidade_venda === 'kg' || p.unidade_venda === 'litro' ? '0.1' : '1'}
+                      placeholder="0"
+                      value={quantidadesProdutos[p.id_produto] ?? ''}
+                      onChange={e => setQuantidadesProdutos(prev => ({ ...prev, [p.id_produto]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
+              {totalProdutos > 0 && (
+                <p className="text-sm text-success font-semibold" style={{ marginTop: 'var(--space-2)' }}>
+                  Subtotal produtos: R$ {totalProdutos.toFixed(2)}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="form-group">
             <label className="form-label">Observações (opcional)</label>

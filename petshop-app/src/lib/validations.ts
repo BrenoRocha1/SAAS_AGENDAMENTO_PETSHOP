@@ -199,6 +199,15 @@ export const horarioSchema = z.object({
   path: ['hr_fim'],
 })
 
+// Produto opcional adicionado junto de um agendamento online (migration
+// 039) — só produtos com disponivel_agendamento_online=true chegam a
+// aparecer pro cliente escolher, mas o banco confere tudo de novo
+// (mesma loja, ativo, disponível, estoque) antes de aceitar.
+const itemProdutoAgendamentoSchema = z.object({
+  id_produto: z.string().uuid(),
+  quantidade: z.number().positive('Quantidade inválida'),
+})
+
 export const agendamentoSchema = z.object({
   id_lojista: z.string().uuid(),
   id_pet: z.string().uuid(),
@@ -210,6 +219,7 @@ export const agendamentoSchema = z.object({
   dt_agendamento: z.string().refine(d => d >= hojeBrasilISO(), 'Data de agendamento não pode ser passada'),
   hr_agendamento: z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM'),
   obs: z.string().max(500).optional(),
+  produtos: z.array(itemProdutoAgendamentoSchema).max(20).optional(),
 })
 
 // Carrinho com um ou mais serviços — link público /agendamento/[id_lojista]
@@ -223,6 +233,7 @@ export const agendamentoOnlineSchema = z.object({
   dt_agendamento: z.string().refine(d => d >= hojeBrasilISO(), 'Data de agendamento não pode ser passada'),
   hr_agendamento: z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM'),
   obs: z.string().max(500).optional(),
+  produtos: z.array(itemProdutoAgendamentoSchema).max(20).optional(),
 })
 
 // Agendamento criado pelo LOJISTA (walk-in/telefone) em nome de um cliente
@@ -301,6 +312,9 @@ export const produtoSchema = z.object({
   preco_venda: z.number().min(0, 'Preço inválido'),
   estoque_atual: z.number().min(0, 'Estoque inválido'),
   estoque_minimo: z.number().min(0, 'Estoque mínimo inválido'),
+  // migration 039 — libera o produto pra aparecer no Agendamento Online
+  // (link público e conta do cliente), pro cliente comprar junto do serviço.
+  disponivel_agendamento_online: z.boolean().default(false),
 })
 
 // Adicionar ou remover estoque de um produto já cadastrado — ver

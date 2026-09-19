@@ -6,6 +6,7 @@ import { format, addDays, subDays, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
 import { classeBadgeStatus, ORDEM_ETAPA, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
+import { rotuloEstoque } from '@/lib/produto'
 import {
   IconAlert,
   IconCalendar,
@@ -38,6 +39,9 @@ export interface KanbanItem {
   id_funcionario: string | null
   nome_funcionario: string | null
   obs: string | null
+  // Produtos comprados junto (migration 039) — vazio na maioria dos
+  // agendamentos, já que produto é opcional no agendamento online.
+  produtos: { nome: string; unidade_venda: string; quantidade: number; preco_unitario: number }[]
 }
 
 interface Props {
@@ -401,6 +405,19 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
 
               <div className="dash-detail-row"><span>Cliente</span><span>{selecionado.nome_cliente}</span></div>
               <div className="dash-detail-row"><span>Serviço</span><span>{selecionado.nome_servico}</span></div>
+              {selecionado.produtos.length > 0 && (
+                <div className="dash-detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
+                  <span>Produtos</span>
+                  <div style={{ width: '100%' }}>
+                    {selecionado.produtos.map((p, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm" style={{ color: 'var(--gray-300)' }}>
+                        <span>{p.nome} — {rotuloEstoque(p.quantidade, p.unidade_venda)}</span>
+                        <span className="font-semibold text-success">R$ {(p.preco_unitario * p.quantidade).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="dash-detail-row"><span>Data</span><span>{format(parseDia(selecionado.dt_agendamento), 'dd/MM/yyyy')}</span></div>
               <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>
               <div className="dash-detail-row"><span>Valor</span><span>R$ {selecionado.valor.toFixed(2)}</span></div>

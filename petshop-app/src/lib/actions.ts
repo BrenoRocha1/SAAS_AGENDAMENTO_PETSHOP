@@ -837,6 +837,7 @@ export async function criarProdutoAction(formData: FormData) {
     preco_venda: parseFloat(formData.get('preco_venda') as string),
     estoque_atual: parseFloat((formData.get('estoque_atual') as string) || '0'),
     estoque_minimo: parseFloat((formData.get('estoque_minimo') as string) || '0'),
+    disponivel_agendamento_online: formData.get('disponivel_agendamento_online') === 'true',
   }
 
   const parsed = produtoSchema.safeParse(raw)
@@ -873,6 +874,7 @@ export async function editarProdutoAction(id_produto: string, formData: FormData
     unidade_venda: formData.get('unidade_venda') as string,
     preco_venda: parseFloat(formData.get('preco_venda') as string),
     estoque_minimo: parseFloat((formData.get('estoque_minimo') as string) || '0'),
+    disponivel_agendamento_online: formData.get('disponivel_agendamento_online') === 'true',
   }
 
   const parsed = produtoSchema.omit({ estoque_atual: true }).safeParse(raw)
@@ -1296,6 +1298,15 @@ export async function criarAgendamentoAction(formData: FormData) {
     return { error: 'Acesso não autorizado' }
   }
 
+  // Produtos são opcionais (migration 039) — só vêm quando o cliente
+  // escolheu algum na tela de confirmação.
+  let produtos: unknown
+  try {
+    produtos = JSON.parse((formData.get('produtos') as string) || '[]')
+  } catch {
+    return { error: 'Produtos inválidos.' }
+  }
+
   const raw = {
     id_lojista: formData.get('id_lojista') as string,
     id_pet: formData.get('id_pet') as string,
@@ -1303,6 +1314,7 @@ export async function criarAgendamentoAction(formData: FormData) {
     dt_agendamento: formData.get('dt_agendamento') as string,
     hr_agendamento: formData.get('hr_agendamento') as string,
     obs: formData.get('obs') as string,
+    produtos,
   }
 
   const parsed = agendamentoSchema.safeParse(raw)
@@ -1317,6 +1329,8 @@ export async function criarAgendamentoAction(formData: FormData) {
     p_data: parsed.data.dt_agendamento,
     p_hora: parsed.data.hr_agendamento,
     p_obs: parsed.data.obs || null,
+    p_produtos: parsed.data.produtos?.map(p => p.id_produto) ?? null,
+    p_quantidades: parsed.data.produtos?.map(p => p.quantidade) ?? null,
   })
 
   if (error) {
@@ -1326,7 +1340,12 @@ export async function criarAgendamentoAction(formData: FormData) {
     if (error.message.includes('não está aceitando agendamentos online')) {
       return { error: 'Este petshop não está aceitando agendamentos online no momento. Entre em contato diretamente com a loja.' }
     }
-    return { error: 'Erro ao criar agendamento. Tente novamente.' }
+    // Mensagens de produto (estoque insuficiente, produto não mais
+    // disponível) já vêm prontas pra mostrar — não são detalhe técnico.
+    if (error.message.includes('Estoque insuficiente') || error.message.includes('produtos escolhidos não está')) {
+      return { error: error.message }
+    }
+    return { error: devError('Erro ao criar agendamento. Tente novamente.', error.message) }
   }
 
   revalidatePath('/cliente/agendamentos')
@@ -1353,6 +1372,13 @@ export async function criarAgendamentoOnlineAction(
     return { error: 'Serviços inválidos.' }
   }
 
+  let produtos: unknown
+  try {
+    produtos = JSON.parse((formData.get('produtos') as string) || '[]')
+  } catch {
+    return { error: 'Produtos inválidos.' }
+  }
+
   const raw = {
     id_lojista: formData.get('id_lojista') as string,
     id_pet: formData.get('id_pet') as string,
@@ -1361,6 +1387,7 @@ export async function criarAgendamentoOnlineAction(
     dt_agendamento: formData.get('dt_agendamento') as string,
     hr_agendamento: formData.get('hr_agendamento') as string,
     obs: formData.get('obs') as string,
+    produtos,
   }
 
   const parsed = agendamentoOnlineSchema.safeParse(raw)
@@ -1375,6 +1402,8 @@ export async function criarAgendamentoOnlineAction(
     p_servicos: parsed.data.servicos,
     p_id_funcionario: parsed.data.id_funcionario || null,
     p_obs: parsed.data.obs || null,
+    p_produtos: parsed.data.produtos?.map(p => p.id_produto) ?? null,
+    p_quantidades: parsed.data.produtos?.map(p => p.quantidade) ?? null,
   })
 
   if (error) {
@@ -1386,6 +1415,9 @@ export async function criarAgendamentoOnlineAction(
     }
     if (error.message.includes('fora do funcionamento')) {
       return { error: 'Esse horário não cabe dentro do funcionamento da loja para os serviços escolhidos. Escolha outro horário.' }
+    }
+    if (error.message.includes('Estoque insuficiente') || error.message.includes('produtos escolhidos não está')) {
+      return { error: error.message }
     }
     return { error: devError('Erro ao criar agendamento. Tente novamente.', error.message) }
   }

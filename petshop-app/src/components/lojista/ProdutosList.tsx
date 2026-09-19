@@ -45,6 +45,7 @@ interface Produto {
   estoque_minimo: number
   status: string
   foto_url: string | null
+  disponivel_agendamento_online: boolean
 }
 
 interface Props {
@@ -67,6 +68,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
   const [showModal, setShowModal] = useState(false)
   const [editando, setEditando] = useState<Produto | null>(null)
   const [unidadeSelecionada, setUnidadeSelecionada] = useState('unidade')
+  const [disponivelOnline, setDisponivelOnline] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fotoInputRef = useRef<HTMLInputElement>(null)
@@ -166,6 +168,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
   function abrirNovo() {
     setEditando(null)
     setUnidadeSelecionada('unidade')
+    setDisponivelOnline(false)
     setError(null)
     limparEstadoFoto()
     setShowModal(true)
@@ -174,6 +177,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
   function abrirEditar(p: Produto) {
     setEditando(p)
     setUnidadeSelecionada(p.unidade_venda)
+    setDisponivelOnline(p.disponivel_agendamento_online)
     setError(null)
     limparEstadoFoto()
     setShowModal(true)
@@ -569,6 +573,24 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                     </p>
                   </>
                 )}
+
+                <div className="flex items-center justify-between gap-3" style={{ padding: 'var(--space-3)', background: 'var(--gray-850)', borderRadius: 'var(--radius-md)' }}>
+                  <div>
+                    <div className="font-semibold" style={{ color: 'var(--gray-100)', fontSize: '0.9375rem' }}>Vender no Agendamento Online</div>
+                    <div className="text-xs text-muted">O cliente poderá adicionar este produto ao agendar pelo link da loja ou pela própria conta.</div>
+                  </div>
+                  <input type="hidden" name="disponivel_agendamento_online" value={String(disponivelOnline)} />
+                  <button
+                    type="button"
+                    className={`switch ${disponivelOnline ? 'switch-on' : ''}`}
+                    onClick={() => setDisponivelOnline(v => !v)}
+                    role="switch"
+                    aria-checked={disponivelOnline}
+                    style={{ flexShrink: 0 }}
+                  >
+                    <span className="switch-thumb" />
+                  </button>
+                </div>
               </div>
 
               <div className="modal-footer">

@@ -5,7 +5,8 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cancelarAgendamentoAction } from '@/lib/actions'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
-import { IconAlert, IconPencil, IconScissors, IconStar, IconTrash } from '@/components/icons'
+import { rotuloEstoque } from '@/lib/produto'
+import { IconAlert, IconPackage, IconPencil, IconScissors, IconStar, IconTrash } from '@/components/icons'
 import AvaliacaoModal, { type AvaliacaoExistente } from './AvaliacaoModal'
 import { Estrelas } from './Estrelas'
 
@@ -21,14 +22,26 @@ export interface AgendamentoCliente {
   lojista: { nome_loja: string; telefone: string } | null
 }
 
+// Produto comprado junto de um agendamento (migration 039) — preço já é
+// o cobrado no momento da compra, não o preço atual do catálogo.
+export interface ProdutoComprado {
+  nome: string
+  unidade_venda: string
+  quantidade: number
+  preco_unitario: number
+}
+
 interface Props {
   agendamentos: AgendamentoCliente[]
   // Avaliações que o próprio cliente já deixou, indexadas pelo agendamento
   // (no máximo uma por atendimento — UNIQUE no banco).
   avaliacoes: Record<string, AvaliacaoExistente>
+  // Produtos comprados junto, indexados pelo agendamento — vazio na
+  // maioria dos casos (produto é opcional no agendamento online).
+  produtosComprados: Record<string, ProdutoComprado[]>
 }
 
-export default function AgendamentosClienteList({ agendamentos, avaliacoes }: Props) {
+export default function AgendamentosClienteList({ agendamentos, avaliacoes, produtosComprados }: Props) {
   const [cancelId, setCancelId] = useState<string | null>(null)
   const [motivo, setMotivo] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -120,6 +133,22 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes }: Pr
                   <div className="font-semibold text-success">R$ {Number(ag.valor).toFixed(2)}</div>
                 </div>
               </div>
+
+              {produtosComprados[ag.id_agendamento]?.length > 0 && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <div className="text-xs text-muted" style={{ marginBottom: 4 }}>Produtos comprados</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {produtosComprados[ag.id_agendamento].map((p, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-1" style={{ color: 'var(--gray-300)' }}>
+                          <IconPackage style={{ width: 12, height: 12, color: 'var(--gray-500)' }} /> {p.nome} — {rotuloEstoque(p.quantidade, p.unidade_venda)}
+                        </span>
+                        <span className="font-semibold text-success">R$ {(p.preco_unitario * p.quantidade).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {ag.obs && (
                 <div

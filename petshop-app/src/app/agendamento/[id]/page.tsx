@@ -105,6 +105,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
     { data: horarios },
     { data: resumoAvaliacoesRaw },
     { data: avaliacoesRecentesRaw },
+    { data: produtos },
   ] = await Promise.all([
     supabase
       .from('servico')
@@ -118,6 +119,17 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
       .eq('id_lojista', lojista.id_lojista),
     supabase.rpc('fn_avaliacoes_resumo_publico', { p_id_lojista: lojista.id_lojista }),
     supabase.rpc('fn_avaliacoes_publicas', { p_id_lojista: lojista.id_lojista, p_limit: 3 }),
+    // Produtos liberados pra venda no Agendamento Online (migration 039)
+    // — público de propósito, mesma ideia de `servico` (a policy de RLS
+    // já filtra Ativo + disponivel_agendamento_online, sem checar role).
+    supabase
+      .from('produto')
+      .select('id_produto, nome, preco_venda, unidade_venda, estoque_atual')
+      .eq('id_lojista', lojista.id_lojista)
+      .eq('status', 'Ativo')
+      .eq('disponivel_agendamento_online', true)
+      .gt('estoque_atual', 0)
+      .order('nome'),
   ])
 
   const resumoAvaliacoes = resumoAvaliacoesRaw as { media: number | null; total: number } | null
@@ -196,6 +208,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
           horarios={horarios ?? []}
           janela={janela}
           servicos={servicos ?? []}
+          produtos={produtos ?? []}
           avaliacoes={avaliacoesPublicas}
           pets={pets}
           cliente={cliente}
