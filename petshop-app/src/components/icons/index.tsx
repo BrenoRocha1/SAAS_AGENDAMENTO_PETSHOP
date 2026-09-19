@@ -463,3 +463,23 @@ export function IconPlay(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+// Caixa/pacote — item do menu "Produtos" e estado vazio da tela.
+export function IconPackage(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M21 8 12 3 3 8l9 5 9-5Z" />
+      <path d="M3 8v8l9 5 9-5V8" />
+      <path d="M12 13v8" />
+    </svg>
+  )
+}
+
+// Botão "Remover estoque" — par do IconPlus já usado pra "Adicionar".
+export function IconMinus(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 12h14" />
+    </svg>
+  )
+}

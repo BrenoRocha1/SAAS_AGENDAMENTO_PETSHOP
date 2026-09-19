@@ -28,6 +28,8 @@ import {
   redefinirSenhaSchema,
   avaliacaoSchema,
   somNotificacaoSchema,
+  produtoSchema,
+  movimentoEstoqueSchema,
 } from '@/lib/validations'
 import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } from '@/lib/lojista-context'
 import { ORDEM_ETAPA, etapaEncerrada } from '@/lib/status-agendamento'
@@ -808,6 +810,174 @@ export async function removerVariacaoServicoAction(id_variacao: string) {
   if (error) return { error: 'Erro ao remover variação de preço.' }
 
   revalidatePath('/lojista/servicos')
+  return { success: true }
+}
+
+// ============================================================
+// PRODUTO ACTIONS (Lojista) — migration 037
+// ============================================================
+// Mesma permissão de Serviços (podeGerenciarServicos): os dois são "o
+// catálogo que a loja vende", e não vale a pena abrir uma permissão de
+// equipe nova só pra isso — ver comentário no topo da migration 037.
+
+export async function criarProdutoAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const raw = {
+    nome: formData.get('nome') as string,
+    categoria: formData.get('categoria') as string,
+    unidade_venda: formData.get('unidade_venda') as string,
+    preco_venda: parseFloat(formData.get('preco_venda') as string),
+    estoque_atual: parseFloat((formData.get('estoque_atual') as string) || '0'),
+    estoque_minimo: parseFloat((formData.get('estoque_minimo') as string) || '0'),
+  }
+
+  const parsed = produtoSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase
+    .from('produto')
+    .insert({ id_lojista: contexto.idLojista, ...parsed.data })
+
+  if (error) return { error: devError('Erro ao cadastrar produto.', error.message) }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true }
+}
+
+// Estoque atual fica de fora de propósito — depois de criado, só muda
+// por uma movimentação (movimentarEstoqueAction), nunca sobrescrito
+// direto na edição, senão a movimentação vira uma auditoria furada.
+export async function editarProdutoAction(id_produto: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const raw = {
+    nome: formData.get('nome') as string,
+    categoria: formData.get('categoria') as string,
+    unidade_venda: formData.get('unidade_venda') as string,
+    preco_venda: parseFloat(formData.get('preco_venda') as string),
+    estoque_minimo: parseFloat((formData.get('estoque_minimo') as string) || '0'),
+  }
+
+  const parsed = produtoSchema.omit({ estoque_atual: true }).safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase
+    .from('produto')
+    .update(parsed.data)
+    .eq('id_produto', id_produto)
+    .eq('id_lojista', contexto.idLojista)
+
+  if (error) return { error: devError('Erro ao atualizar produto.', error.message) }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true }
+}
+
+export async function alternarStatusProdutoAction(id_produto: string, ativo: boolean) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const { error } = await supabase
+    .from('produto')
+    .update({ status: ativo ? 'Ativo' : 'Inativo' })
+    .eq('id_produto', id_produto)
+    .eq('id_lojista', contexto.idLojista)
+
+  if (error) return { error: devError('Erro ao atualizar status do produto.', error.message) }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true }
+}
+
+// Adicionar ou remover estoque — via fn_movimentar_estoque (migration
+// 037), que atualiza produto.estoque_atual e grava o histórico de forma
+// atômica, e é o mesmo ponto que uma venda futura vai usar pra dar baixa
+// automática (origem='venda', não usada por esta action).
+export async function movimentarEstoqueAction(id_produto: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const parsed = movimentoEstoqueSchema.safeParse({
+    tipo: formData.get('tipo'),
+    quantidade: parseFloat(formData.get('quantidade') as string),
+    motivo: (formData.get('motivo') as string) || undefined,
+  })
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { data: novoEstoque, error } = await supabase.rpc('fn_movimentar_estoque', {
+    p_id_produto: id_produto,
+    p_tipo: parsed.data.tipo,
+    p_quantidade: parsed.data.quantidade,
+    p_motivo: parsed.data.motivo ?? null,
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true, novoEstoque: novoEstoque as number }
+}
+
+// Exclusão é só lojista/administrador (mesma regra de
+// excluirServicoAction) — e só se o produto nunca teve nenhuma
+// movimentação de estoque, pra não apagar um histórico que já existe.
+export async function excluirProdutoAction(id_produto: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
+    return { error: 'Acesso não autorizado' }
+  }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+
+  const { count } = await supabase
+    .from('movimento_estoque')
+    .select('id_movimento', { count: 'exact', head: true })
+    .eq('id_produto', id_produto)
+
+  if (count && count > 0) {
+    return { error: 'Este produto já tem movimentações de estoque e não pode ser excluído. Marque-o como "Inativo" em vez de excluir.' }
+  }
+
+  const { error } = await db
+    .from('produto')
+    .delete()
+    .eq('id_produto', id_produto)
+    .eq('id_lojista', contexto.idLojista)
+
+  if (error) {
+    if (error.code === '23503') {
+      return { error: 'Este produto tem registros vinculados e não pode ser excluído. Marque-o como "Inativo" em vez de excluir.' }
+    }
+    return { error: 'Erro ao excluir produto.' }
+  }
+
+  revalidatePath('/lojista/produtos')
   return { success: true }
 }
 

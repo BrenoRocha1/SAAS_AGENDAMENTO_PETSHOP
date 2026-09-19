@@ -680,6 +680,8 @@ a:hover { color: var(--primary-300); }
 .badge-cancelado    { background: var(--status-cancelado-bg);  color: var(--status-cancelado-fg);  border: 1px solid var(--status-cancelado-ring); }
 .badge-ativo      { background: var(--status-concluido-bg);  color: var(--status-concluido-fg);  border: 1px solid var(--status-concluido-ring); }
 .badge-inativo    { background: var(--gray-800);             color: var(--gray-400);             border: 1px solid var(--gray-700); }
+/* Aviso de estoque baixo (tela de Produtos) — mesmos tons de "aguardando". */
+.badge-estoque-baixo { background: var(--status-aguardando-bg); color: var(--status-aguardando-fg); border: 1px solid var(--status-aguardando-ring); }
 
 /* ============================================================
    SWITCH — toggle on/off animado (ex: ativar/desativar serviço)

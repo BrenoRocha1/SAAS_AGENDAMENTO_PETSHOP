@@ -284,6 +284,28 @@ export const avaliacaoSchema = z.object({
   comentario: z.string().max(500, 'O comentário pode ter no máximo 500 caracteres').optional(),
 })
 
+// Produtos vendidos pela loja (migration 037) — catálogo simples, sem
+// pretensão de virar um controle de estoque completo. Categoria e
+// unidade de venda são um conjunto fechado, mesmo do CHECK do banco;
+// mantenha os dois sincronizados se a lista mudar.
+export const produtoSchema = z.object({
+  nome: z.string().min(2, 'Nome muito curto').max(100, 'Nome muito longo'),
+  categoria: z.enum(['Ração', 'Brinquedos', 'Higiene', 'Acessórios', 'Outros']),
+  unidade_venda: z.enum(['unidade', 'kg', 'litro', 'caixa', 'pacote']),
+  preco_venda: z.number().min(0, 'Preço inválido'),
+  estoque_atual: z.number().min(0, 'Estoque inválido'),
+  estoque_minimo: z.number().min(0, 'Estoque mínimo inválido'),
+})
+
+// Adicionar ou remover estoque de um produto já cadastrado — ver
+// fn_movimentar_estoque (migration 037), que aplica a mudança de forma
+// atômica e grava o histórico.
+export const movimentoEstoqueSchema = z.object({
+  tipo: z.enum(['entrada', 'saida']),
+  quantidade: z.number().positive('Informe uma quantidade maior que zero'),
+  motivo: z.string().max(200, 'Motivo muito longo').optional(),
+})
+
 // ============================================================
 // Validação de CPF (algoritmo oficial)
 // ============================================================
@@ -324,3 +346,5 @@ export type CadastroClienteLojistaData = z.infer<typeof cadastroClienteLojistaSc
 export type RedefinirSenhaData = z.infer<typeof redefinirSenhaSchema>
 export type AvaliacaoData = z.infer<typeof avaliacaoSchema>
 export type SomNotificacaoData = z.infer<typeof somNotificacaoSchema>
+export type ProdutoData = z.infer<typeof produtoSchema>
+export type MovimentoEstoqueData = z.infer<typeof movimentoEstoqueSchema>
