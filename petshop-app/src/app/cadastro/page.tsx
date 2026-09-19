@@ -219,6 +219,15 @@ export default function CadastroClientePage() {
               </div>
             </div>
 
+            <div className="login-field" style={{ marginTop: 'var(--space-2)' }}>
+              <label className="login-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input type="checkbox" name="aceita_termos" required />
+                <span style={{ fontSize: '13px', color: 'var(--lg-text-secondary)' }}>
+                  Eu li e aceito os <a href="/termos" target="_blank" style={{ color: 'var(--lg-primary)', textDecoration: 'none' }}>Termos de Uso</a> e a <a href="/privacidade" target="_blank" style={{ color: 'var(--lg-primary)', textDecoration: 'none' }}>Política de Privacidade</a>
+                </span>
+              </label>
+            </div>
+
             <button type="submit" className="login-submit" disabled={isPending}>
               {isPending ? 'Criando conta...' : 'Criar conta'}
             </button>

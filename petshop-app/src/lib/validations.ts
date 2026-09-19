@@ -27,6 +27,9 @@ export const cadastroClienteSchema = z.object({
     .regex(/[0-9]/, 'Deve conter ao menos um número')
     .regex(/[^A-Za-z0-9]/, 'Deve conter ao menos um caractere especial'),
   confirmaSenha: z.string(),
+  aceita_termos: z.literal(true, {
+    errorMap: () => ({ message: 'Você precisa aceitar os Termos de Uso e a Política de Privacidade' }),
+  }),
 }).refine(d => d.senha === d.confirmaSenha, {
   message: 'Senhas não conferem',
   path: ['confirmaSenha'],
@@ -88,6 +91,9 @@ export const cadastroLojistSchema = z.object({
     .regex(/[0-9]/, 'Deve conter ao menos um número')
     .regex(/[^A-Za-z0-9]/, 'Deve conter ao menos um caractere especial'),
   confirmaSenha: z.string(),
+  aceita_termos: z.literal(true, {
+    errorMap: () => ({ message: 'Você precisa aceitar os Termos de Uso e a Política de Privacidade' }),
+  }),
 }).refine(d => d.senha === d.confirmaSenha, {
   message: 'Senhas não conferem',
   path: ['confirmaSenha'],
@@ -296,6 +302,9 @@ export const completarCadastroClienteGoogleSchema = z.object({
   telefone: z
     .string()
     .regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
+  aceita_termos: z.literal(true, {
+    errorMap: () => ({ message: 'Você precisa aceitar os Termos de Uso e a Política de Privacidade' }),
+  }),
 })
 
 // Lojista via Google: precisa de nome_loja e telefone (email vem do Google)
@@ -307,6 +316,9 @@ export const completarCadastroLojistaGoogleSchema = z.object({
   cidade: z.string().max(100).optional(),
   estado: z.string().length(2).optional(),
   cep: z.string().regex(/^\d{8}$/, 'CEP deve ter 8 dígitos').optional(),
+  aceita_termos: z.literal(true, {
+    errorMap: () => ({ message: 'Você precisa aceitar os Termos de Uso e a Política de Privacidade' }),
+  }),
 })
 
 // ============================================================

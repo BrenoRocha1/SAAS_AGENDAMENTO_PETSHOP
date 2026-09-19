@@ -30,6 +30,7 @@ import {
   completarCadastroLojistaGoogleSchema,
 } from '@/lib/validations'
 import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } from '@/lib/lojista-context'
+import { checkRateLimit } from '@/lib/rate-limit'
 import type { ServicoVariacaoData } from '@/lib/validations'
 
 // ============================================================
@@ -91,6 +92,11 @@ export async function loginAction(formData: FormData) {
   const parsed = loginSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
+  }
+
+  const rl = await checkRateLimit('login', 10, 5)
+  if (!rl.success) {
+    return { error: `Muitas tentativas. Tente novamente em ${rl.retryAfter}s.` }
   }
 
   const supabase = await createClient()
@@ -251,11 +257,17 @@ export async function cadastroClienteAction(formData: FormData) {
     telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
     senha: formData.get('senha') as string,
     confirmaSenha: formData.get('confirmaSenha') as string,
+    aceita_termos: formData.get('aceita_termos') === 'on' ? true : undefined,
   }
 
   const parsed = cadastroClienteSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
+  }
+
+  const rl = await checkRateLimit('cadastroCliente', 5, 15)
+  if (!rl.success) {
+    return { error: `Muitas tentativas. Tente novamente em ${Math.ceil(rl.retryAfter! / 60)} minutos.` }
   }
 
   // Cria a conta via Admin API (email_confirm:true) em vez de signUp normal
@@ -342,11 +354,17 @@ export async function cadastroLojistaAction(formData: FormData) {
     cep: (formData.get('cep') as string).replace(/\D/g, '') || undefined,
     senha: formData.get('senha') as string,
     confirmaSenha: formData.get('confirmaSenha') as string,
+    aceita_termos: formData.get('aceita_termos') === 'on' ? true : undefined,
   }
 
   const parsed = cadastroLojistSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
+  }
+
+  const rl = await checkRateLimit('cadastroLojista', 3, 15)
+  if (!rl.success) {
+    return { error: `Muitas tentativas. Tente novamente em ${Math.ceil(rl.retryAfter! / 60)} minutos.` }
   }
 
   // Admin client — obrigatório para:
@@ -480,6 +498,7 @@ export async function completarCadastroClienteGoogleAction(formData: FormData) {
   const raw = {
     cpf: (formData.get('cpf') as string).replace(/\D/g, ''),
     telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
+    aceita_termos: formData.get('aceita_termos') === 'on' ? true : undefined,
   }
 
   const parsed = completarCadastroClienteGoogleSchema.safeParse(raw)
@@ -545,6 +564,7 @@ export async function completarCadastroLojistaGoogleAction(formData: FormData) {
     cidade: (formData.get('cidade') as string) || undefined,
     estado: (formData.get('estado') as string) || undefined,
     cep: (formData.get('cep') as string).replace(/\D/g, '') || undefined,
+    aceita_termos: formData.get('aceita_termos') === 'on' ? true : undefined,
   }
 
   const parsed = completarCadastroLojistaGoogleSchema.safeParse(raw)
@@ -2331,4 +2351,31 @@ export async function removerFotoPetAction(id_pet: string): Promise<{ error?: st
   revalidatePath('/cliente/pets')
   revalidatePath('/lojista/pets')
   return { success: true }
+}
+
+// ============================================================
+// LGPD: DIREITO AO ESQUECIMENTO (EXCLUSÃO DA CONTA)
+// ============================================================
+export async function excluirMinhaContaAction() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const adminClient = createAdminClient()
+  if (!adminClient) return { error: 'Serviço temporariamente indisponível' }
+
+  // Deletar o usuário no Auth (auth.users).
+  // Devido aos CASCADE e a migration 032, isso apagará o perfil do cliente/lojista
+  // e setará o id_cliente = NULL nos agendamentos, mantendo os registros financeiros
+  // de forma anonimizada para o lojista, apagando os dados pessoais.
+  const { error } = await adminClient.auth.admin.deleteUser(user.id)
+  
+  if (error) {
+    console.error('[excluirMinhaContaAction] Falha ao deletar usuário:', error.message)
+    return { error: 'Ocorreu um erro ao excluir sua conta. Tente novamente mais tarde.' }
+  }
+
+  await supabase.auth.signOut()
+  revalidatePath('/', 'layout')
+  redirect('/login')
 }

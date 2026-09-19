@@ -69,7 +69,7 @@ function useCounter(end: number, duration: number = 1500, suffix: string = '') {
     return () => observer.disconnect()
   }, [end, duration])
 
-  return { ref, value: `${value}${suffix}` }
+  return { nodeRef: ref, value: `${value}${suffix}` }
 }
 
 /* ------------------------------------------------------------------ *
@@ -111,7 +111,7 @@ function use3DTilt(maxDeg: number = 8) {
     }
   }, [handleMove, handleLeave])
 
-  return { ref, style }
+  return { nodeRef: ref, style }
 }
 
 /* ------------------------------------------------------------------ *
@@ -160,20 +160,30 @@ function WordReveal({ text, className = '' }: { text: string; className?: string
 function Particles() {
   return (
     <div className="lp-particles">
-      {Array.from({ length: 18 }).map((_, i) => (
-        <span
-          key={i}
-          className="lp-particle"
-          style={{
-            left: `${Math.random() * 100}%`,
-            animationDuration: `${8 + Math.random() * 12}s`,
-            animationDelay: `${Math.random() * 10}s`,
-            width: `${2 + Math.random() * 3}px`,
-            height: `${2 + Math.random() * 3}px`,
-            opacity: 0.15 + Math.random() * 0.25,
-          }}
-        />
-      ))}
+      {Array.from({ length: 18 }).map((_, i) => {
+        // Deterministic pseudo-randomness based on index to avoid hydration mismatch 
+        // and impure function calls (Math.random) during render.
+        const left = (i * 17) % 100
+        const dur = 8 + ((i * 7) % 12)
+        const delay = (i * 3) % 10
+        const size = 2 + ((i * 5) % 3)
+        const opacity = 0.15 + (((i * 11) % 25) / 100)
+        
+        return (
+          <span
+            key={i}
+            className="lp-particle"
+            style={{
+              left: `${left}%`,
+              animationDuration: `${dur}s`,
+              animationDelay: `${delay}s`,
+              width: `${size}px`,
+              height: `${size}px`,
+              opacity,
+            }}
+          />
+        )
+      })}
     </div>
   )
 }
@@ -203,13 +213,13 @@ function CursorGlow() {
  * ================================================================== */
 export default function LandingPage() {
   const revealRef = useScrollReveal()
-  const tilt = use3DTilt(6)
+  const { nodeRef: tiltRef, style: tiltStyle } = use3DTilt(6)
 
   // Animated counters
-  const counter1 = useCounter(180, 1800, '+')
-  const counter2 = useCounter(85, 1400, '%')
-  const counter3 = useCounter(3, 1200, '.5h')
-  const counter4 = useCounter(4, 1000, '.9★')
+  const { nodeRef: counter1Ref, value: counter1Value } = useCounter(180, 1800, '+')
+  const { nodeRef: counter2Ref, value: counter2Value } = useCounter(85, 1400, '%')
+  const { nodeRef: counter3Ref, value: counter3Value } = useCounter(3, 1200, '.5h')
+  const { nodeRef: counter4Ref, value: counter4Value } = useCounter(4, 1000, '.9★')
 
   // Navbar scroll effect
   const [scrolled, setScrolled] = useState(false)
@@ -282,8 +292,8 @@ export default function LandingPage() {
             </div>
 
             {/* Right — 3D App Preview */}
-            <div className="lp-hero-visual lp-reveal-right lp-delay-2" ref={tilt.ref}>
-              <div className="lp-app-3d-wrapper" style={tilt.style}>
+            <div className="lp-hero-visual lp-reveal-right lp-delay-2" ref={tiltRef}>
+              <div className="lp-app-3d-wrapper" style={tiltStyle}>
                 {/* Floating badges */}
                 <div className="lp-float-badge lp-float-badge--top">
                   <div className="lp-float-icon lp-float-icon--indigo">📅</div>
@@ -354,19 +364,19 @@ export default function LandingPage() {
           {/* Animated Stats */}
           <div className="lp-hero-stats lp-reveal-scale lp-delay-5">
             <div className="lp-stat">
-              <span className="lp-stat-value" ref={counter1.ref}>{counter1.value}</span>
+              <span className="lp-stat-value" ref={counter1Ref}>{counter1Value}</span>
               <span className="lp-stat-label">Petshops ativos</span>
             </div>
             <div className="lp-stat">
-              <span className="lp-stat-value" ref={counter2.ref}>{counter2.value}</span>
+              <span className="lp-stat-value" ref={counter2Ref}>{counter2Value}</span>
               <span className="lp-stat-label">Redução de faltas</span>
             </div>
             <div className="lp-stat">
-              <span className="lp-stat-value" ref={counter3.ref}>{counter3.value}</span>
+              <span className="lp-stat-value" ref={counter3Ref}>{counter3Value}</span>
               <span className="lp-stat-label">Economizadas / dia</span>
             </div>
             <div className="lp-stat">
-              <span className="lp-stat-value" ref={counter4.ref}>{counter4.value}</span>
+              <span className="lp-stat-value" ref={counter4Ref}>{counter4Value}</span>
               <span className="lp-stat-label">Avaliação dos tutores</span>
             </div>
           </div>
