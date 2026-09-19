@@ -40,7 +40,7 @@ export async function GET(request: Request) {
               ...options,
               httpOnly: true,
               sameSite: 'lax',
-              secure: true,
+              secure: process.env.NODE_ENV === 'production',
             })
           })
         },
