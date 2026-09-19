@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import {
   criarProdutoAction,
   editarProdutoAction,
@@ -21,7 +21,9 @@ import {
   IconAlert,
   IconCheck,
   IconClose,
+  IconGrid,
   IconImage,
+  IconList,
   IconPackage,
   IconPencil,
   IconPlus,
@@ -54,9 +56,12 @@ interface Props {
 }
 
 type FotoPendente = { blob: Blob; extensao: string; preview: string }
+type ModoVisualizacao = 'lista' | 'grade'
+type Ordenacao = 'nome' | 'quantidade_desc' | 'quantidade_asc'
 
 const TIPOS_IMAGEM_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
 const IMAGEM_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB — mesmo limite do servidor
+const MODO_VISUALIZACAO_STORAGE_KEY = 'petshop:produtos:modo-visualizacao'
 
 export default function ProdutosList({ produtos: inicial, categorias: categoriasIniciais }: Props) {
   const supabase = createClient()
@@ -64,6 +69,22 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
   const [categorias, setCategorias] = useState<Categoria[]>(categoriasIniciais)
   const [busca, setBusca] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState('')
+  const [ordenacao, setOrdenacao] = useState<Ordenacao>('nome')
+
+  // Começa em 'lista' tanto no servidor quanto no primeiro render do
+  // cliente (evita mismatch de hidratação); a preferência salva só é
+  // aplicada depois, no useEffect abaixo.
+  const [modo, setModo] = useState<ModoVisualizacao>('lista')
+  useEffect(() => {
+    try {
+      const salvo = window.localStorage.getItem(MODO_VISUALIZACAO_STORAGE_KEY)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- leitura de localStorage é só possível pós-montagem; não é "espelhar prop", é sincronizar com um sistema externo
+      if (salvo === 'grade') setModo('grade')
+    } catch { /* localStorage indisponível (modo privado etc.) — mantém o padrão */ }
+  }, [])
+  useEffect(() => {
+    try { window.localStorage.setItem(MODO_VISUALIZACAO_STORAGE_KEY, modo) } catch { /* ignora */ }
+  }, [modo])
 
   const [showModal, setShowModal] = useState(false)
   const [editando, setEditando] = useState<Produto | null>(null)
@@ -96,12 +117,17 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
 
   const produtosFiltrados = useMemo(() => {
     const buscaLower = busca.trim().toLowerCase()
-    return produtos.filter(p => {
+    const filtrados = produtos.filter(p => {
       if (categoriaFiltro && p.id_categoria !== categoriaFiltro) return false
       if (buscaLower && !p.nome.toLowerCase().includes(buscaLower)) return false
       return true
     })
-  }, [produtos, busca, categoriaFiltro])
+    const ordenados = [...filtrados]
+    if (ordenacao === 'quantidade_desc') ordenados.sort((a, b) => b.estoque_atual - a.estoque_atual)
+    else if (ordenacao === 'quantidade_asc') ordenados.sort((a, b) => a.estoque_atual - b.estoque_atual)
+    else ordenados.sort((a, b) => a.nome.localeCompare(b.nome))
+    return ordenados
+  }, [produtos, busca, categoriaFiltro, ordenacao])
 
   // Nome da categoria resolvido aqui, a partir de `categorias` — não via
   // embed no select (produto.categoria_produto(nome)), que depende do
@@ -320,13 +346,44 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
               <option key={c.id_categoria} value={c.id_categoria}>{c.nome}</option>
             ))}
           </select>
+          {modo === 'grade' && (
+            <select className="form-select" value={ordenacao} onChange={e => setOrdenacao(e.target.value as Ordenacao)}>
+              <option value="nome">Ordenar por nome</option>
+              <option value="quantidade_desc">Maior quantidade primeiro</option>
+              <option value="quantidade_asc">Menor quantidade primeiro</option>
+            </select>
+          )}
           <button className="btn btn-secondary" onClick={() => { setCategoriaErro(null); setGerenciarCategorias(true) }}>
             <IconSliders style={{ width: 15, height: 15 }} /> Categorias
           </button>
         </div>
-        <button className="btn btn-primary" onClick={abrirNovo} id="btn-novo-produto">
-          <IconPlus style={{ width: 16, height: 16 }} /> Novo Produto
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="view-toggle" role="group" aria-label="Alternar visualização">
+            <button
+              type="button"
+              className={`view-toggle-btn ${modo === 'lista' ? 'is-active' : ''}`}
+              onClick={() => setModo('lista')}
+              title="Ver em lista"
+              aria-label="Ver em lista"
+              aria-pressed={modo === 'lista'}
+            >
+              <IconList style={{ width: 15, height: 15 }} />
+            </button>
+            <button
+              type="button"
+              className={`view-toggle-btn ${modo === 'grade' ? 'is-active' : ''}`}
+              onClick={() => setModo('grade')}
+              title="Ver em grade"
+              aria-label="Ver em grade"
+              aria-pressed={modo === 'grade'}
+            >
+              <IconGrid style={{ width: 15, height: 15 }} />
+            </button>
+          </div>
+          <button className="btn btn-primary" onClick={abrirNovo} id="btn-novo-produto">
+            <IconPlus style={{ width: 16, height: 16 }} /> Novo Produto
+          </button>
+        </div>
       </div>
 
       {excluirErro && (
@@ -355,6 +412,33 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
           <IconSearch style={{ width: 32, height: 32, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
           <div className="empty-state-title">Nenhum produto encontrado</div>
           <p>Tente outro termo de busca ou outra categoria.</p>
+        </div>
+      ) : modo === 'grade' ? (
+        <div className="estoque-grid">
+          {produtosFiltrados.map(p => {
+            const st = statusEstoque(p.estoque_atual, p.estoque_minimo)
+            const nomeCategoria = p.id_categoria ? nomeCategoriaPorId.get(p.id_categoria) : null
+            return (
+              <button key={p.id_produto} type="button" className="estoque-card" onClick={() => setEstoqueAlvo(p)}>
+                <div className="flex items-center gap-1" style={{ flexWrap: 'wrap' }}>
+                  <span className={`badge ${BADGE_STATUS_ESTOQUE[st]}`}>{ROTULO_STATUS_ESTOQUE[st]}</span>
+                  {p.status === 'Inativo' && <span className="badge badge-inativo">Inativo</span>}
+                </div>
+                <div className="estoque-card-foto">
+                  {p.foto_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+                    <img src={p.foto_url} alt={p.nome} />
+                  ) : (
+                    <IconImage style={{ width: 26, height: 26, color: 'var(--gray-600)' }} />
+                  )}
+                </div>
+                <div className="estoque-card-nome">{p.nome}</div>
+                {nomeCategoria && <div className="text-xs text-muted">{nomeCategoria}</div>}
+                <div className="estoque-card-qtd">{rotuloEstoque(p.estoque_atual, p.unidade_venda)}</div>
+                <div className="text-xs text-muted">em estoque</div>
+              </button>
+            )
+          })}
         </div>
       ) : (
         <div className="table-container">

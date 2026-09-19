@@ -752,6 +752,35 @@ a:hover { color: var(--primary-300); }
 .estoque-card-nome { font-weight: 600; color: var(--gray-100); }
 .estoque-card-qtd { font-size: 1.125rem; font-weight: 700; color: var(--gray-50); margin-top: 4px; }
 
+/* Alternador lista/grade (tela de Produtos) — escolha do usuário fica
+   salva no localStorage, ver PRODUTOS_MODO_VISUALIZACAO_KEY. */
+.view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--gray-850);
+  border: 1px solid var(--gray-800);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+.view-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: calc(var(--radius-md) - 3px);
+  background: transparent;
+  color: var(--gray-500);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.view-toggle-btn:hover { color: var(--gray-200); background: var(--gray-800); }
+.view-toggle-btn.is-active { background: var(--primary-600); color: #fff; box-shadow: 0 1px 3px var(--btn-primary-shadow); }
+.view-toggle-btn.is-active:hover { background: var(--primary-500); }
+
 /* ============================================================
    SWITCH — toggle on/off animado (ex: ativar/desativar serviço)
    ============================================================ */

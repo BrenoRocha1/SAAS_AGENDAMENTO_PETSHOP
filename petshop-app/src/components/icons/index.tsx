@@ -484,14 +484,17 @@ export function IconMinus(props: SVGProps<SVGSVGElement>) {
   )
 }
 
-// Caixa de arquivo/estoque — item do menu "Estoque", visualmente
-// diferente de IconPackage (que já é o ícone de "Produtos").
-export function IconArchive(props: SVGProps<SVGSVGElement>) {
+// Linhas horizontais — alterna visualização em lista (par de IconGrid,
+// usado pra alternar em grade).
+export function IconList(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
-      <rect x="3" y="4" width="18" height="4" rx="1" />
-      <path d="M4 8v10a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 18V8" />
-      <path d="M10 12.5h4" />
+      <path d="M8 6h13" />
+      <path d="M8 12h13" />
+      <path d="M8 18h13" />
+      <path d="M3 6h.01" />
+      <path d="M3 12h.01" />
+      <path d="M3 18h.01" />
     </svg>
   )
 }

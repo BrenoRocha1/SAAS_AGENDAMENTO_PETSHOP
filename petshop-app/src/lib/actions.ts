@@ -852,7 +852,6 @@ export async function criarProdutoAction(formData: FormData) {
   if (error || !novoProduto) return { error: devError('Erro ao cadastrar produto.', error?.message) }
 
   revalidatePath('/lojista/produtos')
-  revalidatePath('/lojista/estoque')
   return { success: true, id_produto: novoProduto.id_produto as string }
 }
 
@@ -889,7 +888,6 @@ export async function editarProdutoAction(id_produto: string, formData: FormData
   if (error) return { error: devError('Erro ao atualizar produto.', error.message) }
 
   revalidatePath('/lojista/produtos')
-  revalidatePath('/lojista/estoque')
   return { success: true }
 }
 
@@ -911,7 +909,6 @@ export async function alternarStatusProdutoAction(id_produto: string, ativo: boo
   if (error) return { error: devError('Erro ao atualizar status do produto.', error.message) }
 
   revalidatePath('/lojista/produtos')
-  revalidatePath('/lojista/estoque')
   return { success: true }
 }
 
@@ -945,7 +942,6 @@ export async function movimentarEstoqueAction(id_produto: string, formData: Form
   if (error) return { error: error.message }
 
   revalidatePath('/lojista/produtos')
-  revalidatePath('/lojista/estoque')
   return { success: true, novoEstoque: novoEstoque as number }
 }
 
@@ -987,7 +983,6 @@ export async function excluirProdutoAction(id_produto: string) {
   }
 
   revalidatePath('/lojista/produtos')
-  revalidatePath('/lojista/estoque')
   return { success: true }
 }
 
@@ -1157,7 +1152,6 @@ export async function atualizarFotoProdutoAction(
   }
 
   revalidatePath('/lojista/produtos')
-  revalidatePath('/lojista/estoque')
   return { success: true, url: urlComVersao }
 }
 
@@ -1184,7 +1178,6 @@ export async function removerFotoProdutoAction(id_produto: string): Promise<{ er
   if (error) return { error: devError('Não foi possível remover a imagem. Tente novamente.', error.message) }
 
   revalidatePath('/lojista/produtos')
-  revalidatePath('/lojista/estoque')
   return { success: true }
 }
 
