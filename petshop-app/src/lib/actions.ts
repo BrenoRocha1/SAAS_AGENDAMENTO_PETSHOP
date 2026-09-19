@@ -817,9 +817,10 @@ export async function removerVariacaoServicoAction(id_variacao: string) {
 // ============================================================
 // PRODUTO ACTIONS (Lojista) — migration 037
 // ============================================================
-// Mesma permissão de Serviços (podeGerenciarServicos): os dois são "o
-// catálogo que a loja vende", e não vale a pena abrir uma permissão de
-// equipe nova só pra isso — ver comentário no topo da migration 037.
+// Permissão própria (podeGerenciarProdutos, migration 040) — reaproveitava
+// pode_gerenciar_servicos antes, mas Produtos cresceu (categorias, foto,
+// estoque, venda no agendamento online) e ganhou peso suficiente pra ter
+// uma entrada dedicada na tela de Equipe.
 
 export async function criarProdutoAction(formData: FormData) {
   const supabase = await createClient()
@@ -828,7 +829,7 @@ export async function criarProdutoAction(formData: FormData) {
 
   const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
   if (!contexto) return { error: 'Acesso não autorizado' }
-  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
 
   const raw = {
     nome: formData.get('nome') as string,
@@ -865,7 +866,7 @@ export async function editarProdutoAction(id_produto: string, formData: FormData
 
   const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
   if (!contexto) return { error: 'Acesso não autorizado' }
-  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
 
   const raw = {
     nome: formData.get('nome') as string,
@@ -898,7 +899,7 @@ export async function alternarStatusProdutoAction(id_produto: string, ativo: boo
 
   const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
   if (!contexto) return { error: 'Acesso não autorizado' }
-  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
 
   const { error } = await supabase
     .from('produto')
@@ -923,7 +924,7 @@ export async function movimentarEstoqueAction(id_produto: string, formData: Form
 
   const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
   if (!contexto) return { error: 'Acesso não autorizado' }
-  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
 
   const parsed = movimentoEstoqueSchema.safeParse({
     tipo: formData.get('tipo'),
@@ -946,8 +947,12 @@ export async function movimentarEstoqueAction(id_produto: string, formData: Form
 }
 
 // Exclusão é só lojista/administrador (mesma regra de
-// excluirServicoAction) — e só se o produto nunca teve nenhuma
-// movimentação de estoque, pra não apagar um histórico que já existe.
+// excluirServicoAction). Desde a migration 040, ter movimentação de
+// estoque não trava mais a exclusão (movimento_estoque tem ON DELETE
+// CASCADE em produto) — só um produto já vendido de verdade pelo
+// agendamento online barra (agendamento_produto é ON DELETE RESTRICT,
+// ver catch do código 23503 abaixo), pra não quebrar o histórico de
+// compras do cliente.
 export async function excluirProdutoAction(id_produto: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -960,15 +965,6 @@ export async function excluirProdutoAction(id_produto: string) {
   const db = clienteParaEscritaLojista(contexto, supabase)
   if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
 
-  const { count } = await supabase
-    .from('movimento_estoque')
-    .select('id_movimento', { count: 'exact', head: true })
-    .eq('id_produto', id_produto)
-
-  if (count && count > 0) {
-    return { error: 'Este produto já tem movimentações de estoque e não pode ser excluído. Marque-o como "Inativo" em vez de excluir.' }
-  }
-
   const { error } = await db
     .from('produto')
     .delete()
@@ -977,7 +973,7 @@ export async function excluirProdutoAction(id_produto: string) {
 
   if (error) {
     if (error.code === '23503') {
-      return { error: 'Este produto tem registros vinculados e não pode ser excluído. Marque-o como "Inativo" em vez de excluir.' }
+      return { error: 'Este produto já foi vendido pelo agendamento online e não pode ser excluído. Marque-o como "Inativo" em vez de excluir.' }
     }
     return { error: 'Erro ao excluir produto.' }
   }
@@ -1001,7 +997,7 @@ export async function criarCategoriaProdutoAction(formData: FormData) {
 
   const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
   if (!contexto) return { error: 'Acesso não autorizado' }
-  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
 
   const parsed = categoriaProdutoSchema.safeParse({ nome: formData.get('nome') })
   if (!parsed.success) return { error: parsed.error.issues[0].message }
@@ -1028,7 +1024,7 @@ export async function editarCategoriaProdutoAction(id_categoria: string, formDat
 
   const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
   if (!contexto) return { error: 'Acesso não autorizado' }
-  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
 
   const parsed = categoriaProdutoSchema.safeParse({ nome: formData.get('nome') })
   if (!parsed.success) return { error: parsed.error.issues[0].message }
@@ -1057,7 +1053,7 @@ export async function excluirCategoriaProdutoAction(id_categoria: string) {
 
   const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
   if (!contexto) return { error: 'Acesso não autorizado' }
-  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
 
   const { error } = await supabase
     .from('categoria_produto')
@@ -1100,7 +1096,7 @@ export async function atualizarFotoProdutoAction(
 
   const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
   if (!contexto) return { error: 'Acesso não autorizado' }
-  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
 
   const db = clienteParaEscritaLojista(contexto, supabase)
   if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
@@ -1162,7 +1158,7 @@ export async function removerFotoProdutoAction(id_produto: string): Promise<{ er
 
   const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
   if (!contexto) return { error: 'Acesso não autorizado' }
-  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
 
   const db = clienteParaEscritaLojista(contexto, supabase)
   if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
@@ -2299,6 +2295,7 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     cargo: formData.get('cargo') as string,
     pode_gerenciar_agenda: formData.get('pode_gerenciar_agenda') === 'true',
     pode_gerenciar_servicos: formData.get('pode_gerenciar_servicos') === 'true',
+    pode_gerenciar_produtos: formData.get('pode_gerenciar_produtos') === 'true',
     pode_gerenciar_clientes_pets: formData.get('pode_gerenciar_clientes_pets') === 'true',
     acesso_total: acessoTotalSolicitado,
   }
@@ -2355,6 +2352,7 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     p_pode_servicos: parsed.data.pode_gerenciar_servicos,
     p_pode_clientes_pets: parsed.data.pode_gerenciar_clientes_pets,
     p_acesso_total: parsed.data.acesso_total,
+    p_pode_produtos: parsed.data.pode_gerenciar_produtos,
   })
 
   if (rpcError) {
@@ -2399,6 +2397,7 @@ export async function editarFuncionarioAction(id_funcionario: string, formData: 
     cargo: formData.get('cargo') as string,
     pode_gerenciar_agenda: formData.get('pode_gerenciar_agenda') === 'true',
     pode_gerenciar_servicos: formData.get('pode_gerenciar_servicos') === 'true',
+    pode_gerenciar_produtos: formData.get('pode_gerenciar_produtos') === 'true',
     pode_gerenciar_clientes_pets: formData.get('pode_gerenciar_clientes_pets') === 'true',
     acesso_total: acessoTotalSolicitado,
   }
@@ -2414,6 +2413,7 @@ export async function editarFuncionarioAction(id_funcionario: string, formData: 
       cargo: parsed.data.cargo ?? null,
       pode_gerenciar_agenda: parsed.data.pode_gerenciar_agenda,
       pode_gerenciar_servicos: parsed.data.pode_gerenciar_servicos,
+      pode_gerenciar_produtos: parsed.data.pode_gerenciar_produtos,
       pode_gerenciar_clientes_pets: parsed.data.pode_gerenciar_clientes_pets,
       acesso_total: parsed.data.acesso_total,
     })

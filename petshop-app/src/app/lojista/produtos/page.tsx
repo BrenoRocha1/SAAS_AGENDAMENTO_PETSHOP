@@ -13,7 +13,7 @@ export default async function ProdutosPage() {
 
   if (!contexto) return null
 
-  if (!contexto.podeGerenciarServicos) {
+  if (!contexto.podeGerenciarProdutos) {
     return (
       <>
         <div className="page-header">

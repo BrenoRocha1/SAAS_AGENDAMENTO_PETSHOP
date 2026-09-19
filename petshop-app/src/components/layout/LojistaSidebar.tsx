@@ -33,7 +33,7 @@ const navItemsBase = [
   { href: '/lojista/kanban',        icon: IconKanban,    label: 'Kanban', condicional: true, permissao: 'agenda' as const },
   { href: '/lojista/relatorios',    icon: IconChartBar,  label: 'Relatórios de Vendas', restrito: true },
   { href: '/lojista/servicos',      icon: IconScissors,  label: 'Serviços', permissao: 'servicos' as const },
-  { href: '/lojista/produtos',      icon: IconPackage,   label: 'Produtos', permissao: 'servicos' as const },
+  { href: '/lojista/produtos',      icon: IconPackage,   label: 'Produtos', permissao: 'produtos' as const },
   { href: '/lojista/clientes',      icon: IconUsers,     label: 'Clientes', permissao: 'clientesPets' as const },
   { href: '/lojista/pets',          icon: IconDog,       label: 'Pets', permissao: 'clientesPets' as const },
   { href: '/lojista/configuracoes', icon: IconSettings,  label: 'Configurações', restrito: true },
@@ -49,6 +49,7 @@ interface Props {
   role?: 'lojista' | 'funcionario'
   podeGerenciarAgenda?: boolean
   podeGerenciarServicos?: boolean
+  podeGerenciarProdutos?: boolean
   podeGerenciarClientesPets?: boolean
   acessoTotal?: boolean
 }
@@ -61,6 +62,7 @@ export default function LojistaSidebar({
   role = 'lojista',
   podeGerenciarAgenda = true,
   podeGerenciarServicos = true,
+  podeGerenciarProdutos = true,
   podeGerenciarClientesPets = true,
   acessoTotal = true,
 }: Props) {
@@ -73,6 +75,7 @@ export default function LojistaSidebar({
       if (item.restrito) return false
       if (item.permissao === 'agenda') return podeGerenciarAgenda
       if (item.permissao === 'servicos') return podeGerenciarServicos
+      if (item.permissao === 'produtos') return podeGerenciarProdutos
       if (item.permissao === 'clientesPets') return podeGerenciarClientesPets
     }
     return true

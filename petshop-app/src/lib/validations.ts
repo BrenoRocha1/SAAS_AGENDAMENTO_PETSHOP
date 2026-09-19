@@ -255,6 +255,9 @@ export const funcionarioSchema = z.object({
   cargo: z.string().max(100).optional(),
   pode_gerenciar_agenda: z.boolean().default(true),
   pode_gerenciar_servicos: z.boolean().default(false),
+  // Permissão própria desde a migration 040 — antes reaproveitava
+  // pode_gerenciar_servicos (ver comentário em actions.ts).
+  pode_gerenciar_produtos: z.boolean().default(false),
   pode_gerenciar_clientes_pets: z.boolean().default(false),
   // Só o responsável pela conta (o lojista de verdade) pode marcar isso —
   // checado em código (cadastrarFuncionarioAction) e garantido de novo
@@ -270,6 +273,7 @@ export const editarFuncionarioSchema = z.object({
   cargo: z.string().max(100).optional(),
   pode_gerenciar_agenda: z.boolean().default(true),
   pode_gerenciar_servicos: z.boolean().default(false),
+  pode_gerenciar_produtos: z.boolean().default(false),
   pode_gerenciar_clientes_pets: z.boolean().default(false),
   acesso_total: z.boolean().default(false),
 })

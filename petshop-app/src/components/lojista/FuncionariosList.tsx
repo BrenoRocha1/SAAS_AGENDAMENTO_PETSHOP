@@ -15,6 +15,7 @@ import {
   IconClose,
   IconDog,
   IconLock,
+  IconPackage,
   IconPencil,
   IconPlus,
   IconScissors,
@@ -31,6 +32,7 @@ interface Funcionario {
   cargo: string | null
   pode_gerenciar_agenda: boolean
   pode_gerenciar_servicos: boolean
+  pode_gerenciar_produtos: boolean
   pode_gerenciar_clientes_pets: boolean
   acesso_total: boolean
   ativo: boolean
@@ -527,6 +529,7 @@ function PermissoesCampos({
 }) {
   const [podeAgenda, setPodeAgenda] = useState(editFunc?.pode_gerenciar_agenda ?? true)
   const [podeServicos, setPodeServicos] = useState(editFunc?.pode_gerenciar_servicos ?? false)
+  const [podeProdutos, setPodeProdutos] = useState(editFunc?.pode_gerenciar_produtos ?? false)
   const [podeClientesPets, setPodeClientesPets] = useState(editFunc?.pode_gerenciar_clientes_pets ?? false)
   const [acessoTotal, setAcessoTotal] = useState(editFunc?.acesso_total ?? false)
 
@@ -538,6 +541,7 @@ function PermissoesCampos({
     setAcessoTotal(checked)
     setPodeAgenda(checked)
     setPodeServicos(checked)
+    setPodeProdutos(checked)
     setPodeClientesPets(checked)
   }
 
@@ -608,6 +612,34 @@ function PermissoesCampos({
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
               Cadastrar e editar serviços do petshop
+            </div>
+          </div>
+        </label>
+
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-3)',
+          padding: 'var(--space-3)',
+          background: 'var(--gray-800)',
+          borderRadius: 'var(--radius-md)',
+          cursor: acessoTotal ? 'not-allowed' : 'pointer',
+          opacity: acessoTotal ? 0.6 : 1,
+        }}>
+          <input
+            type="checkbox"
+            checked={podeProdutos}
+            disabled={acessoTotal}
+            onChange={(e) => setPodeProdutos(e.target.checked)}
+            style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
+          />
+          <input type="hidden" name="pode_gerenciar_produtos" value={String(podeProdutos)} />
+          <div>
+            <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <IconPackage style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Produtos
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
+              Cadastrar produtos, categorias e ajustar o estoque
             </div>
           </div>
         </label>
@@ -774,6 +806,20 @@ function FuncCard({
               gap: 4,
             }}>
               <IconScissors style={{ width: 11, height: 11 }} /> Serviços
+            </span>
+          )}
+          {func.pode_gerenciar_produtos && (
+            <span style={{
+              fontSize: '0.7rem',
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--success-900)',
+              color: 'var(--success-400)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}>
+              <IconPackage style={{ width: 11, height: 11 }} /> Produtos
             </span>
           )}
           {func.pode_gerenciar_clientes_pets && (

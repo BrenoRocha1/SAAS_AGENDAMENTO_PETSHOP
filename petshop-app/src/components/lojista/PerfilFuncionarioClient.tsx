@@ -33,6 +33,7 @@ export interface FuncionarioInfo {
   cargo: string | null
   pode_gerenciar_agenda: boolean
   pode_gerenciar_servicos: boolean
+  pode_gerenciar_produtos: boolean
   pode_gerenciar_clientes_pets: boolean
   acesso_total: boolean
   ativo: boolean
@@ -433,6 +434,7 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
                   <>
                     <div className="dash-detail-row"><span>Gerencia agenda</span><span>{funcionario.pode_gerenciar_agenda ? 'Sim' : 'Não'}</span></div>
                     <div className="dash-detail-row"><span>Gerencia serviços</span><span>{funcionario.pode_gerenciar_servicos ? 'Sim' : 'Não'}</span></div>
+                    <div className="dash-detail-row"><span>Gerencia produtos</span><span>{funcionario.pode_gerenciar_produtos ? 'Sim' : 'Não'}</span></div>
                     <div className="dash-detail-row"><span>Gerencia clientes e pets</span><span>{funcionario.pode_gerenciar_clientes_pets ? 'Sim' : 'Não'}</span></div>
                   </>
                 )}

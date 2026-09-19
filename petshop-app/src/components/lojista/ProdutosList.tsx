@@ -419,8 +419,25 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
             const st = statusEstoque(p.estoque_atual, p.estoque_minimo)
             const nomeCategoria = p.id_categoria ? nomeCategoriaPorId.get(p.id_categoria) : null
             return (
-              <button key={p.id_produto} type="button" className="estoque-card" onClick={() => setEstoqueAlvo(p)}>
-                <div className="flex items-center gap-1" style={{ flexWrap: 'wrap' }}>
+              <div
+                key={p.id_produto}
+                className="estoque-card"
+                role="button"
+                tabIndex={0}
+                onClick={() => setEstoqueAlvo(p)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEstoqueAlvo(p) } }}
+                title="Ver/ajustar estoque"
+              >
+                <button
+                  type="button"
+                  className="estoque-card-edit"
+                  onClick={e => { e.stopPropagation(); abrirEditar(p) }}
+                  aria-label="Editar produto"
+                  title="Editar produto"
+                >
+                  <IconPencil style={{ width: 13, height: 13 }} />
+                </button>
+                <div className="flex items-center gap-1" style={{ flexWrap: 'wrap', paddingRight: 32 }}>
                   <span className={`badge ${BADGE_STATUS_ESTOQUE[st]}`}>{ROTULO_STATUS_ESTOQUE[st]}</span>
                   {p.status === 'Inativo' && <span className="badge badge-inativo">Inativo</span>}
                 </div>
@@ -436,7 +453,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                 {nomeCategoria && <div className="text-xs text-muted">{nomeCategoria}</div>}
                 <div className="estoque-card-qtd">{rotuloEstoque(p.estoque_atual, p.unidade_venda)}</div>
                 <div className="text-xs text-muted">em estoque</div>
-              </button>
+              </div>
             )
           })}
         </div>
@@ -457,7 +474,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
               {produtosFiltrados.map(p => {
                 const st = statusEstoque(p.estoque_atual, p.estoque_minimo)
                 return (
-                  <tr key={p.id_produto}>
+                  <tr key={p.id_produto} onClick={() => setEstoqueAlvo(p)} style={{ cursor: 'pointer' }} title="Ver/ajustar estoque">
                     <td>
                       <div className="flex items-center gap-3">
                         <div style={{
@@ -492,7 +509,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                         <button
                           type="button"
                           className={`switch ${p.status === 'Ativo' ? 'switch-on' : ''}`}
-                          onClick={() => handleAlternarStatus(p)}
+                          onClick={e => { e.stopPropagation(); handleAlternarStatus(p) }}
                           disabled={alternandoId === p.id_produto}
                           role="switch"
                           aria-checked={p.status === 'Ativo'}
@@ -505,15 +522,12 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                     </td>
                     <td>
                       <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => setEstoqueAlvo(p)}>
-                          <IconPackage style={{ width: 14, height: 14 }} /> Estoque
-                        </button>
-                        <button className="btn btn-ghost btn-sm" onClick={() => abrirEditar(p)}>
+                        <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); abrirEditar(p) }}>
                           <IconPencil style={{ width: 14, height: 14 }} /> Editar
                         </button>
                         <button
                           className="btn btn-ghost btn-sm"
-                          onClick={() => handleExcluir(p)}
+                          onClick={e => { e.stopPropagation(); handleExcluir(p) }}
                           disabled={excluindoId === p.id_produto}
                           title="Excluir produto"
                         >

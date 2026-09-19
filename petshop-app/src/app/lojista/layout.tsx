@@ -97,6 +97,7 @@ export default async function LojistaLayout({
         role={contexto.role}
         podeGerenciarAgenda={contexto.podeGerenciarAgenda}
         podeGerenciarServicos={contexto.podeGerenciarServicos}
+        podeGerenciarProdutos={contexto.podeGerenciarProdutos}
         podeGerenciarClientesPets={contexto.podeGerenciarClientesPets}
         acessoTotal={contexto.acessoTotal}
       />

@@ -11,6 +11,9 @@ export interface ContextoLojista {
   role: 'lojista' | 'funcionario'
   podeGerenciarAgenda: boolean
   podeGerenciarServicos: boolean
+  // Separada de podeGerenciarServicos desde a migration 040 — Produtos
+  // (catálogo + estoque) virou uma área com peso próprio.
+  podeGerenciarProdutos: boolean
   // Só visualizar Clientes e Pets (sem criar/editar/excluir).
   podeGerenciarClientesPets: boolean
   // "Administrador" — mesmo acesso do lojista em tudo, exceto conceder
@@ -30,6 +33,7 @@ export async function obterContextoLojista(
       role: 'lojista',
       podeGerenciarAgenda: true,
       podeGerenciarServicos: true,
+      podeGerenciarProdutos: true,
       podeGerenciarClientesPets: true,
       acessoTotal: true,
     }
@@ -38,7 +42,7 @@ export async function obterContextoLojista(
   if (role === 'funcionario') {
     const { data } = await supabase
       .from('funcionario')
-      .select('id_lojista, pode_gerenciar_agenda, pode_gerenciar_servicos, pode_gerenciar_clientes_pets, acesso_total')
+      .select('id_lojista, pode_gerenciar_agenda, pode_gerenciar_servicos, pode_gerenciar_produtos, pode_gerenciar_clientes_pets, acesso_total')
       .eq('id_funcionario', userId)
       .eq('ativo', true)
       .maybeSingle()
@@ -50,6 +54,7 @@ export async function obterContextoLojista(
       role: 'funcionario',
       podeGerenciarAgenda: data.pode_gerenciar_agenda || data.acesso_total,
       podeGerenciarServicos: data.pode_gerenciar_servicos || data.acesso_total,
+      podeGerenciarProdutos: data.pode_gerenciar_produtos || data.acesso_total,
       podeGerenciarClientesPets: data.pode_gerenciar_clientes_pets || data.acesso_total,
       acessoTotal: data.acesso_total,
     }

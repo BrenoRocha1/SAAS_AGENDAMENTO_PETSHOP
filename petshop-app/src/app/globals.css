@@ -721,6 +721,7 @@ a:hover { color: var(--primary-300); }
   gap: var(--space-4);
 }
 .estoque-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -736,6 +737,23 @@ a:hover { color: var(--primary-300); }
   color: inherit;
 }
 .estoque-card:hover { border-color: var(--gray-700); }
+.estoque-card-edit {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--gray-800);
+  border-radius: var(--radius-md);
+  background: var(--gray-900);
+  color: var(--gray-400);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.estoque-card-edit:hover { color: var(--gray-100); border-color: var(--gray-700); background: var(--gray-850); }
 .estoque-card-foto {
   width: 100%;
   aspect-ratio: 1.6;
