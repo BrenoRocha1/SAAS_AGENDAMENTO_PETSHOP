@@ -62,22 +62,24 @@ export default function EstoqueGrid({ produtos: inicial, categorias }: Props) {
   return (
     <>
       <div className="card" style={{ marginBottom: 'var(--space-5)' }}>
-        <div className="flex items-center gap-3" style={{ flexWrap: 'wrap' }}>
+        <div className="flex items-center justify-between gap-3" style={{ flexWrap: 'wrap' }}>
           <div className="dash-search">
             <IconSearch />
             <input placeholder="Buscar produto pelo nome..." value={busca} onChange={e => setBusca(e.target.value)} />
           </div>
-          <select className="form-select" value={categoriaFiltro} onChange={e => setCategoriaFiltro(e.target.value)}>
-            <option value="">Todas as categorias</option>
-            {categorias.map(c => (
-              <option key={c.id_categoria} value={c.id_categoria}>{c.nome}</option>
-            ))}
-          </select>
-          <select className="form-select" value={ordenacao} onChange={e => setOrdenacao(e.target.value as Ordenacao)}>
-            <option value="nome">Ordenar por nome</option>
-            <option value="quantidade_desc">Maior quantidade primeiro</option>
-            <option value="quantidade_asc">Menor quantidade primeiro</option>
-          </select>
+          <div className="flex gap-2">
+            <select className="form-select-accent" value={categoriaFiltro} onChange={e => setCategoriaFiltro(e.target.value)}>
+              <option value="">Todas as categorias</option>
+              {categorias.map(c => (
+                <option key={c.id_categoria} value={c.id_categoria}>{c.nome}</option>
+              ))}
+            </select>
+            <select className="form-select-accent" value={ordenacao} onChange={e => setOrdenacao(e.target.value as Ordenacao)}>
+              <option value="nome">Ordenar por nome</option>
+              <option value="quantidade_desc">Maior quantidade primeiro</option>
+              <option value="quantidade_asc">Menor quantidade primeiro</option>
+            </select>
+          </div>
         </div>
       </div>
 
