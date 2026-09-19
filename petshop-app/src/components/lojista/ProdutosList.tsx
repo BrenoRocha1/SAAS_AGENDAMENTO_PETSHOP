@@ -346,7 +346,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
   return (
     <>
       <div className="flex items-center justify-between gap-3" style={{ marginBottom: 'var(--space-5)', flexWrap: 'wrap' }}>
-        <div className="flex items-center gap-3" style={{ flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-3 produtos-filtros">
           <div className="dash-search">
             <IconSearch />
             <input
@@ -443,16 +443,28 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEstoqueAlvo(p) } }}
                 title="Ver/ajustar estoque"
               >
-                <button
-                  type="button"
-                  className="estoque-card-edit"
-                  onClick={e => { e.stopPropagation(); abrirEditar(p) }}
-                  aria-label="Editar produto"
-                  title="Editar produto"
-                >
-                  <IconPencil style={{ width: 13, height: 13 }} />
-                </button>
-                <div className="flex items-center gap-1" style={{ flexWrap: 'wrap', paddingRight: 32 }}>
+                <div className="estoque-card-actions">
+                  <button
+                    type="button"
+                    className="estoque-card-action-btn"
+                    onClick={e => { e.stopPropagation(); abrirEditar(p) }}
+                    aria-label="Editar produto"
+                    title="Editar produto"
+                  >
+                    <IconPencil style={{ width: 13, height: 13 }} />
+                  </button>
+                  <button
+                    type="button"
+                    className="estoque-card-action-btn is-danger"
+                    onClick={e => { e.stopPropagation(); handleExcluir(p) }}
+                    disabled={excluindoId === p.id_produto}
+                    aria-label="Excluir produto"
+                    title="Excluir produto"
+                  >
+                    <IconTrash style={{ width: 13, height: 13 }} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1" style={{ flexWrap: 'wrap', paddingRight: 64 }}>
                   <span className={`badge ${BADGE_STATUS_ESTOQUE[st]}`}>{ROTULO_STATUS_ESTOQUE[st]}</span>
                   {p.status === 'Inativo' && <span className="badge badge-inativo">Inativo</span>}
                 </div>

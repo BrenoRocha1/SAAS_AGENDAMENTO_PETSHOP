@@ -737,10 +737,15 @@ a:hover { color: var(--primary-300); }
   color: inherit;
 }
 .estoque-card:hover { border-color: var(--gray-700); }
-.estoque-card-edit {
+.estoque-card-actions {
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
+  display: flex;
+  gap: 6px;
+  z-index: 1;
+}
+.estoque-card-action-btn {
   width: 28px;
   height: 28px;
   display: inline-flex;
@@ -753,7 +758,8 @@ a:hover { color: var(--primary-300); }
   cursor: pointer;
   transition: all var(--transition-fast);
 }
-.estoque-card-edit:hover { color: var(--gray-100); border-color: var(--gray-700); background: var(--gray-850); }
+.estoque-card-action-btn:hover { color: var(--gray-100); border-color: var(--gray-700); background: var(--gray-850); }
+.estoque-card-action-btn.is-danger:hover { color: var(--danger-400); border-color: var(--danger-500); background: rgba(239,68,68,0.1); }
 .estoque-card-foto {
   width: 100%;
   aspect-ratio: 1.6;
@@ -769,6 +775,13 @@ a:hover { color: var(--primary-300); }
 .estoque-card-foto img { width: 100%; height: 100%; object-fit: cover; }
 .estoque-card-nome { font-weight: 600; color: var(--gray-100); }
 .estoque-card-qtd { font-size: 1.125rem; font-weight: 700; color: var(--gray-50); margin-top: 4px; }
+
+/* Toolbar de filtros da tela de Produtos — sem isso os .form-select
+   (que são width:100% por padrão, pensados pra dentro de um form-group)
+   esticavam pra ocupar a linha toda e empilhavam um embaixo do outro
+   (mesmo problema já resolvido em .kanban-filtros/.relatorio-tabela-filtros). */
+.produtos-filtros { flex-wrap: wrap; }
+.produtos-filtros .form-select { width: auto; min-width: 200px; flex: 0 0 auto; }
 
 /* Alternador lista/grade (tela de Produtos) — escolha do usuário fica
    salva no localStorage, ver PRODUTOS_MODO_VISUALIZACAO_KEY. */
