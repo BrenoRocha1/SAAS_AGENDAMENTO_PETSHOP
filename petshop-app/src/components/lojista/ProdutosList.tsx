@@ -39,7 +39,6 @@ interface Produto {
   id_produto: string
   nome: string
   id_categoria: string | null
-  categoria_produto: { nome: string } | null
   unidade_venda: string
   preco_venda: number
   estoque_atual: number
@@ -102,9 +101,23 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
     })
   }, [produtos, busca, categoriaFiltro])
 
+  // Nome da categoria resolvido aqui, a partir de `categorias` — não via
+  // embed no select (produto.categoria_produto(nome)), que depende do
+  // PostgREST reconhecer a FK no cache de schema. Um select plano não
+  // tem essa dependência.
+  const nomeCategoriaPorId = useMemo(() => {
+    const mapa = new Map<string, string>()
+    for (const c of categorias) mapa.set(c.id_categoria, c.nome)
+    return mapa
+  }, [categorias])
+
   async function recarregar() {
-    const { data } = await supabase.from('produto').select('*, categoria_produto(nome)').order('nome')
-    setProdutos((data as unknown as Produto[]) ?? [])
+    const { data, error: erroRecarga } = await supabase.from('produto').select('*').order('nome')
+    // Nunca esvazia a lista por causa de um erro passageiro de rede — só
+    // atualiza quando a consulta realmente veio (mesmo que vazia de
+    // verdade, `data` chega como array, não undefined/erro).
+    if (erroRecarga) return
+    setProdutos((data as Produto[]) ?? [])
   }
 
   function handleAlternarStatus(p: Produto) {
@@ -374,7 +387,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                         <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</div>
                       </div>
                     </td>
-                    <td className="text-sm text-muted">{p.categoria_produto?.nome ?? 'Sem categoria'}</td>
+                    <td className="text-sm text-muted">{(p.id_categoria && nomeCategoriaPorId.get(p.id_categoria)) ?? 'Sem categoria'}</td>
                     <td className="text-success font-semibold">
                       R$ {Number(p.preco_venda).toFixed(2)} <span className="text-xs text-muted">/ {rotuloUnidade(p.unidade_venda)}</span>
                     </td>
@@ -544,6 +557,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                     label="Estoque mínimo"
                     unidadeVenda={unidadeSelecionada}
                     valorInicial={editando?.estoque_minimo ?? 0}
+                    hint='Abaixo disso, o produto aparece como "Baixo" na tela de Estoque. Deixe 0 pra não alertar.'
                   />
                 </div>
 

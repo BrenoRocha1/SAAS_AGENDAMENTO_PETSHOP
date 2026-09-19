@@ -10,6 +10,7 @@ interface Props {
   unidadeVenda: string
   valorInicial?: number
   autoFocus?: boolean
+  hint?: string
 }
 
 // Campo numérico com opção de digitar na sub-unidade (g/ml) quando a
@@ -22,7 +23,7 @@ interface Props {
 // input escondido, já convertido pra unidade BASE do produto (a única
 // que fica salva no banco). Assim a action que recebe o FormData do
 // formulário-pai nem sabe que essa troca de unidade existiu.
-export default function CampoQuantidade({ name, label, required, unidadeVenda, valorInicial, autoFocus }: Props) {
+export default function CampoQuantidade({ name, label, required, unidadeVenda, valorInicial, autoFocus, hint }: Props) {
   const sub = SUBUNIDADE[unidadeVenda as UnidadeVenda]
   const [usarSub, setUsarSub] = useState(false)
   const [texto, setTexto] = useState(valorInicial != null ? String(valorInicial) : '')
@@ -70,6 +71,7 @@ export default function CampoQuantidade({ name, label, required, unidadeVenda, v
         autoFocus={autoFocus}
       />
       <input type="hidden" name={name} value={convertido} />
+      {hint && <p className="text-xs text-muted" style={{ margin: 0 }}>{hint}</p>}
     </div>
   )
 }

@@ -14,7 +14,6 @@ interface Produto {
   id_produto: string
   nome: string
   id_categoria: string | null
-  categoria_produto: { nome: string } | null
   unidade_venda: string
   estoque_atual: number
   estoque_minimo: number
@@ -51,6 +50,14 @@ export default function EstoqueGrid({ produtos: inicial, categorias }: Props) {
     else ordenados.sort((a, b) => a.nome.localeCompare(b.nome))
     return ordenados
   }, [produtos, busca, categoriaFiltro, ordenacao])
+
+  // Nome da categoria resolvido aqui (não via embed no select — ver
+  // comentário em lojista/produtos/page.tsx sobre o motivo).
+  const nomeCategoriaPorId = useMemo(() => {
+    const mapa = new Map<string, string>()
+    for (const c of categorias) mapa.set(c.id_categoria, c.nome)
+    return mapa
+  }, [categorias])
 
   return (
     <>
@@ -90,6 +97,7 @@ export default function EstoqueGrid({ produtos: inicial, categorias }: Props) {
         <div className="estoque-grid">
           {produtosExibidos.map(p => {
             const st = statusEstoque(p.estoque_atual, p.estoque_minimo)
+            const nomeCategoria = p.id_categoria ? nomeCategoriaPorId.get(p.id_categoria) : null
             return (
               <button key={p.id_produto} type="button" className="estoque-card" onClick={() => setEstoqueAlvo(p)}>
                 <span className={`badge ${BADGE_STATUS_ESTOQUE[st]}`}>{ROTULO_STATUS_ESTOQUE[st]}</span>
@@ -102,7 +110,7 @@ export default function EstoqueGrid({ produtos: inicial, categorias }: Props) {
                   )}
                 </div>
                 <div className="estoque-card-nome">{p.nome}</div>
-                {p.categoria_produto?.nome && <div className="text-xs text-muted">{p.categoria_produto.nome}</div>}
+                {nomeCategoria && <div className="text-xs text-muted">{nomeCategoria}</div>}
                 <div className="estoque-card-qtd">{rotuloEstoque(p.estoque_atual, p.unidade_venda)}</div>
                 <div className="text-xs text-muted">em estoque</div>
               </button>

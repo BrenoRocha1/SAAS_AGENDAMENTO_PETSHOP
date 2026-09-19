@@ -28,10 +28,15 @@ export default async function ProdutosPage() {
     )
   }
 
+  // Categoria é resolvida no cliente por id_categoria (a partir de
+  // `categorias`), em vez de um embed `categoria_produto(nome)` no
+  // select — o embed depende do PostgREST reconhecer a FK no cache de
+  // schema, e isso já se mostrou frágil logo após rodar a migration.
+  // Um select plano não tem essa dependência.
   const [{ data: produtos }, { data: categorias }] = await Promise.all([
     supabase
       .from('produto')
-      .select('*, categoria_produto(nome)')
+      .select('*')
       .eq('id_lojista', contexto.idLojista)
       .order('nome'),
     supabase

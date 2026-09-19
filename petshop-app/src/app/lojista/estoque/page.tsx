@@ -28,10 +28,12 @@ export default async function EstoquePage() {
     )
   }
 
+  // Ver comentário equivalente em lojista/produtos/page.tsx: categoria
+  // é resolvida no cliente por id_categoria, sem embed no select.
   const [{ data: produtos }, { data: categorias }] = await Promise.all([
     supabase
       .from('produto')
-      .select('*, categoria_produto(nome)')
+      .select('*')
       .eq('id_lojista', contexto.idLojista)
       .eq('status', 'Ativo')
       .order('nome'),
