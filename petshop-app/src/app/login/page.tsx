@@ -4,7 +4,7 @@ import { Suspense, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { loginAction } from '@/lib/actions'
-
+import { createClient } from '@/lib/supabase/client'
 /* ------------------------------------------------------------------ *
  * Ícones — line icons em SVG inline (sem biblioteca externa).
  * ------------------------------------------------------------------ */
@@ -271,16 +271,21 @@ function LoginFormPane() {
     })
   }
 
-  function handleGoogle() {
+  async function handleGoogle() {
     setError(null)
     setOauthPending(true)
-    // Navega para a rota de API que inicia o OAuth server-side.
-    // Isso garante que o PKCE code verifier seja armazenado no header
-    // Set-Cookie da resposta HTTP 302 real — o browser recebe o cookie
-    // antes de ir para o Google e o manda de volta para /auth/callback.
-    window.location.href = '/api/auth/google'
+    
+    const supabase = createClient()
+    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
+    
+    if (oauthErr) {
+      setOauthPending(false)
+      setError('Não foi possível conectar com o Google. Tente novamente.')
+    }
   }
-
 
   return (
     <div className="login-form-inner">
