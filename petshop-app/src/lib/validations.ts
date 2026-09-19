@@ -284,13 +284,19 @@ export const avaliacaoSchema = z.object({
   comentario: z.string().max(500, 'O comentário pode ter no máximo 500 caracteres').optional(),
 })
 
-// Produtos vendidos pela loja (migration 037) — catálogo simples, sem
-// pretensão de virar um controle de estoque completo. Categoria e
-// unidade de venda são um conjunto fechado, mesmo do CHECK do banco;
-// mantenha os dois sincronizados se a lista mudar.
+// Categoria de produto, criada pela própria loja (migration 038).
+export const categoriaProdutoSchema = z.object({
+  nome: z.string().min(2, 'Nome muito curto').max(50, 'Nome muito longo'),
+})
+
+// Produtos vendidos pela loja (migrations 037/038) — catálogo simples,
+// sem pretensão de virar um controle de estoque completo. Unidade de
+// venda é um conjunto fechado, mesmo do CHECK do banco; mantenha os dois
+// sincronizados se a lista mudar. Categoria referencia categoria_produto
+// (id_categoria), que a própria loja cadastra.
 export const produtoSchema = z.object({
   nome: z.string().min(2, 'Nome muito curto').max(100, 'Nome muito longo'),
-  categoria: z.enum(['Ração', 'Brinquedos', 'Higiene', 'Acessórios', 'Outros']),
+  id_categoria: z.string().uuid('Selecione uma categoria'),
   unidade_venda: z.enum(['unidade', 'kg', 'litro', 'caixa', 'pacote']),
   preco_venda: z.number().min(0, 'Preço inválido'),
   estoque_atual: z.number().min(0, 'Estoque inválido'),
@@ -348,3 +354,4 @@ export type AvaliacaoData = z.infer<typeof avaliacaoSchema>
 export type SomNotificacaoData = z.infer<typeof somNotificacaoSchema>
 export type ProdutoData = z.infer<typeof produtoSchema>
 export type MovimentoEstoqueData = z.infer<typeof movimentoEstoqueSchema>
+export type CategoriaProdutoData = z.infer<typeof categoriaProdutoSchema>

@@ -483,3 +483,15 @@ export function IconMinus(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+// Caixa de arquivo/estoque — item do menu "Estoque", visualmente
+// diferente de IconPackage (que já é o ícone de "Produtos").
+export function IconArchive(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="4" width="18" height="4" rx="1" />
+      <path d="M4 8v10a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 18V8" />
+      <path d="M10 12.5h4" />
+    </svg>
+  )
+}

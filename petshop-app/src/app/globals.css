@@ -682,6 +682,47 @@ a:hover { color: var(--primary-300); }
 .badge-inativo    { background: var(--gray-800);             color: var(--gray-400);             border: 1px solid var(--gray-700); }
 /* Aviso de estoque baixo (tela de Produtos) — mesmos tons de "aguardando". */
 .badge-estoque-baixo { background: var(--status-aguardando-bg); color: var(--status-aguardando-fg); border: 1px solid var(--status-aguardando-ring); }
+.badge-zerado        { background: var(--status-cancelado-bg);  color: var(--status-cancelado-fg);  border: 1px solid var(--status-cancelado-ring); }
+
+/* ============================================================
+   ESTOQUE — grade de cards (tela /lojista/estoque)
+   ============================================================ */
+.estoque-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+.estoque-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  background: var(--gray-900);
+  border: 1px solid var(--gray-800);
+  border-radius: var(--radius-xl);
+  padding: var(--space-4);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition-normal);
+  font: inherit;
+  color: inherit;
+}
+.estoque-card:hover { border-color: var(--gray-700); }
+.estoque-card-foto {
+  width: 100%;
+  aspect-ratio: 1.6;
+  border-radius: var(--radius-md);
+  background: var(--gray-850);
+  border: 1px solid var(--gray-800);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin: var(--space-1) 0;
+}
+.estoque-card-foto img { width: 100%; height: 100%; object-fit: cover; }
+.estoque-card-nome { font-weight: 600; color: var(--gray-100); }
+.estoque-card-qtd { font-size: 1.125rem; font-weight: 700; color: var(--gray-50); margin-top: 4px; }
 
 /* ============================================================
    SWITCH — toggle on/off animado (ex: ativar/desativar serviço)

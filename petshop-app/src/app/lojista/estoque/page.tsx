@@ -1,12 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
-import ProdutosList from '@/components/lojista/ProdutosList'
+import EstoqueGrid from '@/components/lojista/EstoqueGrid'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import { IconPackage } from '@/components/icons'
 import type { Metadata } from 'next'
 
-export const metadata: Metadata = { title: 'Produtos' }
+export const metadata: Metadata = { title: 'Estoque' }
 
-export default async function ProdutosPage() {
+export default async function EstoquePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
@@ -17,11 +17,11 @@ export default async function ProdutosPage() {
     return (
       <>
         <div className="page-header">
-          <h1 className="page-title">Produtos</h1>
+          <h1 className="page-title">Estoque</h1>
         </div>
         <div className="empty-state card">
           <IconPackage style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
-          <div className="empty-state-title">Sem permissão para gerenciar produtos</div>
+          <div className="empty-state-title">Sem permissão para gerenciar estoque</div>
           <p>Fale com o responsável pelo petshop para liberar esse acesso.</p>
         </div>
       </>
@@ -33,6 +33,7 @@ export default async function ProdutosPage() {
       .from('produto')
       .select('*, categoria_produto(nome)')
       .eq('id_lojista', contexto.idLojista)
+      .eq('status', 'Ativo')
       .order('nome'),
     supabase
       .from('categoria_produto')
@@ -44,10 +45,10 @@ export default async function ProdutosPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Produtos</h1>
-        <p className="page-subtitle">Cadastre e controle os produtos vendidos pelo seu petshop</p>
+        <h1 className="page-title">Estoque</h1>
+        <p className="page-subtitle">Veja de relance quanto tem de cada produto e ajuste rápido pelo card</p>
       </div>
-      <ProdutosList produtos={produtos ?? []} categorias={categorias ?? []} />
+      <EstoqueGrid produtos={produtos ?? []} categorias={categorias ?? []} />
     </>
   )
 }

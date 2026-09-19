@@ -1,12 +1,10 @@
 // ============================================================
 // Produtos vendidos pela loja — rótulos e regras de exibição
 // ============================================================
-// Categoria e unidade de venda são um conjunto fechado (mesmo CHECK da
-// migration 037) — mantenha esta lista sincronizada com o banco.
-
-export type CategoriaProduto = 'Ração' | 'Brinquedos' | 'Higiene' | 'Acessórios' | 'Outros'
-
-export const CATEGORIAS_PRODUTO: CategoriaProduto[] = ['Ração', 'Brinquedos', 'Higiene', 'Acessórios', 'Outros']
+// Categoria agora é criada pela própria loja (tabela categoria_produto,
+// migration 038) — não é mais uma lista fixa aqui. Unidade de venda
+// continua fechada (mesmo CHECK do banco); mantenha esta lista
+// sincronizada se ela mudar.
 
 export type UnidadeVenda = 'unidade' | 'kg' | 'litro' | 'caixa' | 'pacote'
 
@@ -22,6 +20,16 @@ export function rotuloUnidade(unidade: string): string {
   return UNIDADES_VENDA.find(u => u.value === unidade)?.label ?? unidade
 }
 
+// Sub-unidade menor pra digitar quantidades pequenas sem casa decimal
+// (ex.: "500" em vez de "0,5") — só existe pra kg/litro, porque só eles
+// têm uma fração de uso comum (grama, mililitro). O estoque continua
+// guardado só na unidade base (kg/litro) — a conversão acontece no
+// formulário, antes de enviar pro servidor.
+export const SUBUNIDADE: Partial<Record<UnidadeVenda, { label: string; fator: number }>> = {
+  kg: { label: 'g', fator: 0.001 },
+  litro: { label: 'ml', fator: 0.001 },
+}
+
 // Sem casas decimais desnecessárias: 15 -> "15", 12.5 -> "12.5" (mesma
 // convenção sem localização que o resto do app usa pra número — ver
 // "R$ {valor.toFixed(2)}" espalhado pelas telas de agendamento).
@@ -35,7 +43,24 @@ export function rotuloEstoque(quantidade: number, unidade: string): string {
   return `${formatarQuantidade(quantidade)} ${u?.plural ?? unidade}`
 }
 
-// estoque_minimo = 0 é "sem limite definido" — nunca dispara o aviso.
-export function estoqueBaixo(estoqueAtual: number, estoqueMinimo: number): boolean {
-  return estoqueMinimo > 0 && estoqueAtual <= estoqueMinimo
+export type StatusEstoque = 'zerado' | 'baixo' | 'em_estoque'
+
+// estoque_minimo = 0 é "sem limite definido" — nunca cai em "baixo",
+// só em "zerado" quando realmente chegar a 0.
+export function statusEstoque(estoqueAtual: number, estoqueMinimo: number): StatusEstoque {
+  if (estoqueAtual <= 0) return 'zerado'
+  if (estoqueMinimo > 0 && estoqueAtual <= estoqueMinimo) return 'baixo'
+  return 'em_estoque'
+}
+
+export const ROTULO_STATUS_ESTOQUE: Record<StatusEstoque, string> = {
+  zerado: 'Zerado',
+  baixo: 'Baixo',
+  em_estoque: 'Em Estoque',
+}
+
+export const BADGE_STATUS_ESTOQUE: Record<StatusEstoque, string> = {
+  zerado: 'badge-zerado',
+  baixo: 'badge-estoque-baixo',
+  em_estoque: 'badge-ativo',
 }

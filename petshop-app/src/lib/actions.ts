@@ -30,6 +30,7 @@ import {
   somNotificacaoSchema,
   produtoSchema,
   movimentoEstoqueSchema,
+  categoriaProdutoSchema,
 } from '@/lib/validations'
 import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } from '@/lib/lojista-context'
 import { ORDEM_ETAPA, etapaEncerrada } from '@/lib/status-agendamento'
@@ -831,7 +832,7 @@ export async function criarProdutoAction(formData: FormData) {
 
   const raw = {
     nome: formData.get('nome') as string,
-    categoria: formData.get('categoria') as string,
+    id_categoria: formData.get('id_categoria') as string,
     unidade_venda: formData.get('unidade_venda') as string,
     preco_venda: parseFloat(formData.get('preco_venda') as string),
     estoque_atual: parseFloat((formData.get('estoque_atual') as string) || '0'),
@@ -841,14 +842,17 @@ export async function criarProdutoAction(formData: FormData) {
   const parsed = produtoSchema.safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  const { error } = await supabase
+  const { data: novoProduto, error } = await supabase
     .from('produto')
     .insert({ id_lojista: contexto.idLojista, ...parsed.data })
+    .select('id_produto')
+    .single()
 
-  if (error) return { error: devError('Erro ao cadastrar produto.', error.message) }
+  if (error || !novoProduto) return { error: devError('Erro ao cadastrar produto.', error?.message) }
 
   revalidatePath('/lojista/produtos')
-  return { success: true }
+  revalidatePath('/lojista/estoque')
+  return { success: true, id_produto: novoProduto.id_produto as string }
 }
 
 // Estoque atual fica de fora de propósito — depois de criado, só muda
@@ -865,7 +869,7 @@ export async function editarProdutoAction(id_produto: string, formData: FormData
 
   const raw = {
     nome: formData.get('nome') as string,
-    categoria: formData.get('categoria') as string,
+    id_categoria: formData.get('id_categoria') as string,
     unidade_venda: formData.get('unidade_venda') as string,
     preco_venda: parseFloat(formData.get('preco_venda') as string),
     estoque_minimo: parseFloat((formData.get('estoque_minimo') as string) || '0'),
@@ -883,6 +887,7 @@ export async function editarProdutoAction(id_produto: string, formData: FormData
   if (error) return { error: devError('Erro ao atualizar produto.', error.message) }
 
   revalidatePath('/lojista/produtos')
+  revalidatePath('/lojista/estoque')
   return { success: true }
 }
 
@@ -904,6 +909,7 @@ export async function alternarStatusProdutoAction(id_produto: string, ativo: boo
   if (error) return { error: devError('Erro ao atualizar status do produto.', error.message) }
 
   revalidatePath('/lojista/produtos')
+  revalidatePath('/lojista/estoque')
   return { success: true }
 }
 
@@ -937,6 +943,7 @@ export async function movimentarEstoqueAction(id_produto: string, formData: Form
   if (error) return { error: error.message }
 
   revalidatePath('/lojista/produtos')
+  revalidatePath('/lojista/estoque')
   return { success: true, novoEstoque: novoEstoque as number }
 }
 
@@ -978,6 +985,204 @@ export async function excluirProdutoAction(id_produto: string) {
   }
 
   revalidatePath('/lojista/produtos')
+  revalidatePath('/lojista/estoque')
+  return { success: true }
+}
+
+// ============================================================
+// CATEGORIA DE PRODUTO ACTIONS (Lojista) — migration 038
+// ============================================================
+// Cada loja cria/renomeia/apaga as próprias categorias — deixou de ser
+// uma lista fixa. Toda loja já nasce com 5 categorias padrão (trigger
+// fn_seed_categorias_produto), então isso aqui é só pra quem quer
+// ajustar essa lista, não pra montar o catálogo do zero.
+
+export async function criarCategoriaProdutoAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const parsed = categoriaProdutoSchema.safeParse({ nome: formData.get('nome') })
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { data: nova, error } = await supabase
+    .from('categoria_produto')
+    .insert({ id_lojista: contexto.idLojista, nome: parsed.data.nome.trim() })
+    .select('id_categoria, nome')
+    .single()
+
+  if (error) {
+    if (error.code === '23505') return { error: 'Já existe uma categoria com esse nome.' }
+    return { error: devError('Erro ao criar categoria.', error.message) }
+  }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true, categoria: nova }
+}
+
+export async function editarCategoriaProdutoAction(id_categoria: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const parsed = categoriaProdutoSchema.safeParse({ nome: formData.get('nome') })
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase
+    .from('categoria_produto')
+    .update({ nome: parsed.data.nome.trim() })
+    .eq('id_categoria', id_categoria)
+    .eq('id_lojista', contexto.idLojista)
+
+  if (error) {
+    if (error.code === '23505') return { error: 'Já existe uma categoria com esse nome.' }
+    return { error: devError('Erro ao renomear categoria.', error.message) }
+  }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true }
+}
+
+// Apagar a categoria não apaga os produtos dela (ON DELETE SET NULL) —
+// eles só ficam "sem categoria" e continuam aparecendo normalmente.
+export async function excluirCategoriaProdutoAction(id_categoria: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const { error } = await supabase
+    .from('categoria_produto')
+    .delete()
+    .eq('id_categoria', id_categoria)
+    .eq('id_lojista', contexto.idLojista)
+
+  if (error) return { error: devError('Erro ao excluir categoria.', error.message) }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true }
+}
+
+// ============================================================
+// FOTO DO PRODUTO (migration 038 — bucket 'fotos-produto')
+// ============================================================
+// Mesmo padrão de atualizarLogoLojistaAction/atualizarFotoPetAction:
+// {id_lojista}/{id_produto}.{ext}, apagando o que já existe na pasta
+// antes de subir a nova imagem, e conferindo o CONTEÚDO do arquivo
+// (magic numbers), não a extensão declarada pelo navegador.
+
+const PRODUTO_FOTO_BUCKET = 'fotos-produto'
+const PRODUTO_FOTO_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB
+
+async function limparFotoDoProduto(db: Awaited<ReturnType<typeof createClient>>, idLojista: string, idProduto: string) {
+  const { data: existentes } = await db.storage.from(PRODUTO_FOTO_BUCKET).list(idLojista)
+  const doProduto = existentes?.filter(f => f.name.startsWith(`${idProduto}.`)) ?? []
+  if (doProduto.length > 0) {
+    await db.storage.from(PRODUTO_FOTO_BUCKET).remove(doProduto.map(f => `${idLojista}/${f.name}`))
+  }
+}
+
+export async function atualizarFotoProdutoAction(
+  id_produto: string,
+  formData: FormData
+): Promise<{ error?: string; success?: boolean; url?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+
+  // O produto precisa ser da própria loja — o client admin usado por um
+  // funcionário ignora RLS, então essa checagem aqui (com o client
+  // normal, que passa por RLS) é quem garante o isolamento entre lojas.
+  const { data: produto } = await supabase
+    .from('produto')
+    .select('id_produto')
+    .eq('id_produto', id_produto)
+    .eq('id_lojista', contexto.idLojista)
+    .maybeSingle()
+  if (!produto) return { error: 'Produto não encontrado.' }
+
+  const arquivo = formData.get('foto') as File | null
+  if (!arquivo || arquivo.size === 0) return { error: 'Selecione uma imagem.' }
+  if (arquivo.size > PRODUTO_FOTO_TAMANHO_MAXIMO) return { error: 'Imagem muito grande. O limite é 5 MB.' }
+
+  const bytes = new Uint8Array(await arquivo.arrayBuffer())
+  const extensao = detectarExtensaoImagem(bytes)
+  if (!extensao) return { error: 'Formato de imagem inválido. Envie um arquivo JPG, PNG ou WEBP.' }
+
+  await limparFotoDoProduto(db, contexto.idLojista, id_produto)
+
+  const caminho = `${contexto.idLojista}/${id_produto}.${extensao}`
+  const { error: uploadError } = await db.storage
+    .from(PRODUTO_FOTO_BUCKET)
+    .upload(caminho, bytes, {
+      contentType: extensao === 'jpg' ? 'image/jpeg' : `image/${extensao}`,
+      upsert: true,
+    })
+
+  if (uploadError) {
+    return { error: devError('Não foi possível enviar a imagem. Tente novamente.', uploadError.message) }
+  }
+
+  const { data: { publicUrl } } = db.storage.from(PRODUTO_FOTO_BUCKET).getPublicUrl(caminho)
+  const urlComVersao = `${publicUrl}?v=${Date.now()}`
+
+  const { error: dbError } = await db
+    .from('produto')
+    .update({ foto_url: urlComVersao })
+    .eq('id_produto', id_produto)
+    .eq('id_lojista', contexto.idLojista)
+
+  if (dbError) {
+    return { error: devError('Imagem enviada, mas não foi possível salvar a referência. Tente novamente.', dbError.message) }
+  }
+
+  revalidatePath('/lojista/produtos')
+  revalidatePath('/lojista/estoque')
+  return { success: true, url: urlComVersao }
+}
+
+export async function removerFotoProdutoAction(id_produto: string): Promise<{ error?: string; success?: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+
+  await limparFotoDoProduto(db, contexto.idLojista, id_produto)
+
+  const { error } = await db
+    .from('produto')
+    .update({ foto_url: null })
+    .eq('id_produto', id_produto)
+    .eq('id_lojista', contexto.idLojista)
+
+  if (error) return { error: devError('Não foi possível remover a imagem. Tente novamente.', error.message) }
+
+  revalidatePath('/lojista/produtos')
+  revalidatePath('/lojista/estoque')
   return { success: true }
 }
 

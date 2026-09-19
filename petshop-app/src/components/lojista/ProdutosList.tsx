@@ -1,53 +1,81 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useRef, useState, useTransition } from 'react'
 import {
   criarProdutoAction,
   editarProdutoAction,
   excluirProdutoAction,
   alternarStatusProdutoAction,
-  movimentarEstoqueAction,
+  criarCategoriaProdutoAction,
+  editarCategoriaProdutoAction,
+  excluirCategoriaProdutoAction,
+  atualizarFotoProdutoAction,
+  removerFotoProdutoAction,
 } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
-import { CATEGORIAS_PRODUTO, UNIDADES_VENDA, rotuloUnidade, rotuloEstoque, estoqueBaixo } from '@/lib/produto'
+import { otimizarImagemParaUpload } from '@/lib/imagem'
+import { UNIDADES_VENDA, rotuloUnidade, rotuloEstoque, statusEstoque, ROTULO_STATUS_ESTOQUE, BADGE_STATUS_ESTOQUE } from '@/lib/produto'
+import CampoQuantidade from './CampoQuantidade'
+import AjustarEstoqueModal from './AjustarEstoqueModal'
 import {
   IconAlert,
+  IconCheck,
   IconClose,
-  IconMinus,
+  IconImage,
   IconPackage,
   IconPencil,
   IconPlus,
   IconSearch,
+  IconSliders,
   IconTrash,
 } from '@/components/icons'
+
+interface Categoria {
+  id_categoria: string
+  nome: string
+}
 
 interface Produto {
   id_produto: string
   nome: string
-  categoria: string
+  id_categoria: string | null
+  categoria_produto: { nome: string } | null
   unidade_venda: string
   preco_venda: number
   estoque_atual: number
   estoque_minimo: number
   status: string
+  foto_url: string | null
 }
 
 interface Props {
   produtos: Produto[]
+  categorias: Categoria[]
 }
 
-export default function ProdutosList({ produtos: inicial }: Props) {
+type FotoPendente = { blob: Blob; extensao: string; preview: string }
+
+const TIPOS_IMAGEM_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
+const IMAGEM_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB — mesmo limite do servidor
+
+export default function ProdutosList({ produtos: inicial, categorias: categoriasIniciais }: Props) {
   const supabase = createClient()
   const [produtos, setProdutos] = useState<Produto[]>(inicial)
+  const [categorias, setCategorias] = useState<Categoria[]>(categoriasIniciais)
   const [busca, setBusca] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState('')
 
   const [showModal, setShowModal] = useState(false)
   const [editando, setEditando] = useState<Produto | null>(null)
+  const [unidadeSelecionada, setUnidadeSelecionada] = useState('unidade')
   const [error, setError] = useState<string | null>(null)
 
+  const fotoInputRef = useRef<HTMLInputElement>(null)
+  const [fotoPendente, setFotoPendente] = useState<FotoPendente | null>(null)
+  const [removerFotoAoSalvar, setRemoverFotoAoSalvar] = useState(false)
+  const [processandoFoto, setProcessandoFoto] = useState(false)
+
   const [estoqueAlvo, setEstoqueAlvo] = useState<Produto | null>(null)
-  const [estoqueErro, setEstoqueErro] = useState<string | null>(null)
 
   const [confirmarExclusao, setConfirmarExclusao] = useState<Produto | null>(null)
   const [excluirErro, setExcluirErro] = useState<string | null>(null)
@@ -56,20 +84,27 @@ export default function ProdutosList({ produtos: inicial }: Props) {
   const [alternandoId, setAlternandoId] = useState<string | null>(null)
   const [alternarErro, setAlternarErro] = useState<string | null>(null)
 
+  const [gerenciarCategorias, setGerenciarCategorias] = useState(false)
+  const [categoriaErro, setCategoriaErro] = useState<string | null>(null)
+  const [novaCategoriaNome, setNovaCategoriaNome] = useState('')
+  const [categoriaEditandoId, setCategoriaEditandoId] = useState<string | null>(null)
+  const [categoriaEditandoNome, setCategoriaEditandoNome] = useState('')
+  const [isPendingCategoria, startTransitionCategoria] = useTransition()
+
   const [isPending, startTransition] = useTransition()
 
   const produtosFiltrados = useMemo(() => {
     const buscaLower = busca.trim().toLowerCase()
     return produtos.filter(p => {
-      if (categoriaFiltro && p.categoria !== categoriaFiltro) return false
+      if (categoriaFiltro && p.id_categoria !== categoriaFiltro) return false
       if (buscaLower && !p.nome.toLowerCase().includes(buscaLower)) return false
       return true
     })
   }, [produtos, busca, categoriaFiltro])
 
   async function recarregar() {
-    const { data } = await supabase.from('produto').select('*').order('nome')
-    setProdutos(data ?? [])
+    const { data } = await supabase.from('produto').select('*, categoria_produto(nome)').order('nome')
+    setProdutos((data as unknown as Produto[]) ?? [])
   }
 
   function handleAlternarStatus(p: Produto) {
@@ -108,16 +143,64 @@ export default function ProdutosList({ produtos: inicial }: Props) {
     })
   }
 
+  function limparEstadoFoto() {
+    if (fotoPendente) URL.revokeObjectURL(fotoPendente.preview)
+    setFotoPendente(null)
+    setRemoverFotoAoSalvar(false)
+    setProcessandoFoto(false)
+  }
+
   function abrirNovo() {
     setEditando(null)
+    setUnidadeSelecionada('unidade')
     setError(null)
+    limparEstadoFoto()
     setShowModal(true)
   }
 
   function abrirEditar(p: Produto) {
     setEditando(p)
+    setUnidadeSelecionada(p.unidade_venda)
     setError(null)
+    limparEstadoFoto()
     setShowModal(true)
+  }
+
+  async function handleSelecionarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = e.target.files?.[0]
+    e.target.value = ''
+    if (!arquivo) return
+
+    setError(null)
+    if (!TIPOS_IMAGEM_ACEITOS.includes(arquivo.type)) {
+      setError('Formato de imagem inválido. Envie um arquivo JPG, PNG ou WEBP.')
+      return
+    }
+
+    setProcessandoFoto(true)
+    try {
+      const otimizada = await otimizarImagemParaUpload(arquivo)
+      if (otimizada.blob.size > IMAGEM_TAMANHO_MAXIMO) {
+        setError('Imagem muito grande mesmo após otimização. Tente uma imagem menor.')
+        return
+      }
+      if (fotoPendente) URL.revokeObjectURL(fotoPendente.preview)
+      setFotoPendente({ blob: otimizada.blob, extensao: otimizada.extensao, preview: URL.createObjectURL(otimizada.blob) })
+      setRemoverFotoAoSalvar(false)
+    } catch {
+      setError('Não foi possível processar essa imagem. Tente outro arquivo.')
+    } finally {
+      setProcessandoFoto(false)
+    }
+  }
+
+  function handleRemoverFotoEscolhida() {
+    if (fotoPendente) {
+      URL.revokeObjectURL(fotoPendente.preview)
+      setFotoPendente(null)
+    } else if (editando?.foto_url) {
+      setRemoverFotoAoSalvar(true)
+    }
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -130,28 +213,77 @@ export default function ProdutosList({ produtos: inicial }: Props) {
         : await criarProdutoAction(formData)
       if (result?.error) {
         setError(result.error)
-      } else {
-        setShowModal(false)
-        await recarregar()
-      }
-    })
-  }
-
-  function handleSubmitEstoque(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!estoqueAlvo) return
-    setEstoqueErro(null)
-    const formData = new FormData(e.currentTarget)
-    startTransition(async () => {
-      const result = await movimentarEstoqueAction(estoqueAlvo.id_produto, formData)
-      if (result?.error) {
-        setEstoqueErro(result.error)
         return
       }
-      setEstoqueAlvo(null)
+
+      const idProduto: string | undefined = editando?.id_produto ?? (result as { id_produto?: string }).id_produto
+      if (fotoPendente && idProduto) {
+        const fotoFd = new FormData()
+        fotoFd.set('foto', fotoPendente.blob, `foto.${fotoPendente.extensao}`)
+        const fotoResult = await atualizarFotoProdutoAction(idProduto, fotoFd)
+        if (fotoResult?.error) {
+          setError(`Produto salvo, mas a foto não pôde ser enviada: ${fotoResult.error}`)
+        }
+      } else if (removerFotoAoSalvar && idProduto) {
+        await removerFotoProdutoAction(idProduto)
+      }
+
+      setShowModal(false)
+      limparEstadoFoto()
       await recarregar()
     })
   }
+
+  function criarCategoria() {
+    const nome = novaCategoriaNome.trim()
+    if (!nome) return
+    setCategoriaErro(null)
+    const fd = new FormData()
+    fd.set('nome', nome)
+    startTransitionCategoria(async () => {
+      const result = await criarCategoriaProdutoAction(fd)
+      if (result?.error) {
+        setCategoriaErro(result.error)
+        return
+      }
+      if (result.categoria) setCategorias(prev => [...prev, result.categoria as Categoria].sort((a, b) => a.nome.localeCompare(b.nome)))
+      setNovaCategoriaNome('')
+    })
+  }
+
+  function salvarRenomeioCategoria(id_categoria: string) {
+    const nome = categoriaEditandoNome.trim()
+    if (!nome) return
+    setCategoriaErro(null)
+    const fd = new FormData()
+    fd.set('nome', nome)
+    startTransitionCategoria(async () => {
+      const result = await editarCategoriaProdutoAction(id_categoria, fd)
+      if (result?.error) {
+        setCategoriaErro(result.error)
+        return
+      }
+      setCategorias(prev => prev.map(c => c.id_categoria === id_categoria ? { ...c, nome } : c).sort((a, b) => a.nome.localeCompare(b.nome)))
+      setCategoriaEditandoId(null)
+      await recarregar()
+    })
+  }
+
+  function excluirCategoria(id_categoria: string) {
+    setCategoriaErro(null)
+    startTransitionCategoria(async () => {
+      const result = await excluirCategoriaProdutoAction(id_categoria)
+      if (result?.error) {
+        setCategoriaErro(result.error)
+        return
+      }
+      setCategorias(prev => prev.filter(c => c.id_categoria !== id_categoria))
+      if (categoriaFiltro === id_categoria) setCategoriaFiltro('')
+      await recarregar()
+    })
+  }
+
+  const fotoAtualParaExibir = fotoPendente?.preview ?? (!removerFotoAoSalvar ? editando?.foto_url : null) ?? null
 
   return (
     <>
@@ -167,10 +299,13 @@ export default function ProdutosList({ produtos: inicial }: Props) {
           </div>
           <select className="form-select" value={categoriaFiltro} onChange={e => setCategoriaFiltro(e.target.value)}>
             <option value="">Todas as categorias</option>
-            {CATEGORIAS_PRODUTO.map(c => (
-              <option key={c} value={c}>{c}</option>
+            {categorias.map(c => (
+              <option key={c.id_categoria} value={c.id_categoria}>{c.nome}</option>
             ))}
           </select>
+          <button className="btn btn-secondary" onClick={() => { setCategoriaErro(null); setGerenciarCategorias(true) }}>
+            <IconSliders style={{ width: 15, height: 15 }} /> Categorias
+          </button>
         </div>
         <button className="btn btn-primary" onClick={abrirNovo} id="btn-novo-produto">
           <IconPlus style={{ width: 16, height: 16 }} /> Novo Produto
@@ -219,21 +354,35 @@ export default function ProdutosList({ produtos: inicial }: Props) {
             </thead>
             <tbody>
               {produtosFiltrados.map(p => {
-                const baixo = estoqueBaixo(p.estoque_atual, p.estoque_minimo)
+                const st = statusEstoque(p.estoque_atual, p.estoque_minimo)
                 return (
                   <tr key={p.id_produto}>
                     <td>
-                      <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</div>
+                      <div className="flex items-center gap-3">
+                        <div style={{
+                          width: 36, height: 36, borderRadius: 'var(--radius-md)', flexShrink: 0,
+                          border: '1px solid var(--gray-800)', background: 'var(--gray-850)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                        }}>
+                          {p.foto_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+                            <img src={p.foto_url} alt={p.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <IconImage style={{ width: 15, height: 15, color: 'var(--gray-600)' }} />
+                          )}
+                        </div>
+                        <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</div>
+                      </div>
                     </td>
-                    <td className="text-sm text-muted">{p.categoria}</td>
+                    <td className="text-sm text-muted">{p.categoria_produto?.nome ?? 'Sem categoria'}</td>
                     <td className="text-success font-semibold">
                       R$ {Number(p.preco_venda).toFixed(2)} <span className="text-xs text-muted">/ {rotuloUnidade(p.unidade_venda)}</span>
                     </td>
                     <td>
                       <div>{rotuloEstoque(p.estoque_atual, p.unidade_venda)}</div>
-                      {baixo && (
-                        <span className="badge badge-estoque-baixo" style={{ marginTop: 4 }}>
-                          <IconAlert style={{ width: 11, height: 11 }} /> Estoque baixo
+                      {st !== 'em_estoque' && (
+                        <span className={`badge ${BADGE_STATUS_ESTOQUE[st]}`} style={{ marginTop: 4 }}>
+                          <IconAlert style={{ width: 11, height: 11 }} /> {ROTULO_STATUS_ESTOQUE[st]}
                         </span>
                       )}
                     </td>
@@ -255,7 +404,7 @@ export default function ProdutosList({ produtos: inicial }: Props) {
                     </td>
                     <td>
                       <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => { setEstoqueErro(null); setEstoqueAlvo(p) }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setEstoqueAlvo(p)}>
                           <IconPackage style={{ width: 14, height: 14 }} /> Estoque
                         </button>
                         <button className="btn btn-ghost btn-sm" onClick={() => abrirEditar(p)}>
@@ -300,6 +449,43 @@ export default function ProdutosList({ produtos: inicial }: Props) {
                 )}
 
                 <div className="form-group">
+                  <label className="form-label">Foto do produto</label>
+                  <div className="flex items-center gap-3">
+                    <div style={{
+                      width: 64, height: 64, borderRadius: 'var(--radius-md)', flexShrink: 0,
+                      border: '1px solid var(--gray-800)', background: 'var(--gray-850)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                    }}>
+                      {fotoAtualParaExibir ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- preview local ou URL pública do Storage
+                        <img src={fotoAtualParaExibir} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <IconImage style={{ width: 22, height: 22, color: 'var(--gray-600)' }} />
+                      )}
+                    </div>
+                    <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+                      <input
+                        ref={fotoInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handleSelecionarFoto}
+                        style={{ display: 'none' }}
+                        disabled={processandoFoto}
+                      />
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => fotoInputRef.current?.click()} disabled={processandoFoto}>
+                        <IconPlus style={{ width: 14, height: 14 }} /> {fotoAtualParaExibir ? 'Alterar foto' : 'Adicionar foto'}
+                      </button>
+                      {fotoAtualParaExibir && (
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={handleRemoverFotoEscolhida}>
+                          <IconTrash style={{ width: 14, height: 14 }} /> Remover
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {processandoFoto && <p className="text-xs text-muted" style={{ marginTop: 4 }}>Processando imagem...</p>}
+                </div>
+
+                <div className="form-group">
                   <label htmlFor="nome" className="form-label form-label-required">Nome do Produto</label>
                   <input
                     id="nome"
@@ -314,16 +500,23 @@ export default function ProdutosList({ produtos: inicial }: Props) {
 
                 <div className="form-grid-2">
                   <div className="form-group">
-                    <label htmlFor="categoria" className="form-label form-label-required">Categoria</label>
-                    <select id="categoria" name="categoria" className="form-select" defaultValue={editando?.categoria ?? CATEGORIAS_PRODUTO[0]} required>
-                      {CATEGORIAS_PRODUTO.map(c => (
-                        <option key={c} value={c}>{c}</option>
+                    <label htmlFor="id_categoria" className="form-label form-label-required">Categoria</label>
+                    <select id="id_categoria" name="id_categoria" className="form-select" defaultValue={editando?.id_categoria ?? categorias[0]?.id_categoria ?? ''} required>
+                      {categorias.map(c => (
+                        <option key={c.id_categoria} value={c.id_categoria}>{c.nome}</option>
                       ))}
                     </select>
                   </div>
                   <div className="form-group">
                     <label htmlFor="unidade_venda" className="form-label form-label-required">Unidade de venda</label>
-                    <select id="unidade_venda" name="unidade_venda" className="form-select" defaultValue={editando?.unidade_venda ?? 'unidade'} required>
+                    <select
+                      id="unidade_venda"
+                      name="unidade_venda"
+                      className="form-select"
+                      value={unidadeSelecionada}
+                      onChange={e => setUnidadeSelecionada(e.target.value)}
+                      required
+                    >
                       {UNIDADES_VENDA.map(u => (
                         <option key={u.value} value={u.value}>{u.label}</option>
                       ))}
@@ -346,36 +539,21 @@ export default function ProdutosList({ produtos: inicial }: Props) {
                       required
                     />
                   </div>
-                  <div className="form-group">
-                    <label htmlFor="estoque_minimo" className="form-label">Estoque mínimo</label>
-                    <input
-                      id="estoque_minimo"
-                      name="estoque_minimo"
-                      type="number"
-                      className="form-input"
-                      defaultValue={editando?.estoque_minimo ?? 0}
-                      placeholder="0"
-                      step="0.001"
-                      min="0"
-                    />
-                  </div>
+                  <CampoQuantidade
+                    name="estoque_minimo"
+                    label="Estoque mínimo"
+                    unidadeVenda={unidadeSelecionada}
+                    valorInicial={editando?.estoque_minimo ?? 0}
+                  />
                 </div>
 
                 {!editando && (
-                  <div className="form-group">
-                    <label htmlFor="estoque_atual" className="form-label form-label-required">Estoque atual</label>
-                    <input
-                      id="estoque_atual"
-                      name="estoque_atual"
-                      type="number"
-                      className="form-input"
-                      placeholder="0"
-                      step="0.001"
-                      min="0"
-                      required
-                    />
-                    <p className="text-xs text-muted">Quanto a loja já tem hoje. Depois de cadastrado, o estoque só muda pelo botão &quot;Estoque&quot; da listagem.</p>
-                  </div>
+                  <>
+                    <CampoQuantidade name="estoque_atual" label="Estoque atual" required unidadeVenda={unidadeSelecionada} />
+                    <p className="text-xs text-muted" style={{ marginTop: '-8px' }}>
+                      Quanto a loja já tem hoje. Depois de cadastrado, o estoque só muda pelo botão &quot;Estoque&quot; da listagem.
+                    </p>
+                  </>
                 )}
               </div>
 
@@ -387,7 +565,7 @@ export default function ProdutosList({ produtos: inicial }: Props) {
                   type="submit"
                   id="btn-salvar-produto"
                   className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
-                  disabled={isPending}
+                  disabled={isPending || processandoFoto}
                 >
                   {isPending ? 'Salvando...' : 'Salvar Produto'}
                 </button>
@@ -399,58 +577,102 @@ export default function ProdutosList({ produtos: inicial }: Props) {
 
       {/* Modal: ajustar estoque */}
       {estoqueAlvo && (
-        <div className="modal-overlay" onClick={() => !isPending && setEstoqueAlvo(null)}>
-          <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
+        <AjustarEstoqueModal
+          produto={estoqueAlvo}
+          onClose={() => setEstoqueAlvo(null)}
+          onSucesso={novoEstoque => {
+            setProdutos(prev => prev.map(x => x.id_produto === estoqueAlvo.id_produto ? { ...x, estoque_atual: novoEstoque } : x))
+            setEstoqueAlvo(null)
+          }}
+        />
+      )}
+
+      {/* Modal: gerenciar categorias */}
+      {gerenciarCategorias && (
+        <div className="modal-overlay" onClick={() => setGerenciarCategorias(false)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">Ajustar estoque</h3>
-              <button className="modal-close" onClick={() => setEstoqueAlvo(null)} aria-label="Fechar" disabled={isPending}>
+              <h3 className="modal-title">Categorias de produto</h3>
+              <button className="modal-close" onClick={() => setGerenciarCategorias(false)} aria-label="Fechar">
                 <IconClose style={{ width: 15, height: 15 }} />
               </button>
             </div>
-            <form onSubmit={handleSubmitEstoque}>
-              <div className="modal-body">
-                <p className="text-sm text-muted">
-                  <strong style={{ color: 'var(--gray-200)' }}>{estoqueAlvo.nome}</strong> — estoque atual: {rotuloEstoque(estoqueAlvo.estoque_atual, estoqueAlvo.unidade_venda)}
-                </p>
-
-                {estoqueErro && (
-                  <div className="alert alert-error">
-                    <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{estoqueErro}</span>
-                  </div>
-                )}
-
-                <TipoMovimentoPicker />
-
-                <div className="form-grid-2">
-                  <div className="form-group">
-                    <label htmlFor="quantidade" className="form-label form-label-required">Quantidade ({rotuloUnidade(estoqueAlvo.unidade_venda)})</label>
-                    <input
-                      id="quantidade"
-                      name="quantidade"
-                      type="number"
-                      className="form-input"
-                      placeholder="0"
-                      step="0.001"
-                      min="0.001"
-                      required
-                      autoFocus
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="motivo" className="form-label">Motivo (opcional)</label>
-                    <input id="motivo" name="motivo" type="text" className="form-input" placeholder="Ex: Compra de fornecedor" maxLength={200} />
-                  </div>
+            <div className="modal-body">
+              {categoriaErro && (
+                <div className="alert alert-error">
+                  <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{categoriaErro}</span>
                 </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                {categorias.map(c => (
+                  <div key={c.id_categoria} className="flex items-center gap-2" style={{
+                    padding: 'var(--space-2) var(--space-3)', background: 'var(--gray-850)',
+                    border: '1px solid var(--gray-800)', borderRadius: 'var(--radius-sm)',
+                  }}>
+                    {categoriaEditandoId === c.id_categoria ? (
+                      <>
+                        <input
+                          className="form-input"
+                          style={{ flex: 1 }}
+                          value={categoriaEditandoNome}
+                          onChange={e => setCategoriaEditandoNome(e.target.value)}
+                          autoFocus
+                        />
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => salvarRenomeioCategoria(c.id_categoria)} disabled={isPendingCategoria} aria-label="Salvar">
+                          <IconCheck style={{ width: 14, height: 14 }} />
+                        </button>
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCategoriaEditandoId(null)} aria-label="Cancelar">
+                          <IconClose style={{ width: 14, height: 14 }} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-sm" style={{ flex: 1 }}>{c.nome}</span>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => { setCategoriaEditandoId(c.id_categoria); setCategoriaEditandoNome(c.nome) }}
+                          aria-label="Renomear"
+                        >
+                          <IconPencil style={{ width: 14, height: 14 }} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => excluirCategoria(c.id_categoria)}
+                          disabled={isPendingCategoria}
+                          aria-label="Excluir"
+                          title="Excluir categoria (produtos dela ficam sem categoria)"
+                        >
+                          <IconTrash style={{ width: 14, height: 14 }} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+                {categorias.length === 0 && (
+                  <p className="text-sm text-muted">Nenhuma categoria cadastrada ainda.</p>
+                )}
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setEstoqueAlvo(null)} disabled={isPending}>
-                  Cancelar
-                </button>
-                <button type="submit" className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`} disabled={isPending}>
-                  {isPending ? 'Salvando...' : 'Confirmar'}
+
+              <div className="flex gap-2" style={{ marginTop: 'var(--space-4)' }}>
+                <input
+                  className="form-input"
+                  placeholder="Nova categoria"
+                  value={novaCategoriaNome}
+                  onChange={e => setNovaCategoriaNome(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); criarCategoria() } }}
+                  maxLength={50}
+                />
+                <button type="button" className="btn btn-secondary btn-sm" onClick={criarCategoria} disabled={isPendingCategoria || !novaCategoriaNome.trim()}>
+                  <IconPlus style={{ width: 14, height: 14 }} /> Adicionar
                 </button>
               </div>
-            </form>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setGerenciarCategorias(false)}>Fechar</button>
+            </div>
           </div>
         </div>
       )}
@@ -497,27 +719,5 @@ export default function ProdutosList({ produtos: inicial }: Props) {
         </div>
       )}
     </>
-  )
-}
-
-// Entrada (+ estoque) ou saída (- estoque) — dois botões, igual ao
-// seletor "Por porte / Por raça" de Serviços, só que o valor vai num
-// input escondido (o form inteiro é submetido de uma vez em
-// handleSubmitEstoque, sem estado local próprio pra isso).
-function TipoMovimentoPicker() {
-  const [tipo, setTipo] = useState<'entrada' | 'saida'>('entrada')
-  return (
-    <div className="form-group">
-      <label className="form-label">Tipo de movimentação</label>
-      <input type="hidden" name="tipo" value={tipo} />
-      <div className="flex gap-2">
-        <button type="button" className={`btn btn-sm ${tipo === 'entrada' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTipo('entrada')}>
-          <IconPlus style={{ width: 14, height: 14 }} /> Adicionar
-        </button>
-        <button type="button" className={`btn btn-sm ${tipo === 'saida' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTipo('saida')}>
-          <IconMinus style={{ width: 14, height: 14 }} /> Remover
-        </button>
-      </div>
-    </div>
   )
 }
