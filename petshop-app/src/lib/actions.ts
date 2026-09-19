@@ -67,6 +67,27 @@ async function obterOrigin() {
 }
 
 // ============================================================
+// Google OAuth via Server Action — PKCE code verifier armazenado
+// via Set-Cookie no servidor para que o /auth/callback consiga
+// encontrá-lo (não depende de document.cookie do browser).
+// ============================================================
+export async function googleSignInAction(): Promise<{ error: string } | never> {
+  const supabase = await createClient()
+  const origin = await obterOrigin()
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${origin}/auth/callback`,
+      skipBrowserRedirect: true,
+    },
+  })
+  if (error || !data.url) {
+    return { error: `Não foi possível conectar com o Google: ${error?.message ?? 'URL não retornada'}` }
+  }
+  redirect(data.url)
+}
+
+// ============================================================
 // HELPER: client pra gravar em telas "só lojista" (perfil da loja,
 // horários, equipe, clientes/pets, etc.). O lojista grava com o client
 // normal (RLS de sempre); um funcionário com acesso_total ("administrador",

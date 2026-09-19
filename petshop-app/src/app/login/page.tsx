@@ -3,8 +3,7 @@
 import { Suspense, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { loginAction } from '@/lib/actions'
-import { createClient } from '@/lib/supabase/client'
+import { loginAction, googleSignInAction } from '@/lib/actions'
 
 /* ------------------------------------------------------------------ *
  * Ícones — line icons em SVG inline (sem biblioteca externa).
@@ -275,15 +274,24 @@ function LoginFormPane() {
   async function handleGoogle() {
     setError(null)
     setOauthPending(true)
-    const supabase = createClient()
-    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    startTransition(async () => {
+      try {
+        // Server Action: armazena PKCE verifier via Set-Cookie no servidor
+        // e redireciona para o Google. Evita o erro "PKCE code verifier
+        // not found in storage" que ocorre quando o browser client tenta
+        // armazenar o verifier em document.cookie mas o servidor não consegue
+        // ler de volta via cookieStore.
+        const result = await googleSignInAction()
+        // Se chegou aqui (sem redirect), é porque houve erro
+        if (result?.error) {
+          setOauthPending(false)
+          setError(result.error)
+        }
+      } catch {
+        // redirect() do Next.js lança um erro especial que o React captura
+        // para executar a navegação — não é um erro real, ignorar.
+      }
     })
-    if (oauthErr) {
-      setOauthPending(false)
-      setError('Não foi possível conectar com o Google. Tente novamente.')
-    }
   }
 
 
