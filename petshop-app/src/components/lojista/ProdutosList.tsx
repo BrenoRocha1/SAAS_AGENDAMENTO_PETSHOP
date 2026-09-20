@@ -12,7 +12,6 @@ import {
   atualizarFotoProdutoAction,
   removerFotoProdutoAction,
 } from '@/lib/actions'
-import { createClient } from '@/lib/supabase/client'
 import { otimizarImagemParaUpload } from '@/lib/imagem'
 import { UNIDADES_VENDA, rotuloUnidade, rotuloEstoque, statusEstoque, ROTULO_STATUS_ESTOQUE, BADGE_STATUS_ESTOQUE } from '@/lib/produto'
 import CampoQuantidade from './CampoQuantidade'
@@ -63,7 +62,6 @@ const IMAGEM_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB — mesmo limite do servid
 const MODO_VISUALIZACAO_STORAGE_KEY = 'petshop:produtos:modo-visualizacao'
 
 export default function ProdutosList({ produtos: inicial, categorias: categoriasIniciais }: Props) {
-  const supabase = createClient()
   const [produtos, setProdutos] = useState<Produto[]>(inicial)
   const [categorias, setCategorias] = useState<Categoria[]>(categoriasIniciais)
   const [busca, setBusca] = useState('')
@@ -132,15 +130,6 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
     for (const c of categorias) mapa.set(c.id_categoria, c.nome)
     return mapa
   }, [categorias])
-
-  async function recarregar() {
-    const { data, error: erroRecarga } = await supabase.from('produto').select('*').order('nome')
-    // Nunca esvazia a lista por causa de um erro passageiro de rede — só
-    // atualiza quando a consulta realmente veio (mesmo que vazia de
-    // verdade, `data` chega como array, não undefined/erro).
-    if (erroRecarga) return
-    setProdutos((data as Produto[]) ?? [])
-  }
 
   function handleAlternarStatus(p: Produto) {
     setAlternarErro(null)
@@ -317,7 +306,6 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
       }
       setCategorias(prev => prev.map(c => c.id_categoria === id_categoria ? { ...c, nome } : c).sort((a, b) => a.nome.localeCompare(b.nome)))
       setCategoriaEditandoId(null)
-      await recarregar()
     })
   }
 
@@ -331,7 +319,13 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
       }
       setCategorias(prev => prev.filter(c => c.id_categoria !== id_categoria))
       if (categoriaFiltro === id_categoria) setCategoriaFiltro('')
-      await recarregar()
+      // A categoria some, mas os produtos que estavam nela continuam
+      // existindo — o banco já deixa id_categoria como NULL nesses
+      // produtos (FK ON DELETE SET NULL, migration 038), então o estado
+      // local só precisa acompanhar isso, sem reconsultar a tabela
+      // inteira pelo client do navegador (era esse refetch que fazia a
+      // lista sumir depois de excluir uma categoria).
+      setProdutos(prev => prev.map(p => p.id_categoria === id_categoria ? { ...p, id_categoria: null } : p))
     })
   }
 
