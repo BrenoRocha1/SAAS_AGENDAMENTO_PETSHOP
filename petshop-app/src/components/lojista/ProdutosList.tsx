@@ -57,7 +57,6 @@ interface Props {
 
 type FotoPendente = { blob: Blob; extensao: string; preview: string }
 type ModoVisualizacao = 'lista' | 'grade'
-type Ordenacao = 'nome' | 'quantidade_desc' | 'quantidade_asc'
 
 const TIPOS_IMAGEM_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
 const IMAGEM_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB — mesmo limite do servidor
@@ -69,7 +68,6 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
   const [categorias, setCategorias] = useState<Categoria[]>(categoriasIniciais)
   const [busca, setBusca] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState('')
-  const [ordenacao, setOrdenacao] = useState<Ordenacao>('nome')
 
   // Começa em 'lista' tanto no servidor quanto no primeiro render do
   // cliente (evita mismatch de hidratação); a preferência salva só é
@@ -122,12 +120,8 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
       if (buscaLower && !p.nome.toLowerCase().includes(buscaLower)) return false
       return true
     })
-    const ordenados = [...filtrados]
-    if (ordenacao === 'quantidade_desc') ordenados.sort((a, b) => b.estoque_atual - a.estoque_atual)
-    else if (ordenacao === 'quantidade_asc') ordenados.sort((a, b) => a.estoque_atual - b.estoque_atual)
-    else ordenados.sort((a, b) => a.nome.localeCompare(b.nome))
-    return ordenados
-  }, [produtos, busca, categoriaFiltro, ordenacao])
+    return [...filtrados].sort((a, b) => a.nome.localeCompare(b.nome))
+  }, [produtos, busca, categoriaFiltro])
 
   // Nome da categoria resolvido aqui, a partir de `categorias` — não via
   // embed no select (produto.categoria_produto(nome)), que depende do
@@ -361,13 +355,6 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
               <option key={c.id_categoria} value={c.id_categoria}>{c.nome}</option>
             ))}
           </select>
-          {modo === 'grade' && (
-            <select className="form-select" value={ordenacao} onChange={e => setOrdenacao(e.target.value as Ordenacao)}>
-              <option value="nome">Ordenar por nome</option>
-              <option value="quantidade_desc">Maior quantidade primeiro</option>
-              <option value="quantidade_asc">Menor quantidade primeiro</option>
-            </select>
-          )}
           <button className="btn btn-secondary" onClick={() => { setCategoriaErro(null); setGerenciarCategorias(true) }}>
             <IconSliders style={{ width: 15, height: 15 }} /> Categorias
           </button>
@@ -480,6 +467,20 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                 {nomeCategoria && <div className="text-xs text-muted">{nomeCategoria}</div>}
                 <div className="estoque-card-qtd">{rotuloEstoque(p.estoque_atual, p.unidade_venda)}</div>
                 <div className="text-xs text-muted">em estoque</div>
+                <div className="flex items-center justify-between" style={{ width: '100%', marginTop: 4, paddingTop: 'var(--space-2)', borderTop: '1px solid var(--gray-800)' }}>
+                  <span className="text-xs text-muted">{p.status === 'Ativo' ? 'Ativo' : 'Inativo'}</span>
+                  <button
+                    type="button"
+                    className={`switch ${p.status === 'Ativo' ? 'switch-on' : ''}`}
+                    onClick={e => { e.stopPropagation(); handleAlternarStatus(p) }}
+                    disabled={alternandoId === p.id_produto}
+                    role="switch"
+                    aria-checked={p.status === 'Ativo'}
+                    title={p.status === 'Ativo' ? 'Desativar produto' : 'Ativar produto'}
+                  >
+                    <span className="switch-thumb" />
+                  </button>
+                </div>
               </div>
             )
           })}
