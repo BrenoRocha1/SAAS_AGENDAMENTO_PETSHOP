@@ -4,6 +4,7 @@ import { Suspense, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { loginAction, getGoogleOAuthUrlAction } from '@/lib/actions'
+
 /* ------------------------------------------------------------------ *
  * Ícones — line icons em SVG inline (sem biblioteca externa).
  * ------------------------------------------------------------------ */
@@ -67,7 +68,6 @@ function IconAlert() {
   )
 }
 function IconGoogle() {
-  // Logo de marca do Google (colorido). Não é emoji.
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path fill="#4285F4" d="M23 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.2a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7C21.8 18.9 23 15.9 23 12.3Z" />
@@ -116,11 +116,27 @@ function IconStar() {
     </svg>
   )
 }
+function IconStore() {
+  return (
+    <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
+      <path d="M3 9l1-5h16l1 5" />
+      <path d="M3 9a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0" />
+      <path d="M5 9v11h14V9" />
+      <path d="M10 14h4v6h-4z" />
+    </svg>
+  )
+}
+function IconUser() {
+  return (
+    <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+  )
+}
 
 /* ------------------------------------------------------------------ *
  * Conteúdo do painel de apoio.
- * ⚠️ PLACEHOLDER — features, depoimento e números são exemplos.
- *    Trocar por conteúdo real do produto antes de ir para produção.
  * ------------------------------------------------------------------ */
 const FEATURES = [
   {
@@ -215,18 +231,34 @@ function ErrorBanner({ message }: { message: string }) {
   )
 }
 
-function SecondaryButtons({ googleSlot }: { googleSlot: React.ReactNode }) {
+/* Toggle Cliente / Lojista */
+type Perfil = 'cliente' | 'lojista'
+
+function PerfilToggle({ perfil, onChange }: { perfil: Perfil; onChange: (p: Perfil) => void }) {
   return (
-    <div className="login-secondary-stack">
-      {googleSlot}
-      <Link href="/cadastro" className="login-btn-outline">
-        <IconPaw />
-        Criar conta como cliente
-      </Link>
-      <Link href="/cadastro/lojista" className="login-btn-outline">
-        <IconCalendar />
-        Cadastrar meu petshop
-      </Link>
+    <div className="login-perfil-toggle" role="tablist" aria-label="Tipo de acesso">
+      <button
+        role="tab"
+        aria-selected={perfil === 'cliente'}
+        className={`login-perfil-tab${perfil === 'cliente' ? ' active' : ''}`}
+        onClick={() => onChange('cliente')}
+        type="button"
+        id="tab-cliente"
+      >
+        <IconUser />
+        Sou cliente
+      </button>
+      <button
+        role="tab"
+        aria-selected={perfil === 'lojista'}
+        className={`login-perfil-tab${perfil === 'lojista' ? ' active' : ''}`}
+        onClick={() => onChange('lojista')}
+        type="button"
+        id="tab-lojista"
+      >
+        <IconStore />
+        Sou lojista
+      </button>
     </div>
   )
 }
@@ -237,6 +269,7 @@ function LoginFormPane() {
   const [showPassword, setShowPassword] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [oauthPending, setOauthPending] = useState(false)
+  const [perfil, setPerfil] = useState<Perfil>('cliente')
 
   const redirectTo = searchParams.get('redirectTo')
   const oauthError = searchParams.get('error')
@@ -257,7 +290,6 @@ function LoginFormPane() {
     ? (errorDetail ?? ERROR_MESSAGES[oauthError] ?? `Erro: ${oauthError}`)
     : null
 
-
   const message = error ?? paramMessage
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -273,17 +305,21 @@ function LoginFormPane() {
   async function handleGoogle() {
     setError(null)
     setOauthPending(true)
-    
-    const result = await getGoogleOAuthUrlAction()
-    
+
+    // Passa o perfil selecionado para o callback saber pra onde redirecionar
+    // caso seja um usuário novo (sem perfil no banco ainda).
+    const result = await getGoogleOAuthUrlAction(perfil)
+
     if (result.error || !result.url) {
       setOauthPending(false)
       setError(result.error || 'Não foi possível conectar com o Google. Tente novamente.')
       return
     }
-    
+
     window.location.href = result.url
   }
+
+  const isLojista = perfil === 'lojista'
 
   return (
     <div className="login-form-inner">
@@ -291,11 +327,18 @@ function LoginFormPane() {
         <span className="login-brand-mark">
           <IconPaw />
         </span>
-        <span className="login-brand-name">SAIP</span>
+        <span className="login-brand-name">PetShop Agenda</span>
       </div>
 
       <h1 className="login-heading">Entrar</h1>
-      <p className="login-sub">Acesse a agenda e os agendamentos do seu petshop.</p>
+      <p className="login-sub">
+        {isLojista
+          ? 'Acesse o painel do seu petshop.'
+          : 'Agende serviços para o seu pet.'}
+      </p>
+
+      {/* Toggle de perfil */}
+      <PerfilToggle perfil={perfil} onChange={(p) => { setPerfil(p); setError(null) }} />
 
       {message && <ErrorBanner message={message} />}
 
@@ -310,7 +353,7 @@ function LoginFormPane() {
               name="email"
               type="email"
               className="login-input"
-              placeholder="voce@petshop.com"
+              placeholder={isLojista ? 'voce@petshop.com' : 'voce@email.com'}
               autoComplete="email"
               required
             />
@@ -320,7 +363,7 @@ function LoginFormPane() {
         <div className="login-field">
           <div className="flex items-center justify-between">
             <label htmlFor="senha" className="login-label">Senha</label>
-            <Link href="/esqueci-senha" style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--lg-accent-700)' }}>
+            <Link href="/esqueci-senha" style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--lg-accent)' }}>
               Esqueceu a senha?
             </Link>
           </div>
@@ -355,23 +398,49 @@ function LoginFormPane() {
         <span>ou</span>
       </div>
 
-      <SecondaryButtons
-        googleSlot={
-          <button
-            type="button"
-            className="login-btn-outline"
-            onClick={handleGoogle}
-            disabled={oauthPending}
-          >
-            <IconGoogle />
-            {oauthPending ? 'Conectando...' : 'Continuar com o Google'}
-          </button>
-        }
-      />
+      <div className="login-secondary-stack">
+        <button
+          type="button"
+          className="login-btn-outline"
+          onClick={handleGoogle}
+          disabled={oauthPending}
+        >
+          <IconGoogle />
+          {oauthPending ? 'Conectando...' : 'Continuar com o Google'}
+        </button>
 
-      <p className="login-signup-hint">
-        Os dois cadastros são gratuitos e levam menos de um minuto.
-      </p>
+        <div className="login-switch-perfil">
+          {isLojista ? (
+            <>
+              <span>É cliente?</span>
+              <button type="button" className="login-switch-link" onClick={() => { setPerfil('cliente'); setError(null) }}>
+                Entrar como cliente
+              </button>
+            </>
+          ) : (
+            <>
+              <span>É lojista / petshop?</span>
+              <button type="button" className="login-switch-link" onClick={() => { setPerfil('lojista'); setError(null) }}>
+                Entrar como lojista
+              </button>
+            </>
+          )}
+        </div>
+
+        <div className="login-register-hint">
+          {isLojista ? (
+            <>
+              Não tem conta?{' '}
+              <Link href="/cadastro/lojista">Cadastrar meu petshop</Link>
+            </>
+          ) : (
+            <>
+              Não tem conta?{' '}
+              <Link href="/cadastro">Criar conta como cliente</Link>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -384,17 +453,22 @@ function LoginFormFallback() {
         <span className="login-brand-mark">
           <IconPaw />
         </span>
-        <span className="login-brand-name">SAIP</span>
+        <span className="login-brand-name">PetShop Agenda</span>
       </div>
       <h1 className="login-heading">Entrar</h1>
-      <p className="login-sub">Acesse a agenda e os agendamentos do seu petshop.</p>
+      <p className="login-sub">Agende serviços para o seu pet.</p>
+
+      <div className="login-perfil-toggle">
+        <button className="login-perfil-tab active" disabled type="button"><IconUser />Sou cliente</button>
+        <button className="login-perfil-tab" disabled type="button"><IconStore />Sou lojista</button>
+      </div>
 
       <form className="login-form" aria-hidden="true">
         <div className="login-field">
           <label className="login-label">E-mail</label>
           <div className="login-input-wrap">
             <IconMail />
-            <input className="login-input" placeholder="voce@petshop.com" disabled />
+            <input className="login-input" placeholder="voce@email.com" disabled />
           </div>
         </div>
         <div className="login-field">
@@ -411,18 +485,12 @@ function LoginFormFallback() {
         <span>ou</span>
       </div>
 
-      <SecondaryButtons
-        googleSlot={
-          <button type="button" className="login-btn-outline" disabled>
-            <IconGoogle />
-            Continuar com o Google
-          </button>
-        }
-      />
-
-      <p className="login-signup-hint">
-        Os dois cadastros são gratuitos e levam menos de um minuto.
-      </p>
+      <div className="login-secondary-stack">
+        <button type="button" className="login-btn-outline" disabled>
+          <IconGoogle />
+          Continuar com o Google
+        </button>
+      </div>
     </div>
   )
 }

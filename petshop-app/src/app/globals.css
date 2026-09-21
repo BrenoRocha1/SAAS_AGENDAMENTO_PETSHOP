@@ -2071,11 +2071,11 @@ a:hover { color: var(--primary-300); }
 
 /* ============================================================
    TELA DE LOGIN  (/login)
-   Escopo isolado: NÃO usa o dark mode nem o --primary global.
-   Cor de acento (verde-azulado) vive só dentro de .login-shell.
+   Paleta SAIP: índigo #4f46e5 como cor primária/ações,
+   chumbo #111827 para texto principal, #f9fafb para fundo.
    ============================================================ */
 .login-shell {
-  /* --- paleta local (não vaza pro resto do sistema) --- */
+  /* --- paleta SAIP local (não vaza pro resto do sistema) --- */
   --lg-accent:      #4f46e5;
   --lg-accent-600:  #4338ca;
   --lg-accent-700:  #3730a3;
@@ -2088,9 +2088,9 @@ a:hover { color: var(--primary-300); }
   --lg-border:      #e5e7eb;
   --lg-border-str:  #d1d5db;
   --lg-ink:         #111827;
-  --lg-ink-soft:    #4b5563;
+  --lg-ink-soft:    #374151;
   --lg-ink-mute:    #6b7280;
-  --lg-star:        #e0a92e;
+  --lg-star:        #f59e0b;
 
   min-height: 100vh;
   display: grid;
@@ -2335,6 +2335,84 @@ a:hover { color: var(--primary-300); }
   color: var(--lg-ink-mute);
   text-align: center;
 }
+
+/* --- Toggle Cliente / Lojista --- */
+.login-perfil-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  background: var(--lg-panel);
+  border: 1px solid var(--lg-border);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  margin-bottom: var(--space-6);
+}
+
+.login-perfil-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 36px;
+  border: none;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--lg-ink-mute);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.login-perfil-tab svg { width: 15px; height: 15px; flex-shrink: 0; }
+.login-perfil-tab:hover:not(.active) { background: var(--lg-border); color: var(--lg-ink-soft); }
+.login-perfil-tab.active {
+  background: #ffffff;
+  color: var(--lg-accent);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+
+/* --- Link troca de perfil (abaixo do Google) --- */
+.login-switch-perfil {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: 0.8125rem;
+  color: var(--lg-ink-mute);
+  padding: var(--space-1) 0;
+}
+
+.login-switch-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--lg-accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--transition-fast);
+}
+.login-switch-link:hover { color: var(--lg-accent-600); }
+
+/* --- Dica de cadastro --- */
+.login-register-hint {
+  font-size: 0.8125rem;
+  color: var(--lg-ink-mute);
+  text-align: center;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--lg-border);
+}
+.login-register-hint a {
+  color: var(--lg-accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.login-register-hint a:hover { color: var(--lg-accent-600); }
 
 .login-alert {
   display: flex;
