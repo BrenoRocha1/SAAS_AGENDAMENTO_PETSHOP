@@ -27,7 +27,7 @@ export async function middleware(request: NextRequest) {
             supabaseResponse.cookies.set(name, value, {
               ...options,
               httpOnly: true,
-              sameSite: 'strict',
+              sameSite: 'lax',
               secure: process.env.NODE_ENV === 'production',
             })
           )
@@ -43,10 +43,8 @@ export async function middleware(request: NextRequest) {
   // /agendamento/[id] é público de propósito — qualquer pessoa com o link
   // pode ver a loja e os serviços sem login; só o passo de agendar em si
   // exige conta de cliente (checado na própria página/wizard).
-  const isRotaProtegida =
-    pathname.startsWith('/cliente') ||
-    pathname.startsWith('/lojista') ||
-    pathname.startsWith('/admin')
+  const ROTAS_PROTEGIDAS = ['/cliente', '/lojista', '/admin', '/completar-cadastro']
+  const isRotaProtegida = ROTAS_PROTEGIDAS.some((rota) => pathname.startsWith(rota))
 
   // Única regra: sem sessão + rota protegida → login
   // Sem nenhuma lógica de role aqui para evitar loops

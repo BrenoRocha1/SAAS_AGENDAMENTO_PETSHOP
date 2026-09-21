@@ -57,10 +57,46 @@ function devError(mensagemAmigavel: string, detalheTecnico?: string | null) {
 // hardcodar — funciona igual em localhost e no domínio real.
 // ============================================================
 async function obterOrigin() {
+  // Usa a URL de produção definida em NEXT_PUBLIC_SITE_URL (ex: https://meuapp.vercel.app).
+  // Sem ela, deriva do header Host — funciona em localhost mas gera link errado
+  // quando o servidor é acessado por proxy (Vercel, etc.).
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '')
+  }
   const h = await headers()
   const host = h.get('host') ?? 'localhost:3000'
   const protocolo = host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https'
   return `${protocolo}://${host}`
+}
+
+// ============================================================
+// Google OAuth via Server Action — PKCE code verifier armazenado
+// via Set-Cookie no servidor para que o /auth/callback consiga
+// encontrá-lo (não depende de document.cookie do browser).
+// ============================================================
+export async function getGoogleOAuthUrlAction(role?: string): Promise<{ error?: string; url?: string }> {
+  const supabase = await createClient()
+  const origin = await obterOrigin()
+  
+  const callbackUrl = role 
+    ? `${origin}/auth/callback?role=${role}`
+    : `${origin}/auth/callback`
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: callbackUrl,
+      skipBrowserRedirect: true,
+    },
+  })
+
+  if (error || !data.url) {
+    return { error: `Não foi possível conectar com o Google: ${error?.message ?? 'URL não retornada'}` }
+  }
+  
+  // Retorna a URL para o cliente fazer o redirecionamento.
+  // Isso evita o bug do Next.js/Vercel onde Set-Cookie é perdido em redirects 30x para URLs externas.
+  return { url: data.url }
 }
 
 // ============================================================
@@ -89,6 +125,11 @@ export async function loginAction(formData: FormData) {
   const parsed = loginSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
+  }
+
+  const rl = await checkRateLimit('login', 10, 5)
+  if (!rl.success) {
+    return { error: `Muitas tentativas. Tente novamente em ${rl.retryAfter}s.` }
   }
 
   const supabase = await createClient()
@@ -249,11 +290,17 @@ export async function cadastroClienteAction(formData: FormData) {
     telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
     senha: formData.get('senha') as string,
     confirmaSenha: formData.get('confirmaSenha') as string,
+    aceita_termos: formData.get('aceita_termos') === 'on' ? true : undefined,
   }
 
   const parsed = cadastroClienteSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
+  }
+
+  const rl = await checkRateLimit('cadastroCliente', 5, 15)
+  if (!rl.success) {
+    return { error: `Muitas tentativas. Tente novamente em ${Math.ceil(rl.retryAfter! / 60)} minutos.` }
   }
 
   // Cria a conta via Admin API (email_confirm:true) em vez de signUp normal
@@ -340,11 +387,17 @@ export async function cadastroLojistaAction(formData: FormData) {
     cep: (formData.get('cep') as string).replace(/\D/g, '') || undefined,
     senha: formData.get('senha') as string,
     confirmaSenha: formData.get('confirmaSenha') as string,
+    aceita_termos: formData.get('aceita_termos') === 'on' ? true : undefined,
   }
 
   const parsed = cadastroLojistSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
+  }
+
+  const rl = await checkRateLimit('cadastroLojista', 3, 15)
+  if (!rl.success) {
+    return { error: `Muitas tentativas. Tente novamente em ${Math.ceil(rl.retryAfter! / 60)} minutos.` }
   }
 
   // Admin client — obrigatório para:
@@ -452,7 +505,136 @@ export async function cadastroLojistaAction(formData: FormData) {
   revalidatePath('/', 'layout')
   redirect('/lojista/dashboard')
 }
+// ============================================================
+// COMPLETAR CADASTRO VIA GOOGLE OAUTH
+// ============================================================
+// Quando o usuário se registra via Google, ele já tem uma conta auth
+// mas não tem registro na tabela cliente/lojista. Essas actions criam
+// o registro faltante com os dados que o Google não fornece (CPF, telefone).
 
+export async function completarCadastroClienteGoogleAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado. Faça login novamente.' }
+
+  // Verificar se já tem perfil de cliente
+  const adminClient = createAdminClient()
+  if (!adminClient) {
+    return { error: 'Serviço temporariamente indisponível. Tente novamente em alguns minutos.' }
+  }
+
+  const { data: existing } = await adminClient.from('cliente').select('id_cliente').eq('id_cliente', user.id).maybeSingle()
+  if (existing) {
+    redirect('/cliente/dashboard')
+  }
+
+  const raw = {
+    cpf: (formData.get('cpf') as string).replace(/\D/g, ''),
+    telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
+    aceita_termos: formData.get('aceita_termos') === 'on' ? true : undefined,
+  }
+
+  const parsed = completarCadastroClienteGoogleSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  const nome = user.user_metadata?.full_name || user.user_metadata?.name || 'Usuário'
+  const email = user.email!
+
+  const { error: clienteError } = await adminClient.from('cliente').insert({
+    id_cliente: user.id,
+    nome,
+    cpf: parsed.data.cpf,
+    email,
+    telefone: parsed.data.telefone,
+  })
+
+  if (clienteError) {
+    const msg = clienteError.message?.toLowerCase() ?? ''
+    if (msg.includes('duplicate') || msg.includes('unique') || msg.includes('23505')) {
+      if (msg.includes('cpf')) {
+        return { error: 'Este CPF já está cadastrado.' }
+      }
+      if (msg.includes('email')) {
+        return { error: 'Este e-mail já está cadastrado.' }
+      }
+      return { error: 'Dados duplicados. Verifique CPF e e-mail.' }
+    }
+    return { error: devError('Não foi possível completar o cadastro. Tente novamente.', clienteError.message) }
+  }
+
+  // Atualizar user_metadata com role
+  await adminClient.auth.admin.updateUserById(user.id, {
+    user_metadata: { ...user.user_metadata, role: 'cliente', nome },
+  })
+
+  revalidatePath('/', 'layout')
+  redirect('/cliente/dashboard')
+}
+
+export async function completarCadastroLojistaGoogleAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado. Faça login novamente.' }
+
+  const adminClient = createAdminClient()
+  if (!adminClient) {
+    return { error: 'Serviço temporariamente indisponível. Tente novamente em alguns minutos.' }
+  }
+
+  // Verificar se já tem perfil de lojista
+  const { data: existing } = await adminClient.from('lojista').select('id_lojista').eq('id_lojista', user.id).maybeSingle()
+  if (existing) {
+    redirect('/lojista/dashboard')
+  }
+
+  const raw = {
+    nome_loja: formData.get('nome_loja') as string,
+    telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
+    descricao: (formData.get('descricao') as string) || undefined,
+    endereco: (formData.get('endereco') as string) || undefined,
+    cidade: (formData.get('cidade') as string) || undefined,
+    estado: (formData.get('estado') as string) || undefined,
+    cep: (formData.get('cep') as string).replace(/\D/g, '') || undefined,
+    aceita_termos: formData.get('aceita_termos') === 'on' ? true : undefined,
+  }
+
+  const parsed = completarCadastroLojistaGoogleSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  const email = user.email!
+
+  const { error: rpcError } = await adminClient.rpc('fn_registrar_lojista', {
+    p_id_lojista: user.id,
+    p_nome_loja: parsed.data.nome_loja,
+    p_email: email,
+    p_telefone: parsed.data.telefone,
+    p_descricao: parsed.data.descricao ?? null,
+    p_endereco: parsed.data.endereco ?? null,
+    p_cidade: parsed.data.cidade ?? null,
+    p_estado: parsed.data.estado ?? null,
+    p_cep: parsed.data.cep ?? null,
+  })
+
+  if (rpcError) {
+    const msg = rpcError.message ?? ''
+    if (msg.includes('email_already_exists') || msg.includes('23505')) {
+      return { error: 'Este e-mail já está cadastrado como lojista.' }
+    }
+    return { error: devError('Não foi possível completar o cadastro. Tente novamente.', msg) }
+  }
+
+  // Atualizar user_metadata com role
+  await adminClient.auth.admin.updateUserById(user.id, {
+    user_metadata: { ...user.user_metadata, role: 'lojista', nome_loja: parsed.data.nome_loja },
+  })
+
+  revalidatePath('/', 'layout')
+  redirect('/lojista/dashboard')
+}
 
 
 // ============================================================

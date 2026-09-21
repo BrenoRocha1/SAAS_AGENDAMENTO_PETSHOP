@@ -3,9 +3,7 @@
 import { Suspense, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { loginAction } from '@/lib/actions'
-import { createClient } from '@/lib/supabase/client'
-
+import { loginAction, getGoogleOAuthUrlAction } from '@/lib/actions'
 /* ------------------------------------------------------------------ *
  * Ícones — line icons em SVG inline (sem biblioteca externa).
  * ------------------------------------------------------------------ */
@@ -242,12 +240,23 @@ function LoginFormPane() {
 
   const redirectTo = searchParams.get('redirectTo')
   const oauthError = searchParams.get('error')
-  const paramMessage =
-    oauthError === 'oauth'
-      ? 'Não foi possível entrar com o Google. Tente novamente ou use e-mail e senha.'
-      : oauthError
-        ? 'Não foi possível concluir o login. Tente novamente.'
-        : null
+  const errorDetail = searchParams.get('error_detail')
+    ? decodeURIComponent(searchParams.get('error_detail')!)
+    : null
+
+  const ERROR_MESSAGES: Record<string, string> = {
+    oauth: 'Não foi possível conectar com o Google. Tente novamente.',
+    no_code: 'Nenhum código de autorização recebido. Tente novamente.',
+    session_exchange: 'Falha ao processar autenticação com o Google.',
+    no_user: 'Usuário não encontrado após autenticação.',
+    no_admin_key: 'Erro de configuração do servidor (service role key ausente).',
+    callback: 'Erro no retorno do login. Tente novamente.',
+  }
+
+  const paramMessage = oauthError
+    ? (errorDetail ?? ERROR_MESSAGES[oauthError] ?? `Erro: ${oauthError}`)
+    : null
+
 
   const message = error ?? paramMessage
 
@@ -264,16 +273,16 @@ function LoginFormPane() {
   async function handleGoogle() {
     setError(null)
     setOauthPending(true)
-    const supabase = createClient()
-    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    })
-    if (oauthErr) {
+    
+    const result = await getGoogleOAuthUrlAction()
+    
+    if (result.error || !result.url) {
       setOauthPending(false)
-      setError('Não foi possível conectar com o Google. Tente novamente.')
+      setError(result.error || 'Não foi possível conectar com o Google. Tente novamente.')
+      return
     }
-    // Em caso de sucesso o browser é redirecionado para o Google.
+    
+    window.location.href = result.url
   }
 
   return (
