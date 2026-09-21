@@ -26,11 +26,14 @@ import {
   editarFuncionarioSchema,
   perfilClienteSchema,
   redefinirSenhaSchema,
-  completarCadastroClienteGoogleSchema,
-  completarCadastroLojistaGoogleSchema,
+  avaliacaoSchema,
+  somNotificacaoSchema,
+  produtoSchema,
+  movimentoEstoqueSchema,
+  categoriaProdutoSchema,
 } from '@/lib/validations'
 import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } from '@/lib/lojista-context'
-import { checkRateLimit } from '@/lib/rate-limit'
+import { ORDEM_ETAPA, etapaEncerrada } from '@/lib/status-agendamento'
 import type { ServicoVariacaoData } from '@/lib/validations'
 
 // ============================================================
@@ -994,6 +997,379 @@ export async function removerVariacaoServicoAction(id_variacao: string) {
 }
 
 // ============================================================
+// PRODUTO ACTIONS (Lojista) — migration 037
+// ============================================================
+// Permissão própria (podeGerenciarProdutos, migration 040) — reaproveitava
+// pode_gerenciar_servicos antes, mas Produtos cresceu (categorias, foto,
+// estoque, venda no agendamento online) e ganhou peso suficiente pra ter
+// uma entrada dedicada na tela de Equipe.
+
+export async function criarProdutoAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const raw = {
+    nome: formData.get('nome') as string,
+    id_categoria: formData.get('id_categoria') as string,
+    unidade_venda: formData.get('unidade_venda') as string,
+    preco_venda: parseFloat(formData.get('preco_venda') as string),
+    estoque_atual: parseFloat((formData.get('estoque_atual') as string) || '0'),
+    estoque_minimo: parseFloat((formData.get('estoque_minimo') as string) || '0'),
+    disponivel_agendamento_online: formData.get('disponivel_agendamento_online') === 'true',
+  }
+
+  const parsed = produtoSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { data: novoProduto, error } = await supabase
+    .from('produto')
+    .insert({ id_lojista: contexto.idLojista, ...parsed.data })
+    .select('*')
+    .single()
+
+  if (error || !novoProduto) return { error: devError('Erro ao cadastrar produto.', error?.message) }
+
+  revalidatePath('/lojista/produtos')
+  // Devolve a linha inteira pra tela mesclar direto no estado local, em
+  // vez de reconsultar a tabela pelo client do navegador — esse refetch
+  // separado é quem causava o "lista some inteira depois de criar" (o
+  // resultado do próprio insert, feito pelo client do servidor, é sempre
+  // confiável; um SELECT * solto pelo lado do cliente logo em seguida
+  // não precisa existir).
+  return { success: true, produto: novoProduto as Record<string, unknown> }
+}
+
+// Estoque atual fica de fora de propósito — depois de criado, só muda
+// por uma movimentação (movimentarEstoqueAction), nunca sobrescrito
+// direto na edição, senão a movimentação vira uma auditoria furada.
+export async function editarProdutoAction(id_produto: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const raw = {
+    nome: formData.get('nome') as string,
+    id_categoria: formData.get('id_categoria') as string,
+    unidade_venda: formData.get('unidade_venda') as string,
+    preco_venda: parseFloat(formData.get('preco_venda') as string),
+    estoque_minimo: parseFloat((formData.get('estoque_minimo') as string) || '0'),
+    disponivel_agendamento_online: formData.get('disponivel_agendamento_online') === 'true',
+  }
+
+  const parsed = produtoSchema.omit({ estoque_atual: true }).safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { data: atualizado, error } = await supabase
+    .from('produto')
+    .update(parsed.data)
+    .eq('id_produto', id_produto)
+    .eq('id_lojista', contexto.idLojista)
+    .select('*')
+    .single()
+
+  if (error || !atualizado) return { error: devError('Erro ao atualizar produto.', error?.message) }
+
+  revalidatePath('/lojista/produtos')
+  // Mesmo motivo do criarProdutoAction: devolve a linha atualizada pra
+  // mesclar direto no estado, sem depender de um refetch separado.
+  return { success: true, produto: atualizado as Record<string, unknown> }
+}
+
+export async function alternarStatusProdutoAction(id_produto: string, ativo: boolean) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const { error } = await supabase
+    .from('produto')
+    .update({ status: ativo ? 'Ativo' : 'Inativo' })
+    .eq('id_produto', id_produto)
+    .eq('id_lojista', contexto.idLojista)
+
+  if (error) return { error: devError('Erro ao atualizar status do produto.', error.message) }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true }
+}
+
+// Adicionar ou remover estoque — via fn_movimentar_estoque (migration
+// 037), que atualiza produto.estoque_atual e grava o histórico de forma
+// atômica, e é o mesmo ponto que uma venda futura vai usar pra dar baixa
+// automática (origem='venda', não usada por esta action).
+export async function movimentarEstoqueAction(id_produto: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const parsed = movimentoEstoqueSchema.safeParse({
+    tipo: formData.get('tipo'),
+    quantidade: parseFloat(formData.get('quantidade') as string),
+    motivo: (formData.get('motivo') as string) || undefined,
+  })
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { data: novoEstoque, error } = await supabase.rpc('fn_movimentar_estoque', {
+    p_id_produto: id_produto,
+    p_tipo: parsed.data.tipo,
+    p_quantidade: parsed.data.quantidade,
+    p_motivo: parsed.data.motivo ?? null,
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true, novoEstoque: novoEstoque as number }
+}
+
+// Exclusão é só lojista/administrador (mesma regra de
+// excluirServicoAction). Desde a migration 040, ter movimentação de
+// estoque não trava mais a exclusão (movimento_estoque tem ON DELETE
+// CASCADE em produto) — só um produto já vendido de verdade pelo
+// agendamento online barra (agendamento_produto é ON DELETE RESTRICT,
+// ver catch do código 23503 abaixo), pra não quebrar o histórico de
+// compras do cliente.
+export async function excluirProdutoAction(id_produto: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
+    return { error: 'Acesso não autorizado' }
+  }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+
+  const { error } = await db
+    .from('produto')
+    .delete()
+    .eq('id_produto', id_produto)
+    .eq('id_lojista', contexto.idLojista)
+
+  if (error) {
+    if (error.code === '23503') {
+      return { error: 'Este produto já foi vendido pelo agendamento online e não pode ser excluído. Marque-o como "Inativo" em vez de excluir.' }
+    }
+    return { error: 'Erro ao excluir produto.' }
+  }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true }
+}
+
+// ============================================================
+// CATEGORIA DE PRODUTO ACTIONS (Lojista) — migration 038
+// ============================================================
+// Cada loja cria/renomeia/apaga as próprias categorias — deixou de ser
+// uma lista fixa. Toda loja já nasce com 5 categorias padrão (trigger
+// fn_seed_categorias_produto), então isso aqui é só pra quem quer
+// ajustar essa lista, não pra montar o catálogo do zero.
+
+export async function criarCategoriaProdutoAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const parsed = categoriaProdutoSchema.safeParse({ nome: formData.get('nome') })
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { data: nova, error } = await supabase
+    .from('categoria_produto')
+    .insert({ id_lojista: contexto.idLojista, nome: parsed.data.nome.trim() })
+    .select('id_categoria, nome')
+    .single()
+
+  if (error) {
+    if (error.code === '23505') return { error: 'Já existe uma categoria com esse nome.' }
+    return { error: devError('Erro ao criar categoria.', error.message) }
+  }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true, categoria: nova }
+}
+
+export async function editarCategoriaProdutoAction(id_categoria: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const parsed = categoriaProdutoSchema.safeParse({ nome: formData.get('nome') })
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase
+    .from('categoria_produto')
+    .update({ nome: parsed.data.nome.trim() })
+    .eq('id_categoria', id_categoria)
+    .eq('id_lojista', contexto.idLojista)
+
+  if (error) {
+    if (error.code === '23505') return { error: 'Já existe uma categoria com esse nome.' }
+    return { error: devError('Erro ao renomear categoria.', error.message) }
+  }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true }
+}
+
+// Apagar a categoria não apaga os produtos dela (ON DELETE SET NULL) —
+// eles só ficam "sem categoria" e continuam aparecendo normalmente.
+export async function excluirCategoriaProdutoAction(id_categoria: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const { error } = await supabase
+    .from('categoria_produto')
+    .delete()
+    .eq('id_categoria', id_categoria)
+    .eq('id_lojista', contexto.idLojista)
+
+  if (error) return { error: devError('Erro ao excluir categoria.', error.message) }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true }
+}
+
+// ============================================================
+// FOTO DO PRODUTO (migration 038 — bucket 'fotos-produto')
+// ============================================================
+// Mesmo padrão de atualizarLogoLojistaAction/atualizarFotoPetAction:
+// {id_lojista}/{id_produto}.{ext}, apagando o que já existe na pasta
+// antes de subir a nova imagem, e conferindo o CONTEÚDO do arquivo
+// (magic numbers), não a extensão declarada pelo navegador.
+
+const PRODUTO_FOTO_BUCKET = 'fotos-produto'
+const PRODUTO_FOTO_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB
+
+async function limparFotoDoProduto(db: Awaited<ReturnType<typeof createClient>>, idLojista: string, idProduto: string) {
+  const { data: existentes } = await db.storage.from(PRODUTO_FOTO_BUCKET).list(idLojista)
+  const doProduto = existentes?.filter(f => f.name.startsWith(`${idProduto}.`)) ?? []
+  if (doProduto.length > 0) {
+    await db.storage.from(PRODUTO_FOTO_BUCKET).remove(doProduto.map(f => `${idLojista}/${f.name}`))
+  }
+}
+
+export async function atualizarFotoProdutoAction(
+  id_produto: string,
+  formData: FormData
+): Promise<{ error?: string; success?: boolean; url?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+
+  // O produto precisa ser da própria loja — o client admin usado por um
+  // funcionário ignora RLS, então essa checagem aqui (com o client
+  // normal, que passa por RLS) é quem garante o isolamento entre lojas.
+  const { data: produto } = await supabase
+    .from('produto')
+    .select('id_produto')
+    .eq('id_produto', id_produto)
+    .eq('id_lojista', contexto.idLojista)
+    .maybeSingle()
+  if (!produto) return { error: 'Produto não encontrado.' }
+
+  const arquivo = formData.get('foto') as File | null
+  if (!arquivo || arquivo.size === 0) return { error: 'Selecione uma imagem.' }
+  if (arquivo.size > PRODUTO_FOTO_TAMANHO_MAXIMO) return { error: 'Imagem muito grande. O limite é 5 MB.' }
+
+  const bytes = new Uint8Array(await arquivo.arrayBuffer())
+  const extensao = detectarExtensaoImagem(bytes)
+  if (!extensao) return { error: 'Formato de imagem inválido. Envie um arquivo JPG, PNG ou WEBP.' }
+
+  await limparFotoDoProduto(db, contexto.idLojista, id_produto)
+
+  const caminho = `${contexto.idLojista}/${id_produto}.${extensao}`
+  const { error: uploadError } = await db.storage
+    .from(PRODUTO_FOTO_BUCKET)
+    .upload(caminho, bytes, {
+      contentType: extensao === 'jpg' ? 'image/jpeg' : `image/${extensao}`,
+      upsert: true,
+    })
+
+  if (uploadError) {
+    return { error: devError('Não foi possível enviar a imagem. Tente novamente.', uploadError.message) }
+  }
+
+  const { data: { publicUrl } } = db.storage.from(PRODUTO_FOTO_BUCKET).getPublicUrl(caminho)
+  const urlComVersao = `${publicUrl}?v=${Date.now()}`
+
+  const { error: dbError } = await db
+    .from('produto')
+    .update({ foto_url: urlComVersao })
+    .eq('id_produto', id_produto)
+    .eq('id_lojista', contexto.idLojista)
+
+  if (dbError) {
+    return { error: devError('Imagem enviada, mas não foi possível salvar a referência. Tente novamente.', dbError.message) }
+  }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true, url: urlComVersao }
+}
+
+export async function removerFotoProdutoAction(id_produto: string): Promise<{ error?: string; success?: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarProdutos) return { error: 'Você não tem permissão para gerenciar produtos.' }
+
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+
+  await limparFotoDoProduto(db, contexto.idLojista, id_produto)
+
+  const { error } = await db
+    .from('produto')
+    .update({ foto_url: null })
+    .eq('id_produto', id_produto)
+    .eq('id_lojista', contexto.idLojista)
+
+  if (error) return { error: devError('Não foi possível remover a imagem. Tente novamente.', error.message) }
+
+  revalidatePath('/lojista/produtos')
+  return { success: true }
+}
+
+// ============================================================
 // HORÁRIO ACTIONS (Lojista)
 // ============================================================
 
@@ -1103,6 +1479,15 @@ export async function criarAgendamentoAction(formData: FormData) {
     return { error: 'Acesso não autorizado' }
   }
 
+  // Produtos são opcionais (migration 039) — só vêm quando o cliente
+  // escolheu algum na tela de confirmação.
+  let produtos: unknown
+  try {
+    produtos = JSON.parse((formData.get('produtos') as string) || '[]')
+  } catch {
+    return { error: 'Produtos inválidos.' }
+  }
+
   const raw = {
     id_lojista: formData.get('id_lojista') as string,
     id_pet: formData.get('id_pet') as string,
@@ -1110,6 +1495,7 @@ export async function criarAgendamentoAction(formData: FormData) {
     dt_agendamento: formData.get('dt_agendamento') as string,
     hr_agendamento: formData.get('hr_agendamento') as string,
     obs: formData.get('obs') as string,
+    produtos,
   }
 
   const parsed = agendamentoSchema.safeParse(raw)
@@ -1124,6 +1510,8 @@ export async function criarAgendamentoAction(formData: FormData) {
     p_data: parsed.data.dt_agendamento,
     p_hora: parsed.data.hr_agendamento,
     p_obs: parsed.data.obs || null,
+    p_produtos: parsed.data.produtos?.map(p => p.id_produto) ?? null,
+    p_quantidades: parsed.data.produtos?.map(p => p.quantidade) ?? null,
   })
 
   if (error) {
@@ -1133,7 +1521,12 @@ export async function criarAgendamentoAction(formData: FormData) {
     if (error.message.includes('não está aceitando agendamentos online')) {
       return { error: 'Este petshop não está aceitando agendamentos online no momento. Entre em contato diretamente com a loja.' }
     }
-    return { error: 'Erro ao criar agendamento. Tente novamente.' }
+    // Mensagens de produto (estoque insuficiente, produto não mais
+    // disponível) já vêm prontas pra mostrar — não são detalhe técnico.
+    if (error.message.includes('Estoque insuficiente') || error.message.includes('produtos escolhidos não está')) {
+      return { error: error.message }
+    }
+    return { error: devError('Erro ao criar agendamento. Tente novamente.', error.message) }
   }
 
   revalidatePath('/cliente/agendamentos')
@@ -1160,6 +1553,13 @@ export async function criarAgendamentoOnlineAction(
     return { error: 'Serviços inválidos.' }
   }
 
+  let produtos: unknown
+  try {
+    produtos = JSON.parse((formData.get('produtos') as string) || '[]')
+  } catch {
+    return { error: 'Produtos inválidos.' }
+  }
+
   const raw = {
     id_lojista: formData.get('id_lojista') as string,
     id_pet: formData.get('id_pet') as string,
@@ -1168,6 +1568,7 @@ export async function criarAgendamentoOnlineAction(
     dt_agendamento: formData.get('dt_agendamento') as string,
     hr_agendamento: formData.get('hr_agendamento') as string,
     obs: formData.get('obs') as string,
+    produtos,
   }
 
   const parsed = agendamentoOnlineSchema.safeParse(raw)
@@ -1182,6 +1583,8 @@ export async function criarAgendamentoOnlineAction(
     p_servicos: parsed.data.servicos,
     p_id_funcionario: parsed.data.id_funcionario || null,
     p_obs: parsed.data.obs || null,
+    p_produtos: parsed.data.produtos?.map(p => p.id_produto) ?? null,
+    p_quantidades: parsed.data.produtos?.map(p => p.quantidade) ?? null,
   })
 
   if (error) {
@@ -1193,6 +1596,9 @@ export async function criarAgendamentoOnlineAction(
     }
     if (error.message.includes('fora do funcionamento')) {
       return { error: 'Esse horário não cabe dentro do funcionamento da loja para os serviços escolhidos. Escolha outro horário.' }
+    }
+    if (error.message.includes('Estoque insuficiente') || error.message.includes('produtos escolhidos não está')) {
+      return { error: error.message }
     }
     return { error: devError('Erro ao criar agendamento. Tente novamente.', error.message) }
   }
@@ -1279,7 +1685,7 @@ export async function cancelarAgendamentoAction(id_agendamento: string, motivo?:
 
 export async function atualizarStatusAgendamentoAction(
   id_agendamento: string,
-  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -1288,6 +1694,28 @@ export async function atualizarStatusAgendamentoAction(
   const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
   if (!contexto) return { error: 'Acesso não autorizado' }
   if (!contexto.podeGerenciarAgenda) return { error: 'Você não tem permissão para gerenciar a agenda.' }
+
+  // O status não pode voltar — nem por drag-and-drop, nem por uma chamada
+  // direta a esta action (o front já bloqueia isso, mas quem garante de
+  // verdade é aqui: busca o status atual antes de aceitar a mudança).
+  const { data: atual, error: buscaError } = await supabase
+    .from('agendamento')
+    .select('status')
+    .eq('id_agendamento', id_agendamento)
+    .eq('id_lojista', contexto.idLojista)
+    .maybeSingle()
+
+  if (buscaError || !atual) return { error: 'Agendamento não encontrado.' }
+  if (etapaEncerrada(atual.status)) {
+    return { error: 'Este agendamento já foi finalizado e não pode mais mudar de status.' }
+  }
+  if (status !== 'Cancelado') {
+    const ordemAtual = ORDEM_ETAPA[atual.status as keyof typeof ORDEM_ETAPA] ?? 0
+    const ordemNova = ORDEM_ETAPA[status as keyof typeof ORDEM_ETAPA] ?? 0
+    if (ordemNova <= ordemAtual) {
+      return { error: 'Não é possível voltar para uma etapa anterior.' }
+    }
+  }
 
   const updateData: Record<string, string> = { status }
   if (status === 'Cancelado') {
@@ -1300,7 +1728,7 @@ export async function atualizarStatusAgendamentoAction(
     .eq('id_agendamento', id_agendamento)
     .eq('id_lojista', contexto.idLojista)
 
-  if (error) return { error: 'Erro ao atualizar status.' }
+  if (error) return { error: devError('Erro ao atualizar status.', error.message) }
 
   revalidatePath('/lojista/agendamentos')
   return { success: true }
@@ -1318,7 +1746,11 @@ export async function atribuirFuncionarioAction(id_agendamento: string, id_funci
 
   const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
   if (!contexto) return { error: 'Acesso não autorizado' }
-  if (!contexto.podeGerenciarAgenda) return { error: 'Você não tem permissão para gerenciar a agenda.' }
+  // Só o responsável pela conta ou um administrador (funcionário com
+  // acesso_total) pode atribuir/trocar o profissional responsável — um
+  // funcionário comum, mesmo com "Gerenciar Agenda", não pode se
+  // auto-atribuir nem reatribuir outro agendamento.
+  if (!contexto.acessoTotal) return { error: 'Apenas administradores podem atribuir o profissional responsável.' }
 
   if (id_funcionario) {
     const { data: func } = await supabase
@@ -1337,7 +1769,7 @@ export async function atribuirFuncionarioAction(id_agendamento: string, id_funci
     .eq('id_agendamento', id_agendamento)
     .eq('id_lojista', contexto.idLojista)
 
-  if (error) return { error: 'Erro ao atribuir profissional.' }
+  if (error) return { error: devError('Erro ao atribuir profissional.', error.message) }
 
   revalidatePath('/lojista/agendamentos')
   revalidatePath('/lojista/dashboard')
@@ -1567,6 +1999,50 @@ export async function alternarAgendamentoOnlineAction(ativo: boolean) {
   revalidatePath('/lojista/configuracoes/agendamentos')
   revalidatePath('/lojista/configuracoes')
   revalidatePath('/cliente/novo-agendamento')
+  return { success: true }
+}
+
+// Som de novos agendamentos (migration 036) — ativo + qual dos 5 sons,
+// salvos juntos num "Salvar alterações" só (diferente do toggle solo do
+// Kanban/Agendamento Online, que salva na hora). revalidatePath('/lojista',
+// 'layout') é o que importa aqui: é o layout que lê essas duas colunas pra
+// alimentar o listener de Realtime (NotificacaoNovoAgendamento), então
+// precisa recarregar em QUALQUER página do painel, não só nesta tela.
+export async function atualizarSomNotificacaoAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
+    return { error: 'Acesso não autorizado' }
+  }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+
+  const parsed = somNotificacaoSchema.safeParse({
+    ativo: formData.get('ativo') === 'true',
+    tipo: formData.get('tipo'),
+  })
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await db
+    .from('lojista')
+    .update({
+      som_novo_agendamento_ativo: parsed.data.ativo,
+      som_novo_agendamento_tipo: parsed.data.tipo,
+    })
+    .eq('id_lojista', contexto.idLojista)
+
+  if (error) {
+    if (error.code === '42703' || error.message?.includes('som_novo_agendamento')) {
+      return { error: 'Colunas de som ainda não encontradas no banco. Execute a migration 036_som_novo_agendamento.sql.' }
+    }
+    return { error: devError('Erro ao salvar a configuração de som.', error.message) }
+  }
+
+  revalidatePath('/lojista/configuracoes/notificacoes')
+  revalidatePath('/lojista', 'layout')
   return { success: true }
 }
 
@@ -2011,6 +2487,7 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     cargo: formData.get('cargo') as string,
     pode_gerenciar_agenda: formData.get('pode_gerenciar_agenda') === 'true',
     pode_gerenciar_servicos: formData.get('pode_gerenciar_servicos') === 'true',
+    pode_gerenciar_produtos: formData.get('pode_gerenciar_produtos') === 'true',
     pode_gerenciar_clientes_pets: formData.get('pode_gerenciar_clientes_pets') === 'true',
     acesso_total: acessoTotalSolicitado,
   }
@@ -2067,6 +2544,7 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     p_pode_servicos: parsed.data.pode_gerenciar_servicos,
     p_pode_clientes_pets: parsed.data.pode_gerenciar_clientes_pets,
     p_acesso_total: parsed.data.acesso_total,
+    p_pode_produtos: parsed.data.pode_gerenciar_produtos,
   })
 
   if (rpcError) {
@@ -2111,6 +2589,7 @@ export async function editarFuncionarioAction(id_funcionario: string, formData: 
     cargo: formData.get('cargo') as string,
     pode_gerenciar_agenda: formData.get('pode_gerenciar_agenda') === 'true',
     pode_gerenciar_servicos: formData.get('pode_gerenciar_servicos') === 'true',
+    pode_gerenciar_produtos: formData.get('pode_gerenciar_produtos') === 'true',
     pode_gerenciar_clientes_pets: formData.get('pode_gerenciar_clientes_pets') === 'true',
     acesso_total: acessoTotalSolicitado,
   }
@@ -2126,6 +2605,7 @@ export async function editarFuncionarioAction(id_funcionario: string, formData: 
       cargo: parsed.data.cargo ?? null,
       pode_gerenciar_agenda: parsed.data.pode_gerenciar_agenda,
       pode_gerenciar_servicos: parsed.data.pode_gerenciar_servicos,
+      pode_gerenciar_produtos: parsed.data.pode_gerenciar_produtos,
       pode_gerenciar_clientes_pets: parsed.data.pode_gerenciar_clientes_pets,
       acesso_total: parsed.data.acesso_total,
     })
@@ -2384,28 +2864,79 @@ export async function removerFotoPetAction(id_pet: string): Promise<{ error?: st
 }
 
 // ============================================================
-// LGPD: DIREITO AO ESQUECIMENTO (EXCLUSÃO DA CONTA)
+// AVALIAÇÕES (migration 034)
 // ============================================================
-export async function excluirMinhaContaAction() {
+// O cliente avalia um atendimento finalizado. Quem valida de verdade são
+// as funções fn_criar_avaliacao / fn_editar_avaliacao no banco — elas
+// conferem dono do agendamento, status 'Concluído' e copiam do próprio
+// agendamento a loja/pet/serviço/profissional, então o cliente só manda
+// id do agendamento + nota + comentário. Aqui em cima fica a validação
+// de formato (Zod) e a tradução dos erros do Postgres pra mensagem
+// amigável — a mesma divisão de responsabilidade das outras actions.
+
+// Erros vindos das funções SQL viram mensagem de usuário. A UNIQUE de
+// id_agendamento é o que garante "uma avaliação por atendimento": se
+// duas tentativas correrem juntas, uma delas volta 23505 e cai aqui.
+function traduzirErroAvaliacao(mensagem: string): string {
+  const msg = mensagem.toLowerCase()
+  if (msg.includes('duplicate key') || msg.includes('23505') || msg.includes('avaliacao_id_agendamento_key')) {
+    return 'Você já avaliou este atendimento.'
+  }
+  if (msg.includes('finalizado')) return 'Só é possível avaliar um atendimento finalizado.'
+  if (msg.includes('não autorizado')) return 'Este atendimento não é seu.'
+  if (msg.includes('não encontrado')) return 'Atendimento não encontrado.'
+  if (msg.includes('nota')) return 'A nota precisa ser de 1 a 5.'
+  return devError('Não foi possível salvar sua avaliação. Tente novamente.', mensagem)
+}
+
+function lerFormAvaliacao(formData: FormData) {
+  const comentarioBruto = ((formData.get('comentario') as string) ?? '').trim()
+  return avaliacaoSchema.safeParse({
+    nota: Number(formData.get('nota')),
+    comentario: comentarioBruto === '' ? undefined : comentarioBruto,
+  })
+}
+
+export async function criarAvaliacaoAction(id_agendamento: string, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado' }
-
-  const adminClient = createAdminClient()
-  if (!adminClient) return { error: 'Serviço temporariamente indisponível' }
-
-  // Deletar o usuário no Auth (auth.users).
-  // Devido aos CASCADE e a migration 032, isso apagará o perfil do cliente/lojista
-  // e setará o id_cliente = NULL nos agendamentos, mantendo os registros financeiros
-  // de forma anonimizada para o lojista, apagando os dados pessoais.
-  const { error } = await adminClient.auth.admin.deleteUser(user.id)
-  
-  if (error) {
-    console.error('[excluirMinhaContaAction] Falha ao deletar usuário:', error.message)
-    return { error: 'Ocorreu um erro ao excluir sua conta. Tente novamente mais tarde.' }
+  if (!user || user.user_metadata?.role !== 'cliente') {
+    return { error: 'Acesso não autorizado' }
   }
 
-  await supabase.auth.signOut()
-  revalidatePath('/', 'layout')
-  redirect('/login')
+  const parsed = lerFormAvaliacao(formData)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase.rpc('fn_criar_avaliacao', {
+    p_id_agendamento: id_agendamento,
+    p_nota: parsed.data.nota,
+    p_comentario: parsed.data.comentario ?? null,
+  })
+
+  if (error) return { error: traduzirErroAvaliacao(error.message) }
+
+  revalidatePath('/cliente/agendamentos')
+  return { success: true }
+}
+
+export async function editarAvaliacaoAction(id_avaliacao: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.user_metadata?.role !== 'cliente') {
+    return { error: 'Acesso não autorizado' }
+  }
+
+  const parsed = lerFormAvaliacao(formData)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { error } = await supabase.rpc('fn_editar_avaliacao', {
+    p_id_avaliacao: id_avaliacao,
+    p_nota: parsed.data.nota,
+    p_comentario: parsed.data.comentario ?? null,
+  })
+
+  if (error) return { error: traduzirErroAvaliacao(error.message) }
+
+  revalidatePath('/cliente/agendamentos')
+  return { success: true }
 }

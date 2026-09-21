@@ -95,7 +95,18 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   // Serviços e horários são públicos — dá pra navegar e ver o que a loja
   // oferece sem estar logado. Busca a semana inteira (não só hoje) pra
   // mostrar no modal de detalhes da loja.
-  const [{ data: servicos }, { data: horarios }] = await Promise.all([
+  // Avaliações vêm só pelas duas funções públicas da migration 034 —
+  // recorte seguro (nota, comentário, primeiro nome, data), sem telefone,
+  // e-mail, CPF ou id de cliente. Se a migration ainda não rodou, a RPC
+  // devolve erro e data=null: o modal cai no "ainda não há avaliações"
+  // em vez de quebrar a página.
+  const [
+    { data: servicos },
+    { data: horarios },
+    { data: resumoAvaliacoesRaw },
+    { data: avaliacoesRecentesRaw },
+    { data: produtos },
+  ] = await Promise.all([
     supabase
       .from('servico')
       .select('id_servico, nome, descricao, preco, duracao')
@@ -106,7 +117,33 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
       .from('horario')
       .select('dia_semana, hr_inicio, hr_fim, ativo')
       .eq('id_lojista', lojista.id_lojista),
+    supabase.rpc('fn_avaliacoes_resumo_publico', { p_id_lojista: lojista.id_lojista }),
+    supabase.rpc('fn_avaliacoes_publicas', { p_id_lojista: lojista.id_lojista, p_limit: 3 }),
+    // Produtos liberados pra venda no Agendamento Online (migration 039)
+    // — público de propósito, mesma ideia de `servico` (a policy de RLS
+    // já filtra Ativo + disponivel_agendamento_online, sem checar role).
+    supabase
+      .from('produto')
+      .select('id_produto, nome, preco_venda, unidade_venda, estoque_atual')
+      .eq('id_lojista', lojista.id_lojista)
+      .eq('status', 'Ativo')
+      .eq('disponivel_agendamento_online', true)
+      .gt('estoque_atual', 0)
+      .order('nome'),
   ])
+
+  const resumoAvaliacoes = resumoAvaliacoesRaw as { media: number | null; total: number } | null
+  const avaliacoesPublicas = {
+    // NUMERIC do Postgres pode chegar como string via PostgREST.
+    media: resumoAvaliacoes?.media != null ? Number(resumoAvaliacoes.media) : null,
+    total: Number(resumoAvaliacoes?.total ?? 0),
+    recentes: ((avaliacoesRecentesRaw ?? []) as Array<{
+      nota: number
+      comentario: string
+      primeiro_nome: string
+      created_at: string
+    }>),
+  }
 
   const horarioHoje = (horarios ?? []).find(h => h.dia_semana === diaSemanaBrasil() && h.ativo) ?? null
 
@@ -127,15 +164,12 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   }
 
   // Dados do próprio cliente — só buscados quando logado como cliente,
-  // já que dependem de RLS de auth.uid() (pets, cadastro) ou de uma RPC
-  // que só authenticated pode chamar (fn_funcionarios_publicos).
-  let funcionarios: { id_funcionario: string; nome: string; cargo: string | null }[] = []
+  // já que dependem de RLS de auth.uid().
   let pets: { id_pet: string; nome: string; raca: string; especie: 'Cão' | 'Gato' | null; porte: 'Pequeno' | 'Médio' | 'Grande' | null; sexo: string }[] = []
   let cliente = { nome: '', telefone: '', cpf: '' }
 
   if (autenticado) {
-    const [{ data: f }, { data: p }, { data: c }] = await Promise.all([
-      supabase.rpc('fn_funcionarios_publicos', { p_id_lojista: lojista.id_lojista }),
+    const [{ data: p }, { data: c }] = await Promise.all([
       supabase
         .from('pet')
         .select('id_pet, nome, raca, especie, porte, sexo')
@@ -144,7 +178,6 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
         .order('nome'),
       supabase.from('cliente').select('nome, telefone, cpf').eq('id_cliente', user!.id).maybeSingle(),
     ])
-    funcionarios = f ?? []
     pets = p ?? []
     cliente = c ?? cliente
   }
@@ -175,7 +208,8 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
           horarios={horarios ?? []}
           janela={janela}
           servicos={servicos ?? []}
-          funcionarios={funcionarios}
+          produtos={produtos ?? []}
+          avaliacoes={avaliacoesPublicas}
           pets={pets}
           cliente={cliente}
           autenticado={autenticado}

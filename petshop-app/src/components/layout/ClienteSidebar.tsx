@@ -24,7 +24,7 @@ const navItems = [
   { href: '/cliente/perfil', icon: IconUser, label: 'Meu Perfil' },
 ]
 
-const CHAVE_COLAPSADA = 'petagenda:cliente-sidebar-colapsada'
+const CHAVE_COLAPSADA = 'saip:cliente-sidebar-colapsada'
 
 interface Props {
   userName: string
@@ -80,7 +80,7 @@ export default function ClienteSidebar({ userName, userEmail }: Props) {
               <IconPaw style={{ width: 18, height: 18 }} />
             </div>
             <span className="sidebar-logo-text">
-              Pet<span>Agenda</span>
+              SA<span>IP</span>
             </span>
           </>
         )}
@@ -117,7 +117,7 @@ export default function ClienteSidebar({ userName, userEmail }: Props) {
 
       <div className="sidebar-footer">
         <div className="sidebar-user" title={userEmail}>
-          <div className="sidebar-avatar" style={{ background: 'linear-gradient(135deg, var(--accent-500), var(--accent-600))' }}>
+          <div className="sidebar-avatar" style={{ background: 'linear-gradient(135deg, var(--primary-400), var(--primary-700))' }}>
             {initials}
           </div>
           {!colapsada && (

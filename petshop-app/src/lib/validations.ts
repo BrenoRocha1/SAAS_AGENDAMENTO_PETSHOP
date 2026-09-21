@@ -202,6 +202,15 @@ export const horarioSchema = z.object({
   path: ['hr_fim'],
 })
 
+// Produto opcional adicionado junto de um agendamento online (migration
+// 039) — só produtos com disponivel_agendamento_online=true chegam a
+// aparecer pro cliente escolher, mas o banco confere tudo de novo
+// (mesma loja, ativo, disponível, estoque) antes de aceitar.
+const itemProdutoAgendamentoSchema = z.object({
+  id_produto: z.string().uuid(),
+  quantidade: z.number().positive('Quantidade inválida'),
+})
+
 export const agendamentoSchema = z.object({
   id_lojista: z.string().uuid(),
   id_pet: z.string().uuid(),
@@ -213,6 +222,7 @@ export const agendamentoSchema = z.object({
   dt_agendamento: z.string().refine(d => d >= hojeBrasilISO(), 'Data de agendamento não pode ser passada'),
   hr_agendamento: z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM'),
   obs: z.string().max(500).optional(),
+  produtos: z.array(itemProdutoAgendamentoSchema).max(20).optional(),
 })
 
 // Carrinho com um ou mais serviços — link público /agendamento/[id_lojista]
@@ -226,6 +236,7 @@ export const agendamentoOnlineSchema = z.object({
   dt_agendamento: z.string().refine(d => d >= hojeBrasilISO(), 'Data de agendamento não pode ser passada'),
   hr_agendamento: z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM'),
   obs: z.string().max(500).optional(),
+  produtos: z.array(itemProdutoAgendamentoSchema).max(20).optional(),
 })
 
 // Agendamento criado pelo LOJISTA (walk-in/telefone) em nome de um cliente
@@ -247,6 +258,9 @@ export const funcionarioSchema = z.object({
   cargo: z.string().max(100).optional(),
   pode_gerenciar_agenda: z.boolean().default(true),
   pode_gerenciar_servicos: z.boolean().default(false),
+  // Permissão própria desde a migration 040 — antes reaproveitava
+  // pode_gerenciar_servicos (ver comentário em actions.ts).
+  pode_gerenciar_produtos: z.boolean().default(false),
   pode_gerenciar_clientes_pets: z.boolean().default(false),
   // Só o responsável pela conta (o lojista de verdade) pode marcar isso —
   // checado em código (cadastrarFuncionarioAction) e garantido de novo
@@ -262,8 +276,61 @@ export const editarFuncionarioSchema = z.object({
   cargo: z.string().max(100).optional(),
   pode_gerenciar_agenda: z.boolean().default(true),
   pode_gerenciar_servicos: z.boolean().default(false),
+  pode_gerenciar_produtos: z.boolean().default(false),
   pode_gerenciar_clientes_pets: z.boolean().default(false),
   acesso_total: z.boolean().default(false),
+})
+
+// Avaliação deixada pelo cliente depois de um atendimento finalizado
+// (migration 034). Nota inteira de 1 a 5 — o banco repete a mesma regra
+// (SMALLINT + CHECK BETWEEN 1 AND 5), porque validação de formulário não
+// é segurança. Comentário é opcional e segue o limite de 500 caracteres
+// que o resto do sistema já usa pra texto livre (agendamento.obs).
+// Som de novos agendamentos (migration 036) — mesma lista de 5 valores
+// que o CHECK do banco aceita; manter os dois sincronizados.
+export const somNotificacaoSchema = z.object({
+  ativo: z.boolean(),
+  tipo: z.enum(['sino', 'notificacao', 'campainha', 'alerta_suave', 'alerta_duplo']),
+})
+
+export const avaliacaoSchema = z.object({
+  nota: z
+    .number()
+    .int('Escolha uma nota de 1 a 5')
+    .min(1, 'Escolha uma nota de 1 a 5')
+    .max(5, 'Escolha uma nota de 1 a 5'),
+  comentario: z.string().max(500, 'O comentário pode ter no máximo 500 caracteres').optional(),
+})
+
+// Categoria de produto, criada pela própria loja (migration 038).
+export const categoriaProdutoSchema = z.object({
+  nome: z.string().min(2, 'Nome muito curto').max(50, 'Nome muito longo'),
+})
+
+// Produtos vendidos pela loja (migrations 037/038) — catálogo simples,
+// sem pretensão de virar um controle de estoque completo. Unidade de
+// venda é um conjunto fechado, mesmo do CHECK do banco; mantenha os dois
+// sincronizados se a lista mudar. Categoria referencia categoria_produto
+// (id_categoria), que a própria loja cadastra.
+export const produtoSchema = z.object({
+  nome: z.string().min(2, 'Nome muito curto').max(100, 'Nome muito longo'),
+  id_categoria: z.string().uuid('Selecione uma categoria'),
+  unidade_venda: z.enum(['unidade', 'kg', 'litro', 'caixa', 'pacote']),
+  preco_venda: z.number().min(0, 'Preço inválido'),
+  estoque_atual: z.number().min(0, 'Estoque inválido'),
+  estoque_minimo: z.number().min(0, 'Estoque mínimo inválido'),
+  // migration 039 — libera o produto pra aparecer no Agendamento Online
+  // (link público e conta do cliente), pro cliente comprar junto do serviço.
+  disponivel_agendamento_online: z.boolean().default(false),
+})
+
+// Adicionar ou remover estoque de um produto já cadastrado — ver
+// fn_movimentar_estoque (migration 037), que aplica a mudança de forma
+// atômica e grava o histórico.
+export const movimentoEstoqueSchema = z.object({
+  tipo: z.enum(['entrada', 'saida']),
+  quantidade: z.number().positive('Informe uma quantidade maior que zero'),
+  motivo: z.string().max(200, 'Motivo muito longo').optional(),
 })
 
 // ============================================================
@@ -333,3 +400,8 @@ export type FuncionarioData = z.infer<typeof funcionarioSchema>
 export type EditarFuncionarioData = z.infer<typeof editarFuncionarioSchema>
 export type CadastroClienteLojistaData = z.infer<typeof cadastroClienteLojistaSchema>
 export type RedefinirSenhaData = z.infer<typeof redefinirSenhaSchema>
+export type AvaliacaoData = z.infer<typeof avaliacaoSchema>
+export type SomNotificacaoData = z.infer<typeof somNotificacaoSchema>
+export type ProdutoData = z.infer<typeof produtoSchema>
+export type MovimentoEstoqueData = z.infer<typeof movimentoEstoqueSchema>
+export type CategoriaProdutoData = z.infer<typeof categoriaProdutoSchema>

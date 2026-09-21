@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { criarAgendamentoOnlineAction, atualizarClassificacaoPetAction, logoutAction } from '@/lib/actions'
 import { removerHorariosPassados } from '@/lib/agenda'
+import { rotuloUnidade } from '@/lib/produto'
 import { formatarCpf, formatarTelefone } from '@/lib/format'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
+import { Estrelas, formatarMedia } from './Estrelas'
 import {
   IconAlert,
   IconCheck,
@@ -17,6 +19,7 @@ import {
   IconClock,
   IconClose,
   IconDog,
+  IconPackage,
   IconPaw,
   IconScissors,
   IconWhatsapp,
@@ -53,11 +56,6 @@ interface Servico {
   preco: number
   duracao: number
 }
-interface Funcionario {
-  id_funcionario: string
-  nome: string
-  cargo: string | null
-}
 interface Pet {
   id_pet: string
   nome: string
@@ -66,17 +64,35 @@ interface Pet {
   porte: 'Pequeno' | 'Médio' | 'Grande' | null
   sexo: string
 }
+// Produtos com disponivel_agendamento_online=true (migration 039) — o
+// cliente pode adicionar junto do(s) serviço(s), no resumo (step 5).
+interface Produto {
+  id_produto: string
+  nome: string
+  preco_venda: number
+  unidade_venda: string
+  estoque_atual: number
+}
 interface Cliente {
   nome: string
   telefone: string
   cpf: string
+}
+// Recorte público das avaliações (fn_avaliacoes_resumo_publico +
+// fn_avaliacoes_publicas, migration 034) — só primeiro nome de quem
+// avaliou, nunca telefone/e-mail/CPF/id.
+interface AvaliacoesPublicas {
+  media: number | null
+  total: number
+  recentes: { nota: number; comentario: string; primeiro_nome: string; created_at: string }[]
 }
 interface Props {
   lojista: Lojista
   horarios: Horario[]
   janela: Janela
   servicos: Servico[]
-  funcionarios: Funcionario[]
+  produtos: Produto[]
+  avaliacoes: AvaliacoesPublicas
   pets: Pet[]
   cliente: Cliente
   autenticado: boolean
@@ -114,7 +130,7 @@ function ProgressoEtapas({ passo }: { passo: number }) {
 }
 
 export default function AgendamentoOnlineWizard({
-  lojista, horarios, janela, servicos, funcionarios, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
+  lojista, horarios, janela, servicos, produtos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [step, setStep] = useState<Step>(1)
@@ -130,12 +146,12 @@ export default function AgendamentoOnlineWizard({
   const [carrinho, setCarrinho] = useState<string[]>(carrinhoInicial)
   const [pets, setPets] = useState<Pet[]>(petsIniciais)
   const [petId, setPetId] = useState('')
-  const [funcionarioId, setFuncionarioId] = useState('')
   const [data, setData] = useState('')
   const [horaInicio, setHoraInicio] = useState('')
   const [obs, setObs] = useState('')
   const [slots, setSlots] = useState<Slot[] | null>(null)
   const [precos, setPrecos] = useState<Record<string, number>>({})
+  const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, string>>({})
 
   // Classificação pendente (espécie/porte) do pet escolhido, quando falta
   const [especieForm, setEspecieForm] = useState<'Cão' | 'Gato' | ''>('')
@@ -148,8 +164,15 @@ export default function AgendamentoOnlineWizard({
   const servicosCarrinho = servicos.filter(s => carrinho.includes(s.id_servico))
   const duracaoTotal = servicosCarrinho.reduce((acc, s) => acc + s.duracao, 0)
   const valorTotal = servicosCarrinho.reduce((acc, s) => acc + Number(precos[s.id_servico] ?? s.preco), 0)
-  const funcionarioSel = funcionarios.find(f => f.id_funcionario === funcionarioId) ?? null
   const precisaClassificar = !!petSel && (!petSel.especie || !petSel.porte)
+  const itensCarrinhoProdutos = useMemo(() =>
+    produtos
+      .map(produto => ({ produto, quantidade: parseFloat(quantidadesProdutos[produto.id_produto] || '0') }))
+      .filter(item => item.quantidade > 0),
+    [produtos, quantidadesProdutos]
+  )
+  const totalProdutos = itensCarrinhoProdutos.reduce((acc, i) => acc + i.produto.preco_venda * i.quantidade, 0)
+  const totalGeral = valorTotal + totalProdutos
 
   // Preço real (considerando variação por porte/raça) assim que há pet + carrinho
   useEffect(() => {
@@ -168,7 +191,9 @@ export default function AgendamentoOnlineWizard({
     return () => { cancelado = true }
   }, [petId, carrinho]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Horários disponíveis (considerando o profissional escolhido, se houver)
+  // Horários disponíveis — o cliente não escolhe mais o profissional (a
+  // loja atribui depois), então sempre chama a RPC sem esse filtro
+  // (p_id_funcionario usa o próprio DEFAULT NULL dela).
   useEffect(() => {
     if (!data || duracaoTotal === 0) return
     const dataSelecionada = data
@@ -177,13 +202,12 @@ export default function AgendamentoOnlineWizard({
         p_id_lojista: lojista.id,
         p_data: data,
         p_duracao: duracaoTotal,
-        p_id_funcionario: funcionarioId || null,
       })
       .then(({ data: rows }) => {
         setSlots(removerHorariosPassados((rows ?? []) as Slot[], dataSelecionada))
         setHoraInicio('')
       })
-  }, [data, duracaoTotal, funcionarioId, lojista.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, duracaoTotal, lojista.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function alternarServico(id: string) {
     setCarrinho(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -230,11 +254,13 @@ export default function AgendamentoOnlineWizard({
     const fd = new FormData()
     fd.set('id_lojista', lojista.id)
     fd.set('id_pet', petId)
-    if (funcionarioId) fd.set('id_funcionario', funcionarioId)
     fd.set('servicos', JSON.stringify(carrinho))
     fd.set('dt_agendamento', data)
     fd.set('hr_agendamento', horaInicio)
     fd.set('obs', obs)
+    if (itensCarrinhoProdutos.length > 0) {
+      fd.set('produtos', JSON.stringify(itensCarrinhoProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))))
+    }
 
     startTransition(async () => {
       const result = await criarAgendamentoOnlineAction(fd)
@@ -257,9 +283,10 @@ export default function AgendamentoOnlineWizard({
   const mensagemWhatsapp = [
     `Olá! Acabei de agendar em ${lojista.nome}:`,
     ...servicosCarrinho.map(s => `- ${s.nome}`),
+    ...itensCarrinhoProdutos.map(i => `- ${i.produto.nome} (${i.quantidade} ${rotuloUnidade(i.produto.unidade_venda)})`),
     `Pet: ${petSel?.nome ?? ''}`,
     `Data: ${data ? format(new Date(data + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR }) : ''} às ${horaInicio}`,
-    `Total: R$ ${valorTotal.toFixed(2)}`,
+    `Total: R$ ${totalGeral.toFixed(2)}`,
   ].join('\n')
 
   const enderecoCompleto = [lojista.endereco, lojista.cidade && lojista.estado ? `${lojista.cidade}, ${lojista.estado}` : lojista.cidade].filter(Boolean).join(' — ')
@@ -511,17 +538,9 @@ export default function AgendamentoOnlineWizard({
         </div>
       )}
 
-      {/* STEP 4 — Profissional, dia e hora */}
+      {/* STEP 4 — Dia e hora */}
       {step === 4 && (
         <div className="card">
-          <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-4)' }}>Escolha o profissional</h2>
-          <select className="form-select" value={funcionarioId} onChange={e => setFuncionarioId(e.target.value)} style={{ marginBottom: 'var(--space-6)' }}>
-            <option value="">Sem preferência</option>
-            {funcionarios.map(f => (
-              <option key={f.id_funcionario} value={f.id_funcionario}>{f.nome}{f.cargo ? ` — ${f.cargo}` : ''}</option>
-            ))}
-          </select>
-
           <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-3)' }}>Selecione o dia</h2>
           <div style={{ marginBottom: 'var(--space-6)' }}>
             <SeletorDeData
@@ -591,14 +610,50 @@ export default function AgendamentoOnlineWizard({
           <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 'var(--space-5)' }}>
             <div className="agenonline-resumo-row"><span className="text-muted">Pet</span><span>{petSel?.nome} — {petSel?.raca}</span></div>
             <div className="agenonline-resumo-row"><span className="text-muted">Tutor</span><span>{cliente.nome}</span></div>
-            <div className="agenonline-resumo-row"><span className="text-muted">Profissional</span><span>{funcionarioSel?.nome ?? 'Sem preferência'}</span></div>
             <div className="agenonline-resumo-row">
               <span className="text-muted">Data e hora</span>
               <span>{format(new Date(data + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })} às {horaInicio}</span>
             </div>
             <div className="agenonline-resumo-row"><span className="text-muted">Duração total</span><span>{duracaoTotal} minutos</span></div>
-            <div className="agenonline-resumo-row"><span className="font-semibold">Valor Total</span><span className="font-semibold text-success">R$ {valorTotal.toFixed(2)}</span></div>
+            <div className="agenonline-resumo-row"><span className="font-semibold">{totalProdutos > 0 ? 'Total (serviços + produtos)' : 'Valor Total'}</span><span className="font-semibold text-success">R$ {totalGeral.toFixed(2)}</span></div>
           </div>
+
+          {produtos.length > 0 && (
+            <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
+              <label className="form-label">Adicionar produtos (opcional)</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                {produtos.map(p => (
+                  <div
+                    key={p.id_produto}
+                    className="flex items-center gap-3"
+                    style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--gray-850)', border: '1px solid var(--gray-800)', borderRadius: 'var(--radius-sm)' }}
+                  >
+                    <IconPackage style={{ width: 15, height: 15, color: 'var(--gray-500)', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div className="text-sm font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</div>
+                      <div className="text-xs text-muted">R$ {Number(p.preco_venda).toFixed(2)} / {rotuloUnidade(p.unidade_venda)}</div>
+                    </div>
+                    <input
+                      type="number"
+                      className="form-input"
+                      style={{ width: 90 }}
+                      min="0"
+                      max={p.estoque_atual}
+                      step={p.unidade_venda === 'kg' || p.unidade_venda === 'litro' ? '0.1' : '1'}
+                      placeholder="0"
+                      value={quantidadesProdutos[p.id_produto] ?? ''}
+                      onChange={e => setQuantidadesProdutos(prev => ({ ...prev, [p.id_produto]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
+              {totalProdutos > 0 && (
+                <p className="text-sm text-success font-semibold" style={{ marginTop: 'var(--space-2)' }}>
+                  Subtotal produtos: R$ {totalProdutos.toFixed(2)}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="form-group">
             <label className="form-label">Observações (opcional)</label>
@@ -723,9 +778,36 @@ export default function AgendamentoOnlineWizard({
                 </div>
               </div>
 
-              <p className="text-xs text-muted">
-                Avaliações de clientes ainda não estão disponíveis nesta loja.
-              </p>
+              <div>
+                <div className="font-semibold text-sm" style={{ color: 'var(--gray-100)', marginBottom: 'var(--space-2)' }}>Avaliações</div>
+                {avaliacoes.total === 0 || avaliacoes.media == null ? (
+                  // Sem avaliação nenhuma: nada de "0 estrelas" nem média inventada.
+                  <p className="text-sm text-muted">Ainda não há avaliações para esta loja.</p>
+                ) : (
+                  <>
+                    <div className="avaliacao-media" style={{ marginBottom: 'var(--space-2)' }}>
+                      <Estrelas nota={avaliacoes.media} />
+                      <span className="avaliacao-media-valor" style={{ fontSize: '1.125rem' }}>{formatarMedia(avaliacoes.media)}</span>
+                      <span className="text-sm text-muted">
+                        {avaliacoes.total} {avaliacoes.total === 1 ? 'avaliação' : 'avaliações'}
+                      </span>
+                    </div>
+                    {avaliacoes.recentes.map((a, i) => (
+                      <div key={i} className="avaliacao-item" style={{ padding: 'var(--space-3) 0' }}>
+                        <div className="avaliacao-item-topo" style={{ marginBottom: 'var(--space-1)' }}>
+                          <Estrelas nota={a.nota} tamanho={13} />
+                          <span className="text-xs text-muted">
+                            {a.primeiro_nome || 'Cliente'} · {format(new Date(a.created_at), 'dd/MM/yyyy')}
+                          </span>
+                        </div>
+                        <p className="avaliacao-item-comentario" style={{ fontSize: '0.875rem', marginBottom: 0 }}>
+                          &ldquo;{a.comentario}&rdquo;
+                        </p>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => setMostrarDetalheLoja(false)}>Fechar</button>

@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import { format, addDays, subDays, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
+import { classeBadgeStatus, ORDEM_ETAPA, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
+import { rotuloEstoque } from '@/lib/produto'
 import {
   IconAlert,
-  IconArrowRight,
   IconCalendar,
   IconCheck,
   IconChevronLeft,
@@ -17,26 +18,30 @@ import {
   IconUserBadge,
 } from '@/components/icons'
 
-// Reaproveita exatamente o status_agendamento existente — não existe
-// (nem é criado aqui) nenhum status "Em Andamento" no banco. A coluna do
-// meio é 'Confirmado' com o rótulo "Em Andamento" só na interface.
+// As quatro etapas do atendimento (Pendente → Aceito → Em andamento →
+// Finalizado) reaproveitam o status_agendamento existente — ver
+// src/lib/status-agendamento.ts pros rótulos e a ordem de transição.
 // 'Cancelado' fica fora do board, igual à agenda e ao dashboard.
 export interface KanbanItem {
   id_agendamento: string
   dt_agendamento: string
   hr_agendamento: string
-  status: 'Pendente' | 'Confirmado' | 'Concluído'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído'
   valor: number
   nome_pet: string
   raca_pet: string | null
   especie_pet: 'Cão' | 'Gato' | null
   porte_pet: 'Pequeno' | 'Médio' | 'Grande' | null
+  foto_pet: string | null
   nome_cliente: string
   nome_servico: string
   id_servico: string
   id_funcionario: string | null
   nome_funcionario: string | null
   obs: string | null
+  // Produtos comprados junto (migration 039) — vazio na maioria dos
+  // agendamentos, já que produto é opcional no agendamento online.
+  produtos: { nome: string; unidade_venda: string; quantidade: number; preco_unitario: number }[]
 }
 
 interface Props {
@@ -45,19 +50,23 @@ interface Props {
   itensIniciais: KanbanItem[]
   funcionarios: { id_funcionario: string; nome: string }[]
   servicos: { id_servico: string; nome: string }[]
+  // Só o responsável pela conta ou um administrador pode atribuir/trocar
+  // o profissional responsável — ver atribuirFuncionarioAction.
+  podeAtribuirProfissional: boolean
 }
 
-const COLUNAS = [
-  { status: 'Pendente' as const, titulo: 'Agendamentos Pendentes', badge: 'badge-pendente', proximo: 'Confirmado' as const, acao: 'Iniciar atendimento' },
-  { status: 'Confirmado' as const, titulo: 'Em Andamento', badge: 'badge-confirmado', proximo: 'Concluído' as const, acao: 'Finalizar' },
-  { status: 'Concluído' as const, titulo: 'Finalizado', badge: 'badge-concluido', proximo: null, acao: null },
+const COLUNAS: { status: KanbanItem['status']; titulo: string; borda: string }[] = [
+  { status: 'Pendente', titulo: 'Pendentes', borda: 'var(--status-aguardando-solid)' },
+  { status: 'Confirmado', titulo: 'Aceitos', borda: 'var(--status-aceito-solid)' },
+  { status: 'Em andamento', titulo: 'Em Andamento', borda: 'var(--status-andamento-solid)' },
+  { status: 'Concluído', titulo: 'Finalizado', borda: 'var(--status-concluido-solid)' },
 ]
 
 function parseDia(iso: string) {
   return parseISO(`${iso}T12:00:00`)
 }
 
-export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, funcionarios, servicos }: Props) {
+export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, funcionarios, servicos, podeAtribuirProfissional }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [itens, setItens] = useState(itensIniciais)
@@ -89,16 +98,22 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
     })
   }, [itens, filtroFuncionario, filtroServico])
 
-  // Usada tanto pelos botões (Pendente→Confirmado→Concluído, só pra
-  // frente) quanto pelo arrastar-e-soltar (qualquer coluna → qualquer
-  // coluna, incluindo voltar — ex.: arrastar de volta de "Finalizado"
-  // pra "Em Andamento" se foi marcado por engano).
+  // Usada tanto pelos botões quanto pelo arrastar-e-soltar. O status só
+  // anda pra frente (Pendente→Confirmado→Em andamento→Concluído) — uma
+  // vez finalizado (ou numa etapa mais avançada), não existe caminho de
+  // volta, nem por drag-and-drop nem por botão. A Server Action recusa a
+  // mesma coisa do lado do servidor; esta checagem aqui é só pra dar o
+  // feedback na hora, sem esperar a viagem até o servidor.
   //
   // Otimista: o card troca de coluna na hora, antes da resposta do
   // servidor chegar — o salvamento continua rolando por baixo dos panos
   // (startTransition) e só reverte a troca se o servidor recusar.
   function moverParaStatus(item: KanbanItem, novoStatus: KanbanItem['status']) {
     if (item.status === novoStatus) return
+    if (ORDEM_ETAPA[novoStatus] <= ORDEM_ETAPA[item.status]) {
+      setErro('Não é possível voltar para uma etapa anterior. Um agendamento finalizado não pode ser reaberto.')
+      return
+    }
     setErro(null)
     const statusAnterior = item.status
     setItens(prev => prev.map(it => it.id_agendamento === item.id_agendamento ? { ...it, status: novoStatus } : it))
@@ -134,6 +149,11 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
   }
 
   function handleDragOverColuna(e: React.DragEvent, status: KanbanItem['status']) {
+    const item = itens.find(it => it.id_agendamento === draggingId)
+    // Etapa igual ou anterior à atual — não chama preventDefault(), então
+    // o navegador mantém o comportamento padrão de "não pode soltar aqui"
+    // (cursor de proibido, sem highlight na coluna).
+    if (item && ORDEM_ETAPA[status] <= ORDEM_ETAPA[item.status]) return
     e.preventDefault() // sem isso o navegador não permite soltar aqui
     e.dataTransfer.dropEffect = 'move'
     if (colunaAlvo !== status) setColunaAlvo(status)
@@ -283,9 +303,9 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
             const itensDaColuna = itensFiltrados.filter(it => it.status === coluna.status)
             return (
               <div key={coluna.status} className="kanban-column">
-                <div className={`kanban-column-header kanban-column-header--${coluna.status}`}>
+                <div className="kanban-column-header" style={{ borderTopColor: coluna.borda }}>
                   <span>{coluna.titulo}</span>
-                  <span className={`badge ${coluna.badge}`}>{itensDaColuna.length}</span>
+                  <span className={`badge ${classeBadgeStatus(coluna.status)}`}>{itensDaColuna.length}</span>
                 </div>
 
                 <div
@@ -305,7 +325,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                         <div
                           key={item.id_agendamento}
                           className={`kanban-card ${draggingId === item.id_agendamento ? 'is-dragging' : ''}`}
-                          draggable={!(isPending && pendingId === item.id_agendamento)}
+                          draggable={item.status !== 'Concluído' && !(isPending && pendingId === item.id_agendamento)}
                           onDragStart={e => handleDragStart(e, item)}
                           onDragEnd={handleDragEnd}
                           onClick={() => handleCardClick(item)}
@@ -319,7 +339,14 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                           </div>
 
                           <div className="kanban-card-main">
-                            <IconDog style={{ width: 16, height: 16, color: 'var(--gray-400)', flexShrink: 0, marginTop: 2 }} />
+                            <div className="pet-avatar">
+                              {item.foto_pet ? (
+                                // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+                                <img src={item.foto_pet} alt={item.nome_pet} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                <IconDog style={{ width: 14, height: 14, color: 'var(--gray-500)' }} />
+                              )}
+                            </div>
                             <div>
                               <div className="kanban-card-pet">{item.nome_pet}</div>
                               {pet && <div className="text-xs text-muted">{pet}</div>}
@@ -333,18 +360,6 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                             <IconUserBadge style={{ width: 13, height: 13 }} />
                             {item.nome_funcionario ?? 'Sem profissional'}
                           </div>
-
-                          {coluna.proximo && (
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-sm btn-full"
-                              style={{ marginTop: 'var(--space-3)' }}
-                              onClick={e => { e.stopPropagation(); moverParaStatus(item, coluna.proximo!) }}
-                              disabled={isPending && pendingId === item.id_agendamento}
-                            >
-                              {isPending && pendingId === item.id_agendamento ? 'Salvando...' : (<>{coluna.acao} <IconArrowRight style={{ width: 13, height: 13 }} /></>)}
-                            </button>
-                          )}
                         </div>
                       )
                     })
@@ -373,13 +388,40 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                 </div>
               )}
 
+              <div className="flex items-center gap-3" style={{ marginBottom: 'var(--space-4)' }}>
+                <div className="pet-avatar" style={{ width: 48, height: 48 }}>
+                  {selecionado.foto_pet ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+                    <img src={selecionado.foto_pet} alt={selecionado.nome_pet} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <IconDog style={{ width: 22, height: 22, color: 'var(--gray-500)' }} />
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, color: 'var(--gray-100)' }}>{selecionado.nome_pet}</div>
+                  {descricaoPet(selecionado) && <div className="text-xs text-muted">{descricaoPet(selecionado)}</div>}
+                </div>
+              </div>
+
               <div className="dash-detail-row"><span>Cliente</span><span>{selecionado.nome_cliente}</span></div>
-              <div className="dash-detail-row"><span>Pet</span><span>{selecionado.nome_pet}{descricaoPet(selecionado) ? ` · ${descricaoPet(selecionado)}` : ''}</span></div>
               <div className="dash-detail-row"><span>Serviço</span><span>{selecionado.nome_servico}</span></div>
+              {selecionado.produtos.length > 0 && (
+                <div className="dash-detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
+                  <span>Produtos</span>
+                  <div style={{ width: '100%' }}>
+                    {selecionado.produtos.map((p, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm" style={{ color: 'var(--gray-300)' }}>
+                        <span>{p.nome} — {rotuloEstoque(p.quantidade, p.unidade_venda)}</span>
+                        <span className="font-semibold text-success">R$ {(p.preco_unitario * p.quantidade).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="dash-detail-row"><span>Data</span><span>{format(parseDia(selecionado.dt_agendamento), 'dd/MM/yyyy')}</span></div>
               <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>
               <div className="dash-detail-row"><span>Valor</span><span>R$ {selecionado.valor.toFixed(2)}</span></div>
-              <div className="dash-detail-row"><span>Status</span><span>{selecionado.status}</span></div>
+              <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(selecionado.status)}`}>{rotuloStatus(selecionado.status)}</span></span></div>
               {selecionado.obs && (
                 <div className="dash-detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
                   <span>Descrição</span>
@@ -388,36 +430,35 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
               )}
 
               {funcionarios.length > 0 && (
-                <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-                  <label className="form-label">Profissional responsável</label>
-                  <select
-                    className="form-select"
-                    value={selecionado.id_funcionario ?? ''}
-                    onChange={e => atribuirModal(e.target.value)}
-                    disabled={isPending}
-                  >
-                    <option value="">Sem profissional</option>
-                    {funcionarios.map(f => (
-                      <option key={f.id_funcionario} value={f.id_funcionario}>{f.nome}</option>
-                    ))}
-                  </select>
-                </div>
+                podeAtribuirProfissional ? (
+                  <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+                    <label className="form-label">Profissional responsável</label>
+                    <select
+                      className="form-select"
+                      value={selecionado.id_funcionario ?? ''}
+                      onChange={e => atribuirModal(e.target.value)}
+                      disabled={isPending}
+                    >
+                      <option value="">Sem profissional</option>
+                      {funcionarios.map(f => (
+                        <option key={f.id_funcionario} value={f.id_funcionario}>{f.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="dash-detail-row"><span>Profissional responsável</span><span>{selecionado.nome_funcionario ?? 'Sem profissional'}</span></div>
+                )
               )}
 
-              {selecionado.status === 'Pendente' && (
+              {(selecionado.status === 'Pendente' || selecionado.status === 'Confirmado' || selecionado.status === 'Em andamento') && (
                 <div className="dash-detail-actions">
-                  <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatusModal('Confirmado')}>
-                    <IconCheck style={{ width: 14, height: 14 }} /> Confirmar
-                  </button>
-                  <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={cancelarModal}>
-                    Cancelar
-                  </button>
-                </div>
-              )}
-              {selecionado.status === 'Confirmado' && (
-                <div className="dash-detail-actions">
-                  <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatusModal('Concluído')}>
-                    <IconCheck style={{ width: 14, height: 14 }} /> Concluir
+                  <button
+                    className="btn btn-success btn-sm"
+                    style={{ flex: 1 }}
+                    disabled={isPending}
+                    onClick={() => mudarStatusModal(PROXIMA_ETAPA[selecionado.status]!.status)}
+                  >
+                    <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[selecionado.status]!.acao}
                   </button>
                   <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={cancelarModal}>
                     Cancelar
@@ -425,11 +466,9 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                 </div>
               )}
               {selecionado.status === 'Concluído' && (
-                <div className="dash-detail-actions">
-                  <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatusModal('Confirmado')}>
-                    Reabrir (voltar pra Em Andamento)
-                  </button>
-                </div>
+                <p className="text-sm text-muted" style={{ marginTop: 'var(--space-3)' }}>
+                  Agendamento finalizado — o status não pode mais ser alterado.
+                </p>
               )}
             </div>
           </div>

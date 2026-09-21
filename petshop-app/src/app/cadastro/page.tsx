@@ -115,7 +115,7 @@ export default function CadastroClientePage() {
             <span className="login-brand-mark">
               <IconPaw />
             </span>
-            <span className="login-brand-name">PetShop Agenda</span>
+            <span className="login-brand-name">SAIP</span>
           </div>
 
           <h1 className="login-heading">Criar conta</h1>

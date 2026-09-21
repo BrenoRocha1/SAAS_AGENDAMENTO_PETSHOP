@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
-import { format, subDays } from 'date-fns'
+import { format } from 'date-fns'
 import { agoraBrasil } from '@/lib/agenda'
 import DashboardClient, { type AgendaItem, type ClienteComPets, type PendenteItem, type ServicoAtivo } from '@/components/lojista/DashboardClient'
 
@@ -25,18 +25,16 @@ export default async function LojistaDashboard({ searchParams }: Props) {
   // ver src/lib/agenda.ts.
   const hoje = agoraBrasil()
   const hojeISO = toISODate(hoje)
-  const ontemISO = toISODate(subDays(hoje, 1))
   const selectedDate = params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO
 
   // Todas as consultas abaixo são independentes entre si (só precisam do
   // lojistaId) — disparadas juntas numa única leva em vez de uma atrás da
   // outra, que é o que fazia a navegação entre páginas parecer lenta
-  // (cada troca de página refaz essas 9 idas ao banco em sequência).
+  // (cada troca de página refaz essas idas ao banco em sequência).
   const [
     { data: lojista },
     { data: metricas },
     { data: agendaHoje },
-    { data: agendaOntem },
     { data: agendaSelecionada },
     { data: slotsHoje },
     { data: pendentesRaw },
@@ -48,7 +46,6 @@ export default async function LojistaDashboard({ searchParams }: Props) {
     supabase.from('lojista').select('nome_loja, slug').eq('id_lojista', lojistaId).single(),
     supabase.rpc('fn_metricas_lojista', { p_id_lojista: lojistaId }),
     supabase.rpc('fn_agenda_dia', { p_id_lojista: lojistaId, p_data: hojeISO }),
-    supabase.rpc('fn_agenda_dia', { p_id_lojista: lojistaId, p_data: ontemISO }),
     selectedDate === hojeISO
       ? Promise.resolve({ data: null })
       : supabase.rpc('fn_agenda_dia', { p_id_lojista: lojistaId, p_data: selectedDate }),
@@ -96,23 +93,14 @@ export default async function LojistaDashboard({ searchParams }: Props) {
   const m = (metricas as Record<string, number>) ?? {}
 
   const listaHoje = (agendaHoje ?? []) as AgendaItem[]
-  const listaOntem = (agendaOntem ?? []) as AgendaItem[]
   const listaSelecionada = selectedDate === hojeISO ? listaHoje : ((agendaSelecionada ?? []) as AgendaItem[])
 
   const faturamentoHoje = listaHoje.reduce((acc, a) => acc + Number(a.valor), 0)
-  const faturamentoOntem = listaOntem.reduce((acc, a) => acc + Number(a.valor), 0)
 
-  // "Pets em atendimento agora": confirmados cujo horário de hoje já começou e ainda não terminou
-  const agoraMin = hoje.getHours() * 60 + hoje.getMinutes()
-  function minutos(hhmmss: string) {
-    const [h, mm] = hhmmss.split(':').map(Number)
-    return h * 60 + mm
-  }
-  const emAtendimento = listaHoje.filter(a => {
-    if (a.status !== 'Confirmado') return false
-    const inicio = minutos(a.hr_agendamento)
-    return agoraMin >= inicio && agoraMin < inicio + a.duracao
-  })
+  // "Pets em atendimento agora": a etapa 'Em andamento' já É o
+  // atendimento acontecendo agora (migration 032) — não precisa mais
+  // inferir pelo horário, o status é a fonte da verdade.
+  const emAtendimento = listaHoje.filter(a => a.status === 'Em andamento')
 
   // ── Horários livres hoje (reaproveita fn_horarios_disponiveis com slot-base de 30min) ──
   const slots = (slotsHoje ?? []) as { hr_slot: string; disponivel: boolean }[]
@@ -159,9 +147,7 @@ export default async function LojistaDashboard({ searchParams }: Props) {
       selectedDate={selectedDate}
       stats={{
         agendamentosHoje: m.hoje ?? listaHoje.length,
-        agendamentosOntem: listaOntem.length,
         faturamentoHoje,
-        faturamentoOntem,
         petsEmAtendimento: emAtendimento.map(a => a.nome_pet),
         horariosLivresHoje: livres.length,
         proximoHorarioLivre: proximoLivre?.hr_slot ?? null,

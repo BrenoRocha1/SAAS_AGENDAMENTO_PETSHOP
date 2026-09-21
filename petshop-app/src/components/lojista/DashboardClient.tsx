@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
+import { classeBadgeStatus, corSolidaStatus, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
 import {
   format,
   parseISO,
@@ -46,7 +47,7 @@ export interface AgendaItem {
   nome_pet: string
   nome_servico: string
   duracao: number
-  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
   valor: number
 }
 
@@ -76,9 +77,7 @@ export interface ServicoAtivo {
 
 interface Stats {
   agendamentosHoje: number
-  agendamentosOntem: number
   faturamentoHoje: number
-  faturamentoOntem: number
   petsEmAtendimento: string[]
   horariosLivresHoje: number
   proximoHorarioLivre: string | null
@@ -103,13 +102,6 @@ type Selecionado =
   | { tipo: 'agenda'; item: AgendaItem }
   | { tipo: 'pendente'; item: PendenteItem }
   | null
-
-const badgeClass: Record<string, string> = {
-  Pendente: 'badge-pendente',
-  Confirmado: 'badge-confirmado',
-  'Concluído': 'badge-concluido',
-  Cancelado: 'badge-cancelado',
-}
 
 function parseDia(iso: string) {
   return parseISO(`${iso}T12:00:00`)
@@ -231,8 +223,8 @@ export default function DashboardClient({
     router.push(`/lojista/dashboard?data=${iso}`)
   }
 
-  // ── ações da agenda (confirmar / concluir / cancelar) ─────────────
-  function mudarStatus(id: string, novoStatus: 'Confirmado' | 'Concluído' | 'Cancelado') {
+  // ── ações da agenda (aceitar / iniciar / finalizar / cancelar) ────
+  function mudarStatus(id: string, novoStatus: 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado') {
     setAcaoErro(null)
     startTransition(async () => {
       const result = novoStatus === 'Cancelado'
@@ -333,10 +325,9 @@ export default function DashboardClient({
       <div className="grid-4" style={{ marginBottom: 'var(--space-8)' }}>
         <div className="stat-card animate-slide-up">
           <div className="flex items-center justify-between">
-            <div className="stat-card-icon" style={{ background: 'var(--primary-soft-bg)', border: '1px solid var(--primary-soft-border)', color: 'var(--primary-400)' }}>
+            <div className="stat-card-icon tone-primary">
               <IconCalendar style={{ width: 20, height: 20 }} />
             </div>
-            <DeltaTag atual={stats.agendamentosHoje} anterior={stats.agendamentosOntem} sufixo="vs ontem" />
           </div>
           <div className="stat-card-value">{stats.agendamentosHoje}</div>
           <div className="stat-card-label">Agendamentos hoje</div>
@@ -344,7 +335,7 @@ export default function DashboardClient({
 
         <div className="stat-card animate-slide-up">
           <div className="flex items-center justify-between">
-            <div className="stat-card-icon" style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.25)', color: 'var(--success-400)' }}>
+            <div className="stat-card-icon tone-primary">
               <IconUsers style={{ width: 20, height: 20 }} />
             </div>
           </div>
@@ -357,10 +348,9 @@ export default function DashboardClient({
 
         <div className="stat-card animate-slide-up">
           <div className="flex items-center justify-between">
-            <div className="stat-card-icon" style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.25)', color: 'var(--warning-400)' }}>
+            <div className="stat-card-icon tone-primary">
               <IconMoney style={{ width: 20, height: 20 }} />
             </div>
-            <DeltaTag atual={stats.faturamentoHoje} anterior={stats.faturamentoOntem} sufixo="vs ontem" moeda />
           </div>
           <div className="stat-card-value">R$ {stats.faturamentoHoje.toFixed(0)}</div>
           <div className="stat-card-label">Faturamento do dia</div>
@@ -368,7 +358,7 @@ export default function DashboardClient({
 
         <div className="stat-card animate-slide-up">
           <div className="flex items-center justify-between">
-            <div className="stat-card-icon" style={{ background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.25)', color: 'var(--info-400)' }}>
+            <div className="stat-card-icon tone-primary">
               <IconClock style={{ width: 20, height: 20 }} />
             </div>
           </div>
@@ -453,10 +443,13 @@ export default function DashboardClient({
               </div>
             ) : (
               <div className="timeline">
-                {agendaFiltrada.map(item => (
+                {agendaFiltrada.map(item => {
+                  const itemSelecionado = selecionado?.tipo === 'agenda' && selecionado.item.id_agendamento === item.id_agendamento
+                  return (
                   <div
                     key={item.id_agendamento}
-                    className={`timeline-item status-${item.status} ${selecionado?.tipo === 'agenda' && selecionado.item.id_agendamento === item.id_agendamento ? 'is-selected' : ''}`}
+                    className={`timeline-item ${itemSelecionado ? 'is-selected' : ''}`}
+                    style={{ borderLeftColor: itemSelecionado ? 'var(--primary-500)' : corSolidaStatus(item.status) }}
                     onClick={() => setSelecionado({ tipo: 'agenda', item })}
                   >
                     <div className="timeline-time">{item.hr_agendamento.slice(0, 5)}</div>
@@ -465,11 +458,12 @@ export default function DashboardClient({
                       <div className="timeline-sub">{item.nome_servico} · {item.duracao} min</div>
                     </div>
                     <div className="timeline-meta">
-                      <span className={`badge ${badgeClass[item.status]}`}>{item.status}</span>
+                      <span className={`badge ${classeBadgeStatus(item.status)}`}>{rotuloStatus(item.status)}</span>
                       <span className="text-sm text-success font-semibold">R$ {Number(item.valor).toFixed(2)}</span>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )
           ) : aggLoading ? (
@@ -564,18 +558,6 @@ export default function DashboardClient({
   )
 }
 
-function DeltaTag({ atual, anterior, sufixo, moeda }: { atual: number; anterior: number; sufixo: string; moeda?: boolean }) {
-  const diff = atual - anterior
-  if (diff === 0) return <span className="badge badge-inativo">= {sufixo}</span>
-  const positivo = diff > 0
-  const valor = moeda ? `R$ ${Math.abs(diff).toFixed(0)}` : Math.abs(diff)
-  return (
-    <span className={`badge ${positivo ? 'badge-ativo' : 'badge-cancelado'}`}>
-      {positivo ? '+' : '-'}{valor} {sufixo}
-    </span>
-  )
-}
-
 function DetalheAgendamento({
   selecionado,
   isPending,
@@ -583,7 +565,7 @@ function DetalheAgendamento({
 }: {
   selecionado: NonNullable<Selecionado>
   isPending: boolean
-  onMudarStatus: (id: string, status: 'Confirmado' | 'Concluído' | 'Cancelado') => void
+  onMudarStatus: (id: string, status: 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado') => void
 }) {
   const isAgenda = selecionado.tipo === 'agenda'
   const item = selecionado.item
@@ -604,22 +586,17 @@ function DetalheAgendamento({
       <div className="dash-detail-row"><span>Serviço</span><span>{servico}</span></div>
       <div className="dash-detail-row"><span>Horário</span><span>{hora}</span></div>
       <div className="dash-detail-row"><span>Valor</span><span>R$ {valor.toFixed(2)}</span></div>
-      <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${badgeClass[status]}`}>{status}</span></span></div>
+      <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(status)}`}>{rotuloStatus(status)}</span></span></div>
 
-      {status === 'Pendente' && (
+      {(status === 'Pendente' || status === 'Confirmado' || status === 'Em andamento') && (
         <div className="dash-detail-actions">
-          <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => onMudarStatus(id, 'Confirmado')}>
-            <IconCheck style={{ width: 14, height: 14 }} /> Confirmar
-          </button>
-          <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => onMudarStatus(id, 'Cancelado')}>
-            Cancelar
-          </button>
-        </div>
-      )}
-      {status === 'Confirmado' && (
-        <div className="dash-detail-actions">
-          <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => onMudarStatus(id, 'Concluído')}>
-            Concluir
+          <button
+            className="btn btn-success btn-sm"
+            style={{ flex: 1 }}
+            disabled={isPending}
+            onClick={() => onMudarStatus(id, PROXIMA_ETAPA[status]!.status)}
+          >
+            <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[status]!.acao}
           </button>
           <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => onMudarStatus(id, 'Cancelado')}>
             Cancelar

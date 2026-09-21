@@ -183,7 +183,19 @@ export default function PetsList({
               <tbody>
                 {pets.map(p => (
                   <tr key={p.id_pet}>
-                    <td className="font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</td>
+                    <td className="font-semibold" style={{ color: 'var(--gray-100)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <div className="pet-avatar">
+                          {p.foto_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+                            <img src={p.foto_url} alt={p.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <IconDog style={{ width: 14, height: 14, color: 'var(--gray-500)' }} />
+                          )}
+                        </div>
+                        {p.nome}
+                      </div>
+                    </td>
                     <td>{p.especie ?? '—'}</td>
                     <td>{p.raca}</td>
                     <td>{p.porte ?? '—'}</td>

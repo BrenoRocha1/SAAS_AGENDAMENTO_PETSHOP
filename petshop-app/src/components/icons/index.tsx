@@ -441,3 +441,60 @@ export function IconIdCard(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+// Estrela das avaliações. Vazia por padrão (só o contorno, como todo
+// ícone daqui); pra preencher, quem usa passa fill="currentColor" — os
+// props vêm depois de {...base}, então sobrescrevem o fill: none.
+export function IconStar(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m12 3.5 2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 16.95 6.75 19.7l1-5.85L3.5 9.7l5.9-.9L12 3.5Z" />
+    </svg>
+  )
+}
+
+// Botão "Ouvir" de cada som de notificação. Preenchido (fill="currentColor")
+// por padrão, diferente dos outros ícones — um triângulo de play vazado
+// fica visualmente estranho/pouco reconhecível nesse tamanho pequeno.
+export function IconPlay(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} fill="currentColor" stroke="none" {...props}>
+      <path d="M7.5 5.2c0-.9 1-1.5 1.8-1L17 8.8c.8.5.8 1.7 0 2.2l-7.7 4.6c-.8.5-1.8-.1-1.8-1V5.2Z" />
+    </svg>
+  )
+}
+
+// Caixa/pacote — item do menu "Produtos" e estado vazio da tela.
+export function IconPackage(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M21 8 12 3 3 8l9 5 9-5Z" />
+      <path d="M3 8v8l9 5 9-5V8" />
+      <path d="M12 13v8" />
+    </svg>
+  )
+}
+
+// Botão "Remover estoque" — par do IconPlus já usado pra "Adicionar".
+export function IconMinus(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 12h14" />
+    </svg>
+  )
+}
+
+// Linhas horizontais — alterna visualização em lista (par de IconGrid,
+// usado pra alternar em grade).
+export function IconList(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M8 6h13" />
+      <path d="M8 12h13" />
+      <path d="M8 18h13" />
+      <path d="M3 6h.01" />
+      <path d="M3 12h.01" />
+      <path d="M3 18h.01" />
+    </svg>
+  )
+}

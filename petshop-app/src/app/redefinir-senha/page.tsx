@@ -96,7 +96,7 @@ export default function RedefinirSenhaPage() {
             <span className="login-brand-mark">
               <IconPaw />
             </span>
-            <span className="login-brand-name">PetShop Agenda</span>
+            <span className="login-brand-name">SAIP</span>
           </div>
 
           <h1 className="login-heading">Defina sua senha</h1>

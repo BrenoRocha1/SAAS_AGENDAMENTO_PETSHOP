@@ -20,7 +20,7 @@ export const metadata: Metadata = { title: 'Relatórios de Vendas — Lojista' }
 
 const PAGE_SIZE = 20
 const PRESETS_VALIDOS: PeriodoPreset[] = ['hoje', '7dias', '30dias', 'este-mes', 'mes-anterior', 'personalizado']
-const STATUS_VALIDOS = ['Pendente', 'Confirmado', 'Concluído', 'Cancelado'] as const
+const STATUS_VALIDOS = ['Pendente', 'Confirmado', 'Em andamento', 'Concluído', 'Cancelado'] as const
 
 interface Props {
   searchParams: Promise<{
@@ -152,7 +152,7 @@ export default async function RelatoriosVendasPage({ searchParams }: Props) {
     dt_agendamento: string
     hr_agendamento: string
     valor: number
-    status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+    status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
     pet: { nome: string } | null
     servico: { nome: string } | null
     cliente: { nome: string } | null

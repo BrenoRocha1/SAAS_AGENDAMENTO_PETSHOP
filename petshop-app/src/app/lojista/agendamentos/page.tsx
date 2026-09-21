@@ -47,6 +47,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     { data: vinculos },
     { data: petsVisiveis },
     { data: servicosRaw },
+    { data: horariosRaw },
   ] = await Promise.all([
     supabase
       .from('agendamento')
@@ -86,13 +87,17 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
       .eq('id_lojista', lojistaId)
       .eq('status', 'Ativo')
       .order('nome'),
+    supabase
+      .from('horario')
+      .select('hr_inicio, hr_fim, ativo')
+      .eq('id_lojista', lojistaId),
   ])
 
   const agendamentos: AgendamentoCalendario[] = ((agendamentosRaw ?? []) as unknown as Array<{
     id_agendamento: string
     dt_agendamento: string
     hr_agendamento: string
-    status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+    status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
     valor: number
     id_funcionario: string | null
     obs: string | null
@@ -153,6 +158,24 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     ? params.novoAgendamentoProfissional
     : null
 
+  // A grade da semana mostra só o intervalo em que a loja realmente abre —
+  // pega o horário mais cedo e mais tarde entre os dias ativos (migration
+  // 020), arredondando pra fora (7h30 vira 7h, 18h30 vira 19h) pra não
+  // cortar nenhum minuto de expediente. Sem nenhum dia ativo configurado
+  // ainda, cai num intervalo padrão (7h–20h) em vez de uma grade vazia.
+  const horariosAtivos = ((horariosRaw ?? []) as Array<{ hr_inicio: string; hr_fim: string; ativo: boolean }>)
+    .filter(h => h.ativo)
+  function horaDecimal(hhmmss: string) {
+    const [h, m] = hhmmss.split(':').map(Number)
+    return h + m / 60
+  }
+  const horaInicioGrade = horariosAtivos.length > 0
+    ? Math.floor(Math.min(...horariosAtivos.map(h => horaDecimal(h.hr_inicio))))
+    : 7
+  const horaFimGrade = horariosAtivos.length > 0
+    ? Math.ceil(Math.max(...horariosAtivos.map(h => horaDecimal(h.hr_fim))))
+    : 20
+
   return (
     <AgendaCalendar
       lojistaId={lojistaId}
@@ -163,6 +186,9 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
       servicos={servicos}
       clienteFixoInicial={clienteFixoInicial}
       funcionarioIdPadraoInicial={funcionarioIdPadraoInicial}
+      podeAtribuirProfissional={contexto.acessoTotal}
+      horaInicioGrade={horaInicioGrade}
+      horaFimGrade={horaFimGrade}
     />
   )
 }

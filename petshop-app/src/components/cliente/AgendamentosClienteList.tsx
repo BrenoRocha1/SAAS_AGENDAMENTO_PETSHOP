@@ -4,20 +4,17 @@ import { useState, useTransition } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cancelarAgendamentoAction } from '@/lib/actions'
-import { IconAlert, IconScissors, IconTrash } from '@/components/icons'
-
-const statusConfig: Record<string, { label: string; cls: string }> = {
-  Pendente:   { label: 'Pendente',   cls: 'badge-pendente' },
-  Confirmado: { label: 'Confirmado', cls: 'badge-confirmado' },
-  'Concluído':  { label: 'Concluído',  cls: 'badge-concluido' },
-  Cancelado:  { label: 'Cancelado',  cls: 'badge-cancelado' },
-}
+import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
+import { rotuloEstoque } from '@/lib/produto'
+import { IconAlert, IconPackage, IconPencil, IconScissors, IconStar, IconTrash } from '@/components/icons'
+import AvaliacaoModal, { type AvaliacaoExistente } from './AvaliacaoModal'
+import { Estrelas } from './Estrelas'
 
 export interface AgendamentoCliente {
   id_agendamento: string
   dt_agendamento: string
   hr_agendamento: string
-  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
   valor: number
   obs: string | null
   pet: { nome: string; raca: string } | null
@@ -25,15 +22,31 @@ export interface AgendamentoCliente {
   lojista: { nome_loja: string; telefone: string } | null
 }
 
-interface Props {
-  agendamentos: AgendamentoCliente[]
+// Produto comprado junto de um agendamento (migration 039) — preço já é
+// o cobrado no momento da compra, não o preço atual do catálogo.
+export interface ProdutoComprado {
+  nome: string
+  unidade_venda: string
+  quantidade: number
+  preco_unitario: number
 }
 
-export default function AgendamentosClienteList({ agendamentos }: Props) {
+interface Props {
+  agendamentos: AgendamentoCliente[]
+  // Avaliações que o próprio cliente já deixou, indexadas pelo agendamento
+  // (no máximo uma por atendimento — UNIQUE no banco).
+  avaliacoes: Record<string, AvaliacaoExistente>
+  // Produtos comprados junto, indexados pelo agendamento — vazio na
+  // maioria dos casos (produto é opcional no agendamento online).
+  produtosComprados: Record<string, ProdutoComprado[]>
+}
+
+export default function AgendamentosClienteList({ agendamentos, avaliacoes, produtosComprados }: Props) {
   const [cancelId, setCancelId] = useState<string | null>(null)
   const [motivo, setMotivo] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [avaliando, setAvaliando] = useState<AgendamentoCliente | null>(null)
 
   function handleCancel(id: string) {
     setError(null)
@@ -95,8 +108,8 @@ export default function AgendamentosClienteList({ agendamentos }: Props) {
                     <span className="text-sm text-muted">{ag.lojista?.nome_loja}</span>
                   </div>
                 </div>
-                <span className={`badge ${statusConfig[ag.status]?.cls}`}>
-                  {statusConfig[ag.status]?.label}
+                <span className={`badge ${classeBadgeStatus(ag.status)}`}>
+                  {rotuloStatus(ag.status)}
                 </span>
               </div>
 
@@ -121,6 +134,22 @@ export default function AgendamentosClienteList({ agendamentos }: Props) {
                 </div>
               </div>
 
+              {produtosComprados[ag.id_agendamento]?.length > 0 && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <div className="text-xs text-muted" style={{ marginBottom: 4 }}>Produtos comprados</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {produtosComprados[ag.id_agendamento].map((p, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-1" style={{ color: 'var(--gray-300)' }}>
+                          <IconPackage style={{ width: 12, height: 12, color: 'var(--gray-500)' }} /> {p.nome} — {rotuloEstoque(p.quantidade, p.unidade_venda)}
+                        </span>
+                        <span className="font-semibold text-success">R$ {(p.preco_unitario * p.quantidade).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {ag.obs && (
                 <div
                   style={{
@@ -136,6 +165,38 @@ export default function AgendamentosClienteList({ agendamentos }: Props) {
                   {ag.obs}
                 </div>
               )}
+
+              {/* Avaliação — só existe pra atendimento Finalizado ('Concluído').
+                  A mesma regra é conferida no banco (fn_criar_avaliacao);
+                  aqui é só pra não oferecer o botão onde não cabe. */}
+              {ag.status === 'Concluído' && (() => {
+                const avaliacao = avaliacoes[ag.id_agendamento]
+                if (!avaliacao) {
+                  return (
+                    <button className="btn btn-primary btn-sm" onClick={() => setAvaliando(ag)}>
+                      <IconStar style={{ width: 14, height: 14 }} /> Avaliar atendimento
+                    </button>
+                  )
+                }
+                return (
+                  <div style={{ borderTop: '1px solid var(--gray-800)', paddingTop: 'var(--space-3)' }}>
+                    <div className="flex items-center justify-between" style={{ gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted">Sua avaliação</span>
+                        <Estrelas nota={avaliacao.nota} />
+                      </div>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setAvaliando(ag)}>
+                        <IconPencil style={{ width: 13, height: 13 }} /> Editar
+                      </button>
+                    </div>
+                    {avaliacao.comentario && (
+                      <p className="text-sm" style={{ color: 'var(--gray-300)', marginTop: 'var(--space-2)', wordBreak: 'break-word' }}>
+                        &ldquo;{avaliacao.comentario}&rdquo;
+                      </p>
+                    )}
+                  </div>
+                )
+              })()}
 
               {podeCanc && !isCanceling && (
                 <button
@@ -179,6 +240,17 @@ export default function AgendamentosClienteList({ agendamentos }: Props) {
           )
         })}
       </div>
+
+      {avaliando && (
+        <AvaliacaoModal
+          idAgendamento={avaliando.id_agendamento}
+          nomePet={avaliando.pet?.nome ?? 'Pet'}
+          nomeServico={avaliando.servico?.nome ?? 'Serviço'}
+          nomeLoja={avaliando.lojista?.nome_loja ?? ''}
+          avaliacao={avaliacoes[avaliando.id_agendamento] ?? null}
+          onClose={() => setAvaliando(null)}
+        />
+      )}
     </>
   )
 }

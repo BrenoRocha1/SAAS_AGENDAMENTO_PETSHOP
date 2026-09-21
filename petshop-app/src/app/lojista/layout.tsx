@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import LojistaSidebar from '@/components/layout/LojistaSidebar'
+import NotificacaoNovoAgendamento from '@/components/lojista/NotificacaoNovoAgendamento'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 
@@ -48,9 +49,14 @@ export default async function LojistaLayout({
   // do lojista) por causa de uma coluna que ainda não existe no banco.
   let nomeLoja = 'Meu Petshop'
   let kanbanAtivo = true
+  // Padrão ligado (mesmo default da coluna, migration 036) — se a query
+  // cheia falhar (coluna ainda não existe), a notificação sonora não fica
+  // "quebrada" por causa de uma migration pendente, só assume o padrão.
+  let somAtivo = true
+  let somTipo = 'sino'
   const { data: lojista, error: lojistaError } = await supabase
     .from('lojista')
-    .select('nome_loja, kanban_ativo')
+    .select('nome_loja, kanban_ativo, som_novo_agendamento_ativo, som_novo_agendamento_tipo')
     .eq('id_lojista', contexto.idLojista)
     .single()
 
@@ -64,6 +70,8 @@ export default async function LojistaLayout({
   } else {
     nomeLoja = lojista?.nome_loja ?? nomeLoja
     kanbanAtivo = lojista?.kanban_ativo ?? true
+    somAtivo = lojista?.som_novo_agendamento_ativo ?? true
+    somTipo = lojista?.som_novo_agendamento_tipo ?? 'sino'
   }
 
   // Nome próprio do funcionário, pro rodapé da sidebar mostrar quem está
@@ -80,6 +88,7 @@ export default async function LojistaLayout({
 
   return (
     <div className="app-layout lojista-shell">
+      <NotificacaoNovoAgendamento lojistaId={contexto.idLojista} somAtivo={somAtivo} somTipo={somTipo} />
       <LojistaSidebar
         nomeLoja={nomeLoja}
         nomeUsuario={nomeUsuario}
@@ -88,6 +97,7 @@ export default async function LojistaLayout({
         role={contexto.role}
         podeGerenciarAgenda={contexto.podeGerenciarAgenda}
         podeGerenciarServicos={contexto.podeGerenciarServicos}
+        podeGerenciarProdutos={contexto.podeGerenciarProdutos}
         podeGerenciarClientesPets={contexto.podeGerenciarClientesPets}
         acessoTotal={contexto.acessoTotal}
       />

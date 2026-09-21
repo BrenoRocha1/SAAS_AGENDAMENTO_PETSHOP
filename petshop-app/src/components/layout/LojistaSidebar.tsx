@@ -12,6 +12,7 @@ import {
   IconChartBar,
   IconDog,
   IconScissors,
+  IconPackage,
   IconUsers,
   IconSettings,
   IconLogout,
@@ -32,12 +33,13 @@ const navItemsBase = [
   { href: '/lojista/kanban',        icon: IconKanban,    label: 'Kanban', condicional: true, permissao: 'agenda' as const },
   { href: '/lojista/relatorios',    icon: IconChartBar,  label: 'Relatórios de Vendas', restrito: true },
   { href: '/lojista/servicos',      icon: IconScissors,  label: 'Serviços', permissao: 'servicos' as const },
+  { href: '/lojista/produtos',      icon: IconPackage,   label: 'Produtos', permissao: 'produtos' as const },
   { href: '/lojista/clientes',      icon: IconUsers,     label: 'Clientes', permissao: 'clientesPets' as const },
   { href: '/lojista/pets',          icon: IconDog,       label: 'Pets', permissao: 'clientesPets' as const },
   { href: '/lojista/configuracoes', icon: IconSettings,  label: 'Configurações', restrito: true },
 ]
 
-const CHAVE_COLAPSADA = 'petagenda:lojista-sidebar-colapsada'
+const CHAVE_COLAPSADA = 'saip:lojista-sidebar-colapsada'
 
 interface Props {
   nomeLoja: string
@@ -47,6 +49,7 @@ interface Props {
   role?: 'lojista' | 'funcionario'
   podeGerenciarAgenda?: boolean
   podeGerenciarServicos?: boolean
+  podeGerenciarProdutos?: boolean
   podeGerenciarClientesPets?: boolean
   acessoTotal?: boolean
 }
@@ -59,6 +62,7 @@ export default function LojistaSidebar({
   role = 'lojista',
   podeGerenciarAgenda = true,
   podeGerenciarServicos = true,
+  podeGerenciarProdutos = true,
   podeGerenciarClientesPets = true,
   acessoTotal = true,
 }: Props) {
@@ -71,6 +75,7 @@ export default function LojistaSidebar({
       if (item.restrito) return false
       if (item.permissao === 'agenda') return podeGerenciarAgenda
       if (item.permissao === 'servicos') return podeGerenciarServicos
+      if (item.permissao === 'produtos') return podeGerenciarProdutos
       if (item.permissao === 'clientesPets') return podeGerenciarClientesPets
     }
     return true
@@ -125,7 +130,7 @@ export default function LojistaSidebar({
               <IconPaw style={{ width: 18, height: 18 }} />
             </div>
             <span className="sidebar-logo-text">
-              Pet<span>Agenda</span>
+              SA<span>IP</span>
             </span>
           </>
         )}
@@ -164,7 +169,7 @@ export default function LojistaSidebar({
       {/* Loja + Logout */}
       <div className="sidebar-footer">
         <div className="sidebar-user" title={userEmail}>
-          <div className="sidebar-avatar" style={{ background: 'linear-gradient(135deg, var(--accent-500), var(--accent-600))' }}>
+          <div className="sidebar-avatar" style={{ background: 'linear-gradient(135deg, var(--primary-400), var(--primary-700))' }}>
             {initial}
           </div>
           {!colapsada && (

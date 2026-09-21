@@ -1,0 +1,28 @@
+-- ============================================================
+-- PETSHOP SaaS - Migration 032: nova etapa "Em andamento"
+-- ============================================================
+--
+-- O atendimento passa a ter quatro etapas:
+--   Pendente → Aceito → Em andamento → Finalizado
+--
+-- Só falta UM valor no enum. Os outros três já existem, com outro nome:
+--   'Confirmado' é a etapa que a tela chama de "Aceito"
+--   'Concluído'  é a etapa que a tela chama de "Finalizado"
+--
+-- Os nomes no banco ficam como estão de propósito: renomear um valor de
+-- enum (ALTER TYPE ... RENAME VALUE) obrigaria a reescrever todas as
+-- funções SQL que comparam com 'Confirmado'/'Concluído' — são dezenas,
+-- espalhadas por 11 migrations (agendamento online, janela de
+-- agendamento, relatório de vendas, horários disponíveis...). O rótulo
+-- de cada etapa vive em src/lib/status-agendamento.ts.
+--
+-- Os agendamentos que hoje estão em 'Confirmado' passam a significar
+-- "Aceito", que é exatamente o que eles já eram: aceitos pela loja e
+-- ainda não atendidos. Nenhuma linha precisa ser migrada.
+--
+-- Nada mais precisa mudar no banco: as funções que reservam horário
+-- filtram por status <> 'Cancelado', então a etapa nova já conta como
+-- horário ocupado; e o relatório de vendas soma só 'Concluído', que
+-- continua sendo o fim da linha.
+
+ALTER TYPE status_agendamento ADD VALUE IF NOT EXISTS 'Em andamento' AFTER 'Confirmado';

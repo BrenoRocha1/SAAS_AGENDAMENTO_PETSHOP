@@ -5,6 +5,7 @@ import { format, parseISO, differenceInCalendarDays } from 'date-fns'
 import { agoraBrasil } from '@/lib/agenda'
 import { formatarTelefone, formatarCpf } from '@/lib/format'
 import { obterContextoLojista } from '@/lib/lojista-context'
+import { classeBadgeStatus, ehEtapaAtiva, rotuloStatus } from '@/lib/status-agendamento'
 import {
   IconCalendar,
   IconChevronLeft,
@@ -14,18 +15,13 @@ import {
   IconPencil,
   IconPlus,
   IconScissors,
+  IconStar,
   IconUsers,
   IconWhatsapp,
 } from '@/components/icons'
+import { Estrelas, formatarMedia } from '@/components/cliente/Estrelas'
 
 export const metadata: Metadata = { title: 'Perfil do Cliente — Lojista' }
-
-const STATUS_BADGE: Record<string, string> = {
-  Pendente: 'badge-pendente',
-  Confirmado: 'badge-confirmado',
-  'Concluído': 'badge-concluido',
-  Cancelado: 'badge-cancelado',
-}
 
 interface Props {
   params: Promise<{ id: string }>
@@ -35,11 +31,21 @@ interface AgendamentoRow {
   id_agendamento: string
   dt_agendamento: string
   hr_agendamento: string
-  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
   valor: number
   id_pet: string
   pet: { nome: string } | null
   id_servico: string
+  servico: { nome: string } | null
+  funcionario: { nome: string } | null
+}
+
+interface AvaliacaoRow {
+  id_avaliacao: string
+  nota: number
+  comentario: string | null
+  created_at: string
+  pet: { nome: string } | null
   servico: { nome: string } | null
   funcionario: { nome: string } | null
 }
@@ -59,7 +65,7 @@ export default async function PerfilClientePage({ params }: Props) {
 
   // RLS ("cliente: lojista ve vinculados", migration 014) já garante que
   // só vem resultado se este cliente pertencer ao seu petshop.
-  const [{ data: cliente }, { data: petsRaw }, { data: agendaRaw }] = await Promise.all([
+  const [{ data: cliente }, { data: petsRaw }, { data: agendaRaw }, { data: avaliacoesRaw }] = await Promise.all([
     supabase
       .from('cliente')
       .select('id_cliente, nome, telefone, email, cpf, created_at, updated_at')
@@ -90,6 +96,24 @@ export default async function PerfilClientePage({ params }: Props) {
       .order('hr_agendamento', { ascending: false })
       .limit(200)
       .returns<AgendamentoRow[]>(),
+    // Avaliações que ESTE cliente deixou pra ESTA loja (migration 034).
+    // RLS ("avaliacao: lojista/funcionario ve da loja") já isola por loja;
+    // o .eq('id_lojista') é a segunda camada. Mesmo raciocínio do
+    // histórico acima: conjunto pequeno (um cliente só), então total e
+    // média saem daqui em JS, sem outra consulta.
+    supabase
+      .from('avaliacao')
+      .select(`
+        id_avaliacao, nota, comentario, created_at,
+        pet:id_pet ( nome ),
+        servico:id_servico ( nome ),
+        funcionario:id_funcionario ( nome )
+      `)
+      .eq('id_cliente', id)
+      .eq('id_lojista', lojistaId)
+      .order('created_at', { ascending: false })
+      .limit(50)
+      .returns<AvaliacaoRow[]>(),
   ])
 
   if (!cliente) {
@@ -118,7 +142,7 @@ export default async function PerfilClientePage({ params }: Props) {
   const naoCancelados = agendamentos.filter(a => a.status !== 'Cancelado')
   const totalGasto = concluidos.reduce((acc, a) => acc + Number(a.valor), 0)
   const totalPendente = agendamentos
-    .filter(a => a.status === 'Pendente' || a.status === 'Confirmado')
+    .filter(a => ehEtapaAtiva(a.status))
     .reduce((acc, a) => acc + Number(a.valor), 0)
   const qtdVendas = concluidos.length
   const ticketMedio = qtdVendas > 0 ? totalGasto / qtdVendas : 0
@@ -140,7 +164,7 @@ export default async function PerfilClientePage({ params }: Props) {
     : null
 
   const proximoAgendamento = agendamentos
-    .filter(a => (a.status === 'Pendente' || a.status === 'Confirmado') && a.dt_agendamento >= hojeISO)
+    .filter(a => ehEtapaAtiva(a.status) && a.dt_agendamento >= hojeISO)
     .sort((a, b) => (a.dt_agendamento + a.hr_agendamento).localeCompare(b.dt_agendamento + b.hr_agendamento))[0] ?? null
 
   // ── Serviços mais utilizados — agrupado a partir do mesmo histórico já
@@ -162,7 +186,7 @@ export default async function PerfilClientePage({ params }: Props) {
     const concluidosDoPet = doPet.filter(a => a.status === 'Concluído')
       .sort((a, b) => (b.dt_agendamento + b.hr_agendamento).localeCompare(a.dt_agendamento + a.hr_agendamento))
     const proximoDoPet = doPet
-      .filter(a => (a.status === 'Pendente' || a.status === 'Confirmado') && a.dt_agendamento >= hojeISO)
+      .filter(a => ehEtapaAtiva(a.status) && a.dt_agendamento >= hojeISO)
       .sort((a, b) => (a.dt_agendamento + a.hr_agendamento).localeCompare(b.dt_agendamento + b.hr_agendamento))[0] ?? null
     return {
       ...pet,
@@ -179,6 +203,13 @@ export default async function PerfilClientePage({ params }: Props) {
   // reais, mesma fonte da tabela abaixo), só que resumida e mais recente
   // primeiro, pra dar uma visão rápida sem abrir a tabela inteira.
   const timeline = agendamentos.slice(0, 8)
+
+  // ── Avaliações DADAS por este cliente — a média aqui é das notas que
+  // ELE deu, não a média da loja (essa fica em Configurações → Avaliações).
+  const avaliacoesCliente = avaliacoesRaw ?? []
+  const mediaNotasCliente = avaliacoesCliente.length > 0
+    ? avaliacoesCliente.reduce((acc, a) => acc + a.nota, 0) / avaliacoesCliente.length
+    : null
 
   return (
     <>
@@ -222,28 +253,28 @@ export default async function PerfilClientePage({ params }: Props) {
       {/* ── Resumo ── */}
       <div className="grid-4" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="stat-card">
-          <div className="stat-card-icon" style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.25)', color: 'var(--warning-400)' }}>
+          <div className="stat-card-icon tone-warning">
             <IconMoney style={{ width: 20, height: 20 }} />
           </div>
           <div className="stat-card-value">{moeda(totalGasto)}</div>
           <div className="stat-card-label">Total gasto</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-icon" style={{ background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.25)', color: 'var(--info-400)' }}>
+          <div className="stat-card-icon tone-info">
             <IconMoney style={{ width: 20, height: 20 }} />
           </div>
           <div className="stat-card-value">{moeda(ticketMedio)}</div>
           <div className="stat-card-label">Ticket médio</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-icon" style={{ background: 'var(--primary-soft-bg)', border: '1px solid var(--primary-soft-border)', color: 'var(--primary-400)' }}>
+          <div className="stat-card-icon tone-primary">
             <IconCalendar style={{ width: 20, height: 20 }} />
           </div>
           <div className="stat-card-value">{naoCancelados.length}</div>
           <div className="stat-card-label">Agendamentos ({qtdVendas} concluídos)</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-icon" style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.25)', color: 'var(--success-400)' }}>
+          <div className="stat-card-icon tone-success">
             <IconDog style={{ width: 20, height: 20 }} />
           </div>
           <div className="stat-card-value">{pets.length}</div>
@@ -286,7 +317,7 @@ export default async function PerfilClientePage({ params }: Props) {
               <div className="dash-detail-row"><span>Serviço</span><span>{proximoAgendamento.servico?.nome ?? '—'}</span></div>
               <div className="dash-detail-row"><span>Profissional</span><span>{proximoAgendamento.funcionario?.nome ?? '—'}</span></div>
               <div className="dash-detail-row"><span>Valor</span><span>{moeda(Number(proximoAgendamento.valor))}</span></div>
-              <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${STATUS_BADGE[proximoAgendamento.status]}`}>{proximoAgendamento.status}</span></span></div>
+              <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(proximoAgendamento.status)}`}>{rotuloStatus(proximoAgendamento.status)}</span></span></div>
             </>
           ) : (
             <p className="text-sm text-muted">Nenhum agendamento futuro.</p>
@@ -384,6 +415,48 @@ export default async function PerfilClientePage({ params }: Props) {
         )}
       </div>
 
+      {/* ── Avaliações feitas pelo cliente ── */}
+      <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
+        <h3 className="relatorio-secao-titulo">
+          <IconStar style={{ width: 15, height: 15 }} /> Avaliações do cliente
+        </h3>
+        {avaliacoesCliente.length === 0 || mediaNotasCliente == null ? (
+          <p className="text-sm text-muted">Este cliente ainda não avaliou nenhum atendimento.</p>
+        ) : (
+          <>
+            <div className="flex gap-6" style={{ flexWrap: 'wrap', marginBottom: 'var(--space-3)' }}>
+              <div>
+                <div className="text-xs text-muted">Total de avaliações feitas</div>
+                <div className="font-semibold" style={{ color: 'var(--gray-100)', fontSize: '1.125rem' }}>{avaliacoesCliente.length}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted">Média das notas que deu</div>
+                <div className="avaliacao-media">
+                  <span className="font-semibold" style={{ color: 'var(--gray-100)', fontSize: '1.125rem' }}>{formatarMedia(mediaNotasCliente)}</span>
+                  <Estrelas nota={mediaNotasCliente} tamanho={14} />
+                </div>
+              </div>
+            </div>
+            {avaliacoesCliente.map(a => (
+              <div key={a.id_avaliacao} className="avaliacao-item">
+                <div className="avaliacao-item-topo">
+                  <Estrelas nota={a.nota} />
+                  <span className="text-xs text-muted">{format(new Date(a.created_at), 'dd/MM/yyyy')}</span>
+                </div>
+                <p className={`avaliacao-item-comentario ${a.comentario ? '' : 'is-vazio'}`}>
+                  {a.comentario ? <>&ldquo;{a.comentario}&rdquo;</> : 'Sem comentário'}
+                </p>
+                <div className="avaliacao-item-meta">
+                  <span>Pet: <strong>{a.pet?.nome ?? '—'}</strong></span>
+                  <span>Serviço: <strong>{a.servico?.nome ?? '—'}</strong></span>
+                  {a.funcionario?.nome && <span>Profissional: <strong>{a.funcionario.nome}</strong></span>}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
       {/* ── Linha do tempo ── */}
       {timeline.length > 0 && (
         <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
@@ -400,7 +473,7 @@ export default async function PerfilClientePage({ params }: Props) {
                   <span className="text-sm text-muted">Pet: {a.pet?.nome ?? '—'}</span>
                 </div>
                 <div className="text-sm font-semibold text-success">{moeda(Number(a.valor))}</div>
-                <span className={`badge ${STATUS_BADGE[a.status]}`}>{a.status}</span>
+                <span className={`badge ${classeBadgeStatus(a.status)}`}>{rotuloStatus(a.status)}</span>
               </div>
             ))}
           </div>
@@ -435,7 +508,7 @@ export default async function PerfilClientePage({ params }: Props) {
                     <td>{a.servico?.nome ?? '—'}</td>
                     <td>{a.funcionario?.nome ?? '—'}</td>
                     <td>{moeda(Number(a.valor))}</td>
-                    <td><span className={`badge ${STATUS_BADGE[a.status]}`}>{a.status}</span></td>
+                    <td><span className={`badge ${classeBadgeStatus(a.status)}`}>{rotuloStatus(a.status)}</span></td>
                   </tr>
                 ))}
               </tbody>

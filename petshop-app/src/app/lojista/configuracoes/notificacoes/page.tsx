@@ -1,10 +1,31 @@
+import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { IconAlert, IconBell, IconChevronLeft } from '@/components/icons'
+import { obterContextoLojista } from '@/lib/lojista-context'
+import { IconChevronLeft } from '@/components/icons'
+import NotificacaoSomForm from '@/components/lojista/NotificacaoSomForm'
 
 export const metadata: Metadata = { title: 'Notificações — Lojista' }
 
-export default function ConfiguracoesNotificacoesPage() {
+export default async function ConfiguracoesNotificacoesPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
+  if (!contexto) return null
+
+  // Mesmo cuidado do layout com kanban_ativo: se a migration 036 ainda
+  // não rodou, a coluna não existe e este select falha — cai num padrão
+  // razoável (ativado, sino) em vez de derrubar a página.
+  const { data: lojista, error } = await supabase
+    .from('lojista')
+    .select('som_novo_agendamento_ativo, som_novo_agendamento_tipo')
+    .eq('id_lojista', contexto.idLojista)
+    .maybeSingle()
+
+  const migrationPendente = !!error
+  const somAtivo = lojista?.som_novo_agendamento_ativo ?? true
+  const somTipo = lojista?.som_novo_agendamento_tipo ?? 'sino'
+
   return (
     <>
       <Link href="/lojista/configuracoes" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
@@ -16,40 +37,12 @@ export default function ConfiguracoesNotificacoesPage() {
         <p className="page-subtitle">Avisos automáticos do sistema.</p>
       </div>
 
-      <div className="card" style={{ maxWidth: 700 }}>
-        <div className="flex items-center gap-3" style={{ marginBottom: 'var(--space-4)' }}>
-          <span className="dash-icon-btn" style={{ cursor: 'default' }}>
-            <IconBell style={{ width: 17, height: 17 }} />
-          </span>
-          <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>
-            Ainda não existe um sistema de notificações
-          </div>
-        </div>
-
-        <div className="alert alert-warning" style={{ marginBottom: 'var(--space-4)' }}>
-          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-          <span>
-            O PetSaaS hoje não envia e-mail, SMS, push ou qualquer outro aviso automático — nem para o
-            lojista, nem para o cliente — quando um agendamento é criado, alterado, cancelado ou concluído.
-            Por isso esta tela não tem nenhum interruptor: eles não controlariam nada de verdade, e criar
-            toggles que não ligam a nada real seria simular uma funcionalidade que não existe.
-          </span>
-        </div>
-
-        <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-3)' }}>
-          O que já existe, e faz parte do fluxo normal do sistema (sem ser uma &quot;notificação&quot; separada):
-        </p>
-        <ul style={{ margin: 0, paddingLeft: 'var(--space-5)', color: 'var(--gray-400)', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          <li>A <strong>Dashboard</strong> e o <strong>Kanban</strong> mostram os agendamentos pendentes/em andamento em tempo real, sempre que a página é aberta ou atualizada.</li>
-          <li>A tela de <strong>Agendamentos do cliente</strong> mostra o status atualizado assim que ele entra.</li>
-        </ul>
-
-        <p className="text-sm text-muted" style={{ marginTop: 'var(--space-4)' }}>
-          Se isso for importante no futuro, o caminho natural seria integrar um serviço de e-mail/SMS (ex.:
-          Resend, Twilio) disparado a partir das mesmas Server Actions que já existem para criar/atualizar
-          agendamento — e só então esta tela ganharia toggles reais, ligados a essa infraestrutura.
-        </p>
-      </div>
+      <NotificacaoSomForm
+        somAtivoInicial={somAtivo}
+        somTipoInicial={somTipo}
+        podeEditar={contexto.acessoTotal}
+        migrationPendente={migrationPendente}
+      />
     </>
   )
 }

@@ -26,7 +26,7 @@ interface AgendamentoRow {
   id_agendamento: string
   dt_agendamento: string
   hr_agendamento: string
-  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
   valor: number
   id_pet: string
   pet: { nome: string } | null
@@ -57,7 +57,7 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
   const [{ data: funcionarioRow }, { data: agendaRaw, error: agendaErro }] = await Promise.all([
     supabase
       .from('funcionario')
-      .select('id_funcionario, nome, email, telefone, cargo, pode_gerenciar_agenda, pode_gerenciar_servicos, pode_gerenciar_clientes_pets, acesso_total, ativo, created_at')
+      .select('id_funcionario, nome, email, telefone, cargo, pode_gerenciar_agenda, pode_gerenciar_servicos, pode_gerenciar_produtos, pode_gerenciar_clientes_pets, acesso_total, ativo, created_at')
       .eq('id_funcionario', id)
       .eq('id_lojista', lojistaId)
       .maybeSingle(),

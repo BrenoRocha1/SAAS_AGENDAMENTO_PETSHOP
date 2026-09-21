@@ -28,6 +28,7 @@ import {
   IconAlert,
 } from '@/components/icons'
 import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
+import { classeBadgeStatus, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
 import NovoAgendamentoModal from './NovoAgendamentoModal'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
 
@@ -36,7 +37,7 @@ export interface AgendamentoCalendario {
   dt_agendamento: string
   hr_agendamento: string
   duracao: number
-  status: 'Pendente' | 'Confirmado' | 'Concluído' | 'Cancelado'
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
   valor: number
   nome_pet: string
   nome_cliente: string
@@ -65,12 +66,17 @@ interface Props {
   // perfil do funcionário) — abre o modal com esse profissional já
   // pré-selecionado (não travado, o campo já era opcional).
   funcionarioIdPadraoInicial?: string | null
+  // Só o responsável pela conta ou um administrador pode atribuir/trocar
+  // o profissional responsável — ver atribuirFuncionarioAction.
+  podeAtribuirProfissional: boolean
+  // Intervalo de horas mostrado na grade — calculado no servidor a partir
+  // do horário de funcionamento da loja (tabela horario), não fixo.
+  horaInicioGrade: number
+  horaFimGrade: number
 }
 
-const CORES = ['#0d9488', '#2563eb', '#7c3aed', '#db2777', '#d97706', '#16a34a', '#0891b2']
+const CORES = ['#4f46e5', '#0891b2', '#db2777', '#d97706', '#16a34a', '#7c3aed', '#2563eb']
 const SEM_PROFISSIONAL = '__sem_profissional__'
-const HORA_INICIO = 7
-const HORA_FIM = 20
 const ALTURA_HORA = 56 // px
 
 function parseDia(iso: string) {
@@ -83,9 +89,9 @@ function minutosDoDia(hhmmss: string) {
 }
 
 function corDoFuncionario(id: string | null, funcionarios: FuncionarioFiltro[]) {
-  if (!id) return '#78716c'
+  if (!id) return '#6b7280'
   const idx = funcionarios.findIndex(f => f.id_funcionario === id)
-  return CORES[idx % CORES.length] ?? '#78716c'
+  return CORES[idx % CORES.length] ?? '#6b7280'
 }
 
 interface EventoPosicionado extends AgendamentoCalendario {
@@ -95,7 +101,7 @@ interface EventoPosicionado extends AgendamentoCalendario {
   totalLanes: number
 }
 
-function posicionarDia(eventos: AgendamentoCalendario[]): EventoPosicionado[] {
+function posicionarDia(eventos: AgendamentoCalendario[], horaInicioGrade: number, horaFimGrade: number): EventoPosicionado[] {
   const comMinutos = eventos
     .map(e => {
       const inicio = minutosDoDia(e.hr_agendamento)
@@ -122,11 +128,11 @@ function posicionarDia(eventos: AgendamentoCalendario[]): EventoPosicionado[] {
     })
     const totalLanes = lanesFim.length
     for (const { ev, lane } of comLane) {
-      const inicioClamp = Math.max(ev.inicioMin, HORA_INICIO * 60)
-      const fimClamp = Math.min(ev.fimMin, HORA_FIM * 60)
+      const inicioClamp = Math.max(ev.inicioMin, horaInicioGrade * 60)
+      const fimClamp = Math.min(ev.fimMin, horaFimGrade * 60)
       resultado.push({
         ...ev,
-        top: ((inicioClamp - HORA_INICIO * 60) / 60) * ALTURA_HORA,
+        top: ((inicioClamp - horaInicioGrade * 60) / 60) * ALTURA_HORA,
         height: Math.max(((fimClamp - inicioClamp) / 60) * ALTURA_HORA, 18),
         lane,
         totalLanes,
@@ -135,7 +141,15 @@ function posicionarDia(eventos: AgendamentoCalendario[]): EventoPosicionado[] {
     cluster = []
   }
 
-  for (const ev of comMinutos) {
+  // Um agendamento fora do intervalo da grade (ex.: horário antigo, de
+  // antes de mudar o funcionamento da loja) não entra — só a grade em si
+  // já reflete o horário de funcionamento; deixar ele passar faria a
+  // altura/posição estourar pra fora do quadro em vez de simplesmente
+  // não aparecer (ele continua visível na Agenda do dia, no Kanban etc.,
+  // só não cabe nesta grade semanal).
+  const dentroDaGrade = comMinutos.filter(ev => ev.fimMin > horaInicioGrade * 60 && ev.inicioMin < horaFimGrade * 60)
+
+  for (const ev of dentroDaGrade) {
     if (ev.inicioMin >= fimCluster) {
       flush()
       fimCluster = ev.fimMin
@@ -158,6 +172,9 @@ export default function AgendaCalendar({
   servicos,
   clienteFixoInicial,
   funcionarioIdPadraoInicial,
+  podeAtribuirProfissional,
+  horaInicioGrade,
+  horaFimGrade,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -213,9 +230,9 @@ export default function AgendaCalendar({
     return eachDayOfInterval({ start: inicio, end: fim })
   }, [mesMini])
 
-  const horas = Array.from({ length: HORA_FIM - HORA_INICIO + 1 }, (_, i) => HORA_INICIO + i)
+  const horas = Array.from({ length: horaFimGrade - horaInicioGrade + 1 }, (_, i) => horaInicioGrade + i)
 
-  function mudarStatus(id: string, novoStatus: 'Confirmado' | 'Concluído' | 'Cancelado') {
+  function mudarStatus(id: string, novoStatus: 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado') {
     const atual = agendamentos.find(a => a.id_agendamento === id)
     if (!atual) return
     const statusAnterior = atual.status
@@ -318,7 +335,7 @@ export default function AgendaCalendar({
                   checked={filtroProfissionais.has(SEM_PROFISSIONAL)}
                   onChange={() => toggleProfissional(SEM_PROFISSIONAL)}
                 />
-                <span className="cal-prof-dot" style={{ background: '#78716c' }} />
+                <span className="cal-prof-dot" style={{ background: '#6b7280' }} />
                 Sem profissional
               </label>
               {funcionarios.map(f => (
@@ -364,10 +381,14 @@ export default function AgendaCalendar({
               ))}
             </div>
 
-            <div className="cal-body" style={{ height: (HORA_FIM - HORA_INICIO) * ALTURA_HORA }}>
+            <div className="cal-body" style={{ height: (horaFimGrade - horaInicioGrade) * ALTURA_HORA }}>
               <div className="cal-gutter">
                 {horas.map(h => (
-                  <div key={h} className="cal-gutter-hour" style={{ top: (h - HORA_INICIO) * ALTURA_HORA }}>
+                  <div
+                    key={h}
+                    className={`cal-gutter-hour ${h === horaInicioGrade ? 'is-primeira' : ''}`}
+                    style={{ top: (h - horaInicioGrade) * ALTURA_HORA }}
+                  >
                     {String(h).padStart(2, '0')}:00
                   </div>
                 ))}
@@ -376,11 +397,11 @@ export default function AgendaCalendar({
               {diasSemana.map(dia => {
                 const diaISO = format(dia, 'yyyy-MM-dd')
                 const eventosDoDia = agendamentosFiltrados.filter(a => a.dt_agendamento === diaISO)
-                const posicionados = posicionarDia(eventosDoDia)
+                const posicionados = posicionarDia(eventosDoDia, horaInicioGrade, horaFimGrade)
                 return (
                   <div key={diaISO} className="cal-day-col">
                     {horas.map(h => (
-                      <div key={h} className="cal-hour-line" style={{ top: (h - HORA_INICIO) * ALTURA_HORA }} />
+                      <div key={h} className="cal-hour-line" style={{ top: (h - horaInicioGrade) * ALTURA_HORA }} />
                     ))}
                     {posicionados.map(ev => {
                       const cor = corDoFuncionario(ev.id_funcionario, funcionarios)
@@ -431,7 +452,7 @@ export default function AgendaCalendar({
               <div className="dash-detail-row"><span>Data</span><span>{format(parseDia(selecionado.dt_agendamento), 'dd/MM/yyyy')}</span></div>
               <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>
               <div className="dash-detail-row"><span>Valor</span><span>R$ {selecionado.valor.toFixed(2)}</span></div>
-              <div className="dash-detail-row"><span>Status</span><span>{selecionado.status}</span></div>
+              <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(selecionado.status)}`}>{rotuloStatus(selecionado.status)}</span></span></div>
               {selecionado.obs && (
                 <div className="dash-detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
                   <span>Descrição</span>
@@ -440,36 +461,35 @@ export default function AgendaCalendar({
               )}
 
               {funcionarios.length > 0 && (
-                <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-                  <label className="form-label">Profissional responsável</label>
-                  <select
-                    className="form-select"
-                    defaultValue={selecionado.id_funcionario ?? ''}
-                    onChange={e => atribuir(selecionado.id_agendamento, e.target.value)}
-                    disabled={isPending}
-                  >
-                    <option value="">Sem profissional</option>
-                    {funcionarios.map(f => (
-                      <option key={f.id_funcionario} value={f.id_funcionario}>{f.nome}</option>
-                    ))}
-                  </select>
-                </div>
+                podeAtribuirProfissional ? (
+                  <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+                    <label className="form-label">Profissional responsável</label>
+                    <select
+                      className="form-select"
+                      defaultValue={selecionado.id_funcionario ?? ''}
+                      onChange={e => atribuir(selecionado.id_agendamento, e.target.value)}
+                      disabled={isPending}
+                    >
+                      <option value="">Sem profissional</option>
+                      {funcionarios.map(f => (
+                        <option key={f.id_funcionario} value={f.id_funcionario}>{f.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="dash-detail-row"><span>Profissional responsável</span><span>{selecionado.nome_funcionario ?? 'Sem profissional'}</span></div>
+                )
               )}
 
-              {selecionado.status === 'Pendente' && (
+              {(selecionado.status === 'Pendente' || selecionado.status === 'Confirmado' || selecionado.status === 'Em andamento') && (
                 <div className="dash-detail-actions">
-                  <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatus(selecionado.id_agendamento, 'Confirmado')}>
-                    <IconCheck style={{ width: 14, height: 14 }} /> Confirmar
-                  </button>
-                  <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatus(selecionado.id_agendamento, 'Cancelado')}>
-                    Cancelar
-                  </button>
-                </div>
-              )}
-              {selecionado.status === 'Confirmado' && (
-                <div className="dash-detail-actions">
-                  <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatus(selecionado.id_agendamento, 'Concluído')}>
-                    Concluir
+                  <button
+                    className="btn btn-success btn-sm"
+                    style={{ flex: 1 }}
+                    disabled={isPending}
+                    onClick={() => mudarStatus(selecionado.id_agendamento, PROXIMA_ETAPA[selecionado.status]!.status)}
+                  >
+                    <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[selecionado.status]!.acao}
                   </button>
                   <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatus(selecionado.id_agendamento, 'Cancelado')}>
                     Cancelar
@@ -488,6 +508,7 @@ export default function AgendaCalendar({
           clientes={clientesComPets}
           servicos={servicos}
           funcionarios={funcionarios}
+          podeAtribuirProfissional={podeAtribuirProfissional}
           clienteIdFixo={clienteFixoInicial?.id_cliente}
           funcionarioIdPadrao={funcionarioIdPadraoInicial ?? undefined}
           onClose={() => {
