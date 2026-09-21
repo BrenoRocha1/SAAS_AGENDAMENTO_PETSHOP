@@ -100,10 +100,7 @@ function use3DTilt(maxDeg: number = 8) {
     })
   }, [])
 
-export const metadata: Metadata = {
-  title: 'SAIP — Plataforma de Agendamento para Pet Shops',
-  description:
-    'Gerencie agendamentos de banho e tosa com facilidade. Plataforma completa para pet shops e clientes.',
+  return { nodeRef: ref, style, handleMove, handleLeave }
 }
 
 /* ------------------------------------------------------------------ *
