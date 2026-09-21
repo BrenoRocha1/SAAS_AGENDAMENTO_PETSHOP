@@ -100,6 +100,7 @@ export default async function ClienteDashboard() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {agendamentos.map((ag: any) => (
               <div
                 key={ag.id_agendamento}

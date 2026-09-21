@@ -1,6 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import AgendamentosClienteList from '@/components/cliente/AgendamentosClienteList'
 import type { Metadata } from 'next'
 

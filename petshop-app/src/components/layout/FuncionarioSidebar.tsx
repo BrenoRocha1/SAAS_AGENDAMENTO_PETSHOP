@@ -16,7 +16,6 @@ interface Props {
 export default function FuncionarioSidebar({
   nomeFunc,
   nomeLoja,
-  userEmail,
   podeAgenda,
   podeServicos,
 }: Props) {

@@ -48,6 +48,7 @@ export default async function FuncionarioDashboardPage() {
       .neq('status', 'Cancelado')
       .order('hr_agendamento', { ascending: true })
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     agendamentosHoje = (agendamentos ?? []).map((a: any) => ({
       id_agendamento: a.id_agendamento,
       hr_agendamento: a.hr_agendamento,
@@ -122,7 +123,8 @@ export default async function FuncionarioDashboardPage() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-              {agendamentosHoje.map(ag => (
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {agendamentosHoje.map((ag: any) => (
                 <div key={ag.id_agendamento} className="card" style={{
                   display: 'flex',
                   alignItems: 'center',

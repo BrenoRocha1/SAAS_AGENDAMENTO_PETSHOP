@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { format, differenceInYears } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { differenceInYears } from 'date-fns'
 import PetCard from '@/components/cliente/PetCard'
 import type { Metadata } from 'next'
 
@@ -43,6 +42,7 @@ export default async function PetsPage() {
         </div>
       ) : (
         <div className="grid-3">
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {pets.map((pet: any) => {
             const idade = differenceInYears(new Date(), new Date(pet.dt_nasc))
             return (

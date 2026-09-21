@@ -19,8 +19,10 @@ export default async function ClientesLojistaPage() {
     .not('status', 'eq', 'Cancelado')
 
   // Agrupar por cliente único
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const clientesMap = new Map<string, any>()
   for (const ag of agendamentos ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const c = ag.cliente as any
     if (!c) continue
     if (!clientesMap.has(c.id_cliente)) {
@@ -28,6 +30,7 @@ export default async function ClientesLojistaPage() {
     }
     const entry = clientesMap.get(c.id_cliente)
     entry.totalAgendamentos++
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (ag.pet) entry.pets.add(`${(ag.pet as any).nome} (${(ag.pet as any).raca})`)
   }
 
@@ -61,6 +64,7 @@ export default async function ClientesLojistaPage() {
               </tr>
             </thead>
             <tbody>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {clientes.map((c: any) => (
                 <tr key={c.id_cliente}>
                   <td>

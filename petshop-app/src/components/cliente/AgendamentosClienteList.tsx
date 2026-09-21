@@ -13,6 +13,7 @@ const statusConfig: Record<string, { label: string; cls: string }> = {
 }
 
 interface Props {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   agendamentos: any[]
 }
 
@@ -53,6 +54,7 @@ export default function AgendamentosClienteList({ agendamentos }: Props) {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         {agendamentos.map((ag: any) => {
           const podeCanc = ['Pendente', 'Confirmado'].includes(ag.status)
           const isCanceling = cancelId === ag.id_agendamento

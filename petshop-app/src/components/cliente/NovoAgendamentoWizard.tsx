@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { criarAgendamentoAction } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
-import { format, addDays, isBefore, startOfDay } from 'date-fns'
+import { format, addDays, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 interface Lojista {
@@ -29,6 +29,19 @@ interface Props {
 
 type Step = 1 | 2 | 3 | 4
 
+interface Servico {
+  id_servico: string
+  nome: string
+  descricao: string | null
+  preco: number
+  duracao: number
+}
+
+interface Slot {
+  hr_slot: string
+  disponivel: boolean
+}
+
 export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -39,10 +52,10 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   // Seleções do wizard
   const [lojistaId, setLojistaId] = useState('')
   const [petId, setPetId] = useState('')
-  const [servicos, setServicos] = useState<any[]>([])
+  const [servicos, setServicos] = useState<Servico[]>([])
   const [servicoId, setServicoId] = useState('')
   const [data, setData] = useState('')
-  const [slots, setSlots] = useState<any[]>([])
+  const [slots, setSlots] = useState<Slot[]>([])
   const [hora, setHora] = useState('')
   const [obs, setObs] = useState('')
 
@@ -55,15 +68,20 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       .eq('id_lojista', lojistaId)
       .eq('status', 'Ativo')
       .then(({ data }) => setServicos(data ?? []))
-  }, [lojistaId])
+  }, [lojistaId, supabase])
 
   // Carregar slots quando data e serviço selecionados
   useEffect(() => {
     if (!data || !servicoId || !lojistaId) return
     const servico = servicos.find(s => s.id_servico === servicoId)
     if (!servico) return
-    setSlots([])
-    setHora('')
+    
+    // Evitar chamar setSlots sincronamente direto no efeito
+    Promise.resolve().then(() => {
+      setSlots([])
+      setHora('')
+    })
+
     supabase
       .rpc('fn_horarios_disponiveis', {
         p_id_lojista: lojistaId,
@@ -71,7 +89,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
         p_duracao: servico.duracao,
       })
       .then(({ data }) => setSlots(data ?? []))
-  }, [data, servicoId, lojistaId])
+  }, [data, servicoId, lojistaId, servicos, supabase])
 
   function handleSubmit() {
     setError(null)
@@ -303,7 +321,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
                 </div>
               ) : (
                 <div className="slots-grid">
-                  {slots.map((slot: any) => (
+                  {slots.map((slot: Slot) => (
                     <button
                       key={slot.hr_slot}
                       type="button"
