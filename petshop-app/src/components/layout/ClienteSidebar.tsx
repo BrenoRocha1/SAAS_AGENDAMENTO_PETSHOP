@@ -31,7 +31,7 @@ interface Props {
   userEmail: string
 }
 
-export default function ClienteSidebar({ userName, userEmail }: Props) {
+export default function ClienteSidebar({ userName }: Props) {
   const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
   const [colapsada, setColapsada] = useState(false)
