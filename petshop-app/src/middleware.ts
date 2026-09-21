@@ -27,7 +27,7 @@ export async function middleware(request: NextRequest) {
             supabaseResponse.cookies.set(name, value, {
               ...options,
               httpOnly: true,
-              sameSite: 'strict',
+              sameSite: 'lax',
               secure: process.env.NODE_ENV === 'production',
             })
           )
