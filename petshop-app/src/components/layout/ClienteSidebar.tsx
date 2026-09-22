@@ -11,6 +11,7 @@ import {
   IconPlus,
   IconDog,
   IconUser,
+  IconStore,
   IconLogout,
   IconChevronLeft,
   IconChevronRight,
@@ -20,6 +21,7 @@ const navItems = [
   { href: '/cliente/dashboard', icon: IconGrid, label: 'Dashboard' },
   { href: '/cliente/agendamentos', icon: IconCalendar, label: 'Meus Agendamentos' },
   { href: '/cliente/novo-agendamento', icon: IconPlus, label: 'Novo Agendamento' },
+  { href: '/cliente/petshops', icon: IconStore, label: 'Petshops' },
   { href: '/cliente/pets', icon: IconDog, label: 'Meus Pets' },
   { href: '/cliente/perfil', icon: IconUser, label: 'Meu Perfil' },
 ]
