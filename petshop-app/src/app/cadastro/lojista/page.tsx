@@ -178,11 +178,19 @@ export default function CadastroLojistaPage() {
               <textarea id="descricao" name="descricao" className="login-textarea" placeholder="Conte um pouco sobre seu petshop..." rows={3} />
             </div>
 
-            <div className="login-field">
-              <label htmlFor="endereco" className="login-label">Endereço</label>
-              <div className="login-input-wrap">
-                <IconMapPin />
-                <input id="endereco" name="endereco" type="text" className="login-input" placeholder="Rua das Flores, 123" />
+            {/* Rua e número separados: o mapa do TaxiDog (cobrança por distância)
+                precisa do número num campo próprio — ver migration 045. */}
+            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+              <div className="login-field" style={{ flex: 3 }}>
+                <label htmlFor="endereco" className="login-label">Rua</label>
+                <div className="login-input-wrap">
+                  <IconMapPin />
+                  <input id="endereco" name="endereco" type="text" className="login-input" placeholder="Rua das Flores" />
+                </div>
+              </div>
+              <div className="login-field" style={{ flex: 1 }}>
+                <label htmlFor="numero" className="login-label">Número</label>
+                <input id="numero" name="numero" type="text" className="login-input login-input-plain" placeholder="123" maxLength={20} />
               </div>
             </div>
 

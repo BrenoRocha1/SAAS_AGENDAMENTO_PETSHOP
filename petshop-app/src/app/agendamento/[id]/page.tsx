@@ -166,9 +166,12 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   // TaxiDog + aviso de preço estimado (migration 042) — mesmo cuidado das
   // colunas novas acima: se a migration ainda não rodou, a etapa de
   // transporte simplesmente não aparece e o agendamento segue normal.
-  const [{ data: taxidogRaw }, { data: estimadoRow }] = await Promise.all([
+  // Número/complemento/bairro da loja (migration 045) no mesmo esquema
+  // tolerante: sem a migration, o endereço aparece como antes.
+  const [{ data: taxidogRaw }, { data: estimadoRow }, { data: enderecoRow }] = await Promise.all([
     supabase.rpc('fn_taxidog_publico', { p_id_lojista: lojista.id_lojista }),
     supabase.from('lojista').select('precos_estimados').eq('id_lojista', lojista.id_lojista).maybeSingle(),
+    supabase.from('lojista').select('numero, complemento, bairro').eq('id_lojista', lojista.id_lojista).maybeSingle(),
   ])
   const taxidogDisponivel = !!(taxidogRaw as { disponivel: boolean }[] | null)?.[0]?.disponivel
   const precosEstimados = !!estimadoRow?.precos_estimados
@@ -209,6 +212,9 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
             logoUrl: lojista.logo_url,
             descricao: lojista.descricao,
             endereco: lojista.endereco,
+            numero: enderecoRow?.numero ?? null,
+            complemento: enderecoRow?.complemento ?? null,
+            bairro: enderecoRow?.bairro ?? null,
             cidade: lojista.cidade,
             estado: lojista.estado,
             cep: lojista.cep,

@@ -409,6 +409,9 @@ export async function cadastroLojistaAction(formData: FormData) {
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
   }
+  if (parsed.data.endereco?.trim() && !(formData.get('numero') as string)?.trim()) {
+    return { error: 'Informe o número da loja (use S/N se não tiver).' }
+  }
 
   const rl = await checkRateLimit('cadastroLojista', 3, 15)
   if (!rl.success) {
@@ -499,6 +502,14 @@ export async function cadastroLojistaAction(formData: FormData) {
       return { error: 'Permissão negada no banco de dados. Verifique as configurações do Supabase.' }
     }
     return { error: `Não foi possível salvar os dados: ${msg || 'erro desconhecido'}. Tente novamente.` }
+  }
+
+  // Número da loja em campo próprio (migration 045). Fora do RPC de
+  // propósito: sem a migration a coluna não existe, e o cadastro não
+  // pode falhar por isso.
+  const numeroLoja = (formData.get('numero') as string)?.trim().slice(0, 20)
+  if (numeroLoja) {
+    await adminClient.from('lojista').update({ numero: numeroLoja }).eq('id_lojista', authData.user.id)
   }
 
   // ── PASSO 4: Estabelecer sessão para o redirect ───────────────────────────
@@ -619,6 +630,9 @@ export async function completarCadastroLojistaGoogleAction(formData: FormData) {
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
   }
+  if (parsed.data.endereco?.trim() && !(formData.get('numero') as string)?.trim()) {
+    return { error: 'Informe o número da loja (use S/N se não tiver).' }
+  }
 
   const email = user.email!
 
@@ -640,6 +654,12 @@ export async function completarCadastroLojistaGoogleAction(formData: FormData) {
       return { error: 'Este e-mail já está cadastrado como lojista.' }
     }
     return { error: devError('Não foi possível completar o cadastro. Tente novamente.', msg) }
+  }
+
+  // Número da loja em campo próprio (migration 045) — ver cadastroLojistaAction.
+  const numeroLoja = (formData.get('numero') as string)?.trim().slice(0, 20)
+  if (numeroLoja) {
+    await adminClient.from('lojista').update({ numero: numeroLoja }).eq('id_lojista', user.id)
   }
 
   // Atualizar user_metadata com role
@@ -1846,9 +1866,15 @@ export async function atualizarPerfilLojistaAction(formData: FormData) {
   const estado = (formData.get('estado') as string)?.trim().toUpperCase().slice(0, 2) || null
   const cepRaw = (formData.get('cep') as string)?.replace(/\D/g, '')
   const cep = cepRaw?.length === 8 ? cepRaw : null
+  // Migration 045: número, complemento e bairro em campos próprios
+  // (`endereco` passa a ser só a rua).
+  const numero = (formData.get('numero') as string)?.trim().slice(0, 20) || null
+  const complemento = (formData.get('complemento') as string)?.trim().slice(0, 80) || null
+  const bairro = (formData.get('bairro') as string)?.trim().slice(0, 80) || null
 
   if (!nome_loja || nome_loja.length < 2) return { error: 'Nome da loja inválido' }
   if (!telefone || !/^\d{10,11}$/.test(telefone)) return { error: 'Telefone inválido' }
+  if (endereco && !numero) return { error: 'Informe o número da loja no campo Número (use S/N se não tiver).' }
 
   const { error } = await db
     .from('lojista')
@@ -1857,7 +1883,17 @@ export async function atualizarPerfilLojistaAction(formData: FormData) {
 
   if (error) return { error: 'Erro ao atualizar perfil.' }
 
+  // Separado de propósito: sem a migration 045 as colunas não existem, e
+  // isso não pode impedir de salvar o resto do perfil.
+  const { error: enderecoError } = await db
+    .from('lojista')
+    .update({ numero, complemento, bairro })
+    .eq('id_lojista', contexto.idLojista)
+
   revalidatePath('/lojista/perfil')
+  if (enderecoError) {
+    return { error: devError('Perfil salvo, mas o número, o complemento e o bairro precisam da migration 045_endereco_loja.sql.', enderecoError.message) }
+  }
   return { success: true }
 }
 

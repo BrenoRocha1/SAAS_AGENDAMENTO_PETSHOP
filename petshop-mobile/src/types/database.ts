@@ -53,6 +53,10 @@ export interface LojistaInfo {
   email: string
   telefone: string
   endereco: string | null
+  // Migration 045 — ausentes antes dela.
+  numero?: string | null
+  complemento?: string | null
+  bairro?: string | null
   cidade: string | null
   estado: string | null
   logo_url: string | null

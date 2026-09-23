@@ -62,6 +62,7 @@ export async function geocodificarEndereco(e: {
     country: 'Brasil',
   })
   if (porRua) return { ...porRua, precisao: 'endereco' }
+  if (!e.bairro.trim()) return null
 
   await esperar(1100)
   const porBairro = await consultar({ q: `${e.bairro}, ${e.cidade}, ${e.uf}, Brasil` })
@@ -70,16 +71,30 @@ export async function geocodificarEndereco(e: {
   return null
 }
 
-// Endereço da loja vem de um campo livre ("Rua X, 123 - Bairro") + cidade
-// e estado — por isso a busca é texto livre, não estruturada.
+// Desde a migration 045 a loja tem rua (`endereco`), número e bairro em
+// campos próprios — aí a busca é a mesma, estruturada, do endereço do
+// cliente. Loja antiga, sem `numero`, ainda tem o texto livre ("Rua X,
+// 123 - Bairro"): busca como texto livre.
 export async function geocodificarLoja(l: {
   endereco: string | null
+  numero?: string | null
+  bairro?: string | null
   cidade: string | null
   estado: string | null
 }): Promise<Coordenadas | null> {
   if (!l.cidade) return null
 
-  if (l.endereco) {
+  if (l.endereco && l.numero) {
+    const porCampos = await geocodificarEndereco({
+      logradouro: l.endereco,
+      numero: l.numero,
+      bairro: l.bairro ?? '',
+      cidade: l.cidade,
+      uf: l.estado ?? '',
+    })
+    if (porCampos) return porCampos
+    await esperar(1100)
+  } else if (l.endereco) {
     const completo = await consultar({ q: [l.endereco, l.cidade, l.estado, 'Brasil'].filter(Boolean).join(', ') })
     if (completo) return { ...completo, precisao: 'endereco' }
     await esperar(1100)

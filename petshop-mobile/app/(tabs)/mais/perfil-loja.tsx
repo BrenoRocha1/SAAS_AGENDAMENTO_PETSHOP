@@ -9,7 +9,7 @@ import { Card } from '@/components/Card'
 import { EmptyState } from '@/components/EmptyState'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { formatarTelefone } from '@/lib/format'
+import { formatarEnderecoLoja, formatarTelefone } from '@/lib/format'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 import type { LojistaInfo } from '@/types/database'
 
@@ -30,7 +30,9 @@ export default function PerfilLojaScreen() {
         setLoading(true)
         const { data, error } = await supabase
           .from('lojista')
-          .select('nome_loja, email, telefone, endereco, cidade, estado, logo_url')
+          // '*' de propósito: número/complemento/bairro (migration 045)
+          // vêm quando existem, sem quebrar a tela antes da migration.
+          .select('*')
           .eq('id_lojista', contexto.idLojista)
           .maybeSingle()
         if (!ativo) return
@@ -65,9 +67,7 @@ export default function PerfilLojaScreen() {
     )
   }
 
-  const localizacao = [loja.endereco, [loja.cidade, loja.estado].filter(Boolean).join(' - ')]
-    .filter(Boolean)
-    .join(', ')
+  const localizacao = formatarEnderecoLoja(loja)
 
   return (
     <ScreenContainer>

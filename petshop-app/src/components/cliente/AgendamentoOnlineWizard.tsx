@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { criarAgendamentoOnlineAction, atualizarClassificacaoPetAction, logoutAction } from '@/lib/actions'
 import { removerHorariosPassados } from '@/lib/agenda'
 import { rotuloUnidade } from '@/lib/produto'
-import { formatarCpf, formatarTelefone } from '@/lib/format'
+import { formatarCpf, formatarEnderecoLoja, formatarTelefone } from '@/lib/format'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
@@ -39,6 +39,9 @@ interface Lojista {
   logoUrl: string | null
   descricao: string | null
   endereco: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
   cidade: string | null
   estado: string | null
   cep: string | null
@@ -327,7 +330,7 @@ export default function AgendamentoOnlineWizard({
     `Total: ${formatarReais(totalGeral)}`,
   ].join('\n')
 
-  const enderecoCompleto = [lojista.endereco, lojista.cidade && lojista.estado ? `${lojista.cidade}, ${lojista.estado}` : lojista.cidade].filter(Boolean).join(' — ')
+  const enderecoCompleto = formatarEnderecoLoja(lojista)
 
   return (
     <div>

@@ -10,6 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import { enderecoTaxiDogSchema, perfilPetSchema, taxiDogConfigSchema } from '@/lib/validations'
 import { geocodificarEndereco, geocodificarLoja } from '@/lib/geocodificacao'
+import { formatarEnderecoLoja } from '@/lib/format'
 import { MODALIDADES, type CotacaoTaxiDog, type ModalidadeTaxiDog } from '@/lib/taxidog'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -122,22 +123,36 @@ export async function salvarTaxiDogConfigAction(payload: unknown): Promise<{
   let aviso: string | undefined
 
   if (cfg.modo_cobranca === 'distancia' || cfg.modo_cobranca === 'personalizado') {
-    const { data: loja } = await supabase
+    // Número e bairro (migration 045) numa consulta tolerante: sem a
+    // migration, segue só com rua/cidade/estado, como antes.
+    type Loja = { endereco: string | null; numero?: string | null; bairro?: string | null; cidade: string | null; estado: string | null }
+    const completa = await supabase
       .from('lojista')
-      .select('endereco, cidade, estado')
+      .select('endereco, numero, bairro, cidade, estado')
       .eq('id_lojista', contexto.idLojista)
       .maybeSingle()
+    const loja: Loja | null = completa.error
+      ? (await supabase.from('lojista').select('endereco, cidade, estado').eq('id_lojista', contexto.idLojista).maybeSingle()).data
+      : completa.data
 
-    const enderecoLoja = [loja?.endereco, loja?.cidade, loja?.estado].filter(Boolean).join(', ')
+    const enderecoLoja = loja ? formatarEnderecoLoja(loja) : ''
     if (!loja?.cidade) {
       aviso = 'Complete o endereço da loja (Configurações → Dados da loja) para o cálculo por distância funcionar.'
     } else {
-      const coords = await geocodificarLoja({ endereco: loja.endereco, cidade: loja.cidade, estado: loja.estado })
+      const coords = await geocodificarLoja(loja)
       if (coords) {
         // origem_endereco é o que a tela mostra em "Distância medida a partir
-        // de" — tem que dizer a verdade quando só achamos a cidade.
-        const centroCidade = `Centro de ${[loja.cidade, loja.estado].filter(Boolean).join(', ')} (aproximado)`
-        origem = { lat: coords.lat, lng: coords.lng, endereco: coords.precisao === 'cidade' ? centroCidade : enderecoLoja }
+        // de" — tem que dizer a verdade quando só achamos o bairro/cidade.
+        const cidadeUf = [loja.cidade, loja.estado].filter(Boolean).join(', ')
+        const rotuloOrigem = coords.precisao === 'cidade'
+          ? `Centro de ${cidadeUf} (aproximado)`
+          : coords.precisao === 'bairro'
+            ? `Centro do bairro ${loja.bairro}, ${cidadeUf} (aproximado)`
+            : enderecoLoja
+        origem = { lat: coords.lat, lng: coords.lng, endereco: rotuloOrigem }
+        if (coords.precisao === 'bairro') {
+          aviso = 'Não encontramos a rua da loja no mapa — a distância está sendo medida a partir do centro do bairro. Confira o endereço em Dados da loja.'
+        }
         if (coords.precisao === 'cidade') {
           aviso = 'Não encontramos a rua da loja no mapa — a distância está sendo medida a partir do centro da cidade. Confira o endereço em Dados da loja.'
         }
