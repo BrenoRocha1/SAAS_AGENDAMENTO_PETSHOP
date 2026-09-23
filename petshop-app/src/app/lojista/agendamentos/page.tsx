@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 import { format, startOfWeek, addDays } from 'date-fns'
 import { agoraBrasil } from '@/lib/agenda'
 import { obterContextoLojista } from '@/lib/lojista-context'
@@ -20,6 +21,10 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
 
   if (!contexto) return null
+
+  // Quem só tem a função TaxiDog não usa a agenda: o painel dele é o das
+  // corridas (o login com Google cai aqui por padrão).
+  if (!contexto.podeGerenciarAgenda && contexto.podeTaxidog) redirect('/lojista/taxidog')
 
   if (!contexto.podeGerenciarAgenda) {
     return (

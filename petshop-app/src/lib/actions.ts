@@ -198,8 +198,19 @@ export async function loginAction(formData: FormData) {
       await supabase.auth.signOut()
       return { error: 'Sua conta de funcionário foi desativada. Entre em contato com o responsável pelo petshop.' }
     }
-    if (!func.pode_gerenciar_agenda && func.pode_gerenciar_servicos) {
-      destinoFuncionario = '/lojista/servicos'
+    if (!func.pode_gerenciar_agenda) {
+      // TaxiDog (migration 042) numa consulta à parte: sem a migration a
+      // coluna não existe, e isso não pode impedir o login.
+      const { data: taxidog } = await supabase
+        .from('funcionario')
+        .select('pode_taxidog')
+        .eq('id_funcionario', user!.id)
+        .maybeSingle()
+      if (taxidog?.pode_taxidog) {
+        destinoFuncionario = '/lojista/taxidog'
+      } else if (func.pode_gerenciar_servicos) {
+        destinoFuncionario = '/lojista/servicos'
+      }
     }
   }
 

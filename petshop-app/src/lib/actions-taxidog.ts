@@ -172,7 +172,7 @@ export async function salvarTaxiDogConfigAction(payload: unknown): Promise<{
 
   revalidatePath('/lojista/configuracoes')
   revalidatePath('/lojista/configuracoes/agendamentos')
-  revalidatePath('/lojista/configuracoes/agendamentos/taxidog')
+  revalidatePath('/lojista/configuracoes/taxidog')
   // Sidebar (item "TaxiDog" aparece/some) mora no layout.
   revalidatePath('/lojista', 'layout')
   return { success: true, aviso, origemEndereco: origem.endereco }

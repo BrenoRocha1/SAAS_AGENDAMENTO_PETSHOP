@@ -110,6 +110,7 @@ export default async function LojistaLayout({
         podeGerenciarProdutos={contexto.podeGerenciarProdutos}
         podeGerenciarClientesPets={contexto.podeGerenciarClientesPets}
         acessoTotal={contexto.acessoTotal}
+        podeTaxidog={contexto.podeTaxidog}
       />
       <main className="app-main">
         <div className="app-content">{children}</div>

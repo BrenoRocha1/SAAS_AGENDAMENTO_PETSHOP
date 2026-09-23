@@ -43,6 +43,9 @@ interface Props {
   // Responsável pela loja ou administrador — mesma regra de
   // fn_atribuir_corrida/fn_cancelar_corrida no banco.
   podeAtribuir: boolean
+  // Funcionário que só é TaxiDog: vê só as corridas dele (o banco já
+  // filtra), então a coluna "Pendentes" (sem TaxiDog) nunca teria nada.
+  modoMotorista?: boolean
 }
 
 const COLUNAS: { grupo: GrupoCorrida; cor: string; badge: string; vazio: string }[] = [
@@ -67,7 +70,8 @@ function linkRota(c: CorridaDetalhe): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}`
 }
 
-export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxidogs, podeAtribuir }: Props) {
+export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxidogs, podeAtribuir, modoMotorista = false }: Props) {
+  const colunas = modoMotorista ? COLUNAS.filter(col => col.grupo !== 'pendentes') : COLUNAS
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
@@ -170,12 +174,16 @@ export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxi
       {corridas.length === 0 ? (
         <div className="empty-state card">
           <IconCar style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
-          <div className="empty-state-title">Nenhuma corrida neste dia</div>
-          <p>As corridas aparecem aqui quando um cliente pede TaxiDog no agendamento.</p>
+          <div className="empty-state-title">{modoMotorista ? 'Nenhuma corrida atribuída a você neste dia' : 'Nenhuma corrida neste dia'}</div>
+          <p>
+            {modoMotorista
+              ? 'Quando a loja atribuir uma corrida a você, ela aparece aqui. Pelo app SAIP no celular você também recebe um aviso.'
+              : 'As corridas aparecem aqui quando um cliente pede TaxiDog no agendamento.'}
+          </p>
         </div>
       ) : (
-        <div className="kanban-columns">
-          {COLUNAS.map(col => (
+        <div className={`kanban-columns ${colunas.length === 3 ? 'kanban-columns--3' : ''}`}>
+          {colunas.map(col => (
             <div key={col.grupo} className="kanban-column">
               <div className="kanban-column-header" style={{ borderTopColor: col.cor }}>
                 <span>{ROTULO_GRUPO[col.grupo]}</span>

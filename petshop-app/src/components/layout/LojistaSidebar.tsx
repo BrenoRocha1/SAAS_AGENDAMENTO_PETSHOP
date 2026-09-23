@@ -56,6 +56,9 @@ interface Props {
   podeGerenciarProdutos?: boolean
   podeGerenciarClientesPets?: boolean
   acessoTotal?: boolean
+  // Função TaxiDog: vê o item mesmo sem permissão de agenda (só as
+  // corridas dele aparecem na tela).
+  podeTaxidog?: boolean
 }
 
 export default function LojistaSidebar({
@@ -70,13 +73,19 @@ export default function LojistaSidebar({
   podeGerenciarProdutos = true,
   podeGerenciarClientesPets = true,
   acessoTotal = true,
+  podeTaxidog = false,
 }: Props) {
+  const gestorDaAgenda = role === 'lojista' || acessoTotal || podeGerenciarAgenda
+  // Quem só é TaxiDog (sem agenda) vê a mesma tela, mas só com as corridas
+  // dele — daí o nome diferente no menu.
+  const soMotorista = podeTaxidog && !gestorDaAgenda
+
   // Administrador (funcionário com acesso_total) tem a MESMA visão do
   // lojista — nenhum item escondido, exatamente como se `role` fosse
   // 'lojista'. Só um funcionário comum passa pelo corte de permissões.
   const navItems = navItemsBase.filter(item => {
     if (item.condicao === 'kanban' && !kanbanAtivo) return false
-    if (item.condicao === 'taxidog' && !taxidogAtivo) return false
+    if (item.condicao === 'taxidog') return (gestorDaAgenda && taxidogAtivo) || podeTaxidog
     if (role === 'funcionario' && !acessoTotal) {
       if (item.restrito) return false
       if (item.permissao === 'agenda') return podeGerenciarAgenda
@@ -156,17 +165,18 @@ export default function LojistaSidebar({
         {!colapsada && <span className="sidebar-section-label">Gestão</span>}
         {navItems.map(item => {
           const Icon = item.icon
+          const label = item.condicao === 'taxidog' && soMotorista ? 'Minhas corridas' : item.label
           return (
             <Link
               key={item.href}
               href={item.href}
               className={`sidebar-link ${pathname.startsWith(item.href) ? 'active' : ''}`}
-              title={colapsada ? item.label : undefined}
+              title={colapsada ? label : undefined}
             >
               <span className="sidebar-link-icon">
                 <Icon style={{ width: 18, height: 18 }} />
               </span>
-              {!colapsada && <span>{item.label}</span>}
+              {!colapsada && <span>{label}</span>}
             </Link>
           )
         })}

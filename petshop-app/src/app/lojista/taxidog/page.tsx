@@ -20,14 +20,21 @@ export default async function TaxiDogPage({ searchParams }: Props) {
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
   if (!contexto) return null
 
+  // Quem gerencia a agenda vê todas as corridas da loja; quem só tem a
+  // função TaxiDog vê as dele (fn_listar_corridas já filtra assim) e pode
+  // avançar as etapas, mas não atribuir nem cancelar.
+  const modoMotorista = !contexto.podeGerenciarAgenda && contexto.podeTaxidog
+
   const cabecalho = (
     <div className="page-header">
-      <h1 className="page-title">TaxiDog</h1>
-      <p className="page-subtitle">Corridas de busca e entrega dos pets</p>
+      <h1 className="page-title">{modoMotorista ? 'Minhas corridas' : 'TaxiDog'}</h1>
+      <p className="page-subtitle">
+        {modoMotorista ? 'Corridas de busca e entrega atribuídas a você' : 'Corridas de busca e entrega dos pets'}
+      </p>
     </div>
   )
 
-  if (!contexto.podeGerenciarAgenda) {
+  if (!contexto.podeGerenciarAgenda && !contexto.podeTaxidog) {
     return (
       <>
         {cabecalho}
@@ -72,12 +79,12 @@ export default async function TaxiDogPage({ searchParams }: Props) {
   return (
     <>
       {cabecalho}
-      {!configRes.data?.ativo && (
+      {!configRes.data?.ativo && !modoMotorista && (
         <div className="alert alert-info" style={{ marginBottom: 'var(--space-5)' }}>
           <IconCar style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
           <span>
             O TaxiDog está desativado — novos clientes não conseguem pedir.{' '}
-            {podeAtribuir && <Link href="/lojista/configuracoes/agendamentos/taxidog" className="text-accent">Configurar TaxiDog</Link>}
+            {podeAtribuir && <Link href="/lojista/configuracoes/taxidog" className="text-accent">Configurar TaxiDog</Link>}
           </span>
         </div>
       )}
@@ -88,6 +95,7 @@ export default async function TaxiDogPage({ searchParams }: Props) {
         corridas={corridas}
         taxidogs={(taxidogs ?? []) as { id_funcionario: string; nome: string }[]}
         podeAtribuir={podeAtribuir}
+        modoMotorista={modoMotorista}
       />
     </>
   )

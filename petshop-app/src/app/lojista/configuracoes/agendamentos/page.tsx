@@ -6,8 +6,7 @@ import { alternarPrecosEstimadosAction } from '@/lib/actions-taxidog'
 import ConfigToggleCard from '@/components/lojista/ConfigToggleCard'
 import LinkAgendamentoOnline from '@/components/lojista/LinkAgendamentoOnline'
 import JanelaAgendamentoForm from '@/components/lojista/JanelaAgendamentoForm'
-import { IconAlert, IconCalendar, IconCar, IconChevronLeft, IconChevronRight, IconKanban, IconMoney } from '@/components/icons'
-import { ROTULO_MODO_COBRANCA, type ModoCobrancaTaxiDog } from '@/lib/taxidog'
+import { IconAlert, IconCalendar, IconChevronLeft, IconKanban, IconMoney } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'Configurações de Agendamentos — Lojista' }
 
@@ -43,12 +42,12 @@ export default async function ConfiguracoesAgendamentosPage() {
     .maybeSingle()
   const janelaPendente = !!janelaError
 
-  // TaxiDog + preço estimado (migration 042) — tolerante como as de cima.
-  const [{ data: taxidogRow, error: taxidogError }, { data: estimadoRow, error: estimadoError }] = await Promise.all([
-    supabase.from('taxidog_config').select('ativo, disponivel_online, modo_cobranca').eq('id_lojista', user!.id).maybeSingle(),
-    supabase.from('lojista').select('precos_estimados').eq('id_lojista', user!.id).maybeSingle(),
-  ])
-  const taxidogPendente = !!taxidogError
+  // Preço estimado (migration 042) — tolerante como as de cima.
+  const { data: estimadoRow, error: estimadoError } = await supabase
+    .from('lojista')
+    .select('precos_estimados')
+    .eq('id_lojista', user!.id)
+    .maybeSingle()
 
   return (
     <>
@@ -58,7 +57,7 @@ export default async function ConfiguracoesAgendamentosPage() {
 
       <div className="page-header">
         <h1 className="page-title">Configurações de Agendamentos</h1>
-        <p className="page-subtitle">Controle o Kanban, o agendamento feito pelos próprios clientes e o TaxiDog.</p>
+        <p className="page-subtitle">Controle o Kanban e o agendamento feito pelos próprios clientes.</p>
       </div>
 
       {error || !lojista ? (
@@ -125,28 +124,6 @@ export default async function ConfiguracoesAgendamentosPage() {
               )}
             </>
           )}
-
-          <div id="taxidog">
-            <Link href="/lojista/configuracoes/agendamentos/taxidog" className="card config-item" style={{ padding: 'var(--space-5)' }}>
-              <span className="dash-icon-btn" style={{ cursor: 'default' }}><IconCar style={{ width: 17, height: 17 }} /></span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="config-item-titulo">TaxiDog</div>
-                <div className="config-item-desc">
-                  {taxidogPendente
-                    ? 'Execute a migration 042_taxidog.sql para configurar a busca e entrega dos pets.'
-                    : taxidogRow?.ativo
-                      ? `Cobrança: ${ROTULO_MODO_COBRANCA[(taxidogRow.modo_cobranca ?? 'fixo') as ModoCobrancaTaxiDog]}${taxidogRow.disponivel_online ? ' · disponível no agendamento online' : ' · só a loja agenda'}`
-                      : 'Busca e entrega dos pets: preços, regiões atendidas e quem faz as corridas.'}
-                </div>
-              </div>
-              {!taxidogPendente && (
-                <span className={`badge ${taxidogRow?.ativo ? 'badge-ativo' : 'badge-inativo'}`}>
-                  {taxidogRow?.ativo ? 'Ativado' : 'Desativado'}
-                </span>
-              )}
-              <IconChevronRight style={{ width: 16, height: 16, color: 'var(--gray-600)', flexShrink: 0 }} />
-            </Link>
-          </div>
 
           {!estimadoError && (
             <div id="precos-estimados">
