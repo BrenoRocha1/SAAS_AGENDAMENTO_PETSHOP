@@ -134,7 +134,10 @@ export async function salvarTaxiDogConfigAction(payload: unknown): Promise<{
     } else {
       const coords = await geocodificarLoja({ endereco: loja.endereco, cidade: loja.cidade, estado: loja.estado })
       if (coords) {
-        origem = { lat: coords.lat, lng: coords.lng, endereco: enderecoLoja }
+        // origem_endereco é o que a tela mostra em "Distância medida a partir
+        // de" — tem que dizer a verdade quando só achamos a cidade.
+        const centroCidade = `Centro de ${[loja.cidade, loja.estado].filter(Boolean).join(', ')} (aproximado)`
+        origem = { lat: coords.lat, lng: coords.lng, endereco: coords.precisao === 'cidade' ? centroCidade : enderecoLoja }
         if (coords.precisao === 'cidade') {
           aviso = 'Não encontramos a rua da loja no mapa — a distância está sendo medida a partir do centro da cidade. Confira o endereço em Dados da loja.'
         }

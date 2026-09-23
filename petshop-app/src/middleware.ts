@@ -26,7 +26,8 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, {
               ...options,
-              httpOnly: true,
+              // Sem httpOnly — ver lib/supabase/server.ts (o navegador
+              // precisa ler a sessão pro Realtime e consultas do client).
               sameSite: 'lax',
               secure: process.env.NODE_ENV === 'production',
             })

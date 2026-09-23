@@ -24,7 +24,11 @@ export async function createClient() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, {
                 ...options,
-                httpOnly: true,
+                // Sem httpOnly de propósito: o client do navegador
+                // (lib/supabase/client.ts) lê a sessão deste cookie — com
+                // httpOnly, toda consulta/Realtime do navegador ia como
+                // anônima (gráfico do Dashboard zerado, painel do TaxiDog
+                // sem atualização ao vivo, som de novo agendamento mudo).
                 sameSite: 'lax',
                 secure: process.env.NODE_ENV === 'production',
               })

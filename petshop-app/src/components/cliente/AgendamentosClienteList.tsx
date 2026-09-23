@@ -142,7 +142,13 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
                 </div>
                 <div>
                   <div className="text-xs text-muted" style={{ marginBottom: 2 }}>Valor</div>
-                  <div className="font-semibold text-success">R$ {Number(ag.valor).toFixed(2)}</div>
+                  <div className="font-semibold text-success">{formatarReais(ag.valor)}</div>
+                  {/* A taxa do TaxiDog já está somada em `valor` (sai quando a
+                      corrida é cancelada) — sem este aviso o bloco TaxiDog
+                      abaixo parece uma cobrança a mais. */}
+                  {taxidog[ag.id_agendamento] && taxidog[ag.id_agendamento].status !== 'cancelada' && (
+                    <div className="text-xs text-muted">inclui TaxiDog</div>
+                  )}
                 </div>
               </div>
 
@@ -155,7 +161,7 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
                         <span className="flex items-center gap-1" style={{ color: 'var(--gray-300)' }}>
                           <IconPackage style={{ width: 12, height: 12, color: 'var(--gray-500)' }} /> {p.nome} — {rotuloEstoque(p.quantidade, p.unidade_venda)}
                         </span>
-                        <span className="font-semibold text-success">R$ {(p.preco_unitario * p.quantidade).toFixed(2)}</span>
+                        <span className="font-semibold text-success">{formatarReais(p.preco_unitario * p.quantidade)}</span>
                       </div>
                     ))}
                   </div>

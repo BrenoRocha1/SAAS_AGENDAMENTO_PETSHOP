@@ -340,7 +340,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                         >
                           <div className="kanban-card-top">
                             <div className="kanban-card-time">{item.hr_agendamento.slice(0, 5)}</div>
-                            <span className="text-sm font-semibold text-success">R$ {item.valor.toFixed(2)}</span>
+                            <span className="text-sm font-semibold text-success">{formatarReais(item.valor)}</span>
                           </div>
 
                           <div className="kanban-card-main">
@@ -417,7 +417,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                     {selecionado.produtos.map((p, i) => (
                       <div key={i} className="flex items-center justify-between text-sm" style={{ color: 'var(--gray-300)' }}>
                         <span>{p.nome} — {rotuloEstoque(p.quantidade, p.unidade_venda)}</span>
-                        <span className="font-semibold text-success">R$ {(p.preco_unitario * p.quantidade).toFixed(2)}</span>
+                        <span className="font-semibold text-success">{formatarReais(p.preco_unitario * p.quantidade)}</span>
                       </div>
                     ))}
                   </div>
@@ -438,7 +438,16 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
               )}
               <div className="dash-detail-row"><span>Data</span><span>{format(parseDia(selecionado.dt_agendamento), 'dd/MM/yyyy')}</span></div>
               <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>
-              <div className="dash-detail-row"><span>Valor</span><span>R$ {selecionado.valor.toFixed(2)}</span></div>
+              <div className="dash-detail-row">
+                <span>Valor</span>
+                <span style={{ textAlign: 'right' }}>
+                  {formatarReais(selecionado.valor)}
+                  {/* A taxa do TaxiDog já está somada em `valor`. */}
+                  {selecionado.taxidog && selecionado.taxidog.status !== 'cancelada' && (
+                    <><br /><span className="text-xs text-muted">inclui TaxiDog</span></>
+                  )}
+                </span>
+              </div>
               <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(selecionado.status)}`}>{rotuloStatus(selecionado.status)}</span></span></div>
               {selecionado.obs && (
                 <div className="dash-detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>

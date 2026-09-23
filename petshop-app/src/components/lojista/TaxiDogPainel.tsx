@@ -152,7 +152,7 @@ export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxi
           )}
         </div>
         <div className="flex items-center gap-3 text-sm text-muted" style={{ flexWrap: 'wrap' }}>
-          <span><strong style={{ color: 'var(--gray-100)' }}>{corridas.length - canceladas}</strong> corridas</span>
+          <span><strong style={{ color: 'var(--gray-100)' }}>{corridas.length - canceladas}</strong> {corridas.length - canceladas === 1 ? 'corrida' : 'corridas'}</span>
           <span>Total do dia <strong className="text-success">{formatarReais(totalDia)}</strong></span>
           {canceladas > 0 && <span>{canceladas} cancelada{canceladas > 1 ? 's' : ''}</span>}
         </div>

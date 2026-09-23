@@ -17,6 +17,7 @@ import TaxiDogEtapa, {
   taxiDogParaFormulario,
   type EstadoTransporte,
 } from './TaxiDogEtapa'
+import { formatarReais } from '@/lib/taxidog'
 import {
   IconAlert, IconCalendar, IconCheck, IconClock, IconDog,
   IconMapPin, IconMoney, IconPackage, IconScissors, IconStore,
@@ -429,7 +430,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
                       {s.descricao && <div className="text-sm text-muted">{s.descricao}</div>}
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div className="font-semibold text-success">R$ {Number(s.preco).toFixed(2)}</div>
+                      <div className="font-semibold text-success">{formatarReais(s.preco)}</div>
                       <div className="text-xs text-muted">{s.duracao} min</div>
                     </div>
                     {servicoId === s.id_servico && <span style={{ color: 'var(--primary-400)' }}><IconCheck style={{ width: 16, height: 16 }} /></span>}
@@ -544,7 +545,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
               { Icon: IconCalendar, label: 'Data', value: format(new Date(data + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) },
               { Icon: IconClock, label: 'Horário', value: hora?.slice(0, 5) },
               { Icon: IconClock, label: 'Duração', value: `${servicoSel?.duracao} minutos` },
-              { Icon: IconMoney, label: 'Valor do serviço', value: `R$ ${Number(servicoSel?.preco ?? 0).toFixed(2)}` },
+              { Icon: IconMoney, label: 'Valor do serviço', value: formatarReais(servicoSel?.preco ?? 0) },
             ].map(item => (
               <div key={item.label} className="flex justify-between">
                 <span className="text-sm text-muted flex items-center gap-1">
@@ -559,13 +560,13 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
             {totalProdutos > 0 && (
               <div className="flex justify-between">
                 <span className="text-sm text-muted flex items-center gap-1"><IconPackage style={{ width: 13, height: 13 }} /> Produtos</span>
-                <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>R$ {totalProdutos.toFixed(2)}</span>
+                <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{formatarReais(totalProdutos)}</span>
               </div>
             )}
 
             <div className="flex justify-between" style={{ paddingTop: 'var(--space-3)', borderTop: '1px solid var(--gray-800)' }}>
               <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>Total</span>
-              <span className="font-semibold text-success">R$ {totalGeral.toFixed(2)}</span>
+              <span className="font-semibold text-success">{formatarReais(totalGeral)}</span>
             </div>
             {precosEstimados && (
               <p className="text-xs text-muted" style={{ margin: 0 }}>
@@ -588,7 +589,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
                     <IconPackage style={{ width: 15, height: 15, color: 'var(--gray-500)', flexShrink: 0 }} />
                     <div style={{ flex: 1 }}>
                       <div className="text-sm font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</div>
-                      <div className="text-xs text-muted">R$ {Number(p.preco_venda).toFixed(2)} / {rotuloUnidade(p.unidade_venda)}</div>
+                      <div className="text-xs text-muted">{formatarReais(p.preco_venda)} / {rotuloUnidade(p.unidade_venda)}</div>
                     </div>
                     <input
                       type="number"
@@ -606,7 +607,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
               </div>
               {totalProdutos > 0 && (
                 <p className="text-sm text-success font-semibold" style={{ marginTop: 'var(--space-2)' }}>
-                  Subtotal produtos: R$ {totalProdutos.toFixed(2)}
+                  Subtotal produtos: {formatarReais(totalProdutos)}
                 </p>
               )}
             </div>

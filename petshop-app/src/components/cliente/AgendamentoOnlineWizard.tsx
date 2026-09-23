@@ -324,7 +324,7 @@ export default function AgendamentoOnlineWizard({
     ...(escolhaTaxiDog ? [`TaxiDog: ${ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]} (${formatarReais(escolhaTaxiDog.cotacao.valor)})`] : []),
     `Pet: ${petSel?.nome ?? ''}`,
     `Data: ${data ? format(new Date(data + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR }) : ''} às ${horaInicio}`,
-    `Total: R$ ${totalGeral.toFixed(2)}`,
+    `Total: ${formatarReais(totalGeral)}`,
   ].join('\n')
 
   const enderecoCompleto = [lojista.endereco, lojista.cidade && lojista.estado ? `${lojista.cidade}, ${lojista.estado}` : lojista.cidade].filter(Boolean).join(' — ')
@@ -396,7 +396,7 @@ export default function AgendamentoOnlineWizard({
                     {selecionado && <span className="agenonline-service-check"><IconCheck style={{ width: 13, height: 13 }} /></span>}
                     <IconScissors style={{ width: 20, height: 20, color: 'var(--gray-500)' }} />
                     <div className="agenonline-service-nome">{s.nome}</div>
-                    <div className="agenonline-service-preco">A partir de R$ {Number(s.preco).toFixed(2)}</div>
+                    <div className="agenonline-service-preco">A partir de {formatarReais(s.preco)}</div>
                   </button>
                 )
               })}
@@ -539,7 +539,7 @@ export default function AgendamentoOnlineWizard({
           {petSel && !precisaClassificar && (
             <div className="flex justify-between" style={{ marginBottom: 'var(--space-5)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--gray-800)' }}>
               <span className="text-sm text-muted">Valor Total</span>
-              <span className="font-semibold text-success">R$ {valorTotal.toFixed(2)}</span>
+              <span className="font-semibold text-success">{formatarReais(valorTotal)}</span>
             </div>
           )}
 
@@ -648,7 +648,7 @@ export default function AgendamentoOnlineWizard({
             {servicosCarrinho.map(s => (
               <div key={s.id_servico} className="agenonline-resumo-row">
                 <span>{s.nome}</span>
-                <span className="font-semibold text-success">R$ {Number(precos[s.id_servico] ?? s.preco).toFixed(2)}</span>
+                <span className="font-semibold text-success">{formatarReais(precos[s.id_servico] ?? s.preco)}</span>
               </div>
             ))}
             <ResumoTaxiDog escolha={escolhaTaxiDog} disponivel={taxidogDisponivel} />
@@ -663,9 +663,9 @@ export default function AgendamentoOnlineWizard({
             </div>
             <div className="agenonline-resumo-row"><span className="text-muted">Duração total</span><span>{duracaoTotal} minutos</span></div>
             {totalProdutos > 0 && (
-              <div className="agenonline-resumo-row"><span className="text-muted">Produtos</span><span>R$ {totalProdutos.toFixed(2)}</span></div>
+              <div className="agenonline-resumo-row"><span className="text-muted">Produtos</span><span>{formatarReais(totalProdutos)}</span></div>
             )}
-            <div className="agenonline-resumo-row"><span className="font-semibold">Total</span><span className="font-semibold text-success">R$ {totalGeral.toFixed(2)}</span></div>
+            <div className="agenonline-resumo-row"><span className="font-semibold">Total</span><span className="font-semibold text-success">{formatarReais(totalGeral)}</span></div>
             {precosEstimados && (
               <p className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>
                 O valor dos serviços é uma estimativa: a loja pode ajustar o preço final conforme a pelagem e as condições do pet no dia.
@@ -687,7 +687,7 @@ export default function AgendamentoOnlineWizard({
                     <IconPackage style={{ width: 15, height: 15, color: 'var(--gray-500)', flexShrink: 0 }} />
                     <div style={{ flex: 1 }}>
                       <div className="text-sm font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</div>
-                      <div className="text-xs text-muted">R$ {Number(p.preco_venda).toFixed(2)} / {rotuloUnidade(p.unidade_venda)}</div>
+                      <div className="text-xs text-muted">{formatarReais(p.preco_venda)} / {rotuloUnidade(p.unidade_venda)}</div>
                     </div>
                     <input
                       type="number"
@@ -705,7 +705,7 @@ export default function AgendamentoOnlineWizard({
               </div>
               {totalProdutos > 0 && (
                 <p className="text-sm text-success font-semibold" style={{ marginTop: 'var(--space-2)' }}>
-                  Subtotal produtos: R$ {totalProdutos.toFixed(2)}
+                  Subtotal produtos: {formatarReais(totalProdutos)}
                 </p>
               )}
             </div>
@@ -775,7 +775,7 @@ export default function AgendamentoOnlineWizard({
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted">Preço</span>
-                <span className="font-semibold text-success">A partir de R$ {Number(servicoDetalhe.preco).toFixed(2)}</span>
+                <span className="font-semibold text-success">A partir de {formatarReais(servicoDetalhe.preco)}</span>
               </div>
             </div>
             <div className="modal-footer">

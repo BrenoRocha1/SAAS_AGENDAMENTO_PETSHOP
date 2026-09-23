@@ -37,10 +37,11 @@ export function formatarQuantidade(n: number): string {
   return String(Math.round(n * 1000) / 1000)
 }
 
-// "15 unidades" / "12.5 kg" — usa o plural cadastrado (kg não muda).
+// "1 unidade" / "15 unidades" / "12.5 kg" — usa o plural cadastrado (kg não muda).
 export function rotuloEstoque(quantidade: number, unidade: string): string {
   const u = UNIDADES_VENDA.find(x => x.value === unidade)
-  return `${formatarQuantidade(quantidade)} ${u?.plural ?? unidade}`
+  const nome = quantidade === 1 ? u?.label.toLowerCase() : u?.plural
+  return `${formatarQuantidade(quantidade)} ${nome ?? unidade}`
 }
 
 export type StatusEstoque = 'zerado' | 'baixo' | 'em_estoque'

@@ -170,11 +170,22 @@ export default function TaxiDogConfigForm({ inicial, taxidogs }: { inicial: Taxi
     })
   }
 
+  // Valor mínimo vale por cima de qualquer regra (fn_cotar_taxidog) — no
+  // modo fixo isso muda o preço de verdade, então o resumo mostra o
+  // efetivo e o campo do mínimo avisa quais valores ele sobe.
+  const minimo = valorMinimo.trim() !== '' && valido(valorMinimo) ? num(valorMinimo) : null
+  const efetivo = (s: string) => Math.max(num(s) || 0, minimo ?? 0)
+  const subidosPeloMinimo = modo === 'fixo' && minimo != null
+    ? ([['Somente buscar', valorBuscar], ['Somente entregar', valorEntregar], ['Buscar e entregar', valorAmbos]] as const)
+        .filter(([, v]) => valido(v) && num(v) < minimo)
+        .map(([rotulo]) => rotulo)
+    : []
+
   // ---------- Resumo em linguagem simples (topo da página) ----------
   const resumoCobranca = (() => {
     switch (modo) {
       case 'fixo':
-        return `Buscar ${formatarReais(num(valorBuscar) || 0)} · Entregar ${formatarReais(num(valorEntregar) || 0)} · Buscar e entregar ${formatarReais(num(valorAmbos) || 0)}`
+        return `Buscar ${formatarReais(efetivo(valorBuscar))} · Entregar ${formatarReais(efetivo(valorEntregar))} · Buscar e entregar ${formatarReais(efetivo(valorAmbos))}`
       case 'distancia':
         return `${faixas.length} ${faixas.length === 1 ? 'faixa' : 'faixas'} de distância${distMax ? ` · atende até ${distMax} km` : ''}`
       case 'regiao':
@@ -198,8 +209,8 @@ export default function TaxiDogConfigForm({ inicial, taxidogs }: { inicial: Taxi
         </div>
         <div className="dash-detail-row"><span>No agendamento online</span><span>{ativo && online ? 'Disponível' : 'Não aparece'}</span></div>
         <div className="dash-detail-row"><span>Como cobra</span><span>{ROTULO_MODO_COBRANCA[modo]} — {resumoCobranca}</span></div>
-        {valorMinimo.trim() !== '' && valido(valorMinimo) && (
-          <div className="dash-detail-row"><span>Valor mínimo</span><span>{formatarReais(num(valorMinimo))}</span></div>
+        {minimo != null && (
+          <div className="dash-detail-row"><span>Valor mínimo</span><span>{formatarReais(minimo)}</span></div>
         )}
         <div className="dash-detail-row">
           <span>Quem pode ser TaxiDog</span>
@@ -209,12 +220,6 @@ export default function TaxiDogConfigForm({ inicial, taxidogs }: { inicial: Taxi
           </span>
         </div>
       </div>
-
-      {erro && (
-        <div className="alert alert-error">
-          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{erro}</span>
-        </div>
-      )}
 
       {/* Ativação */}
       <div className="card">
@@ -369,9 +374,21 @@ export default function TaxiDogConfigForm({ inicial, taxidogs }: { inicial: Taxi
         <div style={{ maxWidth: 200 }}>
           <InputMoeda valor={valorMinimo} placeholder="Sem mínimo" onChange={v => { setValorMinimo(v); marcarAlterado() }} />
         </div>
+        {subidosPeloMinimo.length > 0 && (
+          <p className="form-hint" style={{ marginTop: 'var(--space-2)' }}>
+            Com este mínimo, {subidosPeloMinimo.join(', ').toLowerCase()} sai por {formatarReais(minimo)}.
+          </p>
+        )}
       </div>
 
+      {/* Erro fica junto do botão: o formulário é comprido e quem clica em
+          salvar está aqui embaixo — no topo da página ele passava batido. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        {erro && (
+          <div className="alert alert-error">
+            <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{erro}</span>
+          </div>
+        )}
         {aviso && (
           <div className="alert alert-warning">
             <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{aviso}</span>
@@ -416,6 +433,7 @@ function LinhaSwitch({ titulo, descricao, ligado, desativado, onChange }: {
         disabled={desativado}
         role="switch"
         aria-checked={ligado}
+        aria-label={titulo}
         style={{ flexShrink: 0 }}
       >
         <span className="switch-thumb" />
