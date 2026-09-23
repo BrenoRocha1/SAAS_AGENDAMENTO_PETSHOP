@@ -22,7 +22,7 @@ const ITENS: ItemMenu[] = [
 ]
 
 export default function MaisScreen() {
-  const { contexto, signOut } = useAuth()
+  const { contexto, signOut, setModo } = useAuth()
   const router = useRouter()
 
   function confirmarSaida() {
@@ -47,6 +47,19 @@ export default function MaisScreen() {
           </Text>
         </View>
       </Card>
+
+      {contexto?.podeTaxidog && (
+        <Pressable
+          onPress={() => setModo('taxidog')}
+          style={({ pressed }) => [styles.menu, styles.item, pressed && styles.itemPressionado]}
+        >
+          <View style={styles.itemIcone}>
+            <Ionicons name="car-outline" size={19} color={colors.primary600} />
+          </View>
+          <Text style={styles.itemLabel}>Área do TaxiDog</Text>
+          <Ionicons name="swap-horizontal" size={18} color={colors.textFaint} />
+        </Pressable>
+      )}
 
       <View style={styles.menu}>
         {ITENS.map((item, i) => (

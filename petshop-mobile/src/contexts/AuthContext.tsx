@@ -1,9 +1,16 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { obterContextoLojista, type ContextoLojista } from '@/lib/lojistaContext'
 
 type Role = 'lojista' | 'funcionario' | 'cliente' | null
+
+// 'loja' = abas da equipe (Início, Agendamentos, Clientes, Pets, Mais).
+// 'taxidog' = área das corridas (Início, Corridas, Histórico, Mais).
+export type ModoApp = 'loja' | 'taxidog'
+
+const CHAVE_MODO = 'saip:modo-app'
 
 interface AuthState {
   loading: boolean
@@ -14,6 +21,11 @@ interface AuthState {
   // Funcionário existe no auth mas foi desativado (ativo=false) — trata
   // diferente de "não é da equipe" (role cliente), pra dar um aviso claro.
   funcionarioInativo: boolean
+  modo: ModoApp
+  // Tem alguma permissão da loja além de ser TaxiDog? Só assim faz sentido
+  // oferecer a troca de área.
+  temAcessoLoja: boolean
+  setModo: (modo: ModoApp) => void
   signIn: (email: string, senha: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
@@ -46,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>(null)
   const [contexto, setContexto] = useState<ContextoLojista | null>(null)
   const [funcionarioInativo, setFuncionarioInativo] = useState(false)
+  const [modoPreferido, setModoPreferido] = useState<ModoApp | null>(null)
 
   async function carregarContexto(user: User) {
     const resolvedRole = await resolverRole(user)
@@ -71,8 +84,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let ativo = true
 
-    supabase.auth.getSession().then(async ({ data }) => {
+    // A preferência de área é lida antes de liberar a tela, pra não abrir
+    // numa área e pular pra outra logo em seguida.
+    Promise.all([supabase.auth.getSession(), AsyncStorage.getItem(CHAVE_MODO).catch(() => null)]).then(async ([{ data }, salvo]) => {
       if (!ativo) return
+      if (salvo === 'loja' || salvo === 'taxidog') setModoPreferido(salvo)
       setSession(data.session)
       if (data.session?.user) await carregarContexto(data.session.user)
       setLoading(false)
@@ -108,6 +124,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
   }
 
+  function setModo(novo: ModoApp) {
+    setModoPreferido(novo)
+    AsyncStorage.setItem(CHAVE_MODO, novo).catch(() => {})
+  }
+
+  const temAcessoLoja = !contexto || contexto.role === 'lojista' || contexto.acessoTotal ||
+    contexto.podeGerenciarAgenda || contexto.podeGerenciarClientesPets ||
+    contexto.podeGerenciarProdutos || contexto.podeGerenciarServicos
+
+  // Quem é TaxiDog cai direto nas corridas; quem também é da equipe pode
+  // trocar (e a escolha fica salva no aparelho). Quem não é TaxiDog nunca
+  // vê a área de corridas.
+  const modo: ModoApp = !contexto?.podeTaxidog ? 'loja' : !temAcessoLoja ? 'taxidog' : modoPreferido ?? 'taxidog'
+
   const value = useMemo<AuthState>(
     () => ({
       loading,
@@ -116,10 +146,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role,
       contexto,
       funcionarioInativo,
+      modo,
+      temAcessoLoja,
+      setModo,
       signIn,
       signOut,
     }),
-    [loading, session, role, contexto, funcionarioInativo]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setModo/signIn/signOut só usam setters e o client estável
+    [loading, session, role, contexto, funcionarioInativo, modo, temAcessoLoja]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

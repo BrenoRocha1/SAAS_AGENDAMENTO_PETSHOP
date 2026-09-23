@@ -119,7 +119,10 @@ $$;
 -- ============================================================
 ALTER TABLE funcionario ADD COLUMN IF NOT EXISTS pode_taxidog BOOLEAN NOT NULL DEFAULT false;
 
+-- Assinatura da 040 (11 args) e, por segurança, a da 035 (10 args) caso a
+-- 040 não tenha rodado — senão sobrariam duas versões sobrecarregadas.
 DROP FUNCTION IF EXISTS fn_registrar_funcionario(UUID, UUID, TEXT, TEXT, TEXT, TEXT, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN);
+DROP FUNCTION IF EXISTS fn_registrar_funcionario(UUID, UUID, TEXT, TEXT, TEXT, TEXT, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN);
 
 CREATE OR REPLACE FUNCTION fn_registrar_funcionario(
   p_id_funcionario      UUID,

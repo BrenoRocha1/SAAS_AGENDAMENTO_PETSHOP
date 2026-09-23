@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { CorridasProvider } from '@/contexts/CorridasContext'
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
 
@@ -14,19 +15,23 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <AuthProvider>
           <StatusBar style="dark" />
-          <RootNavigator />
+          {/* Fica acima das duas áreas: o TaxiDog recebe o aviso de corrida
+              nova mesmo se estiver olhando o painel da loja. */}
+          <CorridasProvider>
+            <RootNavigator />
+          </CorridasProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   )
 }
 
-// Auth gate no nível da raiz: sessão ausente cai pro login, sessão
-// presente entra nas tabs. O que fazer com um `cliente` logado ou um
-// funcionário desativado é resolvido dentro de (tabs)/_layout — aqui só
-// decide "está autenticado ou não".
+// Auth gate no nível da raiz: sem sessão -> login; com sessão -> a área
+// escolhida (AuthContext.modo). Quem não é TaxiDog sempre fica em
+// 'loja'. O que fazer com um `cliente` logado ou um funcionário
+// desativado é resolvido dentro de (tabs)/_layout.
 function RootNavigator() {
-  const { loading, session } = useAuth()
+  const { loading, session, modo } = useAuth()
 
   useEffect(() => {
     if (!loading) SplashScreen.hideAsync().catch(() => {})
@@ -36,8 +41,11 @@ function RootNavigator() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={!!session}>
+      <Stack.Protected guard={!!session && modo === 'loja'}>
         <Stack.Screen name="(tabs)" />
+      </Stack.Protected>
+      <Stack.Protected guard={!!session && modo === 'taxidog'}>
+        <Stack.Screen name="taxidog" />
       </Stack.Protected>
       <Stack.Protected guard={!session}>
         <Stack.Screen name="login" />

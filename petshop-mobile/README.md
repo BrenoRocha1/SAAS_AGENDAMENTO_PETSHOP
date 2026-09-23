@@ -42,19 +42,39 @@ As permissões de equipe (`pode_gerenciar_agenda`,
 `pode_gerenciar_clientes_pets`, …) são lidas da tabela `funcionario` e
 bloqueiam o conteúdo das telas, do mesmo jeito que no dashboard.
 
+## TaxiDog
+
+Funcionário com a função **TaxiDog** (`funcionario.pode_taxidog`,
+migration 042 — marcada em Equipe no painel web) entra direto na área de
+corridas, com abas próprias: **Início, Corridas, Histórico, Mais**. Quem
+também tem permissões da loja troca de área em **Mais** (a escolha fica
+salva no aparelho).
+
+- Dados vêm de `fn_listar_corridas` (só as corridas do próprio TaxiDog —
+  sem abrir RLS de cliente/pet pra ele).
+- Cada botão ("Iniciar corrida", "Cheguei", "Pet embarcado", "Entregue na
+  loja", "Aceitar entrega", "Pet entregue") chama `fn_avancar_corrida`,
+  que só aceita a próxima etapa válida.
+- Avisos dentro do app (corrida nova atribuída, pet pronto para entrega)
+  via Supabase Realtime em `taxidog_corrida` (`src/contexts/CorridasContext`),
+  sem repetir o mesmo aviso. Não há push notification com o app fechado
+  ainda — isso exige configurar o EAS/Expo Push.
+
 ## Estrutura
 
 ```
 app/                      rotas (expo-router, file-based)
   _layout.tsx             providers + gate de autenticação
   login.tsx
-  (tabs)/                 as 5 abas da barra inferior
+  (tabs)/                 área da equipe (5 abas)
     _layout.tsx           tab bar + bloqueio por papel
     index.tsx             Início
     agendamentos.tsx
     clientes/             lista + detalhe
     pets/                 lista + detalhe
     mais/                 menu + telas estruturais
+  taxidog/                área do TaxiDog (Início, Corridas, Histórico, Mais)
+    corrida/[id].tsx      detalhe + ações da corrida
 src/
   components/             UI compartilhada (Card, Avatar, StatusBadge, …)
   contexts/AuthContext    sessão + papel + permissões

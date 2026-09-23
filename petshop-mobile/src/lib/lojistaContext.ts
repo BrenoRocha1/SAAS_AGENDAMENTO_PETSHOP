@@ -14,6 +14,16 @@ export interface ContextoLojista {
   podeGerenciarProdutos: boolean
   podeGerenciarClientesPets: boolean
   acessoTotal: boolean
+  // Função TaxiDog (migration 042): recebe corridas no app. Não é
+  // permissão — o dono da loja não é TaxiDog por ser dono.
+  podeTaxidog: boolean
+}
+
+// Consulta separada e tolerante: sem a migration 042 a coluna não existe,
+// e isso não pode derrubar o login de ninguém.
+async function lerPodeTaxidog(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  const { data, error } = await supabase.from('funcionario').select('pode_taxidog').eq('id_funcionario', userId).maybeSingle()
+  return !error && !!data?.pode_taxidog
 }
 
 export async function obterContextoLojista(
@@ -37,6 +47,7 @@ export async function obterContextoLojista(
       podeGerenciarProdutos: true,
       podeGerenciarClientesPets: true,
       acessoTotal: true,
+      podeTaxidog: false,
     }
   }
 
@@ -61,6 +72,7 @@ export async function obterContextoLojista(
       podeGerenciarProdutos: data.pode_gerenciar_produtos || data.acesso_total,
       podeGerenciarClientesPets: data.pode_gerenciar_clientes_pets || data.acesso_total,
       acessoTotal: data.acesso_total,
+      podeTaxidog: await lerPodeTaxidog(supabase, userId),
     }
   }
 

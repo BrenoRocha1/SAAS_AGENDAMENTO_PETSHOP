@@ -1,17 +1,10 @@
 import { Ionicons } from '@expo/vector-icons'
 import { Tabs } from 'expo-router'
-import { Pressable, StyleSheet, Text, View, type ColorValue } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/contexts/AuthContext'
+import { opcoesTabBar, tabIcon } from '@/components/tabBar'
 import { colors, radius, spacing, typography } from '@/theme/theme'
-
-type IconName = keyof typeof Ionicons.glyphMap
-
-function tabIcon(nomeAtivo: IconName, nomeInativo: IconName) {
-  return ({ focused, color }: { focused: boolean; color: ColorValue }) => (
-    <Ionicons name={focused ? nomeAtivo : nomeInativo} size={23} color={color} />
-  )
-}
 
 export default function TabsLayout() {
   const { role, contexto, funcionarioInativo, signOut } = useAuth()
@@ -40,16 +33,7 @@ export default function TabsLayout() {
   }
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary600,
-        tabBarInactiveTintColor: colors.textFaint,
-        tabBarLabelStyle: styles.label,
-        tabBarStyle: styles.tabBar,
-        tabBarItemStyle: styles.tabItem,
-      }}
-    >
+    <Tabs screenOptions={opcoesTabBar}>
       <Tabs.Screen name="index" options={{ title: 'Início', tabBarIcon: tabIcon('home', 'home-outline') }} />
       <Tabs.Screen
         name="agendamentos"
@@ -78,17 +62,6 @@ function BloqueioAcesso({ titulo, mensagem, onSignOut }: { titulo: string; mensa
 }
 
 const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: colors.surface,
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-    height: 64,
-    paddingTop: 8,
-    paddingBottom: 8,
-  },
-  tabItem: { paddingVertical: 2 },
-  label: { fontSize: 11, fontWeight: '600' },
-
   bloqueioSafe: { flex: 1, backgroundColor: colors.bg },
   bloqueioContent: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing['2xl'], gap: spacing.sm },
   bloqueioTitulo: { ...typography.heading.md, color: colors.text, textAlign: 'center', marginTop: spacing.sm },
