@@ -11,6 +11,7 @@ import {
 import {
   IconAlert,
   IconCalendar,
+  IconCar,
   IconCheck,
   IconClose,
   IconDog,
@@ -35,6 +36,9 @@ interface Funcionario {
   pode_gerenciar_produtos: boolean
   pode_gerenciar_clientes_pets: boolean
   acesso_total: boolean
+  // Função (não permissão) — migration 042. Opcional: sem a migration a
+  // coluna não vem no select('*').
+  pode_taxidog?: boolean
   ativo: boolean
   created_at: string
 }
@@ -532,6 +536,7 @@ function PermissoesCampos({
   const [podeProdutos, setPodeProdutos] = useState(editFunc?.pode_gerenciar_produtos ?? false)
   const [podeClientesPets, setPodeClientesPets] = useState(editFunc?.pode_gerenciar_clientes_pets ?? false)
   const [acessoTotal, setAcessoTotal] = useState(editFunc?.acesso_total ?? false)
+  const [podeTaxidog, setPodeTaxidog] = useState(editFunc?.pode_taxidog ?? false)
 
   // "Acesso total" é paridade completa com o lojista — marcar ele já
   // implica todas as outras permissões, então elas seguem juntas (e
@@ -704,6 +709,47 @@ function PermissoesCampos({
           </label>
         )}
       </div>
+
+      {/* Funções — o que a pessoa FAZ na loja, independente do que ela pode
+          ver/editar. Não é travado por "Acesso total": um administrador não
+          vira TaxiDog automaticamente, e um TaxiDog não ganha permissão de
+          nada por ser TaxiDog. */}
+      <h3 style={{
+        fontSize: '0.95rem',
+        fontWeight: 600,
+        color: 'var(--gray-200)',
+        margin: 'var(--space-5) 0 var(--space-3)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--space-2)',
+      }}>
+        <IconUserBadge style={{ width: 16, height: 16 }} /> Funções
+      </h3>
+      <label style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--space-3)',
+        padding: 'var(--space-3)',
+        background: 'var(--gray-800)',
+        borderRadius: 'var(--radius-md)',
+        cursor: 'pointer',
+      }}>
+        <input
+          type="checkbox"
+          checked={podeTaxidog}
+          onChange={(e) => setPodeTaxidog(e.target.checked)}
+          style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
+        />
+        <input type="hidden" name="pode_taxidog" value={String(podeTaxidog)} />
+        <div>
+          <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <IconCar style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> TaxiDog
+          </div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
+            Pode receber corridas de busca e entrega de pets pelo aplicativo
+          </div>
+        </div>
+      </label>
     </div>
   )
 }
@@ -834,6 +880,20 @@ function FuncCard({
               gap: 4,
             }}>
               <IconDog style={{ width: 11, height: 11 }} /> Clientes/Pets
+            </span>
+          )}
+          {func.pode_taxidog && (
+            <span style={{
+              fontSize: '0.7rem',
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--info-900)',
+              color: 'var(--info-400)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}>
+              <IconCar style={{ width: 11, height: 11 }} /> TaxiDog
             </span>
           )}
           {func.acesso_total && (

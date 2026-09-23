@@ -208,6 +208,70 @@ const itemProdutoAgendamentoSchema = z.object({
   quantidade: z.number().positive('Quantidade inválida'),
 })
 
+// TaxiDog (migration 042) — endereço informado no agendamento. O banco
+// confere tudo de novo (fn_anexar_taxidog); aqui é pra devolver uma
+// mensagem clara antes de chegar lá.
+export const enderecoTaxiDogSchema = z.object({
+  cep: z.string().transform(v => v.replace(/\D/g, '')).refine(v => /^\d{8}$/.test(v), 'Informe um CEP válido'),
+  logradouro: z.string().trim().min(2, 'Informe a rua').max(150),
+  numero: z.string().trim().min(1, 'Informe o número').max(20),
+  complemento: z.string().trim().max(80).optional().default(''),
+  bairro: z.string().trim().min(2, 'Informe o bairro').max(80),
+  cidade: z.string().trim().min(2, 'Informe a cidade').max(80),
+  uf: z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/, 'Informe o estado (UF)'),
+})
+
+export const taxiDogAgendamentoSchema = z.object({
+  modalidade: z.enum(['buscar', 'entregar', 'buscar_entregar']),
+  endereco: enderecoTaxiDogSchema,
+})
+
+const valorTaxiDog = z.number({ message: 'Informe um valor' }).min(0, 'Valor não pode ser negativo').max(9999)
+
+export const taxiDogConfigSchema = z.object({
+  ativo: z.boolean(),
+  disponivel_online: z.boolean(),
+  modo_cobranca: z.enum(['fixo', 'distancia', 'regiao', 'personalizado']),
+  valor_buscar: valorTaxiDog,
+  valor_entregar: valorTaxiDog,
+  valor_buscar_entregar: valorTaxiDog,
+  distancia_max_km: z.number().positive('Distância máxima deve ser maior que zero').max(500).nullable(),
+  valor_minimo: valorTaxiDog.nullable(),
+  faixas: z.array(z.object({
+    km_ate: z.number().positive('A faixa precisa terminar acima de 0 km').max(500),
+    valor_trecho: valorTaxiDog,
+    valor_ida_volta: valorTaxiDog.nullable(),
+  })).max(30, 'No máximo 30 faixas')
+    .refine(f => new Set(f.map(x => x.km_ate)).size === f.length, 'Duas faixas terminam na mesma distância'),
+  regioes: z.array(z.object({
+    bairro: z.string().trim().max(80).nullable(),
+    cidade: z.string().trim().min(2, 'Toda região precisa de uma cidade').max(80),
+    uf: z.string().trim().toUpperCase().regex(/^([A-Z]{2})?$/, 'UF deve ter 2 letras').nullable(),
+    valor_trecho: valorTaxiDog,
+    valor_ida_volta: valorTaxiDog.nullable(),
+    ativo: z.boolean(),
+  })).max(200, 'No máximo 200 regiões'),
+}).superRefine((c, ctx) => {
+  if (!c.ativo) return
+  if ((c.modo_cobranca === 'distancia' || c.modo_cobranca === 'personalizado') && c.faixas.length === 0) {
+    ctx.addIssue({ code: 'custom', message: 'Cadastre ao menos uma faixa de distância', path: ['faixas'] })
+  }
+  // No "personalizado" as regiões são opcionais — sem região que case, a
+  // cotação cai nas faixas de distância.
+  if (c.modo_cobranca === 'regiao' && c.regioes.length === 0) {
+    ctx.addIssue({ code: 'custom', message: 'Cadastre ao menos uma região atendida', path: ['regioes'] })
+  }
+})
+
+// Perfil opcional do pet (migration 042) — nada disso é obrigatório.
+export const perfilPetSchema = z.object({
+  pelagem: z.enum(['Lisa', 'Ondulada', 'Crespa', 'Dupla']).nullable(),
+  comprimento_pelo: z.enum(['Curto', 'Médio', 'Longo']).nullable(),
+  caracteristicas: z.string().trim().max(300).nullable(),
+  comportamento: z.array(z.string().trim().min(1).max(40)).max(12, 'Escolha no máximo 12 comportamentos'),
+  obs_comportamento: z.string().trim().max(500).nullable(),
+})
+
 export const agendamentoSchema = z.object({
   id_lojista: z.string().uuid(),
   id_pet: z.string().uuid(),
@@ -263,6 +327,8 @@ export const funcionarioSchema = z.object({
   // checado em código (cadastrarFuncionarioAction) e garantido de novo
   // por trigger no banco (migration 029), nunca só confiando no Zod.
   acesso_total: z.boolean().default(false),
+  // Função, não permissão (migration 042): recebe corridas no app.
+  pode_taxidog: z.boolean().default(false),
 })
 
 export const editarFuncionarioSchema = z.object({
@@ -276,6 +342,7 @@ export const editarFuncionarioSchema = z.object({
   pode_gerenciar_produtos: z.boolean().default(false),
   pode_gerenciar_clientes_pets: z.boolean().default(false),
   acesso_total: z.boolean().default(false),
+  pode_taxidog: z.boolean().default(false),
 })
 
 // Avaliação deixada pelo cliente depois de um atendimento finalizado

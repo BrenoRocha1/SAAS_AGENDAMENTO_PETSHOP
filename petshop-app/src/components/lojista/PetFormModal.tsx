@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { format } from 'date-fns'
 import { criarPetLojistaAction, editarPetLojistaAction } from '@/lib/actions'
+import { salvarPerfilPetAction } from '@/lib/actions-taxidog'
+import { createClient } from '@/lib/supabase/client'
 import { IconAlert, IconCheck, IconClose, IconDog, IconSearch } from '@/components/icons'
 import PetFotoUpload from '@/components/cliente/PetFotoUpload'
+import PerfilPetCampos, { PERFIL_PET_VAZIO, perfilPetParaAction, type PerfilPet } from './PerfilPetCampos'
 
 export interface ClienteBasico {
   id_cliente: string
@@ -56,6 +59,37 @@ export default function PetFormModal({ pet, clientes, clienteFixo, onClose, onSa
     ? clientes.filter(c => c.nome.toLowerCase().includes(buscaCliente.trim().toLowerCase()))
     : clientes
 
+  // Perfil opcional (migration 042). `null` = ainda conferindo se as
+  // colunas existem; `false` = migration não rodou, a seção nem aparece.
+  const [perfilDisponivel, setPerfilDisponivel] = useState<boolean | null>(null)
+  const [perfil, setPerfil] = useState<PerfilPet>(PERFIL_PET_VAZIO)
+  const [perfilAlterado, setPerfilAlterado] = useState(false)
+  // Pet já criado numa tentativa anterior cujo perfil falhou — tentar de
+  // novo só regrava o perfil, sem cadastrar o pet duas vezes.
+  const [petCriadoId, setPetCriadoId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    const consulta = supabase.from('pet').select('pelagem, comprimento_pelo, caracteristicas, comportamento, obs_comportamento')
+    const req = pet ? consulta.eq('id_pet', pet.id_pet).maybeSingle() : consulta.limit(1).maybeSingle()
+    req.then(({ data, error: erroPerfil }) => {
+      if (erroPerfil) {
+        setPerfilDisponivel(false)
+        return
+      }
+      if (pet && data) {
+        setPerfil({
+          pelagem: data.pelagem ?? '',
+          comprimento_pelo: data.comprimento_pelo ?? '',
+          caracteristicas: data.caracteristicas ?? '',
+          comportamento: data.comportamento ?? [],
+          obs_comportamento: data.obs_comportamento ?? '',
+        })
+      }
+      setPerfilDisponivel(true)
+    })
+  }, [pet])
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!clienteId) {
@@ -67,12 +101,24 @@ export default function PetFormModal({ pet, clientes, clienteFixo, onClose, onSa
     formData.set('id_cliente', clienteId)
 
     startTransition(async () => {
-      const result = isEdicao
-        ? await editarPetLojistaAction(pet!.id_pet, formData)
-        : await criarPetLojistaAction(formData)
-      if (result?.error) {
-        setError(result.error)
-        return
+      let idPet = pet?.id_pet ?? petCriadoId
+
+      if (isEdicao) {
+        const result = await editarPetLojistaAction(pet!.id_pet, formData)
+        if (result?.error) { setError(result.error); return }
+      } else if (!petCriadoId) {
+        const result = await criarPetLojistaAction(formData)
+        if (result?.error) { setError(result.error); return }
+        idPet = (result as { id_pet?: string }).id_pet ?? null
+        setPetCriadoId(idPet)
+      }
+
+      if (perfilDisponivel && perfilAlterado && idPet) {
+        const resultPerfil = await salvarPerfilPetAction(idPet, perfilPetParaAction(perfil))
+        if (resultPerfil?.error) {
+          setError(`Pet salvo, mas as informações adicionais não: ${resultPerfil.error} Tente salvar de novo.`)
+          return
+        }
       }
       onSaved()
     })
@@ -267,6 +313,14 @@ export default function PetFormModal({ pet, clientes, clienteFixo, onClose, onSa
                 disabled={isPending}
               />
             </div>
+
+            {perfilDisponivel && (
+              <PerfilPetCampos
+                valor={perfil}
+                onChange={p => { setPerfil(p); setPerfilAlterado(true) }}
+                disabled={isPending}
+              />
+            )}
           </div>
 
           <div className="modal-footer">

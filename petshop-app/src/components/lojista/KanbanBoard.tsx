@@ -7,9 +7,12 @@ import { ptBR } from 'date-fns/locale'
 import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
 import { classeBadgeStatus, ORDEM_ETAPA, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
 import { rotuloEstoque } from '@/lib/produto'
+import { ROTULO_MODALIDADE, formatarReais, rotuloStatusCorrida, type ModalidadeTaxiDog } from '@/lib/taxidog'
+import Link from 'next/link'
 import {
   IconAlert,
   IconCalendar,
+  IconCar,
   IconCheck,
   IconChevronLeft,
   IconChevronRight,
@@ -42,6 +45,8 @@ export interface KanbanItem {
   // Produtos comprados junto (migration 039) — vazio na maioria dos
   // agendamentos, já que produto é opcional no agendamento online.
   produtos: { nome: string; unidade_venda: string; quantidade: number; preco_unitario: number }[]
+  // TaxiDog pedido junto (migration 042) — a taxa já está somada em `valor`.
+  taxidog: { modalidade: ModalidadeTaxiDog; status: string; valor: number; endereco: string; temTaxiDog: boolean } | null
 }
 
 interface Props {
@@ -415,6 +420,19 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                         <span className="font-semibold text-success">R$ {(p.preco_unitario * p.quantidade).toFixed(2)}</span>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+              {selecionado.taxidog && (
+                <div className="dash-detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
+                  <span className="flex items-center gap-1"><IconCar style={{ width: 13, height: 13 }} /> TaxiDog</span>
+                  <div style={{ width: '100%' }} className="text-sm">
+                    <div className="flex items-center justify-between" style={{ color: 'var(--gray-300)' }}>
+                      <span>{ROTULO_MODALIDADE[selecionado.taxidog.modalidade]} · {rotuloStatusCorrida({ status: selecionado.taxidog.status, modalidade: selecionado.taxidog.modalidade, temTaxiDog: selecionado.taxidog.temTaxiDog, statusAgendamento: selecionado.status })}</span>
+                      <span className="font-semibold text-success">{formatarReais(selecionado.taxidog.valor)}</span>
+                    </div>
+                    <div className="text-xs text-muted">{selecionado.taxidog.endereco}</div>
+                    <Link href={`/lojista/taxidog?data=${selecionado.dt_agendamento}`} className="text-xs text-accent">Ver no painel do TaxiDog</Link>
                   </div>
                 </div>
               )}

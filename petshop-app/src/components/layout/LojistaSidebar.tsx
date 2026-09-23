@@ -18,6 +18,7 @@ import {
   IconLogout,
   IconChevronLeft,
   IconChevronRight,
+  IconCar,
 } from '@/components/icons'
 
 // Perfil da Loja e Horários saíram daqui — agora são acessados via
@@ -30,7 +31,8 @@ import {
 const navItemsBase = [
   { href: '/lojista/dashboard',     icon: IconGrid,      label: 'Dashboard', restrito: true },
   { href: '/lojista/agendamentos',  icon: IconCalendar,  label: 'Agendamentos', permissao: 'agenda' as const },
-  { href: '/lojista/kanban',        icon: IconKanban,    label: 'Kanban', condicional: true, permissao: 'agenda' as const },
+  { href: '/lojista/kanban',        icon: IconKanban,    label: 'Kanban', condicao: 'kanban' as const, permissao: 'agenda' as const },
+  { href: '/lojista/taxidog',       icon: IconCar,       label: 'TaxiDog', condicao: 'taxidog' as const, permissao: 'agenda' as const },
   { href: '/lojista/relatorios',    icon: IconChartBar,  label: 'Relatórios de Vendas', restrito: true },
   { href: '/lojista/servicos',      icon: IconScissors,  label: 'Serviços', permissao: 'servicos' as const },
   { href: '/lojista/produtos',      icon: IconPackage,   label: 'Produtos', permissao: 'produtos' as const },
@@ -46,6 +48,8 @@ interface Props {
   nomeUsuario?: string
   userEmail: string
   kanbanAtivo: boolean
+  // taxidog_config.ativo (migration 042) — item "TaxiDog" só aparece ligado.
+  taxidogAtivo?: boolean
   role?: 'lojista' | 'funcionario'
   podeGerenciarAgenda?: boolean
   podeGerenciarServicos?: boolean
@@ -59,6 +63,7 @@ export default function LojistaSidebar({
   nomeUsuario,
   userEmail,
   kanbanAtivo,
+  taxidogAtivo = false,
   role = 'lojista',
   podeGerenciarAgenda = true,
   podeGerenciarServicos = true,
@@ -70,7 +75,8 @@ export default function LojistaSidebar({
   // lojista — nenhum item escondido, exatamente como se `role` fosse
   // 'lojista'. Só um funcionário comum passa pelo corte de permissões.
   const navItems = navItemsBase.filter(item => {
-    if (item.condicional && !kanbanAtivo) return false
+    if (item.condicao === 'kanban' && !kanbanAtivo) return false
+    if (item.condicao === 'taxidog' && !taxidogAtivo) return false
     if (role === 'funcionario' && !acessoTotal) {
       if (item.restrito) return false
       if (item.permissao === 'agenda') return podeGerenciarAgenda

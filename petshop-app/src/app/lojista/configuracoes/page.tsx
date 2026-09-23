@@ -43,6 +43,14 @@ export default async function ConfiguracoesPage() {
   const kanbanAtivo = lojista?.kanban_ativo ?? true
   const agendamentoOnlineAtivo = lojista?.aceita_agendamento_online ?? true
 
+  // Tolerante: sem a migration 042, a tabela não existe e o selo some.
+  const { data: taxidog, error: taxidogError } = await supabase
+    .from('taxidog_config')
+    .select('ativo')
+    .eq('id_lojista', contexto.idLojista)
+    .maybeSingle()
+  const taxidogAtivo = !!taxidog?.ativo
+
   const grupos: { titulo: string; itens: ItemConfig[] }[] = [
     {
       titulo: 'Loja',
@@ -74,10 +82,11 @@ export default async function ConfiguracoesPage() {
           href: '/lojista/configuracoes/agendamentos',
           icon: <IconCalendar style={{ width: 18, height: 18 }} />,
           titulo: 'Configurações de Agendamentos',
-          descricao: 'Kanban de atendimento (Pendentes / Em Andamento / Finalizado) e agendamento feito pelos próprios clientes',
+          descricao: 'Kanban de atendimento, agendamento feito pelos próprios clientes e TaxiDog (busca e entrega dos pets)',
           status: [
             { texto: `Kanban ${kanbanAtivo ? 'Ativado' : 'Desativado'}`, ativo: kanbanAtivo },
             { texto: `Online ${agendamentoOnlineAtivo ? 'Ativado' : 'Desativado'}`, ativo: agendamentoOnlineAtivo },
+            ...(taxidogError ? [] : [{ texto: `TaxiDog ${taxidogAtivo ? 'Ativado' : 'Desativado'}`, ativo: taxidogAtivo }]),
           ],
         },
       ],

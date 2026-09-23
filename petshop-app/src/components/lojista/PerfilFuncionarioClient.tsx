@@ -35,6 +35,7 @@ export interface FuncionarioInfo {
   pode_gerenciar_servicos: boolean
   pode_gerenciar_produtos: boolean
   pode_gerenciar_clientes_pets: boolean
+  pode_taxidog?: boolean
   acesso_total: boolean
   ativo: boolean
   created_at: string
@@ -428,6 +429,7 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
               </div>
               <div>
                 <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${funcionario.ativo ? 'badge-ativo' : 'badge-cancelado'}`}>{funcionario.ativo ? 'Ativo' : 'Inativo'}</span></span></div>
+                <div className="dash-detail-row"><span>TaxiDog</span><span>{funcionario.pode_taxidog ? 'Sim — recebe corridas' : 'Não'}</span></div>
                 {funcionario.acesso_total ? (
                   <div className="dash-detail-row"><span>Acesso</span><span>Administrador (acesso total)</span></div>
                 ) : (

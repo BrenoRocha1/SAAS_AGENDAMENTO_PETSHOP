@@ -498,3 +498,27 @@ export function IconList(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+// Carro — TaxiDog (busca e entrega do pet).
+export function IconCar(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 16.5h14" />
+      <path d="M3.5 16.5v-3.2c0-.5.2-1 .5-1.3l1.9-3.4A2 2 0 0 1 7.6 7.5h8.8a2 2 0 0 1 1.7 1.1l1.9 3.4c.3.4.5.8.5 1.3v3.2" />
+      <path d="M3.5 13h17" />
+      <circle cx="7.5" cy="17" r="1.8" />
+      <circle cx="16.5" cy="17" r="1.8" />
+    </svg>
+  )
+}
+
+// Rota / navegação — abrir o endereço no app de mapas.
+export function IconRoute(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="6" cy="18" r="2" />
+      <circle cx="18" cy="6" r="2" />
+      <path d="M8 18h7.5a3.5 3.5 0 0 0 0-7h-7a3.5 3.5 0 0 1 0-7H16" />
+    </svg>
+  )
+}

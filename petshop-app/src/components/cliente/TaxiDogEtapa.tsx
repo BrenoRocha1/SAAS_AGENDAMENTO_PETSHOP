@@ -1,0 +1,407 @@
+'use client'
+
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { cotarTaxiDogAction } from '@/lib/actions-taxidog'
+import {
+  DESCRICAO_MODALIDADE,
+  ENDERECO_VAZIO,
+  MODALIDADES,
+  ROTULO_MODALIDADE,
+  enderecoEmUmaLinha,
+  formatarCep,
+  formatarKm,
+  formatarReais,
+  type CotacaoTaxiDog,
+  type EnderecoTaxiDog,
+  type EscolhaTaxiDog,
+  type ModalidadeTaxiDog,
+} from '@/lib/taxidog'
+import { IconAlert, IconCar, IconCheck, IconMapPin, IconStore } from '@/components/icons'
+
+// ============================================================
+// Etapa "Como seu pet irá até a loja?" — usada pelos dois fluxos de
+// agendamento do cliente (link público e conta do cliente).
+// ============================================================
+// O estado mora no wizard (pra não se perder ao voltar/avançar etapas);
+// este componente só edita esse estado. O preço exibido vem SEMPRE da
+// cotação do banco (fn_cotar_taxidog) — e é recalculado de novo no
+// momento de agendar, nunca aceito do navegador.
+
+export interface EstadoTransporte {
+  opcao: 'levar' | 'taxidog' | null
+  modalidade: ModalidadeTaxiDog
+  endereco: EnderecoTaxiDog
+  cotacoes: Record<ModalidadeTaxiDog, CotacaoTaxiDog> | null
+  precisao: 'endereco' | 'bairro' | 'cidade' | null
+}
+
+export const ESTADO_TRANSPORTE_INICIAL: EstadoTransporte = {
+  opcao: null,
+  modalidade: 'buscar_entregar',
+  endereco: ENDERECO_VAZIO,
+  cotacoes: null,
+  precisao: null,
+}
+
+// O que efetivamente vai pro agendamento: null = cliente leva o pet.
+export function escolhaDoTransporte(estado: EstadoTransporte): EscolhaTaxiDog | null {
+  if (estado.opcao !== 'taxidog') return null
+  const cotacao = estado.cotacoes?.[estado.modalidade]
+  if (!cotacao?.disponivel) return null
+  return { modalidade: estado.modalidade, endereco: estado.endereco, cotacao }
+}
+
+export function transportePronto(estado: EstadoTransporte): boolean {
+  return estado.opcao === 'levar' || escolhaDoTransporte(estado) !== null
+}
+
+// Campo JSON `taxidog` que as Server Actions de agendamento esperam.
+export function taxiDogParaFormulario(escolha: EscolhaTaxiDog): string {
+  return JSON.stringify({ modalidade: escolha.modalidade, endereco: escolha.endereco })
+}
+
+function enderecoCompleto(e: EnderecoTaxiDog): boolean {
+  return (
+    e.cep.replace(/\D/g, '').length === 8 &&
+    e.logradouro.trim().length >= 2 &&
+    e.numero.trim().length >= 1 &&
+    e.bairro.trim().length >= 2 &&
+    e.cidade.trim().length >= 2 &&
+    /^[A-Za-z]{2}$/.test(e.uf.trim())
+  )
+}
+
+const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
+
+function estiloOpcao(selecionado: boolean): React.CSSProperties {
+  return {
+    padding: 'var(--space-4)',
+    borderRadius: 'var(--radius-md)',
+    border: `1px solid ${selecionado ? 'var(--primary-500)' : 'var(--gray-700)'}`,
+    background: selecionado ? 'var(--primary-soft-bg)' : 'var(--gray-850)',
+    cursor: 'pointer',
+    textAlign: 'left',
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-3)',
+    font: 'inherit',
+    color: 'inherit',
+  }
+}
+
+interface Props {
+  idLojista: string
+  valor: EstadoTransporte
+  onChange: Dispatch<SetStateAction<EstadoTransporte>>
+  onContinuar: () => void
+  rotuloContinuar?: string
+}
+
+export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, rotuloContinuar = 'Continuar' }: Props) {
+  const [buscandoCep, setBuscandoCep] = useState(false)
+  const [erroCep, setErroCep] = useState<string | null>(null)
+  const [cotando, setCotando] = useState(false)
+  const [erroCotacao, setErroCotacao] = useState<string | null>(null)
+  const chaveAtual = useRef('')
+  const jaPreencheu = useRef(false)
+
+  // Último endereço usado num TaxiDog deste cliente — poupa digitar de
+  // novo. RLS "taxidog_corrida: cliente ve proprias" já limita às dele.
+  useEffect(() => {
+    if (jaPreencheu.current || valor.endereco.cep) return
+    jaPreencheu.current = true
+    const supabase = createClient()
+    supabase
+      .from('taxidog_corrida')
+      .select('cep, logradouro, numero, complemento, bairro, cidade, uf')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return
+        onChange(prev => prev.endereco.cep ? prev : {
+          ...prev,
+          endereco: {
+            cep: formatarCep(data.cep),
+            logradouro: data.logradouro,
+            numero: data.numero,
+            complemento: data.complemento ?? '',
+            bairro: data.bairro,
+            cidade: data.cidade,
+            uf: data.uf,
+          },
+          cotacoes: null,
+        })
+      })
+  }, [valor.endereco.cep, onChange])
+
+  const chaveEndereco = useMemo(
+    () => (valor.opcao === 'taxidog' && enderecoCompleto(valor.endereco) ? JSON.stringify(valor.endereco) : ''),
+    [valor.opcao, valor.endereco]
+  )
+
+  // Cota assim que o endereço fica completo (com uma pausa curta pra não
+  // cotar a cada tecla). Resposta de um endereço antigo é descartada.
+  useEffect(() => {
+    chaveAtual.current = chaveEndereco
+    if (!chaveEndereco || valor.cotacoes) return
+    const endereco = JSON.parse(chaveEndereco) as EnderecoTaxiDog
+    const timer = setTimeout(async () => {
+      setCotando(true)
+      setErroCotacao(null)
+      const result = await cotarTaxiDogAction(idLojista, endereco)
+      setCotando(false)
+      if (chaveAtual.current !== chaveEndereco) return
+      if (result.error || !result.cotacoes) {
+        setErroCotacao(result.error ?? 'Não foi possível calcular a taxa agora.')
+        return
+      }
+      onChange(prev => ({ ...prev, cotacoes: result.cotacoes!, precisao: result.precisao ?? null }))
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [chaveEndereco, valor.cotacoes, idLojista, onChange])
+
+  function atualizarEndereco(campo: keyof EnderecoTaxiDog, texto: string) {
+    setErroCotacao(null)
+    onChange(prev => ({ ...prev, endereco: { ...prev.endereco, [campo]: texto }, cotacoes: null, precisao: null }))
+  }
+
+  async function handleCep(texto: string) {
+    const digitos = texto.replace(/\D/g, '').slice(0, 8)
+    atualizarEndereco('cep', formatarCep(digitos))
+    setErroCep(null)
+    if (digitos.length !== 8) return
+
+    // ViaCEP: serviço público e gratuito de CEP do Brasil — só preenche o
+    // que o cliente ainda não digitou.
+    setBuscandoCep(true)
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digitos}/json/`)
+      const json = (await res.json()) as { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string }
+      if (json.erro) {
+        setErroCep('CEP não encontrado. Preencha o endereço manualmente.')
+        return
+      }
+      onChange(prev => ({
+        ...prev,
+        endereco: {
+          ...prev.endereco,
+          logradouro: json.logradouro || prev.endereco.logradouro,
+          bairro: json.bairro || prev.endereco.bairro,
+          cidade: json.localidade || prev.endereco.cidade,
+          uf: json.uf || prev.endereco.uf,
+        },
+        cotacoes: null,
+      }))
+    } catch {
+      setErroCep('Não foi possível buscar o CEP. Preencha o endereço manualmente.')
+    } finally {
+      setBuscandoCep(false)
+    }
+  }
+
+  const cotacaoSelecionada = valor.cotacoes?.[valor.modalidade] ?? null
+  const podeContinuar = transportePronto(valor)
+
+  return (
+    <div className="card">
+      <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-2)' }}>Como seu pet irá até a loja?</h2>
+      <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
+        Você pode levar o pet ou usar o TaxiDog da loja para buscar e/ou entregar.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-5)' }}>
+        <button type="button" style={estiloOpcao(valor.opcao === 'levar')} onClick={() => onChange(prev => ({ ...prev, opcao: 'levar' }))}>
+          <IconStore style={{ width: 20, height: 20, color: 'var(--gray-400)', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>Vou levar o pet até a loja</div>
+            <div className="text-sm text-muted">Sem taxa de transporte</div>
+          </div>
+          {valor.opcao === 'levar' && <IconCheck style={{ width: 16, height: 16, color: 'var(--primary-400)' }} />}
+        </button>
+
+        <button type="button" style={estiloOpcao(valor.opcao === 'taxidog')} onClick={() => onChange(prev => ({ ...prev, opcao: 'taxidog' }))}>
+          <IconCar style={{ width: 20, height: 20, color: 'var(--gray-400)', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>Quero utilizar o TaxiDog</div>
+            <div className="text-sm text-muted">Buscamos e/ou entregamos o seu pet · taxa calculada pelo endereço</div>
+          </div>
+          {valor.opcao === 'taxidog' && <IconCheck style={{ width: 16, height: 16, color: 'var(--primary-400)' }} />}
+        </button>
+      </div>
+
+      {valor.opcao === 'taxidog' && (
+        <>
+          <div className="form-group">
+            <label className="form-label">O que você precisa?</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              {MODALIDADES.map(m => {
+                const cot = valor.cotacoes?.[m]
+                const selecionada = valor.modalidade === m
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    style={{ ...estiloOpcao(selecionada), padding: 'var(--space-3) var(--space-4)' }}
+                    onClick={() => onChange(prev => ({ ...prev, modalidade: m }))}
+                  >
+                    <span
+                      style={{
+                        width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                        border: `2px solid ${selecionada ? 'var(--primary-500)' : 'var(--gray-600)'}`,
+                        background: selecionada ? 'var(--primary-500)' : 'transparent',
+                        boxShadow: selecionada ? 'inset 0 0 0 3px var(--gray-900)' : 'none',
+                      }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{ROTULO_MODALIDADE[m]}</div>
+                      <div className="text-xs text-muted">{DESCRICAO_MODALIDADE[m]}</div>
+                    </div>
+                    {cot && (
+                      <span className={`text-sm font-semibold ${cot.disponivel ? 'text-success' : 'text-muted'}`} style={{ flexShrink: 0 }}>
+                        {cot.disponivel ? formatarReais(cot.valor) : 'Indisponível'}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">
+              <IconMapPin style={{ width: 13, height: 13, verticalAlign: -2, marginRight: 4 }} />
+              Endereço para {valor.modalidade === 'entregar' ? 'entrega' : 'busca'} do pet
+            </label>
+
+            <div className="form-grid-2">
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <input
+                  className="form-input"
+                  placeholder="CEP"
+                  inputMode="numeric"
+                  value={valor.endereco.cep}
+                  onChange={e => handleCep(e.target.value)}
+                  maxLength={9}
+                />
+                {buscandoCep && <span className="form-hint">Buscando CEP...</span>}
+                {erroCep && <span className="form-error">{erroCep}</span>}
+              </div>
+              <div />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+              <input className="form-input" placeholder="Rua" value={valor.endereco.logradouro} onChange={e => atualizarEndereco('logradouro', e.target.value)} maxLength={150} />
+              <input className="form-input" placeholder="Número" value={valor.endereco.numero} onChange={e => atualizarEndereco('numero', e.target.value)} maxLength={20} />
+            </div>
+            <input
+              className="form-input"
+              style={{ marginTop: 'var(--space-3)' }}
+              placeholder="Complemento (opcional)"
+              value={valor.endereco.complemento}
+              onChange={e => atualizarEndereco('complemento', e.target.value)}
+              maxLength={80}
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 90px', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+              <input className="form-input" placeholder="Bairro" value={valor.endereco.bairro} onChange={e => atualizarEndereco('bairro', e.target.value)} maxLength={80} />
+              <input className="form-input" placeholder="Cidade" value={valor.endereco.cidade} onChange={e => atualizarEndereco('cidade', e.target.value)} maxLength={80} />
+              <select className="form-select" value={valor.endereco.uf} onChange={e => atualizarEndereco('uf', e.target.value)}>
+                <option value="">UF</option>
+                {UFS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {!chaveEndereco ? (
+            <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
+              Preencha o endereço completo para calcularmos a taxa do TaxiDog.
+            </p>
+          ) : cotando || !valor.cotacoes ? (
+            erroCotacao ? (
+              <div className="alert alert-error" style={{ marginBottom: 'var(--space-5)' }}>
+                <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+                <span>{erroCotacao}</span>
+              </div>
+            ) : (
+              <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>Calculando a taxa do TaxiDog...</p>
+            )
+          ) : cotacaoSelecionada && !cotacaoSelecionada.disponivel ? (
+            <div className="alert alert-warning" style={{ marginBottom: 'var(--space-5)' }}>
+              <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+              <span>
+                {cotacaoSelecionada.motivo ?? 'O TaxiDog não está disponível para este endereço.'} Você ainda pode levar o pet até a loja.
+              </span>
+            </div>
+          ) : cotacaoSelecionada ? (
+            <div
+              style={{
+                background: 'var(--gray-850)',
+                border: '1px solid var(--gray-800)',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--space-4)',
+                marginBottom: 'var(--space-5)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-2)',
+              }}
+            >
+              <div className="text-sm" style={{ color: 'var(--gray-200)' }}>{enderecoEmUmaLinha(valor.endereco)}</div>
+              {cotacaoSelecionada.distanciaKm != null && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted">Distância aproximada</span>
+                  <span>{formatarKm(cotacaoSelecionada.distanciaKm)}</span>
+                </div>
+              )}
+              {cotacaoSelecionada.criterio && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted">Como calculamos</span>
+                  <span>{cotacaoSelecionada.criterio}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="font-semibold">Taxa TaxiDog · {ROTULO_MODALIDADE[valor.modalidade]}</span>
+                <span className="font-semibold text-success">{formatarReais(cotacaoSelecionada.valor)}</span>
+              </div>
+              <p className="text-xs text-muted" style={{ margin: 0 }}>
+                A taxa do TaxiDog é referente ao transporte do seu pet e é cobrada separadamente do serviço.
+                {cotacaoSelecionada.distanciaKm != null && ' Distância em linha reta a partir da loja · dados de mapa © OpenStreetMap.'}
+                {valor.precisao === 'bairro' && ' Não achamos a rua exata no mapa, então usamos o centro do bairro.'}
+              </p>
+            </div>
+          ) : null}
+        </>
+      )}
+
+      <div className="flex justify-end">
+        <button type="button" className="btn btn-primary" disabled={!podeContinuar} onClick={onContinuar}>
+          {rotuloContinuar}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// Bloco "TAXIDOG" do resumo final — mostra a taxa separada do serviço.
+// ============================================================
+export function ResumoTaxiDog({ escolha, disponivel }: { escolha: EscolhaTaxiDog | null; disponivel: boolean }) {
+  if (!disponivel) return null
+  return (
+    <div style={{ padding: 'var(--space-3) 0', borderTop: '1px solid var(--gray-800)' }}>
+      <div className="text-xs text-muted" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>TaxiDog</div>
+      {escolha ? (
+        <>
+          <div className="flex justify-between">
+            <span>{ROTULO_MODALIDADE[escolha.modalidade]}</span>
+            <span className="font-semibold text-success">{formatarReais(escolha.cotacao.valor)}</span>
+          </div>
+          <div className="text-xs text-muted" style={{ marginTop: 2 }}>{enderecoEmUmaLinha(escolha.endereco)}</div>
+        </>
+      ) : (
+        <div className="text-sm text-muted">Não utilizado</div>
+      )}
+    </div>
+  )
+}

@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import AgendamentosClienteList, { type AgendamentoCliente, type ProdutoComprado } from '@/components/cliente/AgendamentosClienteList'
+import AgendamentosClienteList, { type AgendamentoCliente, type ProdutoComprado, type TaxiDogCliente } from '@/components/cliente/AgendamentosClienteList'
 import type { AvaliacaoExistente } from '@/components/cliente/AvaliacaoModal'
 import type { Metadata } from 'next'
 
@@ -61,6 +61,24 @@ export default async function AgendamentosPage() {
     })
   }
 
+  // TaxiDog (migration 042) — consulta tolerante: sem a migration, a
+  // tabela não existe e a lista segue igual. RLS "cliente ve proprias".
+  const { data: corridasRaw } = await supabase
+    .from('taxidog_corrida')
+    .select('id_agendamento, modalidade, status, valor, logradouro, numero, bairro, cidade, id_funcionario')
+    .eq('id_cliente', user!.id)
+
+  const taxidog: Record<string, TaxiDogCliente> = {}
+  for (const c of (corridasRaw ?? []) as Array<Record<string, string | number | null>>) {
+    taxidog[c.id_agendamento as string] = {
+      modalidade: c.modalidade as TaxiDogCliente['modalidade'],
+      status: c.status as string,
+      valor: Number(c.valor),
+      endereco: `${c.logradouro}, ${c.numero} · ${c.bairro} · ${c.cidade}`,
+      temTaxiDog: !!c.id_funcionario,
+    }
+  }
+
   return (
     <>
       <div className="page-header">
@@ -72,6 +90,7 @@ export default async function AgendamentosPage() {
         agendamentos={(agendamentos ?? []) as unknown as AgendamentoCliente[]}
         avaliacoes={avaliacoes}
         produtosComprados={produtosComprados}
+        taxidog={taxidog}
       />
     </>
   )

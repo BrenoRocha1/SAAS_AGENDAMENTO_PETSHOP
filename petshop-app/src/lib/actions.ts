@@ -34,6 +34,7 @@ import {
 } from '@/lib/validations'
 import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } from '@/lib/lojista-context'
 import { ORDEM_ETAPA, etapaEncerrada } from '@/lib/status-agendamento'
+import { coordenadasParaTaxiDog, lerTaxiDogDoFormulario, mensagemErroTaxiDog, paramsRpcTaxiDog } from '@/lib/taxidog-servidor'
 import type { ServicoVariacaoData } from '@/lib/validations'
 
 // ============================================================
@@ -1319,8 +1320,11 @@ export async function criarAgendamentoAction(formData: FormData) {
   const parsed = agendamentoSchema.safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  // Chamar função do banco que possui lock anti-double-booking
-  const { data, error } = await supabase.rpc('fn_criar_agendamento', {
+  // TaxiDog opcional (migration 042) — sem ele, o caminho é o de sempre.
+  const taxidog = lerTaxiDogDoFormulario(formData)
+  if (taxidog.erro) return { error: taxidog.erro }
+
+  const paramsAgendamento = {
     p_id_pet: parsed.data.id_pet,
     p_id_servico: parsed.data.id_servico,
     p_id_cliente: user.id,
@@ -1330,9 +1334,22 @@ export async function criarAgendamentoAction(formData: FormData) {
     p_obs: parsed.data.obs || null,
     p_produtos: parsed.data.produtos?.map(p => p.id_produto) ?? null,
     p_quantidades: parsed.data.produtos?.map(p => p.quantidade) ?? null,
-  })
+  }
+
+  // Chamar função do banco que possui lock anti-double-booking
+  const { data, error } = taxidog.dados
+    ? await supabase.rpc('fn_criar_agendamento_com_taxidog', {
+        ...paramsAgendamento,
+        ...paramsRpcTaxiDog(
+          taxidog.dados,
+          await coordenadasParaTaxiDog(supabase, parsed.data.id_lojista, taxidog.dados.endereco)
+        ),
+      })
+    : await supabase.rpc('fn_criar_agendamento', paramsAgendamento)
 
   if (error) {
+    const erroTaxiDog = mensagemErroTaxiDog(error.message)
+    if (erroTaxiDog) return { error: erroTaxiDog }
     if (error.message.includes('Horário não disponível')) {
       return { error: 'Horário não disponível. Escolha outro horário.' }
     }
@@ -1392,7 +1409,10 @@ export async function criarAgendamentoOnlineAction(
   const parsed = agendamentoOnlineSchema.safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  const { data, error } = await supabase.rpc('fn_criar_agendamento_multiplo', {
+  const taxidog = lerTaxiDogDoFormulario(formData)
+  if (taxidog.erro) return { error: taxidog.erro }
+
+  const paramsAgendamento = {
     p_id_pet: parsed.data.id_pet,
     p_id_cliente: user.id,
     p_id_lojista: parsed.data.id_lojista,
@@ -1403,9 +1423,21 @@ export async function criarAgendamentoOnlineAction(
     p_obs: parsed.data.obs || null,
     p_produtos: parsed.data.produtos?.map(p => p.id_produto) ?? null,
     p_quantidades: parsed.data.produtos?.map(p => p.quantidade) ?? null,
-  })
+  }
+
+  const { data, error } = taxidog.dados
+    ? await supabase.rpc('fn_criar_agendamento_multiplo_com_taxidog', {
+        ...paramsAgendamento,
+        ...paramsRpcTaxiDog(
+          taxidog.dados,
+          await coordenadasParaTaxiDog(supabase, parsed.data.id_lojista, taxidog.dados.endereco)
+        ),
+      })
+    : await supabase.rpc('fn_criar_agendamento_multiplo', paramsAgendamento)
 
   if (error) {
+    const erroTaxiDog = mensagemErroTaxiDog(error.message)
+    if (erroTaxiDog) return { error: erroTaxiDog }
     if (error.message.includes('Horário não disponível')) {
       return { error: 'Horário não disponível. Escolha outro horário.' }
     }
@@ -2308,6 +2340,7 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     pode_gerenciar_produtos: formData.get('pode_gerenciar_produtos') === 'true',
     pode_gerenciar_clientes_pets: formData.get('pode_gerenciar_clientes_pets') === 'true',
     acesso_total: acessoTotalSolicitado,
+    pode_taxidog: formData.get('pode_taxidog') === 'true',
   }
 
   const parsed = funcionarioSchema.safeParse(raw)
@@ -2363,6 +2396,7 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     p_pode_clientes_pets: parsed.data.pode_gerenciar_clientes_pets,
     p_acesso_total: parsed.data.acesso_total,
     p_pode_produtos: parsed.data.pode_gerenciar_produtos,
+    p_pode_taxidog: parsed.data.pode_taxidog,
   })
 
   if (rpcError) {
@@ -2410,6 +2444,7 @@ export async function editarFuncionarioAction(id_funcionario: string, formData: 
     pode_gerenciar_produtos: formData.get('pode_gerenciar_produtos') === 'true',
     pode_gerenciar_clientes_pets: formData.get('pode_gerenciar_clientes_pets') === 'true',
     acesso_total: acessoTotalSolicitado,
+    pode_taxidog: formData.get('pode_taxidog') === 'true',
   }
 
   const parsed = editarFuncionarioSchema.safeParse(raw)
@@ -2426,6 +2461,7 @@ export async function editarFuncionarioAction(id_funcionario: string, formData: 
       pode_gerenciar_produtos: parsed.data.pode_gerenciar_produtos,
       pode_gerenciar_clientes_pets: parsed.data.pode_gerenciar_clientes_pets,
       acesso_total: parsed.data.acesso_total,
+      pode_taxidog: parsed.data.pode_taxidog,
     })
     .eq('id_funcionario', id_funcionario)
     .eq('id_lojista', contexto.idLojista) // Garante que é membro da SUA equipe

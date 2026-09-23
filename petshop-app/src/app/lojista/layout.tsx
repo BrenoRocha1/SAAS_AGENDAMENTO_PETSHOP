@@ -74,6 +74,15 @@ export default async function LojistaLayout({
     somTipo = lojista?.som_novo_agendamento_tipo ?? 'sino'
   }
 
+  // TaxiDog ligado? (migration 042) — tolerante: sem a tabela, o item
+  // "TaxiDog" simplesmente não aparece no menu.
+  const { data: taxidogCfg } = await supabase
+    .from('taxidog_config')
+    .select('ativo')
+    .eq('id_lojista', contexto.idLojista)
+    .maybeSingle()
+  const taxidogAtivo = !!taxidogCfg?.ativo
+
   // Nome próprio do funcionário, pro rodapé da sidebar mostrar quem está
   // logado (não o nome da loja, que já aparece separado).
   let nomeUsuario = nomeLoja
@@ -94,6 +103,7 @@ export default async function LojistaLayout({
         nomeUsuario={nomeUsuario}
         userEmail={user.email ?? ''}
         kanbanAtivo={kanbanAtivo}
+        taxidogAtivo={taxidogAtivo}
         role={contexto.role}
         podeGerenciarAgenda={contexto.podeGerenciarAgenda}
         podeGerenciarServicos={contexto.podeGerenciarServicos}

@@ -10,6 +10,13 @@ import { removerHorariosPassados } from '@/lib/agenda'
 import { rotuloUnidade } from '@/lib/produto'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
+import TaxiDogEtapa, {
+  ESTADO_TRANSPORTE_INICIAL,
+  ResumoTaxiDog,
+  escolhaDoTransporte,
+  taxiDogParaFormulario,
+  type EstadoTransporte,
+} from './TaxiDogEtapa'
 import {
   IconAlert, IconCalendar, IconCheck, IconClock, IconDog,
   IconMapPin, IconMoney, IconPackage, IconScissors, IconStore,
@@ -72,17 +79,26 @@ interface Props {
   lojistas: Lojista[]
 }
 
-type Step = 1 | 2 | 3 | 4
+// Etapas nomeadas: "Transporte" só existe quando a loja escolhida oferece
+// TaxiDog no agendamento online (migration 042).
+type Step = 'loja' | 'petservico' | 'transporte' | 'datahora' | 'confirmar'
 
-const ETAPAS = ['Petshop', 'Pet & Serviço', 'Data & Hora', 'Confirmar']
+const ROTULO_ETAPA: Record<Step, string> = {
+  loja: 'Petshop',
+  petservico: 'Pet & Serviço',
+  transporte: 'Transporte',
+  datahora: 'Data & Hora',
+  confirmar: 'Confirmar',
+}
 
-function ProgressoEtapas({ passo }: { passo: Step }) {
-  const percentual = (passo / ETAPAS.length) * 100
+function ProgressoEtapas({ etapas, atual }: { etapas: Step[]; atual: Step }) {
+  const passo = etapas.indexOf(atual) + 1
+  const percentual = (passo / etapas.length) * 100
   return (
     <div style={{ marginBottom: 'var(--space-6)' }}>
       <div className="flex justify-between" style={{ marginBottom: 'var(--space-2)' }}>
-        <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{ETAPAS[passo - 1]}</span>
-        <span className="text-xs text-muted">Passo {passo} de {ETAPAS.length}</span>
+        <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{ROTULO_ETAPA[atual]}</span>
+        <span className="text-xs text-muted">Passo {passo} de {etapas.length}</span>
       </div>
       <div style={{ height: 6, borderRadius: 999, background: 'var(--gray-700)', overflow: 'hidden' }}>
         <div
@@ -102,11 +118,30 @@ function ProgressoEtapas({ passo }: { passo: Step }) {
 export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const router = useRouter()
   const supabase = createClient()
-  const [step, setStep] = useState<Step>(1)
+  const [step, setStep] = useState<Step>('loja')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const [lojistaId, setLojistaId] = useState('')
+  const [taxidogDisponivel, setTaxidogDisponivel] = useState(false)
+  const [precosEstimados, setPrecosEstimados] = useState(false)
+  const [transporte, setTransporte] = useState<EstadoTransporte>(ESTADO_TRANSPORTE_INICIAL)
+  const escolhaTaxiDog = escolhaDoTransporte(transporte)
+
+  const etapas: Step[] = taxidogDisponivel
+    ? ['loja', 'petservico', 'transporte', 'datahora', 'confirmar']
+    : ['loja', 'petservico', 'datahora', 'confirmar']
+  const avancar = () => setStep(atual => etapas[etapas.indexOf(atual) + 1] ?? atual)
+  const voltar = () => setStep(atual => etapas[etapas.indexOf(atual) - 1] ?? atual)
+
+  function escolherLojista(id: string) {
+    if (id === lojistaId) return
+    setLojistaId(id)
+    // Endereço/taxa cotados pra outra loja não valem pra esta.
+    setTransporte(ESTADO_TRANSPORTE_INICIAL)
+    setTaxidogDisponivel(false)
+    setPrecosEstimados(false)
+  }
   const [petId, setPetId] = useState('')
   const [servicos, setServicos] = useState<Servico[]>([])
   const [servicoId, setServicoId] = useState('')
@@ -143,6 +178,21 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       .gt('estoque_atual', 0)
       .order('nome')
       .then(({ data }) => setProdutosDisponiveis(data ?? []))
+  }, [lojistaId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // TaxiDog + aviso de preço estimado da loja escolhida (migration 042).
+  // Sem a migration, as consultas falham e tudo segue como antes.
+  useEffect(() => {
+    if (!lojistaId) return
+    supabase
+      .rpc('fn_taxidog_publico', { p_id_lojista: lojistaId })
+      .then(({ data }) => setTaxidogDisponivel(!!(data as { disponivel: boolean }[] | null)?.[0]?.disponivel))
+    supabase
+      .from('lojista')
+      .select('precos_estimados')
+      .eq('id_lojista', lojistaId)
+      .maybeSingle()
+      .then(({ data }) => setPrecosEstimados(!!data?.precos_estimados))
   }, [lojistaId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Dias abertos + janela de antecedência da loja escolhida — precisa pra
@@ -201,7 +251,8 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
     [produtosDisponiveis, quantidadesProdutos]
   )
   const totalProdutos = itensCarrinhoProdutos.reduce((acc, i) => acc + i.produto.preco_venda * i.quantidade, 0)
-  const totalGeral = (servicoSel?.preco ?? 0) + totalProdutos
+  const valorTaxiDog = escolhaTaxiDog?.cotacao.valor ?? 0
+  const totalGeral = (servicoSel?.preco ?? 0) + totalProdutos + valorTaxiDog
 
   function handleSubmit() {
     setError(null)
@@ -215,6 +266,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
     if (itensCarrinhoProdutos.length > 0) {
       formData.set('produtos', JSON.stringify(itensCarrinhoProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))))
     }
+    if (escolhaTaxiDog) formData.set('taxidog', taxiDogParaFormulario(escolhaTaxiDog))
 
     startTransition(async () => {
       const result = await criarAgendamentoAction(formData)
@@ -232,7 +284,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
 
   return (
     <div style={{ maxWidth: 680 }}>
-      <ProgressoEtapas passo={step} />
+      <ProgressoEtapas etapas={etapas} atual={step} />
 
       {error && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
@@ -241,8 +293,8 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
         </div>
       )}
 
-      {/* ETAPA 1 — Escolher Petshop */}
-      {step === 1 && (
+      {/* Escolher Petshop */}
+      {step === 'loja' && (
         <div className="card">
           <h3 style={{ marginBottom: 'var(--space-6)' }}>Escolha o Petshop</h3>
           {lojistas.length === 0 ? (
@@ -260,7 +312,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
               {lojistas.map(l => (
                 <div
                   key={l.id_lojista}
-                  onClick={() => setLojistaId(l.id_lojista)}
+                  onClick={() => escolherLojista(l.id_lojista)}
                   style={{
                     padding: 'var(--space-4)',
                     borderRadius: 'var(--radius-md)',
@@ -303,7 +355,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
             <button
               className="btn btn-primary"
               disabled={!lojistaId}
-              onClick={() => setStep(2)}
+              onClick={avancar}
             >
               Próximo
             </button>
@@ -311,8 +363,8 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
         </div>
       )}
 
-      {/* ETAPA 2 — Pet e Serviço */}
-      {step === 2 && (
+      {/* Pet e Serviço */}
+      {step === 'petservico' && (
         <div className="card">
           <h3 style={{ marginBottom: 'var(--space-6)' }}>Selecione o Pet e Serviço</h3>
 
@@ -388,11 +440,11 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
           </div>
 
           <div className="flex justify-between" style={{ marginTop: 'var(--space-6)' }}>
-            <button className="btn btn-secondary" onClick={() => setStep(1)}>Voltar</button>
+            <button className="btn btn-secondary" onClick={voltar}>Voltar</button>
             <button
               className="btn btn-primary"
               disabled={!petId || !servicoId}
-              onClick={() => setStep(3)}
+              onClick={avancar}
             >
               Próximo
             </button>
@@ -400,8 +452,18 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
         </div>
       )}
 
-      {/* ETAPA 3 — Data e Hora */}
-      {step === 3 && (
+      {/* Transporte — só quando a loja oferece TaxiDog */}
+      {step === 'transporte' && (
+        <>
+          <TaxiDogEtapa idLojista={lojistaId} valor={transporte} onChange={setTransporte} onContinuar={avancar} rotuloContinuar="Próximo" />
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <button className="btn btn-secondary" onClick={voltar}>Voltar</button>
+          </div>
+        </>
+      )}
+
+      {/* Data e Hora */}
+      {step === 'datahora' && (
         <div className="card">
           <h3 style={{ marginBottom: 'var(--space-6)' }}>Escolha a Data e Horário</h3>
 
@@ -446,11 +508,11 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
           )}
 
           <div className="flex justify-between" style={{ marginTop: 'var(--space-6)' }}>
-            <button className="btn btn-secondary" onClick={() => setStep(2)}>Voltar</button>
+            <button className="btn btn-secondary" onClick={voltar}>Voltar</button>
             <button
               className="btn btn-primary"
               disabled={!data || !hora}
-              onClick={() => setStep(4)}
+              onClick={avancar}
             >
               Próximo
             </button>
@@ -458,8 +520,8 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
         </div>
       )}
 
-      {/* ETAPA 4 — Confirmação */}
-      {step === 4 && (
+      {/* Confirmação */}
+      {step === 'confirmar' && (
         <div className="card">
           <h3 style={{ marginBottom: 'var(--space-6)' }}>Confirmar Agendamento</h3>
 
@@ -482,7 +544,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
               { Icon: IconCalendar, label: 'Data', value: format(new Date(data + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) },
               { Icon: IconClock, label: 'Horário', value: hora?.slice(0, 5) },
               { Icon: IconClock, label: 'Duração', value: `${servicoSel?.duracao} minutos` },
-              { Icon: IconMoney, label: totalProdutos > 0 ? 'Total (serviço + produtos)' : 'Valor', value: `R$ ${totalGeral.toFixed(2)}` },
+              { Icon: IconMoney, label: 'Valor do serviço', value: `R$ ${Number(servicoSel?.preco ?? 0).toFixed(2)}` },
             ].map(item => (
               <div key={item.label} className="flex justify-between">
                 <span className="text-sm text-muted flex items-center gap-1">
@@ -491,6 +553,26 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
                 <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{item.value}</span>
               </div>
             ))}
+
+            <ResumoTaxiDog escolha={escolhaTaxiDog} disponivel={taxidogDisponivel} />
+
+            {totalProdutos > 0 && (
+              <div className="flex justify-between">
+                <span className="text-sm text-muted flex items-center gap-1"><IconPackage style={{ width: 13, height: 13 }} /> Produtos</span>
+                <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>R$ {totalProdutos.toFixed(2)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between" style={{ paddingTop: 'var(--space-3)', borderTop: '1px solid var(--gray-800)' }}>
+              <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>Total</span>
+              <span className="font-semibold text-success">R$ {totalGeral.toFixed(2)}</span>
+            </div>
+            {precosEstimados && (
+              <p className="text-xs text-muted" style={{ margin: 0 }}>
+                O valor do serviço é uma estimativa: a loja pode ajustar o preço final conforme a pelagem e as condições do pet no dia.
+                {escolhaTaxiDog && ' A taxa do TaxiDog não muda.'}
+              </p>
+            )}
           </div>
 
           {produtosDisponiveis.length > 0 && (
@@ -543,7 +625,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
           </div>
 
           <div className="flex justify-between">
-            <button className="btn btn-secondary" onClick={() => setStep(3)}>Voltar</button>
+            <button className="btn btn-secondary" onClick={voltar}>Voltar</button>
             <button
               className={`btn btn-primary btn-lg ${isPending ? 'btn-loading' : ''}`}
               disabled={isPending}

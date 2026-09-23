@@ -74,7 +74,12 @@ export async function middleware(request: NextRequest) {
       .maybeSingle()
 
     if (!funcionario?.acesso_total) {
-      const areasPermitidas = ['/lojista/agendamentos', '/lojista/kanban', '/lojista/servicos', '/lojista/clientes', '/lojista/pets']
+      // produtos (permissão própria, migration 040) e taxidog (painel de
+      // corridas, migration 042) — a página confere a permissão fina.
+      const areasPermitidas = [
+        '/lojista/agendamentos', '/lojista/kanban', '/lojista/taxidog', '/lojista/servicos',
+        '/lojista/produtos', '/lojista/clientes', '/lojista/pets',
+      ]
       const permitido = areasPermitidas.some(p => pathname === p || pathname.startsWith(`${p}/`))
       if (!permitido) {
         const url = request.nextUrl.clone()

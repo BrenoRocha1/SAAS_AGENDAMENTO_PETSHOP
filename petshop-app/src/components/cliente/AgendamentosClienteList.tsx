@@ -6,7 +6,8 @@ import { ptBR } from 'date-fns/locale'
 import { cancelarAgendamentoAction } from '@/lib/actions'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import { rotuloEstoque } from '@/lib/produto'
-import { IconAlert, IconPackage, IconPencil, IconScissors, IconStar, IconTrash } from '@/components/icons'
+import { ROTULO_MODALIDADE, formatarReais, rotuloStatusCorrida, type ModalidadeTaxiDog } from '@/lib/taxidog'
+import { IconAlert, IconCar, IconPackage, IconPencil, IconScissors, IconStar, IconTrash } from '@/components/icons'
 import AvaliacaoModal, { type AvaliacaoExistente } from './AvaliacaoModal'
 import { Estrelas } from './Estrelas'
 
@@ -31,6 +32,16 @@ export interface ProdutoComprado {
   preco_unitario: number
 }
 
+// TaxiDog pedido junto (migration 042) — a taxa já está dentro de `valor`,
+// aqui ela aparece separada pro cliente entender o total.
+export interface TaxiDogCliente {
+  modalidade: ModalidadeTaxiDog
+  status: string
+  valor: number
+  endereco: string
+  temTaxiDog: boolean
+}
+
 interface Props {
   agendamentos: AgendamentoCliente[]
   // Avaliações que o próprio cliente já deixou, indexadas pelo agendamento
@@ -39,9 +50,10 @@ interface Props {
   // Produtos comprados junto, indexados pelo agendamento — vazio na
   // maioria dos casos (produto é opcional no agendamento online).
   produtosComprados: Record<string, ProdutoComprado[]>
+  taxidog: Record<string, TaxiDogCliente>
 }
 
-export default function AgendamentosClienteList({ agendamentos, avaliacoes, produtosComprados }: Props) {
+export default function AgendamentosClienteList({ agendamentos, avaliacoes, produtosComprados, taxidog }: Props) {
   const [cancelId, setCancelId] = useState<string | null>(null)
   const [motivo, setMotivo] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -149,6 +161,23 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
                   </div>
                 </div>
               )}
+
+              {taxidog[ag.id_agendamento] && (() => {
+                const t = taxidog[ag.id_agendamento]
+                return (
+                  <div style={{ marginBottom: 'var(--space-4)' }}>
+                    <div className="text-xs text-muted" style={{ marginBottom: 4 }}>TaxiDog</div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1" style={{ color: 'var(--gray-300)' }}>
+                        <IconCar style={{ width: 13, height: 13, color: 'var(--gray-500)' }} />
+                        {ROTULO_MODALIDADE[t.modalidade]} · {rotuloStatusCorrida({ status: t.status, modalidade: t.modalidade, temTaxiDog: t.temTaxiDog, statusAgendamento: ag.status })}
+                      </span>
+                      <span className="font-semibold text-success">{formatarReais(t.valor)}</span>
+                    </div>
+                    <div className="text-xs text-muted" style={{ marginTop: 2 }}>{t.endereco}</div>
+                  </div>
+                )
+              })()}
 
               {ag.obs && (
                 <div

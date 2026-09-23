@@ -97,7 +97,15 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
     )
   }
 
-  const funcionario: FuncionarioInfo = funcionarioRow
+  // pode_taxidog (migration 042) numa consulta à parte: se a coluna ainda
+  // não existe, a consulta principal acima não pode falhar por causa dela.
+  const { data: taxidogRow } = await supabase
+    .from('funcionario')
+    .select('pode_taxidog')
+    .eq('id_funcionario', id)
+    .eq('id_lojista', lojistaId)
+    .maybeSingle()
+  const funcionario: FuncionarioInfo = { ...funcionarioRow, pode_taxidog: !!taxidogRow?.pode_taxidog }
 
   if (agendaErro) {
     return (

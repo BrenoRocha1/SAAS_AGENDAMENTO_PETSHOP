@@ -11,6 +11,14 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
 import { Estrelas, formatarMedia } from './Estrelas'
+import TaxiDogEtapa, {
+  ESTADO_TRANSPORTE_INICIAL,
+  ResumoTaxiDog,
+  escolhaDoTransporte,
+  taxiDogParaFormulario,
+  type EstadoTransporte,
+} from './TaxiDogEtapa'
+import { ROTULO_MODALIDADE, formatarReais } from '@/lib/taxidog'
 import {
   IconAlert,
   IconCheck,
@@ -98,21 +106,37 @@ interface Props {
   autenticado: boolean
   contaInvalida: boolean
   carrinhoInicial: string[]
+  // TaxiDog ligado e liberado pro agendamento online (fn_taxidog_publico,
+  // migration 042) — decide se a etapa "Transporte" existe.
+  taxidogDisponivel: boolean
+  // lojista.precos_estimados (migration 042) — mostra o aviso de que o
+  // preço do serviço pode ser ajustado pela loja.
+  precosEstimados: boolean
 }
 
-type Step = 1 | 2 | 3 | 4 | 5 | 6
+// Etapas nomeadas (não numeradas) porque "Transporte" só existe quando a
+// loja oferece TaxiDog.
+type Step = 'servicos' | 'pet' | 'transporte' | 'dados' | 'horario' | 'resumo' | 'feito'
 type Slot = { hr_slot: string; disponivel: boolean }
 
-const ETAPAS = ['Serviços', 'Pet', 'Seus dados', 'Horário', 'Confirmar']
+const ROTULO_ETAPA: Record<Exclude<Step, 'feito'>, string> = {
+  servicos: 'Serviços',
+  pet: 'Pet',
+  transporte: 'Transporte',
+  dados: 'Seus dados',
+  horario: 'Horário',
+  resumo: 'Confirmar',
+}
 const DIAS_ORDEM = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
 
-function ProgressoEtapas({ passo }: { passo: number }) {
-  const percentual = (passo / ETAPAS.length) * 100
+function ProgressoEtapas({ etapas, atual }: { etapas: Step[]; atual: Step }) {
+  const passo = etapas.indexOf(atual) + 1
+  const percentual = (passo / etapas.length) * 100
   return (
     <div style={{ marginBottom: 'var(--space-6)' }}>
       <div className="flex justify-between" style={{ marginBottom: 'var(--space-2)' }}>
-        <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{ETAPAS[passo - 1]}</span>
-        <span className="text-xs text-muted">Passo {passo} de {ETAPAS.length}</span>
+        <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{atual !== 'feito' ? ROTULO_ETAPA[atual] : ''}</span>
+        <span className="text-xs text-muted">Passo {passo} de {etapas.length}</span>
       </div>
       <div style={{ height: 6, borderRadius: 999, background: 'var(--gray-700)', overflow: 'hidden' }}>
         <div
@@ -131,9 +155,20 @@ function ProgressoEtapas({ passo }: { passo: number }) {
 
 export default function AgendamentoOnlineWizard({
   lojista, horarios, janela, servicos, produtos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
+  taxidogDisponivel, precosEstimados,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
-  const [step, setStep] = useState<Step>(1)
+  const [step, setStep] = useState<Step>('servicos')
+  const etapas: Step[] = useMemo(
+    () => taxidogDisponivel
+      ? ['servicos', 'pet', 'transporte', 'dados', 'horario', 'resumo']
+      : ['servicos', 'pet', 'dados', 'horario', 'resumo'],
+    [taxidogDisponivel]
+  )
+  const avancar = () => setStep(atual => etapas[etapas.indexOf(atual) + 1] ?? atual)
+  const voltar = () => setStep(atual => etapas[etapas.indexOf(atual) - 1] ?? atual)
+  const [transporte, setTransporte] = useState<EstadoTransporte>(ESTADO_TRANSPORTE_INICIAL)
+  const escolhaTaxiDog = escolhaDoTransporte(transporte)
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -172,7 +207,8 @@ export default function AgendamentoOnlineWizard({
     [produtos, quantidadesProdutos]
   )
   const totalProdutos = itensCarrinhoProdutos.reduce((acc, i) => acc + i.produto.preco_venda * i.quantidade, 0)
-  const totalGeral = valorTotal + totalProdutos
+  const valorTaxiDog = escolhaTaxiDog?.cotacao.valor ?? 0
+  const totalGeral = valorTotal + totalProdutos + valorTaxiDog
 
   // Preço real (considerando variação por porte/raça) assim que há pet + carrinho
   useEffect(() => {
@@ -218,7 +254,7 @@ export default function AgendamentoOnlineWizard({
       setMostrarGateAcesso(true)
       return
     }
-    setStep(2)
+    setStep('pet')
   }
 
   const voltarParaCa = `/agendamento/${lojista.id}${carrinho.length ? `?servicos=${carrinho.join(',')}` : ''}`
@@ -261,12 +297,13 @@ export default function AgendamentoOnlineWizard({
     if (itensCarrinhoProdutos.length > 0) {
       fd.set('produtos', JSON.stringify(itensCarrinhoProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))))
     }
+    if (escolhaTaxiDog) fd.set('taxidog', taxiDogParaFormulario(escolhaTaxiDog))
 
     startTransition(async () => {
       const result = await criarAgendamentoOnlineAction(fd)
       if (result?.error) { setErro(result.error); return }
       setResultado({ ids: result?.ids_agendamento ?? [] })
-      setStep(6)
+      setStep('feito')
     })
   }
 
@@ -284,6 +321,7 @@ export default function AgendamentoOnlineWizard({
     `Olá! Acabei de agendar em ${lojista.nome}:`,
     ...servicosCarrinho.map(s => `- ${s.nome}`),
     ...itensCarrinhoProdutos.map(i => `- ${i.produto.nome} (${i.quantidade} ${rotuloUnidade(i.produto.unidade_venda)})`),
+    ...(escolhaTaxiDog ? [`TaxiDog: ${ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]} (${formatarReais(escolhaTaxiDog.cotacao.valor)})`] : []),
     `Pet: ${petSel?.nome ?? ''}`,
     `Data: ${data ? format(new Date(data + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR }) : ''} às ${horaInicio}`,
     `Total: R$ ${totalGeral.toFixed(2)}`,
@@ -293,18 +331,18 @@ export default function AgendamentoOnlineWizard({
 
   return (
     <div>
-      {step > 1 && step < 6 && (
+      {step !== 'servicos' && step !== 'feito' && (
         <button
           type="button"
           className="btn btn-ghost btn-sm"
-          onClick={() => setStep(prev => (prev - 1) as Step)}
+          onClick={voltar}
           style={{ marginBottom: 'var(--space-4)' }}
         >
           <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar
         </button>
       )}
 
-      {step === 1 && (
+      {step === 'servicos' && (
         <button
           type="button"
           className="agenonline-header"
@@ -326,7 +364,7 @@ export default function AgendamentoOnlineWizard({
         </button>
       )}
 
-      {step < 6 && <ProgressoEtapas passo={step} />}
+      {step !== 'feito' && <ProgressoEtapas etapas={etapas} atual={step} />}
 
       {erro && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
@@ -335,8 +373,8 @@ export default function AgendamentoOnlineWizard({
         </div>
       )}
 
-      {/* STEP 1 — Escolha o(s) Serviço(s) */}
-      {step === 1 && (
+      {/* Escolha o(s) Serviço(s) */}
+      {step === 'servicos' && (
         <>
           <h2 style={{ fontSize: '1.25rem', marginBottom: 'var(--space-4)' }}>Escolha o Serviço</h2>
           {servicos.length === 0 ? (
@@ -423,8 +461,8 @@ export default function AgendamentoOnlineWizard({
         </div>
       )}
 
-      {/* STEP 2 — Pet */}
-      {step === 2 && (
+      {/* Pet */}
+      {step === 'pet' && (
         <div className="card">
           <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-4)' }}>Preencha os detalhes do seu Pet</h2>
 
@@ -510,7 +548,7 @@ export default function AgendamentoOnlineWizard({
               type="button"
               className="btn btn-primary"
               disabled={!petId || precisaClassificar}
-              onClick={() => setStep(3)}
+              onClick={avancar}
             >
               Continuar
             </button>
@@ -518,8 +556,13 @@ export default function AgendamentoOnlineWizard({
         </div>
       )}
 
-      {/* STEP 3 — Tutor (revisão) */}
-      {step === 3 && (
+      {/* Transporte — só existe quando a loja oferece TaxiDog */}
+      {step === 'transporte' && (
+        <TaxiDogEtapa idLojista={lojista.id} valor={transporte} onChange={setTransporte} onContinuar={avancar} />
+      )}
+
+      {/* Tutor (revisão) */}
+      {step === 'dados' && (
         <div className="card">
           <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-5)' }}>Preencha seus dados</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
@@ -531,15 +574,15 @@ export default function AgendamentoOnlineWizard({
             Esses dados vêm da sua conta. Pra alterar, acesse seu perfil de cliente.
           </p>
           <div className="flex justify-end">
-            <button type="button" className="btn btn-primary" onClick={() => setStep(4)}>
+            <button type="button" className="btn btn-primary" onClick={avancar}>
               Continuar para Horários →
             </button>
           </div>
         </div>
       )}
 
-      {/* STEP 4 — Dia e hora */}
-      {step === 4 && (
+      {/* Dia e hora */}
+      {step === 'horario' && (
         <div className="card">
           <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-3)' }}>Selecione o dia</h2>
           <div style={{ marginBottom: 'var(--space-6)' }}>
@@ -583,28 +626,32 @@ export default function AgendamentoOnlineWizard({
           )}
 
           <div className="flex justify-end" style={{ marginTop: 'var(--space-6)' }}>
-            <button type="button" className="btn btn-primary" disabled={!data || !horaInicio} onClick={() => setStep(5)}>
+            <button type="button" className="btn btn-primary" disabled={!data || !horaInicio} onClick={avancar}>
               Continuar
             </button>
           </div>
         </div>
       )}
 
-      {/* STEP 5 — Resumo */}
-      {step === 5 && (
+      {/* Resumo */}
+      {step === 'resumo' && (
         <div className="card">
-          <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-2)' }}>Resumo do serviço</h2>
-          <button type="button" className="text-accent text-sm" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 'var(--space-5)' }} onClick={() => setStep(1)}>
+          <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-2)' }}>Resumo do agendamento</h2>
+          <button type="button" className="text-accent text-sm" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 'var(--space-5)' }} onClick={() => setStep('servicos')}>
             Escolher mais serviços
           </button>
 
           <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 'var(--space-5)' }}>
+            <div className="text-xs text-muted" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+              {servicosCarrinho.length > 1 ? 'Serviços' : 'Serviço'}
+            </div>
             {servicosCarrinho.map(s => (
               <div key={s.id_servico} className="agenonline-resumo-row">
                 <span>{s.nome}</span>
                 <span className="font-semibold text-success">R$ {Number(precos[s.id_servico] ?? s.preco).toFixed(2)}</span>
               </div>
             ))}
+            <ResumoTaxiDog escolha={escolhaTaxiDog} disponivel={taxidogDisponivel} />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 'var(--space-5)' }}>
@@ -615,7 +662,16 @@ export default function AgendamentoOnlineWizard({
               <span>{format(new Date(data + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })} às {horaInicio}</span>
             </div>
             <div className="agenonline-resumo-row"><span className="text-muted">Duração total</span><span>{duracaoTotal} minutos</span></div>
-            <div className="agenonline-resumo-row"><span className="font-semibold">{totalProdutos > 0 ? 'Total (serviços + produtos)' : 'Valor Total'}</span><span className="font-semibold text-success">R$ {totalGeral.toFixed(2)}</span></div>
+            {totalProdutos > 0 && (
+              <div className="agenonline-resumo-row"><span className="text-muted">Produtos</span><span>R$ {totalProdutos.toFixed(2)}</span></div>
+            )}
+            <div className="agenonline-resumo-row"><span className="font-semibold">Total</span><span className="font-semibold text-success">R$ {totalGeral.toFixed(2)}</span></div>
+            {precosEstimados && (
+              <p className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>
+                O valor dos serviços é uma estimativa: a loja pode ajustar o preço final conforme a pelagem e as condições do pet no dia.
+                {escolhaTaxiDog && ' A taxa do TaxiDog não muda.'}
+              </p>
+            )}
           </div>
 
           {produtos.length > 0 && (
@@ -668,8 +724,8 @@ export default function AgendamentoOnlineWizard({
         </div>
       )}
 
-      {/* STEP 6 — Confirmação */}
-      {step === 6 && resultado && (
+      {/* Confirmação */}
+      {step === 'feito' && resultado && (
         <div className="card" style={{ textAlign: 'center' }}>
           <span style={{
             display: 'inline-flex', width: 64, height: 64, borderRadius: 'var(--radius-full)',

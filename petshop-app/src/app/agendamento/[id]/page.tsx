@@ -163,6 +163,16 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
     maxUnidade: (janelaRow?.agendamento_max_unidade ?? 'dias') as 'horas' | 'dias',
   }
 
+  // TaxiDog + aviso de preço estimado (migration 042) — mesmo cuidado das
+  // colunas novas acima: se a migration ainda não rodou, a etapa de
+  // transporte simplesmente não aparece e o agendamento segue normal.
+  const [{ data: taxidogRaw }, { data: estimadoRow }] = await Promise.all([
+    supabase.rpc('fn_taxidog_publico', { p_id_lojista: lojista.id_lojista }),
+    supabase.from('lojista').select('precos_estimados').eq('id_lojista', lojista.id_lojista).maybeSingle(),
+  ])
+  const taxidogDisponivel = !!(taxidogRaw as { disponivel: boolean }[] | null)?.[0]?.disponivel
+  const precosEstimados = !!estimadoRow?.precos_estimados
+
   // Dados do próprio cliente — só buscados quando logado como cliente,
   // já que dependem de RLS de auth.uid().
   let pets: { id_pet: string; nome: string; raca: string; especie: 'Cão' | 'Gato' | null; porte: 'Pequeno' | 'Médio' | 'Grande' | null; sexo: string }[] = []
@@ -215,6 +225,8 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
           autenticado={autenticado}
           contaInvalida={contaInvalida}
           carrinhoInicial={servicosParam ? servicosParam.split(',').filter(Boolean) : []}
+          taxidogDisponivel={taxidogDisponivel}
+          precosEstimados={precosEstimados}
         />
       </div>
     </div>

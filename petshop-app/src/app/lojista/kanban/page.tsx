@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import KanbanBoard, { type KanbanItem } from '@/components/lojista/KanbanBoard'
+import type { ModalidadeTaxiDog } from '@/lib/taxidog'
 import { IconAlert, IconKanban } from '@/components/icons'
 import Link from 'next/link'
 
@@ -149,6 +150,28 @@ export default async function KanbanPage({ searchParams }: Props) {
     })
   }
 
+  // TaxiDog do dia (migration 042) — consulta plana e tolerante: sem a
+  // migration, a tabela não existe e o Kanban segue igual.
+  const { data: corridasRaw } = idsDoDia.length > 0
+    ? await supabase
+        .from('taxidog_corrida')
+        .select('id_agendamento, modalidade, status, valor, logradouro, numero, bairro, cidade, id_funcionario')
+        .in('id_agendamento', idsDoDia)
+    : { data: [] as Record<string, unknown>[] }
+
+  const taxidogPorAgendamento = new Map(
+    ((corridasRaw ?? []) as Array<{
+      id_agendamento: string; modalidade: ModalidadeTaxiDog; status: string; valor: number | string
+      logradouro: string; numero: string; bairro: string; cidade: string; id_funcionario: string | null
+    }>).map(c => [c.id_agendamento, {
+      modalidade: c.modalidade,
+      status: c.status,
+      valor: Number(c.valor),
+      endereco: `${c.logradouro}, ${c.numero} · ${c.bairro} · ${c.cidade}`,
+      temTaxiDog: !!c.id_funcionario,
+    }])
+  )
+
   const itens: KanbanItem[] = ((agendaRaw ?? []) as unknown as Array<{
     id_agendamento: string
     dt_agendamento: string
@@ -180,6 +203,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     nome_funcionario: a.funcionario?.nome ?? null,
     obs: a.obs,
     produtos: produtosPorAgendamento[a.id_agendamento] ?? [],
+    taxidog: taxidogPorAgendamento.get(a.id_agendamento) ?? null,
   }))
 
   return (
