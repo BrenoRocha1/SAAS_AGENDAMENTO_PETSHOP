@@ -31,7 +31,10 @@ import {
   produtoSchema,
   movimentoEstoqueSchema,
   categoriaProdutoSchema,
+  completarCadastroClienteGoogleSchema,
+  completarCadastroLojistaGoogleSchema,
 } from '@/lib/validations'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } from '@/lib/lojista-context'
 import { ORDEM_ETAPA, etapaEncerrada } from '@/lib/status-agendamento'
 import { coordenadasParaTaxiDog, lerTaxiDogDoFormulario, mensagemErroTaxiDog, paramsRpcTaxiDog } from '@/lib/taxidog-servidor'
