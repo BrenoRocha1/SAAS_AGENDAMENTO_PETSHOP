@@ -27,6 +27,8 @@ export const cadastroClienteSchema = z.object({
     .regex(/[0-9]/, 'Deve conter ao menos um número')
     .regex(/[^A-Za-z0-9]/, 'Deve conter ao menos um caractere especial'),
   confirmaSenha: z.string(),
+  aceita_termos: z.boolean().refine(v => v === true, { message: 'Você precisa aceitar os Termos de Uso e a Política de Privacidade' }),
+
 }).refine(d => d.senha === d.confirmaSenha, {
   message: 'Senhas não conferem',
   path: ['confirmaSenha'],
@@ -88,6 +90,7 @@ export const cadastroLojistSchema = z.object({
     .regex(/[0-9]/, 'Deve conter ao menos um número')
     .regex(/[^A-Za-z0-9]/, 'Deve conter ao menos um caractere especial'),
   confirmaSenha: z.string(),
+  aceita_termos: z.boolean().refine(v => v === true, { message: 'Você precisa aceitar os Termos de Uso e a Política de Privacidade' }),
 }).refine(d => d.senha === d.confirmaSenha, {
   message: 'Senhas não conferem',
   path: ['confirmaSenha'],
@@ -415,6 +418,35 @@ function validarCPF(cpf: string): boolean {
   if (resto === 10 || resto === 11) resto = 0
   return resto === parseInt(cpf[10])
 }
+
+// ============================================================
+// Schemas para "completar cadastro" via Google OAuth
+// (o usuário já tem conta auth, falta os dados de perfil)
+// ============================================================
+
+// Cliente via Google: precisa de CPF e telefone (nome e email vêm do Google)
+export const completarCadastroClienteGoogleSchema = z.object({
+  cpf: z
+    .string()
+    .regex(/^\d{11}$/, 'CPF deve conter 11 dígitos numéricos')
+    .refine(validarCPF, 'CPF inválido'),
+  telefone: z
+    .string()
+    .regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
+  aceita_termos: z.boolean().refine(v => v === true, { message: 'Você precisa aceitar os Termos de Uso e a Política de Privacidade' }),
+})
+
+// Lojista via Google: precisa de nome_loja e telefone (email vem do Google)
+export const completarCadastroLojistaGoogleSchema = z.object({
+  nome_loja: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(150),
+  telefone: z.string().regex(/^\d{10,11}$/, 'Telefone inválido'),
+  descricao: z.string().max(500).optional(),
+  endereco: z.string().max(200).optional(),
+  cidade: z.string().max(100).optional(),
+  estado: z.string().length(2).optional(),
+  cep: z.string().regex(/^\d{8}$/, 'CEP deve ter 8 dígitos').optional(),
+  aceita_termos: z.boolean().refine(v => v === true, { message: 'Você precisa aceitar os Termos de Uso e a Política de Privacidade' }),
+})
 
 // ============================================================
 // Tipos derivados dos schemas
