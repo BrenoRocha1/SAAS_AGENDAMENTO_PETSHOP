@@ -97,9 +97,12 @@ export default function CorridaDetalheScreen() {
   }
 
   const c = corrida
-  const acao = proximaAcaoCorrida(c.status, c.modalidade)
+  // A busca só sai depois de a loja aceitar o agendamento (migration 043).
+  const aguardandoAceite = c.status === 'agendada' && c.modalidade !== 'entregar' && c.status_agendamento === 'Pendente'
+  const acao = aguardandoAceite ? null : proximaAcaoCorrida(c.status, c.modalidade)
   const indoParaLoja = c.status === 'pet_embarcado'
-  const destino = indoParaLoja ? c.loja_endereco ?? c.loja_nome : `${enderecoCliente(c)}, ${formatarCep(c.cep)}, Brasil`
+  // loja_endereco vem '' (não null) quando a loja não tem endereço.
+  const destino = indoParaLoja ? c.loja_endereco || c.loja_nome : `${enderecoCliente(c)}, ${formatarCep(c.cep)}, Brasil`
   const aguardandoServico = c.status === 'entregue_loja' || (c.status === 'agendada' && c.modalidade === 'entregar')
   const comportamento = (c.pet_comportamento ?? []).filter(Boolean)
   const observacoes = [c.obs_agendamento, c.pet_obs, c.pet_obs_comportamento].filter(Boolean) as string[]
@@ -151,6 +154,14 @@ export default function CorridaDetalheScreen() {
           >
             {enviando ? <ActivityIndicator color={colors.white} /> : <Text style={styles.botaoAcaoTexto}>{acao.rotulo.toUpperCase()}</Text>}
           </Pressable>
+        )}
+        {aguardandoAceite && (
+          <View style={styles.aguardando}>
+            <Ionicons name="hourglass-outline" size={18} color={colors.warningFg} />
+            <Text style={styles.aguardandoTexto}>
+              A loja ainda não aceitou este agendamento. A busca libera assim que ela aceitar.
+            </Text>
+          </View>
         )}
         {aguardandoServico && (
           <View style={styles.aguardando}>

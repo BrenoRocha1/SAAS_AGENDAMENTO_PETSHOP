@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useRouter } from 'expo-router'
 import { StyleSheet, Text, View } from 'react-native'
-import { format, addDays } from 'date-fns'
+import { format, addDays, subDays } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { SectionHeader } from '@/components/SectionHeader'
 import { EmptyState } from '@/components/EmptyState'
@@ -12,12 +12,16 @@ import { emMovimento, encerrada, type Corrida } from '@/lib/taxidog'
 import { colors, spacing, typography } from '@/theme/theme'
 
 const DIAS_A_FRENTE = 7
+// Corrida que ficou aberta de um dia anterior (ex.: pronto para entrega à
+// noite) não pode sumir da lista — senão o TaxiDog não tem como encerrar.
+const DIAS_PARA_TRAS = 7
 
 export default function CorridasScreen() {
   const router = useRouter()
   const hoje = hojeBrasilISO()
+  const desde = format(subDays(agoraBrasil(), DIAS_PARA_TRAS), 'yyyy-MM-dd')
   const ate = format(addDays(agoraBrasil(), DIAS_A_FRENTE), 'yyyy-MM-dd')
-  const { corridas, loading, erro, recarregar } = useMinhasCorridas(hoje, ate)
+  const { corridas, loading, erro, recarregar } = useMinhasCorridas(desde, ate)
 
   const secoes = useMemo(() => {
     const ativas = corridas.filter(c => !encerrada(c.status))
@@ -27,6 +31,7 @@ export default function CorridasScreen() {
     return [
       { titulo: 'Na rua agora', itens: naRua },
       { titulo: 'Prontos para entrega', itens: prontas },
+      { titulo: 'Dias anteriores', itens: resto.filter(c => c.dt_agendamento < hoje) },
       { titulo: 'Hoje', itens: resto.filter(c => c.dt_agendamento === hoje) },
       { titulo: 'Próximos dias', itens: resto.filter(c => c.dt_agendamento > hoje) },
     ].filter(s => s.itens.length > 0)

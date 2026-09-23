@@ -85,7 +85,7 @@ export async function cotarTaxiDogAction(
 }
 
 // ============================================================
-// Configuração (Configurações → Agendamentos → TaxiDog)
+// Configuração (Configurações → Operação → TaxiDog)
 // ============================================================
 export async function salvarTaxiDogConfigAction(payload: unknown): Promise<{
   error?: string

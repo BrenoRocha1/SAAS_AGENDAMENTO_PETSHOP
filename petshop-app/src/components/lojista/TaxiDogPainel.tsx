@@ -300,6 +300,9 @@ function DetalheCorrida({
 }) {
   const acao = proximaAcaoCorrida(c.status, c.modalidade)
   const precisaTaxiDog = !!acao && (acao.status === 'a_caminho_cliente' || acao.status === 'a_caminho_entrega') && !c.id_funcionario
+  // Mesma regra de fn_avancar_corrida (migration 043): a busca só sai
+  // depois de a loja aceitar o agendamento.
+  const aguardandoAceite = acao?.status === 'a_caminho_cliente' && c.status_agendamento === 'Pendente'
   const encerrada = c.status === 'concluida' || c.status === 'cancelada'
   const comportamento = (c.pet_comportamento ?? []).filter(Boolean)
 
@@ -413,10 +416,12 @@ function DetalheCorrida({
           </div>
           {acao && !confirmandoCancelamento && (
             <div className="flex items-center gap-2">
-              {precisaTaxiDog && <span className="text-xs text-muted flex items-center gap-1"><IconMapPin style={{ width: 12, height: 12 }} /> Atribua um TaxiDog antes</span>}
+              {aguardandoAceite
+                ? <span className="text-xs text-muted flex items-center gap-1"><IconAlert style={{ width: 12, height: 12 }} /> Aceite o agendamento antes</span>
+                : precisaTaxiDog && <span className="text-xs text-muted flex items-center gap-1"><IconMapPin style={{ width: 12, height: 12 }} /> Atribua um TaxiDog antes</span>}
               <button
                 className={`btn btn-primary btn-sm ${isPending ? 'btn-loading' : ''}`}
-                disabled={isPending || precisaTaxiDog}
+                disabled={isPending || precisaTaxiDog || aguardandoAceite}
                 onClick={() => onAvancar(acao.status)}
               >
                 {acao.rotulo}
