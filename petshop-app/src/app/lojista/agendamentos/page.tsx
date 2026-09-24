@@ -7,6 +7,7 @@ import { obterContextoLojista } from '@/lib/lojista-context'
 import AgendaCalendar, { type AgendamentoCalendario, type FuncionarioFiltro } from '@/components/lojista/AgendaCalendar'
 import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/DashboardClient'
 import { IconCalendar } from '@/components/icons'
+import type { ModalidadeTaxiDog } from '@/lib/taxidog'
 
 export const metadata: Metadata = { title: 'Agendamentos' }
 
@@ -57,7 +58,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     supabase
       .from('agendamento')
       .select(`
-        id_agendamento, dt_agendamento, hr_agendamento, status, valor, id_funcionario, obs,
+        id_agendamento, dt_agendamento, hr_agendamento, status, valor, id_funcionario, obs, id_pet,
         pet:id_pet ( nome ),
         servico:id_servico ( nome, duracao ),
         cliente:id_cliente ( nome ),
@@ -98,7 +99,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
       .eq('id_lojista', lojistaId),
   ])
 
-  const agendamentos: AgendamentoCalendario[] = ((agendamentosRaw ?? []) as unknown as Array<{
+  type LinhaAgenda = {
     id_agendamento: string
     dt_agendamento: string
     hr_agendamento: string
@@ -106,11 +107,38 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     valor: number
     id_funcionario: string | null
     obs: string | null
+    id_pet: string
     pet: { nome: string } | null
     servico: { nome: string; duracao: number } | null
     cliente: { nome: string } | null
     funcionario: { nome: string } | null
-  }>).map(a => ({
+  }
+  const linhasAgenda = (agendamentosRaw ?? []) as unknown as LinhaAgenda[]
+  const idsDaSemana = linhasAgenda.map(a => a.id_agendamento)
+
+  // Ícones da agenda — as duas consultas são tolerantes: sem a migration
+  // 049 (origem) ou 042 (TaxiDog) elas só voltam vazias e o ícone some.
+  const [{ data: origensRaw }, { data: corridasRaw }] = idsDaSemana.length > 0
+    ? await Promise.all([
+        supabase.from('agendamento').select('id_agendamento, origem').in('id_agendamento', idsDaSemana),
+        supabase.from('taxidog_corrida').select('id_agendamento, modalidade, status').in('id_agendamento', idsDaSemana).neq('status', 'cancelada'),
+      ])
+    : [{ data: [] }, { data: [] }]
+  const origemPorAgendamento = new Map(
+    ((origensRaw ?? []) as { id_agendamento: string; origem: 'loja' | 'online' | null }[]).map(o => [o.id_agendamento, o.origem])
+  )
+  // A corrida fica presa ao primeiro serviço do carrinho, mas vale pra
+  // visita inteira (mesmo pet, mesmo dia) — todos os serviços dela ganham
+  // o ícone do TaxiDog.
+  const visitaDe = (a: LinhaAgenda) => `${a.id_pet}|${a.dt_agendamento}`
+  const linhaPorId = new Map(linhasAgenda.map(a => [a.id_agendamento, a]))
+  const taxidogPorVisita = new Map<string, ModalidadeTaxiDog>()
+  for (const c of (corridasRaw ?? []) as { id_agendamento: string; modalidade: ModalidadeTaxiDog }[]) {
+    const ag = linhaPorId.get(c.id_agendamento)
+    if (ag) taxidogPorVisita.set(visitaDe(ag), c.modalidade)
+  }
+
+  const agendamentos: AgendamentoCalendario[] = linhasAgenda.map(a => ({
     id_agendamento: a.id_agendamento,
     dt_agendamento: a.dt_agendamento,
     hr_agendamento: a.hr_agendamento,
@@ -123,6 +151,8 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     id_funcionario: a.id_funcionario,
     nome_funcionario: a.funcionario?.nome ?? null,
     obs: a.obs,
+    origem: origemPorAgendamento.get(a.id_agendamento) ?? null,
+    taxidog: taxidogPorVisita.get(visitaDe(a)) ?? null,
   }))
 
   const funcionarios: FuncionarioFiltro[] = (funcionariosRaw ?? []) as FuncionarioFiltro[]

@@ -26,10 +26,14 @@ import {
   IconClose,
   IconCheck,
   IconAlert,
+  IconStore,
+  IconLink,
+  IconCar,
 } from '@/components/icons'
 import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
 import { classeBadgeStatus, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
 import NovoAgendamentoModal from './NovoAgendamentoModal'
+import { ROTULO_MODALIDADE, formatarReais, type ModalidadeTaxiDog } from '@/lib/taxidog'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
 
 export interface AgendamentoCalendario {
@@ -45,6 +49,11 @@ export interface AgendamentoCalendario {
   id_funcionario: string | null
   nome_funcionario: string | null
   obs: string | null
+  // De onde veio (migration 049): lançado pela loja ou feito pelo cliente
+  // online. null = agendamento antigo, de antes de o banco guardar isso.
+  origem: 'loja' | 'online' | null
+  // TaxiDog pedido na visita (mesmo pet, mesmo dia) — null = sem.
+  taxidog: ModalidadeTaxiDog | null
 }
 
 export interface FuncionarioFiltro {
@@ -161,6 +170,23 @@ function posicionarDia(eventos: AgendamentoCalendario[], horaInicioGrade: number
   flush()
 
   return resultado
+}
+
+const ROTULO_ORIGEM: Record<'loja' | 'online', string> = {
+  loja: 'Lançado pela loja',
+  online: 'Agendamento online',
+}
+
+// Ícones do bloco da agenda: de onde veio o pedido e se tem TaxiDog.
+function IconesAgendamento({ origem, taxidog }: { origem: 'loja' | 'online' | null; taxidog: ModalidadeTaxiDog | null }) {
+  if (!origem && !taxidog) return null
+  return (
+    <span className="cal-event-icones" aria-hidden="true">
+      {origem === 'loja' && <IconStore />}
+      {origem === 'online' && <IconLink />}
+      {taxidog && <IconCar />}
+    </span>
+  )
 }
 
 export default function AgendaCalendar({
@@ -326,6 +352,13 @@ export default function AgendaCalendar({
             </div>
           </div>
 
+          <div className="cal-profs cal-legenda">
+            <h4>Legenda</h4>
+            <div className="cal-legenda-item"><IconStore style={{ width: 14, height: 14 }} /> Lançado pela loja</div>
+            <div className="cal-legenda-item"><IconLink style={{ width: 14, height: 14 }} /> Agendamento online</div>
+            <div className="cal-legenda-item"><IconCar style={{ width: 14, height: 14 }} /> Com TaxiDog</div>
+          </div>
+
           {funcionarios.length > 0 && (
             <div className="cal-profs">
               <h4>Profissionais</h4>
@@ -421,9 +454,16 @@ export default function AgendaCalendar({
                             filter: ev.status === 'Pendente' ? 'saturate(0.6)' : 'none',
                           }}
                           onClick={() => setSelecionado(ev)}
-                          title={`${ev.hr_agendamento.slice(0, 5)} · ${ev.nome_pet} · ${ev.nome_servico}`}
+                          title={[
+                            `${ev.hr_agendamento.slice(0, 5)} · ${ev.nome_pet} · ${ev.nome_servico}`,
+                            ev.origem ? ROTULO_ORIGEM[ev.origem] : null,
+                            ev.taxidog ? `TaxiDog: ${ROTULO_MODALIDADE[ev.taxidog]}` : null,
+                          ].filter(Boolean).join(' · ')}
                         >
-                          <div className="cal-event-time">{ev.hr_agendamento.slice(0, 5)}</div>
+                          <div className="cal-event-time">
+                            {ev.hr_agendamento.slice(0, 5)}
+                            <IconesAgendamento origem={ev.origem} taxidog={ev.taxidog} />
+                          </div>
                           <div className="cal-event-title">{ev.nome_pet} · {ev.nome_servico}</div>
                         </button>
                       )
@@ -451,7 +491,22 @@ export default function AgendaCalendar({
               <div className="dash-detail-row"><span>Serviço</span><span>{selecionado.nome_servico}</span></div>
               <div className="dash-detail-row"><span>Data</span><span>{format(parseDia(selecionado.dt_agendamento), 'dd/MM/yyyy')}</span></div>
               <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>
-              <div className="dash-detail-row"><span>Valor</span><span>R$ {selecionado.valor.toFixed(2)}</span></div>
+              <div className="dash-detail-row"><span>Valor</span><span>{formatarReais(selecionado.valor)}</span></div>
+              {selecionado.origem && (
+                <div className="dash-detail-row">
+                  <span>Origem</span>
+                  <span className="flex items-center gap-1">
+                    {selecionado.origem === 'loja' ? <IconStore style={{ width: 13, height: 13 }} /> : <IconLink style={{ width: 13, height: 13 }} />}
+                    {ROTULO_ORIGEM[selecionado.origem]}
+                  </span>
+                </div>
+              )}
+              {selecionado.taxidog && (
+                <div className="dash-detail-row">
+                  <span>TaxiDog</span>
+                  <span className="flex items-center gap-1"><IconCar style={{ width: 13, height: 13 }} /> {ROTULO_MODALIDADE[selecionado.taxidog]}</span>
+                </div>
+              )}
               <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(selecionado.status)}`}>{rotuloStatus(selecionado.status)}</span></span></div>
               {selecionado.obs && (
                 <div className="dash-detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>

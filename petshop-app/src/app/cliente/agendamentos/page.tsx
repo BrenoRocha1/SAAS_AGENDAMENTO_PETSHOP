@@ -13,7 +13,7 @@ export default async function AgendamentosPage() {
     supabase
       .from('agendamento')
       .select(`
-        id_agendamento, dt_agendamento, hr_agendamento, status, valor, obs,
+        id_agendamento, id_pet, id_lojista, dt_agendamento, hr_agendamento, status, valor, obs, created_at,
         pet:id_pet ( nome, raca ),
         servico:id_servico ( nome, duracao ),
         lojista:id_lojista ( nome_loja, telefone )
@@ -83,7 +83,7 @@ export default async function AgendamentosPage() {
     <>
       <div className="page-header">
         <h1 className="page-title">Meus Agendamentos</h1>
-        <p className="page-subtitle">Histórico e agendamentos futuros</p>
+        <p className="page-subtitle">Seus próximos horários e o histórico de atendimentos</p>
       </div>
 
       <AgendamentosClienteList

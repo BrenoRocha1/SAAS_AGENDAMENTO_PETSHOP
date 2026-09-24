@@ -1752,7 +1752,13 @@ a:hover { color: var(--primary-300); }
   font-size: 0.6875rem; line-height: 1.25; color: white; transition: filter var(--transition-fast);
 }
 .cal-event:hover { filter: brightness(1.08); }
-.cal-event-time { font-weight: 700; opacity: 0.9; }
+.cal-event-time { font-weight: 700; opacity: 0.9; display: flex; align-items: center; gap: 4px; }
+/* Ícones de origem/TaxiDog no bloco da agenda (fundo colorido, texto branco). */
+.cal-event-icones { display: inline-flex; gap: 3px; margin-left: auto; }
+.cal-event-icones svg { width: 11px; height: 11px; }
+.cal-legenda { margin-bottom: var(--space-4); }
+.cal-legenda-item { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) 0; font-size: 0.8125rem; color: var(--gray-300); }
+.cal-legenda-item svg { color: var(--gray-500); flex-shrink: 0; }
 .cal-event-title { font-weight: 600; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 .cal-event.is-cancelado { opacity: 0.5; text-decoration: line-through; }
 
@@ -1903,6 +1909,93 @@ a:hover { color: var(--primary-300); }
   border: 1px solid var(--status-aguardando-ring);
   opacity: 1;
   cursor: default;
+}
+
+/* ============================================================
+   MEUS AGENDAMENTOS (cliente) — um card por visita
+   ============================================================ */
+.agc-secao-titulo {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gray-500);
+  margin-bottom: var(--space-2);
+}
+.agc-card { padding: 0; overflow: hidden; }
+.agc-card-destaque { border-color: var(--primary-soft-border); box-shadow: 0 0 0 1px var(--primary-soft-border); }
+.agc-card-cancelada .agc-servicos-titulo { text-decoration: line-through; color: var(--gray-500); }
+.agc-resumo {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+  background: none;
+  border: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.agc-resumo:disabled { cursor: default; }
+.agc-resumo:not(:disabled):hover { background: var(--gray-850); }
+.agc-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  flex-shrink: 0;
+  padding: var(--space-2) 0;
+  border-radius: var(--radius-md);
+  background: var(--primary-soft-bg);
+  color: var(--primary-400);
+  line-height: 1.1;
+}
+.agc-card-cancelada .agc-data { background: var(--gray-850); color: var(--gray-500); }
+.agc-data-dia { font-size: 1.5rem; font-weight: 800; }
+.agc-data-mes { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+.agc-data-semana { font-size: 0.6875rem; text-transform: capitalize; opacity: 0.8; }
+.agc-info { flex: 1; min-width: 0; }
+.agc-servicos-titulo { font-weight: 700; color: var(--gray-100); font-size: 1rem; margin-bottom: 2px; }
+.agc-card-destaque .agc-servicos-titulo { font-size: 1.125rem; }
+.agc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  margin-top: var(--space-1);
+}
+.agc-valor { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+.agc-seta { color: var(--gray-500); margin-top: var(--space-2); transition: transform var(--transition-fast); }
+.agc-detalhes {
+  border-top: 1px solid var(--gray-800);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.agc-servicos { display: flex; flex-direction: column; gap: var(--space-3); }
+.agc-servico { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+.agc-servico-linha { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); width: 100%; }
+.agc-avaliacao { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.agc-cancelar { color: var(--danger-500); padding-left: 0; }
+.agc-bloco { display: flex; flex-direction: column; gap: 4px; }
+.agc-bloco-titulo { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--gray-500); }
+.agc-obs {
+  background: var(--gray-850);
+  border: 1px solid var(--gray-800);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.875rem;
+  color: var(--gray-400);
+}
+@media (max-width: 640px) {
+  .agc-resumo { padding: var(--space-3) var(--space-4); gap: var(--space-3); }
+  .agc-detalhes { padding: var(--space-3) var(--space-4); }
+  .agc-data { width: 50px; }
 }
 
 /* Avisos flutuantes (NotificacaoNovaCorrida — corrida nova do TaxiDog). */
