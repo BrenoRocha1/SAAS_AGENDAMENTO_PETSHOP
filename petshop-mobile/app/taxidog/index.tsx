@@ -9,25 +9,41 @@ import { SectionHeader } from '@/components/SectionHeader'
 import { EmptyState } from '@/components/EmptyState'
 import { Card } from '@/components/Card'
 import { PillStatusRota, RotaCard } from '@/components/RotaCard'
+import { CorridaCard } from '@/components/CorridaCard'
 import { useAuth } from '@/contexts/AuthContext'
 import { useMinhasRotas } from '@/hooks/useMinhasRotas'
+import { useMinhasCorridas } from '@/hooks/useMinhasCorridas'
+import { disponivel, emMovimento, encerrada, type Corrida } from '@/lib/taxidog'
 import { agoraBrasil, dataExtensaBrasil, hojeBrasilISO, saudacao } from '@/lib/agenda'
 import { contarPets, proximaParada, tituloParada, trajetoDaRota, type Rota } from '@/lib/taxidog-rotas'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 // Início do TaxiDog: a rota que pede atenção agora (em andamento, ou a
-// próxima de hoje) em destaque, e o resumo do dia.
+// próxima de hoje) em destaque, as corridas avulsas do Kanban (fora de
+// rota) e o resumo do dia.
 export default function InicioTaxiDogScreen() {
   const { contexto } = useAuth()
   const router = useRouter()
   const hoje = hojeBrasilISO()
   // Ontem entra pra não perder uma rota que ficou em andamento.
   const { rotas, loading, erro, recarregar } = useMinhasRotas(format(subDays(agoraBrasil(), 1), 'yyyy-MM-dd'), hoje)
+  const { corridas, rotaPorCorrida, recarregar: recarregarCorridas } = useMinhasCorridas(hoje, hoje)
+
+  // Corridas avulsas: sem TaxiDog (pra pegar) e as dele que não estão em rota.
+  const avulsas = useMemo(() => {
+    const abertas = corridas.filter(c => !encerrada(c.status) && !rotaPorCorrida[c.id_corrida])
+    const minhas = abertas.filter(c => !disponivel(c))
+    return {
+      disponiveis: abertas.filter(c => disponivel(c) && c.status_agendamento !== 'Pendente').length,
+      // A que está na rua primeiro; depois a pronta pra entrega; depois por horário.
+      proxima: minhas.find(c => emMovimento(c.status)) ?? minhas.find(c => c.status === 'pronto_entrega') ?? minhas[0] ?? null,
+    }
+  }, [corridas, rotaPorCorrida])
 
   const resumo = useMemo(() => {
     const doDia = rotas.filter(r => r.status !== 'cancelada' && (r.data === hoje || r.status === 'em_andamento'))
     const emAndamento = doDia.find(r => r.status === 'em_andamento') ?? null
-    const destaque = emAndamento ?? doDia.find(r => r.status === 'aguardando_saida' || r.status === 'planejamento') ?? null
+    const destaque = emAndamento ?? doDia.find(r => r.status === 'aguardando_saida' || r.status === 'aguardando_aprovacao') ?? null
     return {
       doDia,
       destaque,
@@ -39,9 +55,10 @@ export default function InicioTaxiDogScreen() {
 
   const primeiroNome = (contexto?.nome ?? '').split(' ')[0]
   const abrir = (r: Rota) => router.push(`/taxidog/rota/${r.id_rota}` as never)
+  const abrirCorrida = (c: Corrida) => router.push(`/taxidog/corrida/${c.id_corrida}` as never)
 
   return (
-    <ScreenContainer refreshing={loading} onRefresh={recarregar}>
+    <ScreenContainer refreshing={loading} onRefresh={() => { recarregar(); recarregarCorridas() }}>
       <View style={styles.header}>
         <Text style={styles.saudacao}>{saudacao()}, {primeiroNome}</Text>
         <Text style={styles.data}>{dataExtensaBrasil()}</Text>
@@ -58,14 +75,31 @@ export default function InicioTaxiDogScreen() {
         <EmptyState icon="alert-circle-outline" title="Não foi possível carregar" subtitle={erro} />
       ) : (
         <>
+          {avulsas.disponiveis > 0 && (
+            <Pressable style={styles.disponiveis} onPress={() => router.push('/taxidog/corridas' as never)}>
+              <Ionicons name="hand-right-outline" size={20} color={colors.primary600} />
+              <Text style={styles.disponiveisTexto}>
+                {avulsas.disponiveis === 1 ? '1 corrida disponível para pegar hoje' : `${avulsas.disponiveis} corridas disponíveis para pegar hoje`}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.primary600} />
+            </Pressable>
+          )}
+
           {resumo.destaque ? (
             <View style={styles.section}>
               <SectionHeader title={resumo.destaque.status === 'em_andamento' ? 'Rota em andamento' : 'Próxima rota'} />
               <RotaDestaque rota={resumo.destaque} onAbrir={() => abrir(resumo.destaque!)} />
             </View>
-          ) : !loading && (
+          ) : !loading && !avulsas.proxima && (
             <View style={styles.section}>
-              <EmptyState icon="map-outline" title="Nenhuma rota para agora" subtitle="Quando a loja montar uma rota para você, ela aparece aqui e você recebe um aviso." />
+              <EmptyState icon="map-outline" title="Nada para agora" subtitle="Pegue uma corrida no Kanban ou monte uma rota — ou espere a loja mandar uma para você." />
+            </View>
+          )}
+
+          {avulsas.proxima && (
+            <View style={styles.section}>
+              <SectionHeader title="Próxima corrida (fora de rota)" />
+              <CorridaCard corrida={avulsas.proxima} onPress={() => abrirCorrida(avulsas.proxima!)} />
             </View>
           )}
 
@@ -155,4 +189,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   ctaTexto: { ...typography.label.md, color: colors.primary600 },
+  disponiveis: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary50,
+    borderColor: colors.primary200,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  disponiveisTexto: { ...typography.label.md, color: colors.primary600, flex: 1 },
 })

@@ -7,7 +7,8 @@ import { ROTULO_STATUS_ROTA, contarPets, proximaParada, tituloParada, trajetoDaR
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 const COR_STATUS: Record<StatusRota, { bg: string; fg: string }> = {
-  planejamento: { bg: colors.warningBg, fg: colors.warningFg },
+  planejamento: { bg: colors.surfaceMuted, fg: colors.textDim },
+  aguardando_aprovacao: { bg: colors.warningBg, fg: colors.warningFg },
   aguardando_saida: { bg: colors.infoBg, fg: colors.infoFg },
   em_andamento: { bg: colors.primary50, fg: colors.primary600 },
   concluida: { bg: colors.successBg, fg: colors.successFg },

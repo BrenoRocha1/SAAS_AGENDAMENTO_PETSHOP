@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useRouter } from 'expo-router'
-import { StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { format, addDays, subDays } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { SectionHeader } from '@/components/SectionHeader'
@@ -27,8 +28,9 @@ export default function RotasScreen() {
     const abertas = rotas.filter(r => r.status !== 'cancelada' && r.status !== 'concluida')
     return [
       { titulo: 'Em andamento', itens: abertas.filter(r => r.status === 'em_andamento') },
-      { titulo: 'Hoje', itens: abertas.filter(r => r.status !== 'em_andamento' && r.data <= hoje) },
-      { titulo: 'Próximos dias', itens: abertas.filter(r => r.status !== 'em_andamento' && r.data > hoje) },
+      { titulo: 'Aguardando aprovação', itens: abertas.filter(r => r.status === 'aguardando_aprovacao') },
+      { titulo: 'Hoje', itens: abertas.filter(r => r.status !== 'em_andamento' && r.status !== 'aguardando_aprovacao' && r.data <= hoje) },
+      { titulo: 'Próximos dias', itens: abertas.filter(r => r.status !== 'em_andamento' && r.status !== 'aguardando_aprovacao' && r.data > hoje) },
       { titulo: 'Concluídas hoje', itens: rotas.filter(r => r.status === 'concluida' && r.data === hoje) },
     ].filter(s => s.itens.length > 0)
   }, [rotas, hoje])
@@ -40,13 +42,18 @@ export default function RotasScreen() {
       <Text style={styles.title}>Rotas</Text>
       <Text style={styles.subtitle}>Hoje e os próximos {DIAS_A_FRENTE} dias</Text>
 
+      <Pressable style={styles.montar} onPress={() => router.push('/taxidog/montar-rota' as never)}>
+        <Ionicons name="add-circle" size={20} color={colors.white} />
+        <Text style={styles.montarTexto}>Montar rota</Text>
+      </Pressable>
+
       {erro ? (
         <EmptyState icon="alert-circle-outline" title="Não foi possível carregar" subtitle={erro} />
       ) : !loading && secoes.length === 0 ? (
         <EmptyState
           icon="map-outline"
           title="Nenhuma rota por enquanto"
-          subtitle="Quando a loja montar uma rota para você, ela aparece aqui e você recebe um aviso."
+          subtitle="Monte uma rota com as corridas do dia, ou espere a loja montar uma para você."
         />
       ) : (
         secoes.map(secao => (
@@ -66,4 +73,15 @@ const styles = StyleSheet.create({
   title: { ...typography.heading.xl, color: colors.text },
   subtitle: { ...typography.body.lg, color: colors.textMuted, marginTop: 2, marginBottom: spacing.xl },
   secao: { marginBottom: spacing['2xl'] },
+  montar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary600,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  montarTexto: { ...typography.heading.sm, color: colors.white },
 })

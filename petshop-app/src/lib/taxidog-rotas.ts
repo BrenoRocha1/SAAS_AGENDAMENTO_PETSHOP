@@ -20,11 +20,12 @@ import type { ModalidadeTaxiDog } from '@/lib/taxidog'
 export type AcaoParada = 'embarcar' | 'deixar_loja' | 'pegar_loja' | 'entregar'
 export type LocalParada = 'cliente' | 'loja'
 export type StatusParada = 'pendente' | 'chegou' | 'concluida'
-export type StatusRota = 'planejamento' | 'aguardando_saida' | 'em_andamento' | 'concluida' | 'cancelada'
+export type StatusRota = 'planejamento' | 'aguardando_aprovacao' | 'aguardando_saida' | 'em_andamento' | 'concluida' | 'cancelada'
 export type Trecho = 'busca' | 'entrega'
 
 export const ROTULO_STATUS_ROTA: Record<StatusRota, string> = {
   planejamento: 'Planejamento',
+  aguardando_aprovacao: 'Aguardando aprovação',
   aguardando_saida: 'Aguardando saída',
   em_andamento: 'Em andamento',
   concluida: 'Concluída',
@@ -32,7 +33,8 @@ export const ROTULO_STATUS_ROTA: Record<StatusRota, string> = {
 }
 
 export const CLASSE_STATUS_ROTA: Record<StatusRota, string> = {
-  planejamento: 'badge-pendente',
+  planejamento: 'badge-inativo',
+  aguardando_aprovacao: 'badge-pendente',
   aguardando_saida: 'badge-aceito',
   em_andamento: 'badge-em-andamento',
   concluida: 'badge-concluido',
@@ -123,6 +125,9 @@ export interface TrechoPendente {
   pet_foto_url: string | null
   cliente_nome: string
   cliente_telefone: string
+  // TaxiDog da corrida pelo Kanban (migration 053) — null = sem ninguém.
+  id_funcionario: string | null
+  funcionario_nome: string | null
 }
 
 export function normalizarRota(row: Record<string, unknown>): Rota {
@@ -365,13 +370,29 @@ export function avisarMudancaPropria(idRota: string) {
 
 // Situação do transporte de uma visita, nos status simples da loja
 // (Pendente / Na rota / Em andamento / Concluída / Cancelada).
-export function rotuloTransporte(t: { status: string; naRota: boolean }): string {
+export function rotuloTransporte(t: { status: string; naRota: boolean; temTaxiDog?: boolean }): string {
   switch (t.status) {
     case 'cancelada': return 'Cancelada'
     case 'concluida': return 'Concluída'
     case 'entregue_loja': return 'Em andamento · pet na loja'
-    case 'pronto_entrega': return t.naRota ? 'Na rota · pronto para entrega' : 'Pendente · pronto para entrega'
-    case 'agendada': return t.naRota ? 'Na rota' : 'Pendente'
+    case 'pronto_entrega':
+      return t.naRota ? 'Na rota · pronto para entrega' : t.temTaxiDog ? 'Com TaxiDog · pronto para entrega' : 'Pendente · pronto para entrega'
+    case 'agendada': return t.naRota ? 'Na rota' : t.temTaxiDog ? 'Com TaxiDog' : 'Pendente'
     default: return 'Em andamento'
+  }
+}
+
+// O próprio TaxiDog pegou a corrida pelo Kanban ("Atribuir para mim"): o
+// "Nova corrida para você" que chega logo depois não é pra ele.
+export const EVENTO_CORRIDA_ASSUMIDA = 'saip:corrida-assumida'
+
+export function avisarCorridaAssumida(idCorrida: string) {
+  window.dispatchEvent(new CustomEvent(EVENTO_CORRIDA_ASSUMIDA, { detail: idCorrida }))
+  try {
+    const canal = new BroadcastChannel(EVENTO_CORRIDA_ASSUMIDA)
+    canal.postMessage(idCorrida)
+    canal.close()
+  } catch {
+    // Sem BroadcastChannel — só esta aba fica sabendo.
   }
 }

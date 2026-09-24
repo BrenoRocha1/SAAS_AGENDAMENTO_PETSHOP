@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { formatarEnderecoLoja } from '@/lib/format'
 import { normalizarRota, type Rota } from '@/lib/taxidog-rotas'
 import { useAuth } from '@/contexts/AuthContext'
-import { useRotasTempoReal } from '@/contexts/RotasContext'
+import { useTaxiDogTempoReal } from '@/contexts/TaxiDogContext'
 
 function mensagemErro(error: { message: string; code?: string }): string {
   return error.message.includes('Could not find') || error.code === 'PGRST202'
@@ -18,7 +18,7 @@ function mensagemErro(error: { message: string; code?: string }): string {
 // Recarrega ao voltar pra tela e a cada mudança recebida pelo Realtime.
 export function useMinhasRotas(dataIni: string, dataFim: string) {
   const { session } = useAuth()
-  const { versao } = useRotasTempoReal()
+  const { versao } = useTaxiDogTempoReal()
   const [rotas, setRotas] = useState<Rota[]>([])
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
@@ -46,7 +46,7 @@ export function useMinhasRotas(dataIni: string, dataFim: string) {
 
 // Uma rota só (tela da rota).
 export function useRota(idRota: string) {
-  const { versao } = useRotasTempoReal()
+  const { versao } = useTaxiDogTempoReal()
   const [rota, setRota] = useState<Rota | null>(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)

@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import TaxiDogConfigForm, { type TaxiDogConfigInicial } from '@/components/lojista/TaxiDogConfigForm'
+import TaxiDogRotasConfig from '@/components/lojista/TaxiDogRotasConfig'
 import { IconAlert, IconChevronLeft, IconLock } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'TaxiDog — Configurações' }
@@ -88,7 +89,16 @@ export default async function ConfiguracaoTaxiDogPage() {
           </span>
         </div>
       ) : (
-        <TaxiDogConfigForm inicial={inicial} taxidogs={(taxidogs ?? []).map(t => t.nome)} />
+        <>
+          <TaxiDogConfigForm inicial={inicial} taxidogs={(taxidogs ?? []).map(t => t.nome)} />
+          {/* Só existe depois de salvar a configuração (a linha de taxidog_config). */}
+          {cfg && (
+            <TaxiDogRotasConfig
+              inicial={!!(cfg as { taxidog_cria_rotas?: boolean }).taxidog_cria_rotas}
+              disponivel={'taxidog_cria_rotas' in cfg}
+            />
+          )}
+        </>
       )}
     </>
   )

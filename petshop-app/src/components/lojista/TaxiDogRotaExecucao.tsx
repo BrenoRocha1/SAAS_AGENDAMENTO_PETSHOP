@@ -1,19 +1,19 @@
 'use client'
 
 import { useState, useSyncExternalStore, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { chegarParadaAction, concluirParadaAction, iniciarRotaAction } from '@/lib/actions-rotas'
 import { formatarTelefone } from '@/lib/format'
+import type { TaxiDogOpcao } from '@/lib/taxidog'
 import {
   CLASSE_STATUS_ROTA,
   ROTULO_STATUS_ROTA,
   avisarMudancaPropria,
   contarPets,
   enderecoParada,
-  formatarDistancia,
-  formatarDuracao,
   horarioParada,
   linhasLoja,
   proximaParada,
@@ -21,25 +21,31 @@ import {
   type ItemParada,
   type Parada,
   type Rota,
+  type TrechoPendente,
 } from '@/lib/taxidog-rotas'
-import { IconAlert, IconCar, IconCheck, IconChevronLeft, IconPhone, IconRoute, IconStore } from '@/components/icons'
+import { useRecalculoRotas } from '@/lib/useRecalculoRotas'
+import { DetalheRota, trajetoTexto, type PerfilRotas } from '@/components/lojista/TaxiDogRotas'
+import { IconAlert, IconCheck, IconChevronLeft, IconPhone, IconRoute, IconStore } from '@/components/icons'
 
-// "Minhas rotas" do TaxiDog (web). Mesmo fluxo do app: lista → rota →
-// INICIAR ROTA → PRÓXIMA PARADA (Abrir no Google Maps → Cheguei →
-// confirmar pets) → a próxima aparece sozinha.
+// Tela de UMA rota (?rota=... na página Rotas): resumo + INICIAR ROTA; depois
+// de sair, a PRÓXIMA PARADA em destaque (Abrir no Google Maps → Cheguei →
+// confirmar pets) e a próxima aparece sozinha. Mesmo fluxo do app.
+// Antes de sair, "Editar paradas" abre o mesmo detalhe da página de rotas.
 
 interface Props {
-  rotas: Rota[]
+  rota: Rota
+  perfil: PerfilRotas
+  precisaAprovacao: boolean
   hojeISO: string
-  enderecoLoja: string
-  idRotaAberta: string | null
   caminho: string
+  enderecoLoja: string
+  pendentes: TrechoPendente[]
+  taxidogs: TaxiDogOpcao[]
+  googleConfigurado: boolean
 }
 
-type Aba = 'hoje' | 'proximas' | 'historico'
-
-// Versão da rota cujo aviso "Rota atualizada" o TaxiDog já fechou (só
-// neste navegador — no servidor conta como não visto).
+// Versão da rota cujo aviso "Rota atualizada" já foi fechado (só neste
+// navegador — no servidor conta como não visto).
 const assinarStorage = (cb: () => void) => {
   window.addEventListener('storage', cb)
   return () => window.removeEventListener('storage', cb)
@@ -51,7 +57,7 @@ function lerAvisoVisto(idRota: string): number {
 
 function rotuloDia(data: string, hojeISO: string): string {
   if (data === hojeISO) return 'Hoje'
-  return format(parseISO(data), "EEE, dd/MM", { locale: ptBR })
+  return format(parseISO(data), 'EEE, dd/MM', { locale: ptBR })
 }
 
 function linkMaps(p: Parada, enderecoLoja: string): string {
@@ -85,93 +91,22 @@ function rotuloAcao(i: ItemParada): string {
   }
 }
 
-export default function TaxiDogRotasMotorista({ rotas, hojeISO, enderecoLoja, idRotaAberta, caminho }: Props) {
-  const router = useRouter()
-  const emAndamento = rotas.find(r => r.status === 'em_andamento')
-  const aberta = rotas.find(r => r.id_rota === idRotaAberta) ?? null
-
-  const hoje = rotas
-    .filter(r => r.status !== 'cancelada' && (r.data === hojeISO || (r.status === 'em_andamento' && r.data < hojeISO)))
-    .sort((a, b) => Number(b.status === 'em_andamento') - Number(a.status === 'em_andamento') || a.numero - b.numero)
-  const proximas = rotas.filter(r => r.data > hojeISO && r.status !== 'cancelada' && r.status !== 'concluida')
-  const historico = rotas.filter(r => r.status === 'concluida' && r.data <= hojeISO).sort((a, b) => b.data.localeCompare(a.data) || b.numero - a.numero)
-  const [aba, setAba] = useState<Aba>(hoje.length === 0 && proximas.length > 0 ? 'proximas' : 'hoje')
-
-  const abrir = (id: string | null) => router.push(id ? `${caminho}?rota=${id}` : caminho)
-
-  if (aberta) return <TelaRota rota={aberta} hojeISO={hojeISO} enderecoLoja={enderecoLoja} onVoltar={() => abrir(null)} />
-
-  const lista = aba === 'hoje' ? hoje : aba === 'proximas' ? proximas : historico
-
-  return (
-    <div className="tdm">
-      {emAndamento && (
-        <button type="button" className="tdm-andamento" onClick={() => abrir(emAndamento.id_rota)}>
-          <IconRoute style={{ width: 18, height: 18, flexShrink: 0 }} />
-          <span style={{ flex: 1, textAlign: 'left' }}>
-            <strong>Rota #{emAndamento.numero} em andamento</strong>
-            <span className="text-sm" style={{ display: 'block' }}>
-              Próxima: {proximaParada(emAndamento) ? tituloParada(proximaParada(emAndamento)!) : '—'}
-            </span>
-          </span>
-          <span className="tdm-andamento-cta">Continuar</span>
-        </button>
-      )}
-
-      <div className="tdm-abas" role="tablist">
-        {([['hoje', `Hoje (${hoje.length})`], ['proximas', `Próximas (${proximas.length})`], ['historico', 'Histórico']] as const).map(([id, rotulo]) => (
-          <button key={id} type="button" role="tab" aria-selected={aba === id} className={aba === id ? 'is-ativa' : ''} onClick={() => setAba(id)}>
-            {rotulo}
-          </button>
-        ))}
-      </div>
-
-      {lista.length === 0 ? (
-        <div className="empty-state card">
-          <IconCar style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
-          <div className="empty-state-title">
-            {aba === 'hoje' ? 'Nenhuma rota para hoje' : aba === 'proximas' ? 'Nenhuma rota programada' : 'Nenhuma rota concluída ainda'}
-          </div>
-          <p>{aba === 'historico' ? 'As rotas que você terminar ficam aqui.' : 'Quando a loja montar uma rota para você, ela aparece aqui.'}</p>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {lista.map(r => {
-            const distancia = formatarDistancia(r.distancia_m)
-            const duracao = formatarDuracao(r.duracao_s)
-            return (
-              <button key={r.id_rota} type="button" className="card tdr-card-rota" onClick={() => abrir(r.id_rota)}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="tdr-numero">Rota #{r.numero} · {rotuloDia(r.data, hojeISO)}</span>
-                  <span className={`badge ${CLASSE_STATUS_ROTA[r.status]}`}>{ROTULO_STATUS_ROTA[r.status]}</span>
-                </div>
-                <div className="text-sm text-muted">
-                  {r.paradas.length} {r.paradas.length === 1 ? 'parada' : 'paradas'} · {contarPets(r)} {contarPets(r) === 1 ? 'pet' : 'pets'}
-                  {distancia && r.calculo_versao === r.versao ? ` · ${distancia} · ~${duracao}` : ''}
-                </div>
-                <span className="text-sm text-accent">{r.status === 'em_andamento' ? 'Continuar rota →' : 'Ver rota →'}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function TelaRota({ rota: r, hojeISO, enderecoLoja, onVoltar }: { rota: Rota; hojeISO: string; enderecoLoja: string; onVoltar: () => void }) {
+export default function TaxiDogRotaExecucao({ rota: r, perfil, precisaAprovacao, hojeISO, caminho, enderecoLoja, pendentes, taxidogs, googleConfigurado }: Props) {
   const router = useRouter()
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [editando, setEditando] = useState(false)
   const avisoGuardado = useSyncExternalStore(assinarStorage, () => lerAvisoVisto(r.id_rota), () => 0)
   const [avisoFechado, setAvisoFechado] = useState(0)
   const avisoVisto = Math.max(avisoGuardado, avisoFechado)
+  const falhas = useRecalculoRotas([r], googleConfigurado)
 
   const proxima = proximaParada(r)
   const feitas = r.paradas.filter(p => p.status === 'concluida')
   const depois = r.paradas.filter(p => p.status !== 'concluida' && p.id_parada !== proxima?.id_parada)
-  const distancia = formatarDistancia(r.distancia_m)
-  const duracao = formatarDuracao(r.duracao_s)
+  const trajeto = trajetoTexto(r, googleConfigurado, falhas[r.id_rota])
+  const antesDeSair = r.status === 'planejamento' || r.status === 'aguardando_aprovacao' || r.status === 'aguardando_saida'
+  const podeEditar = perfil === 'gestor' ? r.status !== 'concluida' && r.status !== 'cancelada' : r.status === 'aguardando_aprovacao' || r.status === 'aguardando_saida'
   const mostrarAviso = !!r.ultima_alteracao && r.versao > 1 && avisoVisto < r.versao && (r.status === 'aguardando_saida' || r.status === 'em_andamento')
 
   function executar(acao: () => Promise<{ error?: string }>) {
@@ -190,13 +125,18 @@ function TelaRota({ rota: r, hojeISO, enderecoLoja, onVoltar }: { rota: Rota; ho
 
   return (
     <div className="tdm">
-      <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={onVoltar}>
-        <IconChevronLeft style={{ width: 14, height: 14 }} /> Minhas rotas
-      </button>
+      <Link href={`${caminho}?data=${r.data}`} className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }}>
+        <IconChevronLeft style={{ width: 14, height: 14 }} /> Rotas do dia
+      </Link>
 
       <div className="flex items-center justify-between gap-2" style={{ flexWrap: 'wrap' }}>
         <h2 className="tdm-titulo">Rota #{r.numero}</h2>
-        <span className={`badge ${CLASSE_STATUS_ROTA[r.status]}`}>{ROTULO_STATUS_ROTA[r.status]}</span>
+        <div className="flex items-center gap-2">
+          {podeEditar && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditando(true)}>Editar paradas</button>
+          )}
+          <span className={`badge ${CLASSE_STATUS_ROTA[r.status]}`}>{ROTULO_STATUS_ROTA[r.status]}</span>
+        </div>
       </div>
 
       {mostrarAviso && (
@@ -204,6 +144,12 @@ function TelaRota({ rota: r, hojeISO, enderecoLoja, onVoltar }: { rota: Rota; ho
           <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
           <span style={{ flex: 1 }}><strong>Rota atualizada</strong> — {r.ultima_alteracao}</span>
           <button type="button" className="btn btn-ghost btn-sm" onClick={marcarAvisoVisto}>Ok</button>
+        </div>
+      )}
+      {r.status === 'aguardando_aprovacao' && (
+        <div className="alert alert-info">
+          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+          <span>Aguardando a aprovação da loja. Você recebe um aviso e pode iniciar assim que aprovarem.</span>
         </div>
       )}
       {erro && (
@@ -214,10 +160,10 @@ function TelaRota({ rota: r, hojeISO, enderecoLoja, onVoltar }: { rota: Rota; ho
         <div><div className="text-xs text-muted">Dia</div><div className="font-semibold">{rotuloDia(r.data, hojeISO)}</div></div>
         <div><div className="text-xs text-muted">Paradas</div><div className="font-semibold">{r.paradas.length}</div></div>
         <div><div className="text-xs text-muted">Pets</div><div className="font-semibold">{contarPets(r)}</div></div>
-        <div><div className="text-xs text-muted">Trajeto</div><div className="font-semibold">{distancia && r.calculo_versao === r.versao ? `${distancia} · ~${duracao}` : '—'}</div></div>
+        <div><div className="text-xs text-muted">Trajeto</div><div className="font-semibold">{trajeto ?? '—'}</div></div>
       </div>
 
-      {r.status === 'cancelada' && <div className="alert alert-info"><span>A loja cancelou esta rota.</span></div>}
+      {r.status === 'cancelada' && <div className="alert alert-info"><span>Esta rota foi cancelada{r.ultima_alteracao ? ` — ${r.ultima_alteracao}` : ''}.</span></div>}
       {r.status === 'concluida' && (
         <div className="tdm-fim">
           <IconCheck style={{ width: 28, height: 28 }} />
@@ -230,7 +176,7 @@ function TelaRota({ rota: r, hojeISO, enderecoLoja, onVoltar }: { rota: Rota; ho
         </div>
       )}
 
-      {(r.status === 'planejamento' || r.status === 'aguardando_saida') && (
+      {antesDeSair && (
         <>
           <ol className="tdr-paradas">
             {r.paradas.map((p, idx) => <LinhaParada key={p.id_parada} parada={p} numero={idx + 1} enderecoLoja={enderecoLoja} />)}
@@ -238,11 +184,12 @@ function TelaRota({ rota: r, hojeISO, enderecoLoja, onVoltar }: { rota: Rota; ho
           <button
             type="button"
             className={`btn btn-primary tdm-botao ${isPending ? 'btn-loading' : ''}`}
-            disabled={isPending || r.paradas.length === 0}
+            disabled={isPending || r.paradas.length === 0 || r.status !== 'aguardando_saida'}
             onClick={() => executar(() => iniciarRotaAction(r.id_rota))}
           >
             Iniciar rota
           </button>
+          {r.status === 'planejamento' && <p className="text-xs text-muted" style={{ margin: 0, textAlign: 'center' }}>Escolha o TaxiDog da rota para poder iniciar.</p>}
           {r.data !== hojeISO && <p className="text-xs text-muted" style={{ margin: 0, textAlign: 'center' }}>Esta rota é de {rotuloDia(r.data, hojeISO)}.</p>}
         </>
       )}
@@ -272,13 +219,28 @@ function TelaRota({ rota: r, hojeISO, enderecoLoja, onVoltar }: { rota: Rota; ho
         </section>
       )}
 
-      {feitas.length > 0 && r.status !== 'aguardando_saida' && (
+      {feitas.length > 0 && !antesDeSair && (
         <details className="tdm-feitas">
           <summary>Paradas feitas ({feitas.length})</summary>
           <ol className="tdr-paradas">
             {feitas.map(p => <LinhaParada key={p.id_parada} parada={p} numero={r.paradas.indexOf(p) + 1} enderecoLoja={enderecoLoja} />)}
           </ol>
         </details>
+      )}
+
+      {editando && (
+        <DetalheRota
+          rota={r}
+          perfil={perfil}
+          precisaAprovacao={precisaAprovacao}
+          caminho={caminho}
+          pendentes={pendentes}
+          taxidogs={taxidogs}
+          enderecoLoja={enderecoLoja}
+          trajeto={trajeto}
+          falhaCalculo={falhas[r.id_rota]}
+          onFechar={() => setEditando(false)}
+        />
       )}
     </div>
   )

@@ -5,7 +5,7 @@ import { obterContextoLojista } from '@/lib/lojista-context'
 import KanbanBoard, { type KanbanItem } from '@/components/lojista/KanbanBoard'
 import TaxiDogConteudo from '@/components/lojista/TaxiDogConteudo'
 import { carregarTransportePorVisita, chaveVisita } from '@/lib/taxidog-visita'
-import { IconAlert, IconCar, IconChartBar, IconKanban } from '@/components/icons'
+import { IconAlert, IconCar, IconChartBar, IconKanban, IconRoute } from '@/components/icons'
 import Link from 'next/link'
 
 export const metadata: Metadata = { title: 'Kanban de Agendamentos' }
@@ -86,17 +86,22 @@ export default async function KanbanPage({ searchParams }: Props) {
   const cabecalho = (
     <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
       <div>
-        <h1 className="page-title">{visaoTaxiDog ? 'Rotas do TaxiDog' : 'Kanban de Agendamentos'}</h1>
+        <h1 className="page-title">{visaoTaxiDog ? 'Kanban do TaxiDog' : 'Kanban de Agendamentos'}</h1>
         <p className="page-subtitle">
-          {visaoTaxiDog ? 'Organize as buscas e entregas dos pets em rotas' : 'Acompanhe o atendimento em tempo real'}
+          {visaoTaxiDog ? 'Corridas de busca e entrega dos pets' : 'Acompanhe o atendimento em tempo real'}
         </p>
       </div>
       {mostraTaxiDog && (
         <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
           {visaoTaxiDog && (
-            <Link href="/lojista/taxidog/relatorio" className="btn btn-ghost btn-sm">
-              <IconChartBar style={{ width: 14, height: 14 }} /> Relatório de corridas
-            </Link>
+            <>
+              <Link href="/lojista/taxidog/relatorio" className="btn btn-ghost btn-sm">
+                <IconChartBar style={{ width: 14, height: 14 }} /> Relatório de corridas
+              </Link>
+              <Link href={`/lojista/taxidog/rotas?data=${selectedDate}`} className="btn btn-secondary btn-sm">
+                <IconRoute style={{ width: 14, height: 14 }} /> Rotas do TaxiDog
+              </Link>
+            </>
           )}
           <Link
             href={visaoTaxiDog ? `/lojista/kanban?data=${selectedDate}` : `/lojista/kanban?visao=taxidog&data=${selectedDate}`}
@@ -115,7 +120,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     return (
       <>
         {cabecalho}
-        <TaxiDogConteudo contexto={contexto} modo="loja" data={selectedDate} hojeISO={hojeISO} caminho="/lojista/kanban?visao=taxidog" />
+        <TaxiDogConteudo contexto={contexto} data={selectedDate} hojeISO={hojeISO} caminho="/lojista/kanban?visao=taxidog" />
       </>
     )
   }

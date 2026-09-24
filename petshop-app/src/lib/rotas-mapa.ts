@@ -13,8 +13,11 @@ export type ResultadoTrajeto =
   | { ok: false; motivo: 'sem_chave' | 'falha'; detalhe?: string }
 
 const URL_ROUTES = 'https://routes.googleapis.com/directions/v2:computeRoutes'
-// Limite da Routes API pra carro sem trânsito: 25 pontos intermediários.
-const MAX_INTERMEDIARIOS = 25
+// Até 10 pontos intermediários (e sem trânsito) a chamada é cobrada como
+// "Compute Routes Essentials" — 10 mil grátis por mês. Com 11 ou mais ela
+// vira "Pro" (5 mil grátis, dobro do preço), então rotas maiores são
+// quebradas em pedaços de até 10 intermediários.
+const MAX_INTERMEDIARIOS = 10
 
 export function googleMapsConfigurado(): boolean {
   return !!process.env.GOOGLE_MAPS_API_KEY
@@ -66,7 +69,7 @@ export async function calcularTrajeto(pontos: PontoRota[]): Promise<ResultadoTra
   if (pontos.length < 2) return { ok: true, distanciaM: 0, duracaoS: 0 }
 
   try {
-    // Rotas com mais de 25 intermediários são quebradas em pedaços
+    // Rotas com mais de 10 intermediários são quebradas em pedaços
     // encadeados (o fim de um é o começo do próximo).
     let distanciaM = 0
     let duracaoS = 0

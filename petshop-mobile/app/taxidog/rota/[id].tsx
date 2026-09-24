@@ -9,7 +9,7 @@ import { Card } from '@/components/Card'
 import { Avatar } from '@/components/Avatar'
 import { EmptyState } from '@/components/EmptyState'
 import { PillStatusRota, rotuloDia } from '@/components/RotaCard'
-import { useRotasTempoReal } from '@/contexts/RotasContext'
+import { useTaxiDogTempoReal } from '@/contexts/TaxiDogContext'
 import { useEnderecoLoja, useRota } from '@/hooks/useMinhasRotas'
 import { supabase } from '@/lib/supabase'
 import { formatarTelefone } from '@/lib/format'
@@ -38,11 +38,25 @@ export default function RotaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const { rota, loading, erro: erroCarga, recarregar } = useRota(id)
   const enderecoLoja = useEnderecoLoja()
-  const { marcarMudancaPropria } = useRotasTempoReal()
+  const { marcarFeitoPorMim } = useTaxiDogTempoReal()
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [avisoFechado, setAvisoFechado] = useState(0)
   const [verFeitas, setVerFeitas] = useState(false)
+
+  function confirmarCancelamento(idRota: string) {
+    Alert.alert('Cancelar rota', 'As corridas voltam para a lista e podem entrar em outra rota. Continuar?', [
+      { text: 'Voltar', style: 'cancel' },
+      {
+        text: 'Cancelar rota',
+        style: 'destructive',
+        onPress: () => {
+          marcarFeitoPorMim(idRota)
+          chamar('fn_cancelar_rota', { p_id_rota: idRota })
+        },
+      },
+    ])
+  }
 
   async function chamar(fn: string, params: Record<string, unknown>) {
     setErro(null)
@@ -78,6 +92,7 @@ export default function RotaScreen() {
   const trajeto = trajetoDaRota(r)
   const mostrarAviso = !!r.ultima_alteracao && r.versao > 1 && avisoFechado < r.versao
     && (r.status === 'aguardando_saida' || r.status === 'em_andamento')
+  const antesDeSair = r.status === 'planejamento' || r.status === 'aguardando_aprovacao' || r.status === 'aguardando_saida'
 
   return (
     <ScreenContainer onRefresh={recarregar} refreshing={false}>
@@ -115,8 +130,18 @@ export default function RotaScreen() {
         </View>
       )}
 
+      {r.status === 'aguardando_aprovacao' && (
+        <View style={styles.aviso}>
+          <Ionicons name="hourglass-outline" size={22} color={colors.warningFg} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.avisoTitulo}>Aguardando aprovação</Text>
+            <Text style={styles.avisoTexto}>A loja precisa aprovar esta rota. Você recebe um aviso e pode iniciar assim que aprovarem.</Text>
+          </View>
+        </View>
+      )}
+
       {r.status === 'cancelada' && (
-        <EmptyState icon="close-circle-outline" title="Rota cancelada" subtitle="A loja cancelou esta rota." />
+        <EmptyState icon="close-circle-outline" title="Rota cancelada" subtitle={r.ultima_alteracao ?? 'Esta rota foi cancelada.'} />
       )}
 
       {r.status === 'concluida' && (
@@ -129,17 +154,25 @@ export default function RotaScreen() {
         </View>
       )}
 
-      {(r.status === 'aguardando_saida' || r.status === 'planejamento') && (
+      {antesDeSair && (
         <>
           <Text style={styles.secao}>Paradas</Text>
           <View style={{ gap: spacing.sm, marginBottom: spacing.xl }}>
             {r.paradas.map((p, idx) => <LinhaParada key={p.id_parada} parada={p} numero={idx + 1} enderecoLoja={enderecoLoja} />)}
           </View>
-          <BotaoGrande
-            rotulo="INICIAR ROTA"
-            carregando={enviando}
-            onPress={() => chamar('fn_iniciar_rota', { p_id_rota: r.id_rota })}
-          />
+          {r.status === 'aguardando_saida' && (
+            <BotaoGrande
+              rotulo="INICIAR ROTA"
+              carregando={enviando}
+              onPress={() => chamar('fn_iniciar_rota', { p_id_rota: r.id_rota })}
+            />
+          )}
+          {r.status !== 'planejamento' && (
+            <Pressable style={styles.cancelarRota} disabled={enviando} onPress={() => confirmarCancelamento(r.id_rota)}>
+              <Text style={styles.cancelarRotaTexto}>Cancelar rota</Text>
+            </Pressable>
+          )}
+          <Text style={styles.dicaWeb}>Para mudar a ordem das paradas, use o painel web.</Text>
         </>
       )}
 
@@ -153,7 +186,7 @@ export default function RotaScreen() {
           enviando={enviando}
           onChegar={() => chamar('fn_chegar_parada', { p_id_parada: proxima.id_parada })}
           onConfirmar={itens => {
-            if (itens) marcarMudancaPropria(r.id_rota)
+            if (itens) marcarFeitoPorMim(r.id_rota)
             chamar('fn_concluir_parada', { p_id_parada: proxima.id_parada, p_itens: itens })
           }}
         />
@@ -421,6 +454,9 @@ const styles = StyleSheet.create({
   fimTexto: { ...typography.body.md, color: colors.successFg },
   secao: { ...typography.heading.sm, color: colors.text, marginBottom: spacing.sm },
   feitasToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cancelarRota: { alignItems: 'center', paddingVertical: spacing.md, marginTop: spacing.sm },
+  cancelarRotaTexto: { ...typography.label.md, color: colors.dangerFg },
+  dicaWeb: { ...typography.body.sm, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.xl },
   linha: {
     flexDirection: 'row',
     alignItems: 'flex-start',

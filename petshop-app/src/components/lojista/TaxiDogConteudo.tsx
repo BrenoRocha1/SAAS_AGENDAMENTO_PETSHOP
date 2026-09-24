@@ -1,86 +1,69 @@
 import Link from 'next/link'
-import { addDays, format, parseISO, subDays } from 'date-fns'
 import { createClient } from '@/lib/supabase/server'
 import type { ContextoLojista } from '@/lib/lojista-context'
-import { formatarEnderecoLoja } from '@/lib/format'
-import { googleMapsConfigurado } from '@/lib/rotas-mapa'
-import { normalizarRota, normalizarTrecho } from '@/lib/taxidog-rotas'
-import type { TaxiDogOpcao } from '@/lib/taxidog'
-import TaxiDogRotasLoja from '@/components/lojista/TaxiDogRotasLoja'
-import TaxiDogRotasMotorista from '@/components/lojista/TaxiDogRotasMotorista'
+import { normalizarCorrida } from '@/lib/taxidog'
+import TaxiDogPainel, { type RotaDaCorrida } from '@/components/lojista/TaxiDogPainel'
 import { IconAlert, IconCar } from '@/components/icons'
 
-// Corpo da tela do TaxiDog (sem o cabeçalho), em dois modos:
-//   • 'loja' — dentro do Kanban (/lojista/kanban?visao=taxidog): dono e
-//     equipe com agenda organizam as solicitações em rotas;
-//   • 'motorista' — /lojista/taxidog, "Minhas rotas" do TaxiDog: as rotas
-//     atribuídas a ele e a execução parada a parada.
-// `caminho` é pra onde a navegação leva (?data=... / ?rota=...).
-export default async function TaxiDogConteudo({ contexto, modo, data, hojeISO, caminho, idRota = null }: {
+// Corpo do Kanban de corridas (sem o cabeçalho), usado em dois lugares:
+//   • dentro do Kanban (/lojista/kanban?visao=taxidog) — dono e equipe
+//     com agenda, que veem todas as corridas da loja;
+//   • em /lojista/taxidog — "Minhas corridas" do funcionário que só é
+//     TaxiDog (vê as dele + as ainda sem TaxiDog, migration 046).
+// Corrida que está numa rota aparece com "Rota #N" e anda pela rota
+// (página /lojista/taxidog/rotas, migration 053).
+// `caminho` é pra onde a navegação por dia leva (?data=...).
+export default async function TaxiDogConteudo({ contexto, data, hojeISO, caminho }: {
   contexto: ContextoLojista
-  modo: 'loja' | 'motorista'
   data: string
   hojeISO: string
   caminho: string
-  idRota?: string | null
 }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const modoMotorista = !contexto.podeGerenciarAgenda && contexto.podeTaxidog
+  const podeAtribuir = contexto.podeGerenciarAgenda
+  const podeConfigurar = contexto.role === 'lojista' || contexto.acessoTotal
 
-  const lojaRes = await supabase
-    .from('lojista')
-    .select('endereco, numero, complemento, bairro, cidade, estado')
-    .eq('id_lojista', contexto.idLojista)
-    .maybeSingle()
-  const lojaRow = lojaRes.error
-    // Sem a migration 045: só a rua em texto livre.
-    ? (await supabase.from('lojista').select('endereco, cidade, estado').eq('id_lojista', contexto.idLojista).maybeSingle()).data
-    : lojaRes.data
-  const enderecoLoja = lojaRow ? formatarEnderecoLoja(lojaRow) : ''
-
-  const erroMigration = (mensagem: string) => (
-    <div className="alert alert-error">
-      <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-      <span>
-        Não foi possível carregar as rotas. Execute a migration 052_taxidog_rotas.sql se ainda não rodou.
-        {process.env.NODE_ENV !== 'production' && ` [DEV: ${mensagem}]`}
-      </span>
-    </div>
-  )
-
-  if (modo === 'motorista') {
-    // Hoje, próximas duas semanas e o último mês (histórico).
-    const ini = format(subDays(parseISO(hojeISO), 30), 'yyyy-MM-dd')
-    const fim = format(addDays(parseISO(hojeISO), 14), 'yyyy-MM-dd')
-    const rotasRes = await supabase.rpc('fn_listar_rotas', { p_data_ini: ini, p_data_fim: fim })
-    if (rotasRes.error) return erroMigration(rotasRes.error.message)
-    // Quem também gerencia a agenda recebe todas as rotas da loja — aqui
-    // ficam só as dele.
-    let rotas = ((rotasRes.data ?? []) as Record<string, unknown>[]).map(normalizarRota).filter(r => r.id_funcionario === user?.id)
-    if (idRota && !rotas.some(r => r.id_rota === idRota)) {
-      const { data: extra } = await supabase.rpc('fn_listar_rotas', { p_data_ini: hojeISO, p_data_fim: hojeISO, p_id_rota: idRota })
-      rotas = [...rotas, ...((extra ?? []) as Record<string, unknown>[]).map(normalizarRota).filter(r => r.id_funcionario === user?.id)]
-    }
-    return <TaxiDogRotasMotorista rotas={rotas} hojeISO={hojeISO} enderecoLoja={enderecoLoja} idRotaAberta={idRota} caminho={caminho} />
-  }
-
-  const [rotasRes, pendentesRes, configRes, { data: taxidogs }] = await Promise.all([
-    supabase.rpc('fn_listar_rotas', { p_data_ini: data, p_data_fim: data }),
-    supabase.rpc('fn_trechos_pendentes', { p_data: data }),
+  const [corridasRes, configRes, { data: taxidogs }] = await Promise.all([
+    supabase.rpc('fn_listar_corridas', { p_data_ini: data, p_data_fim: data }),
     supabase.from('taxidog_config').select('ativo').eq('id_lojista', contexto.idLojista).maybeSingle(),
-    supabase.rpc('fn_taxidogs_publicos', { p_id_lojista: contexto.idLojista }),
+    podeAtribuir
+      ? supabase.rpc('fn_taxidogs_publicos', { p_id_lojista: contexto.idLojista })
+      : Promise.resolve({ data: [] as { id_funcionario: string; nome: string }[] }),
   ])
 
-  if (rotasRes.error) return erroMigration(rotasRes.error.message)
-  if (pendentesRes.error) return erroMigration(pendentesRes.error.message)
+  if (corridasRes.error) {
+    return (
+      <div className="alert alert-error">
+        <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+        <span>
+          Não foi possível carregar as corridas. Execute a migration 042_taxidog.sql se ainda não rodou.
+          {process.env.NODE_ENV !== 'production' && ` [DEV: ${corridasRes.error.message}]`}
+        </span>
+      </div>
+    )
+  }
 
-  const rotas = ((rotasRes.data ?? []) as Record<string, unknown>[]).map(normalizarRota)
-  const pendentes = ((pendentesRes.data ?? []) as Record<string, unknown>[]).map(normalizarTrecho)
-  const podeConfigurar = contexto.role === 'lojista' || contexto.acessoTotal
+  const corridas = ((corridasRes.data ?? []) as Record<string, unknown>[]).map(normalizarCorrida)
+
+  // Em qual rota ativa cada corrida ainda tem parada por fazer. Tolerante:
+  // sem a migration 052 a tabela não existe e nenhuma aparece em rota.
+  const rotaPorCorrida: Record<string, RotaDaCorrida> = {}
+  if (corridas.length > 0) {
+    const { data: itens } = await supabase
+      .from('taxidog_parada_item')
+      .select('id_corrida, id_rota, rota:id_rota ( numero, status )')
+      .eq('feito', false)
+      .in('id_corrida', corridas.map(c => c.id_corrida))
+    for (const i of (itens ?? []) as unknown as { id_corrida: string; id_rota: string; rota: { numero: number; status: string } | null }[]) {
+      if (!i.rota || i.rota.status === 'concluida' || i.rota.status === 'cancelada') continue
+      rotaPorCorrida[i.id_corrida] = { id_rota: i.id_rota, numero: i.rota.numero }
+    }
+  }
 
   return (
     <>
-      {!configRes.data?.ativo && (
+      {!configRes.data?.ativo && !modoMotorista && (
         <div className="alert alert-info" style={{ marginBottom: 'var(--space-5)' }}>
           <IconCar style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
           <span>
@@ -89,15 +72,17 @@ export default async function TaxiDogConteudo({ contexto, modo, data, hojeISO, c
           </span>
         </div>
       )}
-      <TaxiDogRotasLoja
+      <TaxiDogPainel
         data={data}
         hojeISO={hojeISO}
         caminho={caminho}
-        rotas={rotas}
-        pendentes={pendentes}
-        taxidogs={(taxidogs ?? []) as TaxiDogOpcao[]}
-        enderecoLoja={enderecoLoja}
-        googleConfigurado={googleMapsConfigurado()}
+        caminhoRotas="/lojista/taxidog/rotas"
+        corridas={corridas}
+        rotaPorCorrida={rotaPorCorrida}
+        taxidogs={(taxidogs ?? []) as { id_funcionario: string; nome: string }[]}
+        podeAtribuir={podeAtribuir}
+        podeAssumir={contexto.podeTaxidog}
+        modoMotorista={modoMotorista}
       />
     </>
   )

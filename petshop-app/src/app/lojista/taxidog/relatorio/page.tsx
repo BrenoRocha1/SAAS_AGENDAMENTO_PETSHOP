@@ -52,7 +52,7 @@ export default async function RelatorioCorridasPage({ searchParams }: Props) {
         <p className="page-subtitle">{modoMotorista ? 'As corridas que você fez no período' : 'Corridas do TaxiDog da loja no período'}</p>
       </div>
       <Link href={modoMotorista ? '/lojista/taxidog' : '/lojista/kanban?visao=taxidog'} className="btn btn-ghost btn-sm">
-        <IconChevronLeft style={{ width: 14, height: 14 }} /> {modoMotorista ? 'Minhas rotas' : 'Rotas do TaxiDog'}
+        <IconChevronLeft style={{ width: 14, height: 14 }} /> {modoMotorista ? 'Minhas corridas' : 'Kanban do TaxiDog'}
       </Link>
     </div>
   )

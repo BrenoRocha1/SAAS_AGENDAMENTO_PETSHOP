@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import LojistaSidebar from '@/components/layout/LojistaSidebar'
 import NotificacaoNovoAgendamento from '@/components/lojista/NotificacaoNovoAgendamento'
 import AtualizacaoAoVivo from '@/components/lojista/AtualizacaoAoVivo'
-import NotificacaoRotaTaxiDog from '@/components/lojista/NotificacaoRotaTaxiDog'
+import NotificacaoTaxiDog from '@/components/lojista/NotificacaoTaxiDog'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 
@@ -101,9 +101,17 @@ export default async function LojistaLayout({
     <div className="app-layout lojista-shell">
       <NotificacaoNovoAgendamento lojistaId={contexto.idLojista} somAtivo={somAtivo} somTipo={somTipo} />
       <AtualizacaoAoVivo lojistaId={contexto.idLojista} />
-      {/* Aviso de rota nova / atualizada / pet pronto — só pra quem é TaxiDog. */}
-      {contexto.podeTaxidog && (
-        <NotificacaoRotaTaxiDog lojistaId={contexto.idLojista} userId={user.id} somAtivo={somAtivo} somTipo={somTipo} />
+      {/* Avisos do TaxiDog: corridas/rotas pra quem é TaxiDog, rota para
+          aprovar pra gestão. */}
+      {(contexto.podeTaxidog || (contexto.podeGerenciarAgenda && taxidogAtivo)) && (
+        <NotificacaoTaxiDog
+          lojistaId={contexto.idLojista}
+          userId={user.id}
+          taxidog={contexto.podeTaxidog}
+          gestor={contexto.podeGerenciarAgenda}
+          somAtivo={somAtivo}
+          somTipo={somTipo}
+        />
       )}
       <LojistaSidebar
         nomeLoja={nomeLoja}

@@ -23,6 +23,8 @@ export interface TransporteVisita {
   endereco: EnderecoTaxiDog
   // O próximo trecho (busca ou entrega) já está numa rota.
   naRota: boolean
+  // Tem TaxiDog (pela rota ou pego pelo Kanban).
+  temTaxiDog: boolean
 }
 
 export const chaveVisita = (idPet: string, data: string) => `${idPet}|${data}`
@@ -36,13 +38,14 @@ export async function carregarTransportePorVisita(
 
   const { data: corridas } = await supabase
     .from('taxidog_corrida')
-    .select('id_corrida, id_agendamento, modalidade, status, valor, cep, logradouro, numero, complemento, bairro, cidade, uf, created_at')
+    .select('id_corrida, id_agendamento, modalidade, status, valor, cep, logradouro, numero, complemento, bairro, cidade, uf, id_funcionario, created_at')
     .in('id_agendamento', agendamentos.map(a => a.id_agendamento))
     .neq('status', 'cancelada')
     .order('created_at')
   const linhas = (corridas ?? []) as Array<{
     id_corrida: string; id_agendamento: string; modalidade: ModalidadeTaxiDog; status: string; valor: number | string
     cep: string; logradouro: string; numero: string; complemento: string | null; bairro: string; cidade: string; uf: string
+    id_funcionario: string | null
   }>
   if (linhas.length === 0) return resultado
 
@@ -79,6 +82,7 @@ export async function carregarTransportePorVisita(
         uf: c.uf,
       },
       naRota: naRota.has(c.id_corrida),
+      temTaxiDog: !!c.id_funcionario,
     })
   }
   return resultado

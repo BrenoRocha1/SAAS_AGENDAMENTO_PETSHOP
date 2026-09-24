@@ -215,8 +215,77 @@ export async function salvarTaxiDogConfigAction(payload: unknown): Promise<{
   return { success: true, aviso, origemEndereco: origem.endereco }
 }
 
-// A operação das corridas (atribuir, andar, cancelar) agora é feita pelas
-// rotas — ver src/lib/actions-rotas.ts (migration 052).
+// ============================================================
+// Kanban de corridas (corrida avulsa, fora de rota — migration 053)
+// ============================================================
+// Uma corrida que está numa rota só anda pela rota: o banco recusa aqui
+// com a mensagem "Esta corrida está na Rota #...". Rotas: actions-rotas.ts.
+function revalidarCorridas() {
+  revalidatePath('/lojista/taxidog')
+  revalidatePath('/lojista/taxidog/rotas')
+  revalidatePath('/lojista/kanban')
+}
+
+export async function atribuirCorridaAction(idCorrida: string, idFuncionario: string | null) {
+  if (!UUID_RE.test(idCorrida) || (idFuncionario && !UUID_RE.test(idFuncionario))) return { error: 'Dados inválidos.' }
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('fn_atribuir_corrida', {
+    p_id_corrida: idCorrida,
+    p_id_funcionario: idFuncionario,
+  })
+  if (error) return { error: mensagemRpc(error, 'Não foi possível atribuir a corrida.') }
+  revalidarCorridas()
+  return { success: true }
+}
+
+// O próprio TaxiDog pega uma corrida sem TaxiDog — só depois de a loja
+// aceitar o agendamento; o banco confere tudo.
+export async function assumirCorridaAction(idCorrida: string) {
+  if (!UUID_RE.test(idCorrida)) return { error: 'Corrida inválida.' }
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('fn_assumir_corrida', { p_id_corrida: idCorrida })
+  if (error) return { error: mensagemRpc(error, 'Não foi possível assumir a corrida.') }
+  revalidarCorridas()
+  return { success: true }
+}
+
+export async function avancarCorridaAction(idCorrida: string, novoStatus: string) {
+  if (!UUID_RE.test(idCorrida)) return { error: 'Corrida inválida.' }
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('fn_avancar_corrida', {
+    p_id_corrida: idCorrida,
+    p_novo_status: novoStatus,
+  })
+  if (error) return { error: mensagemRpc(error, 'Não foi possível atualizar a corrida.') }
+  revalidarCorridas()
+  return { success: true, status: data as string }
+}
+
+export async function cancelarCorridaAction(idCorrida: string) {
+  if (!UUID_RE.test(idCorrida)) return { error: 'Corrida inválida.' }
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('fn_cancelar_corrida', { p_id_corrida: idCorrida })
+  if (error) return { error: mensagemRpc(error, 'Não foi possível cancelar o TaxiDog.') }
+  revalidarCorridas()
+  revalidatePath('/lojista/agendamentos')
+  return { success: true }
+}
+
+// Configuração: o TaxiDog monta rotas e já sai, ou a rota espera a
+// aprovação da gestão (migration 053). Só dono/administrador.
+export async function salvarTaxiDogCriaRotasAction(valor: boolean) {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('fn_salvar_taxidog_cria_rotas', { p_valor: valor })
+  if (error) {
+    if (error.code === 'PGRST202' || error.message.includes('Could not find the function')) {
+      return { error: 'Execute a migration 053_taxidog_kanban_e_rotas.sql para usar esta opção.' }
+    }
+    return { error: mensagemRpc(error, 'Não foi possível salvar.') }
+  }
+  revalidatePath('/lojista/configuracoes/taxidog')
+  revalidatePath('/lojista/taxidog/rotas')
+  return { success: true }
+}
 
 // ============================================================
 // Perfil opcional do pet (pelagem, comportamento…)

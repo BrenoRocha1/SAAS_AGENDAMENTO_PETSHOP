@@ -19,6 +19,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconCar,
+  IconRoute,
 } from '@/components/icons'
 
 // Perfil da Loja e Horários saíram daqui — agora são acessados via
@@ -32,10 +33,12 @@ const navItemsBase = [
   { href: '/lojista/dashboard',     icon: IconGrid,      label: 'Dashboard', restrito: true },
   { href: '/lojista/agendamentos',  icon: IconCalendar,  label: 'Agendamentos', permissao: 'agenda' as const },
   { href: '/lojista/kanban',        icon: IconKanban,    label: 'Kanban', condicao: 'kanban' as const, permissao: 'agenda' as const },
-  // Dono/equipe com agenda organizam as rotas dentro do Kanban
-  // ("Visualizar TaxiDog"); este item fica pro TaxiDog ("Minhas rotas") e
-  // pra loja com o Kanban desativado.
+  // Kanban de corridas: dono/equipe com agenda veem dentro do Kanban
+  // ("Visualizar TaxiDog"); este item fica pro TaxiDog ("Minhas corridas")
+  // e pra loja com o Kanban desativado.
   { href: '/lojista/taxidog',       icon: IconCar,       label: 'TaxiDog', condicao: 'taxidog' as const, permissao: 'agenda' as const },
+  // Rotas (migration 053): página própria pra gestão e pro TaxiDog.
+  { href: '/lojista/taxidog/rotas', icon: IconRoute,     label: 'Rotas do TaxiDog', condicao: 'taxidogRotas' as const },
   { href: '/lojista/taxidog/relatorio', icon: IconChartBar, label: 'Relatório de corridas', condicao: 'taxidogRelatorio' as const },
   { href: '/lojista/relatorios',    icon: IconChartBar,  label: 'Relatórios de Vendas', restrito: true },
   { href: '/lojista/servicos',      icon: IconScissors,  label: 'Serviços', permissao: 'servicos' as const },
@@ -80,13 +83,17 @@ export default function LojistaSidebar({
   podeTaxidog = false,
 }: Props) {
   const gestorDaAgenda = role === 'lojista' || acessoTotal || podeGerenciarAgenda
+  // Quem só é TaxiDog (sem agenda) vê as telas com as corridas/rotas dele
+  // — daí os nomes diferentes no menu.
+  const soMotorista = podeTaxidog && !gestorDaAgenda
 
   // Administrador (funcionário com acesso_total) tem a MESMA visão do
   // lojista — nenhum item escondido, exatamente como se `role` fosse
   // 'lojista'. Só um funcionário comum passa pelo corte de permissões.
   const navItems = navItemsBase.filter(item => {
     if (item.condicao === 'kanban' && !kanbanAtivo) return false
-    if (item.condicao === 'taxidog') return podeTaxidog || (gestorDaAgenda && taxidogAtivo && !kanbanAtivo)
+    if (item.condicao === 'taxidog') return soMotorista || (gestorDaAgenda && taxidogAtivo && !kanbanAtivo)
+    if (item.condicao === 'taxidogRotas') return podeTaxidog || (gestorDaAgenda && taxidogAtivo)
     if (item.condicao === 'taxidogRelatorio') return podeTaxidog
     if (role === 'funcionario' && !acessoTotal) {
       if (item.restrito) return false
@@ -172,7 +179,9 @@ export default function LojistaSidebar({
         {!colapsada && <span className="sidebar-section-label">Gestão</span>}
         {navItems.map(item => {
           const Icon = item.icon
-          const label = item.condicao === 'taxidog' && podeTaxidog ? 'Minhas rotas' : item.label
+          const label = soMotorista && item.condicao === 'taxidog' ? 'Minhas corridas'
+            : soMotorista && item.condicao === 'taxidogRotas' ? 'Minhas rotas'
+            : item.label
           return (
             <Link
               key={item.href}

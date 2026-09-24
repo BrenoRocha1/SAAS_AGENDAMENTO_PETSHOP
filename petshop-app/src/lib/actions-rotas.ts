@@ -1,9 +1,12 @@
 'use server'
 
-// Server Actions das ROTAS do TaxiDog (migration 052). A regra de
-// negócio e a autorização de verdade estão nas funções do banco; aqui a
-// aplicação monta/reordena o plano (lib/taxidog-rotas) e recalcula
-// distância e tempo no Google Maps depois de cada mudança.
+// Server Actions das ROTAS do TaxiDog (migrations 052/053). A regra de
+// negócio e a autorização de verdade estão nas funções do banco (gestão
+// monta qualquer rota; o TaxiDog, a dele — com ou sem aprovação); aqui a
+// aplicação monta/reordena o plano (lib/taxidog-rotas). Distância e tempo
+// do Google Maps são recalculados pela tela, alguns segundos depois da
+// última mudança (recalcularRotaAction) — uma reorganização inteira vira
+// uma chamada só.
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
@@ -44,6 +47,7 @@ function mensagem(error: { message?: string; code?: string } | null, fallback: s
 function revalidar() {
   revalidatePath('/lojista/kanban')
   revalidatePath('/lojista/taxidog')
+  revalidatePath('/lojista/taxidog/rotas')
   revalidatePath('/lojista/agendamentos')
 }
 
@@ -106,20 +110,27 @@ async function contextoGestor(supabase: Supabase) {
   return contexto?.podeGerenciarAgenda ? contexto : null
 }
 
-async function salvarPlano(supabase: Supabase, rota: Rota, plano: ParadaPlano[], mensagemAlteracao: string, idLojista: string): Promise<Resultado> {
+// Quem mexe em rotas: gestão ou TaxiDog (o banco decide o que cada um pode).
+async function contextoRotas(supabase: Supabase) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  return contexto && (contexto.podeGerenciarAgenda || contexto.podeTaxidog) ? contexto : null
+}
+
+async function salvarPlano(supabase: Supabase, rota: Rota, plano: ParadaPlano[], mensagemAlteracao: string): Promise<Resultado> {
   const { error } = await supabase.rpc('fn_salvar_paradas', {
     p_id_rota: rota.id_rota,
     p_paradas: planoParaBanco(plano),
     p_mensagem: mensagemAlteracao,
   })
   if (error) return { error: mensagem(error, 'Não foi possível atualizar a rota.') }
-  await recalcular(supabase, rota.id_rota, idLojista)
   revalidar()
   return { success: true }
 }
 
 // ============================================================
-// Organização (dono / equipe com agenda)
+// Montagem (gestão, ou o TaxiDog na rota dele)
 // ============================================================
 export async function criarRotaAction(
   data: string,
@@ -131,15 +142,15 @@ export async function criarRotaAction(
   if (trechos.some(t => !UUID_RE.test(t.id_corrida) || (t.trecho !== 'busca' && t.trecho !== 'entrega'))) return { error: 'Dados inválidos.' }
 
   const supabase = await createClient()
-  const contexto = await contextoGestor(supabase)
-  if (!contexto) return { error: 'Você não tem permissão para organizar as rotas.' }
+  const contexto = await contextoRotas(supabase)
+  if (!contexto) return { error: 'Você não tem permissão para montar rotas.' }
 
   const { data: pendentesRaw, error: pendErro } = await supabase.rpc('fn_trechos_pendentes', { p_data: data })
   if (pendErro) return { error: mensagem(pendErro, 'Não foi possível carregar as solicitações.') }
   const pendentes = ((pendentesRaw ?? []) as Record<string, unknown>[]).map(normalizarTrecho)
   const escolhidos = pendentes.filter(p => trechos.some(t => t.id_corrida === p.id_corrida && t.trecho === p.trecho))
   if (escolhidos.length !== trechos.length) {
-    return { error: 'Alguma solicitação escolhida já entrou em outra rota ou foi cancelada. Atualize a página.' }
+    return { error: 'Alguma corrida escolhida já entrou em outra rota, foi pega por outro TaxiDog ou foi cancelada. Atualize a página.' }
   }
 
   const { data: idRota, error } = await supabase.rpc('fn_criar_rota', {
@@ -149,7 +160,6 @@ export async function criarRotaAction(
   })
   if (error) return { error: mensagem(error, 'Não foi possível criar a rota.') }
 
-  await recalcular(supabase, idRota as string, contexto.idLojista)
   revalidar()
   return { success: true, id_rota: idRota as string }
 }
@@ -158,8 +168,7 @@ export async function criarRotaAction(
 export async function reordenarParadasAction(idRota: string, idsPendentes: string[]): Promise<Resultado> {
   if (!UUID_RE.test(idRota) || !Array.isArray(idsPendentes)) return { error: 'Dados inválidos.' }
   const supabase = await createClient()
-  const contexto = await contextoGestor(supabase)
-  if (!contexto) return { error: 'Você não tem permissão para organizar as rotas.' }
+  if (!(await contextoRotas(supabase))) return { error: 'Você não tem permissão para mudar esta rota.' }
 
   const rota = await carregarRota(supabase, idRota)
   if (!rota) return { error: 'Rota não encontrada.' }
@@ -169,14 +178,13 @@ export async function reordenarParadasAction(idRota: string, idsPendentes: strin
     return { error: 'A rota mudou enquanto você organizava. Atualize a página.' }
   }
   const plano = normalizarPlano(fixas, idsPendentes.map(id => porId.get(id)!))
-  return salvarPlano(supabase, rota, plano, 'A ordem das paradas foi alterada', contexto.idLojista)
+  return salvarPlano(supabase, rota, plano, 'A ordem das paradas foi alterada')
 }
 
 export async function removerDaRotaAction(idRota: string, idCorrida: string): Promise<Resultado> {
   if (!UUID_RE.test(idRota) || !UUID_RE.test(idCorrida)) return { error: 'Dados inválidos.' }
   const supabase = await createClient()
-  const contexto = await contextoGestor(supabase)
-  if (!contexto) return { error: 'Você não tem permissão para organizar as rotas.' }
+  if (!(await contextoRotas(supabase))) return { error: 'Você não tem permissão para mudar esta rota.' }
 
   const rota = await carregarRota(supabase, idRota)
   if (!rota) return { error: 'Rota não encontrada.' }
@@ -194,26 +202,25 @@ export async function removerDaRotaAction(idRota: string, idCorrida: string): Pr
 
   const { fixas, pendentes } = planoDaRota(rota)
   const plano = normalizarPlano(fixas, pendentes.map(p => ({ ...p, itens: p.itens.filter(i => i.id_corrida !== idCorrida) })))
-  return salvarPlano(supabase, rota, plano, `A parada de ${pet} foi removida`, contexto.idLojista)
+  return salvarPlano(supabase, rota, plano, `A parada de ${pet} foi removida`)
 }
 
 export async function adicionarNaRotaAction(idRota: string, idCorrida: string, trecho: Trecho): Promise<Resultado> {
   if (!UUID_RE.test(idRota) || !UUID_RE.test(idCorrida) || (trecho !== 'busca' && trecho !== 'entrega')) return { error: 'Dados inválidos.' }
   const supabase = await createClient()
-  const contexto = await contextoGestor(supabase)
-  if (!contexto) return { error: 'Você não tem permissão para organizar as rotas.' }
+  if (!(await contextoRotas(supabase))) return { error: 'Você não tem permissão para mudar esta rota.' }
 
   const rota = await carregarRota(supabase, idRota)
   if (!rota) return { error: 'Rota não encontrada.' }
   const { data: pendentesRaw, error: pendErro } = await supabase.rpc('fn_trechos_pendentes', { p_data: rota.data })
   if (pendErro) return { error: mensagem(pendErro, 'Não foi possível carregar as solicitações.') }
   const t = ((pendentesRaw ?? []) as Record<string, unknown>[]).map(normalizarTrecho).find(p => p.id_corrida === idCorrida && p.trecho === trecho)
-  if (!t) return { error: 'Esta solicitação não está mais pendente. Atualize a página.' }
+  if (!t) return { error: 'Esta corrida não está mais disponível para rota. Atualize a página.' }
 
   const { fixas, pendentes } = planoDaRota(rota)
   const nova: ParadaPlano = { local: 'cliente', itens: [{ id_corrida: idCorrida, acao: trecho === 'busca' ? 'embarcar' : 'entregar' }] }
   const plano = normalizarPlano(fixas, [...pendentes, nova])
-  return salvarPlano(supabase, rota, plano, trecho === 'busca' ? `Nova parada: buscar ${t.pet_nome}` : `Nova parada: entregar ${t.pet_nome}`, contexto.idLojista)
+  return salvarPlano(supabase, rota, plano, trecho === 'busca' ? `Nova parada: buscar ${t.pet_nome}` : `Nova parada: entregar ${t.pet_nome}`)
 }
 
 export async function atribuirRotaAction(idRota: string, idFuncionario: string | null): Promise<Resultado> {
@@ -221,6 +228,16 @@ export async function atribuirRotaAction(idRota: string, idFuncionario: string |
   const supabase = await createClient()
   const { error } = await supabase.rpc('fn_atribuir_rota', { p_id_rota: idRota, p_id_funcionario: idFuncionario })
   if (error) return { error: mensagem(error, 'Não foi possível trocar o TaxiDog.') }
+  revalidar()
+  return { success: true }
+}
+
+// Gestão aprova a rota montada pelo TaxiDog (migration 053).
+export async function aprovarRotaAction(idRota: string): Promise<Resultado> {
+  if (!UUID_RE.test(idRota)) return { error: 'Rota inválida.' }
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('fn_aprovar_rota', { p_id_rota: idRota })
+  if (error) return { error: mensagem(error, 'Não foi possível aprovar a rota.') }
   revalidar()
   return { success: true }
 }
@@ -234,8 +251,9 @@ export async function cancelarRotaAction(idRota: string): Promise<Resultado> {
   return { success: true }
 }
 
-// Chamado pelas telas quando a rota mudou por fora (ex.: cliente cancelou
-// e o banco tirou a parada) e a distância ficou desatualizada.
+// Chamado pelas telas alguns segundos depois de a rota mudar (por quem
+// estiver com ela aberta) — só calcula se a versão mudou desde o último
+// cálculo.
 export async function recalcularRotaAction(idRota: string): Promise<Resultado> {
   if (!UUID_RE.test(idRota)) return { error: 'Rota inválida.' }
   const supabase = await createClient()

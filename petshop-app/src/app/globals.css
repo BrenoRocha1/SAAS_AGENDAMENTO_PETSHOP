@@ -3472,6 +3472,7 @@ a:hover { color: var(--primary-300); }
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .tdr-card-rota:hover { border-color: var(--primary-400); }
+.tdr-card-rota.is-aprovacao { border-color: var(--status-aguardando-solid); background: var(--status-aguardando-bg); }
 .tdr-numero { font-family: var(--font-heading); font-weight: 700; color: var(--gray-100); }
 
 .tdr-previa { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: var(--space-1); font-size: 0.875rem; }

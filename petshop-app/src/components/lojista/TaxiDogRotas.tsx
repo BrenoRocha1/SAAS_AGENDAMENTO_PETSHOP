@@ -1,15 +1,16 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { addDays, format, parseISO, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   adicionarNaRotaAction,
+  aprovarRotaAction,
   atribuirRotaAction,
   cancelarRotaAction,
   criarRotaAction,
-  recalcularRotaAction,
   removerDaRotaAction,
   reordenarParadasAction,
 } from '@/lib/actions-rotas'
@@ -18,6 +19,7 @@ import { ROTULO_MODALIDADE, type TaxiDogOpcao } from '@/lib/taxidog'
 import {
   CLASSE_STATUS_ROTA,
   ROTULO_STATUS_ROTA,
+  avisarMudancaPropria,
   contarPets,
   enderecoParada,
   formatarDistancia,
@@ -32,9 +34,22 @@ import {
   type Rota,
   type TrechoPendente,
 } from '@/lib/taxidog-rotas'
+import { useRecalculoRotas } from '@/lib/useRecalculoRotas'
 import { IconAlert, IconCar, IconChevronLeft, IconChevronRight, IconClose, IconRoute, IconStore } from '@/components/icons'
 
+// Página "Rotas" do TaxiDog (migration 053), em dois perfis:
+//   • 'gestor' — dono, administrador ou gestão de agendamentos: monta rotas
+//     com qualquer corrida, escolhe o TaxiDog e aprova as rotas que os
+//     TaxiDogs montaram;
+//   • 'taxidog' — monta rotas pra si com as corridas sem TaxiDog ou dele;
+//     se a loja exigir, a rota espera aprovação antes de sair.
+// A execução parada a parada fica em TaxiDogRotaExecucao (?rota=...).
+
+export type PerfilRotas = 'gestor' | 'taxidog'
+
 interface Props {
+  perfil: PerfilRotas
+  precisaAprovacao: boolean
   data: string
   hojeISO: string
   caminho: string
@@ -71,46 +86,37 @@ function descreverPlano(plano: ParadaPlano[], trechos: TrechoPendente[]) {
   })
 }
 
-export default function TaxiDogRotasLoja({ data, hojeISO, caminho, rotas, pendentes, taxidogs, enderecoLoja, googleConfigurado }: Props) {
+export function trajetoTexto(r: Rota, googleConfigurado: boolean, falha?: string): string | null {
+  if (!googleConfigurado) return null
+  const distancia = formatarDistancia(r.distancia_m)
+  if (distancia && r.calculo_versao === r.versao) return `${distancia} · ~${formatarDuracao(r.duracao_s)}`
+  if (r.status === 'concluida' || r.status === 'cancelada') return null
+  return falha ? 'distância indisponível' : 'calculando trajeto...'
+}
+
+export default function TaxiDogRotas({ perfil, precisaAprovacao, data, hojeISO, caminho, rotas, pendentes, taxidogs, enderecoLoja, googleConfigurado }: Props) {
   const router = useRouter()
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [criando, setCriando] = useState(false)
   const [abertaId, setAbertaId] = useState<string | null>(null)
-  const [erro, setErro] = useState<string | null>(null)
-  const recalculadas = useRef(new Set<string>())
-  // Rotas em que o Google Maps não calculou (id → motivo).
-  const [falhasCalculo, setFalhasCalculo] = useState<Record<string, string>>({})
+  const falhasCalculo = useRecalculoRotas(rotas, googleConfigurado)
 
   const dataObj = parseISO(data)
   const visiveis = rotas.filter(r => r.status !== 'cancelada')
+  const paraAprovar = visiveis.filter(r => r.status === 'aguardando_aprovacao')
   const aberta = rotas.find(r => r.id_rota === abertaId) ?? null
   const paraBuscar = pendentes.filter(t => t.trecho === 'busca')
   const paraEntregar = pendentes.filter(t => t.trecho === 'entrega')
   const escolhidos = pendentes.filter(t => selecionados.has(chaveTrecho(t)))
 
-  // Solicitações que já saíram da lista (entraram numa rota, foram
-  // canceladas) não podem continuar marcadas.
+  // Corridas que saíram da lista (entraram numa rota, foram pegas por
+  // outro TaxiDog, canceladas) não podem continuar marcadas.
   const chavesPendentes = useMemo(() => new Set(pendentes.map(chaveTrecho)), [pendentes])
   const [chavesAnteriores, setChavesAnteriores] = useState(chavesPendentes)
   if (chavesPendentes !== chavesAnteriores) {
     setChavesAnteriores(chavesPendentes)
     setSelecionados(prev => new Set([...prev].filter(k => chavesPendentes.has(k))))
   }
-
-  // Distância/tempo desatualizados (a rota mudou por fora — ex.: cliente
-  // cancelou): recalcula uma vez por versão.
-  useEffect(() => {
-    if (!googleConfigurado) return
-    for (const r of rotas) {
-      const chave = `${r.id_rota}:${r.versao}`
-      if (r.status === 'cancelada' || r.paradas.length === 0 || r.calculo_versao === r.versao || recalculadas.current.has(chave)) continue
-      recalculadas.current.add(chave)
-      recalcularRotaAction(r.id_rota).then(res => {
-        if (res.error) setFalhasCalculo(prev => ({ ...prev, [r.id_rota]: res.error! }))
-        else router.refresh()
-      })
-    }
-  }, [rotas, googleConfigurado, router])
 
   function alternar(chave: string) {
     setSelecionados(prev => {
@@ -123,7 +129,13 @@ export default function TaxiDogRotasLoja({ data, hojeISO, caminho, rotas, penden
 
   function irParaDia(novaData: string) {
     setSelecionados(new Set())
-    router.push(`${caminho}${caminho.includes('?') ? '&' : '?'}data=${novaData}`)
+    router.push(`${caminho}?data=${novaData}`)
+  }
+
+  // Gestão abre o detalhe (organizar); o TaxiDog vai pra tela da rota.
+  function abrirRota(idRota: string) {
+    if (perfil === 'gestor') setAbertaId(idRota)
+    else router.push(`${caminho}?rota=${idRota}`)
   }
 
   const renderPendente = (t: TrechoPendente) => {
@@ -140,13 +152,26 @@ export default function TaxiDogRotasLoja({ data, hojeISO, caminho, rotas, penden
           </div>
           <div className="text-xs text-muted tdr-truncar">{enderecoCurto(t)}</div>
           <div className="text-xs text-muted">{t.cliente_nome} · {formatarTelefone(t.cliente_telefone)} · {ROTULO_MODALIDADE[t.modalidade]}</div>
-          {aguardandoAceite && <span className="badge badge-pendente tdr-badge">Aguardando aceite da loja</span>}
-          {!aguardandoAceite && naoPronto && <span className="badge badge-inativo tdr-badge">Serviço ainda não terminou</span>}
-          {!aguardandoAceite && t.trecho === 'entrega' && !naoPronto && <span className="badge badge-concluido tdr-badge">Pronto para entrega</span>}
+          <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
+            {aguardandoAceite && <span className="badge badge-pendente tdr-badge">Aguardando aceite da loja</span>}
+            {!aguardandoAceite && naoPronto && <span className="badge badge-inativo tdr-badge">Serviço ainda não terminou</span>}
+            {!aguardandoAceite && t.trecho === 'entrega' && !naoPronto && <span className="badge badge-concluido tdr-badge">Pronto para entrega</span>}
+            {t.id_funcionario && (
+              <span className="badge badge-aceito tdr-badge">
+                {perfil === 'taxidog' ? 'Sua corrida' : `Com ${t.funcionario_nome ?? 'TaxiDog'}`}
+              </span>
+            )}
+          </div>
         </div>
       </label>
     )
   }
+
+  const rotuloCriar = escolhidos.length === 0
+    ? 'Selecione para montar uma rota'
+    : perfil === 'taxidog' && precisaAprovacao
+      ? `Montar rota com ${escolhidos.length} e enviar para aprovação`
+      : `Montar rota com ${escolhidos.length}`
 
   return (
     <>
@@ -166,24 +191,38 @@ export default function TaxiDogRotasLoja({ data, hojeISO, caminho, rotas, penden
         </div>
       </div>
 
-      {!googleConfigurado && (
+      {perfil === 'gestor' && paraAprovar.length > 0 && (
+        <div className="alert alert-warning" style={{ marginBottom: 'var(--space-4)' }}>
+          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+          <span>
+            {paraAprovar.length === 1
+              ? `A Rota #${paraAprovar[0].numero} (${paraAprovar[0].funcionario_nome ?? 'TaxiDog'}) está aguardando sua aprovação.`
+              : `${paraAprovar.length} rotas estão aguardando sua aprovação.`}
+          </span>
+        </div>
+      )}
+      {perfil === 'gestor' && !googleConfigurado && (
         <div className="alert alert-info" style={{ marginBottom: 'var(--space-4)' }}>
           <IconRoute style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
           <span>Distância e tempo das rotas aparecem quando o Google Maps for configurado (GOOGLE_MAPS_API_KEY com a Routes API ativada).</span>
         </div>
       )}
-      {erro && (
-        <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
-          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{erro}</span>
-        </div>
+      {perfil === 'taxidog' && precisaAprovacao && (
+        <p className="text-sm text-muted" style={{ margin: '0 0 var(--space-4)' }}>
+          As rotas que você montar vão para aprovação da loja antes de sair.
+        </p>
       )}
 
       <div className="tdr-grade">
-        {/* Solicitações que ainda não estão em rota */}
+        {/* Corridas que ainda não estão em rota */}
         <section className="card tdr-coluna">
-          <h3 className="relatorio-secao-titulo">Solicitações pendentes</h3>
+          <h3 className="relatorio-secao-titulo">Corridas para rota</h3>
           {pendentes.length === 0 ? (
-            <p className="text-sm text-muted">Nada para organizar neste dia. Quando um cliente pedir TaxiDog, a solicitação aparece aqui.</p>
+            <p className="text-sm text-muted">
+              {perfil === 'taxidog'
+                ? 'Nenhuma corrida livre ou sua neste dia.'
+                : 'Nada para organizar neste dia. Quando um cliente pedir TaxiDog, a corrida aparece aqui.'}
+            </p>
           ) : (
             <>
               {paraBuscar.length > 0 && (
@@ -203,10 +242,10 @@ export default function TaxiDogRotasLoja({ data, hojeISO, caminho, rotas, penden
                 className="btn btn-primary"
                 style={{ width: '100%', marginTop: 'var(--space-3)' }}
                 disabled={escolhidos.length === 0}
-                onClick={() => { setErro(null); setCriando(true) }}
+                onClick={() => setCriando(true)}
               >
                 <IconRoute style={{ width: 15, height: 15 }} />
-                {escolhidos.length === 0 ? 'Selecione para criar uma rota' : `Criar rota com ${escolhidos.length}`}
+                {rotuloCriar}
               </button>
             </>
           )}
@@ -217,13 +256,19 @@ export default function TaxiDogRotasLoja({ data, hojeISO, caminho, rotas, penden
           {visiveis.length === 0 ? (
             <div className="empty-state card">
               <IconCar style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
-              <div className="empty-state-title">Nenhuma rota neste dia</div>
-              <p>Selecione as solicitações ao lado e crie uma rota.</p>
+              <div className="empty-state-title">{perfil === 'taxidog' ? 'Nenhuma rota sua neste dia' : 'Nenhuma rota neste dia'}</div>
+              <p>Marque as corridas ao lado e monte uma rota.</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
               {visiveis.map(r => (
-                <CardRota key={r.id_rota} rota={r} googleConfigurado={googleConfigurado} falhaCalculo={falhasCalculo[r.id_rota]} onAbrir={() => { setErro(null); setAbertaId(r.id_rota) }} />
+                <CardRota
+                  key={r.id_rota}
+                  rota={r}
+                  perfil={perfil}
+                  trajeto={trajetoTexto(r, googleConfigurado, falhasCalculo[r.id_rota])}
+                  onAbrir={() => abrirRota(r.id_rota)}
+                />
               ))}
             </div>
           )}
@@ -233,20 +278,30 @@ export default function TaxiDogRotasLoja({ data, hojeISO, caminho, rotas, penden
       {criando && (
         <NovaRota
           data={data}
+          perfil={perfil}
+          precisaAprovacao={precisaAprovacao}
           escolhidos={escolhidos}
           taxidogs={taxidogs}
           onFechar={() => setCriando(false)}
-          onCriada={idRota => { setCriando(false); setSelecionados(new Set()); setAbertaId(idRota); router.refresh() }}
+          onCriada={idRota => {
+            setCriando(false)
+            setSelecionados(new Set())
+            abrirRota(idRota)
+            router.refresh()
+          }}
         />
       )}
 
       {aberta && (
         <DetalheRota
           rota={aberta}
+          perfil={perfil}
+          precisaAprovacao={precisaAprovacao}
+          caminho={caminho}
           pendentes={pendentes}
           taxidogs={taxidogs}
           enderecoLoja={enderecoLoja}
-          googleConfigurado={googleConfigurado}
+          trajeto={trajetoTexto(aberta, googleConfigurado, falhasCalculo[aberta.id_rota])}
           falhaCalculo={falhasCalculo[aberta.id_rota]}
           onFechar={() => setAbertaId(null)}
         />
@@ -255,36 +310,44 @@ export default function TaxiDogRotasLoja({ data, hojeISO, caminho, rotas, penden
   )
 }
 
-function CardRota({ rota: r, googleConfigurado, falhaCalculo, onAbrir }: { rota: Rota; googleConfigurado: boolean; falhaCalculo?: string; onAbrir: () => void }) {
+function CardRota({ rota: r, perfil, trajeto, onAbrir }: { rota: Rota; perfil: PerfilRotas; trajeto: string | null; onAbrir: () => void }) {
   const proxima = r.status === 'em_andamento' ? proximaParada(r) : null
-  const distancia = formatarDistancia(r.distancia_m)
-  const duracao = formatarDuracao(r.duracao_s)
-  const desatualizada = r.calculo_versao !== r.versao
+  const pets = contarPets(r)
   return (
-    <button type="button" className="card tdr-card-rota" onClick={onAbrir}>
+    <button type="button" className={`card tdr-card-rota ${r.status === 'aguardando_aprovacao' ? 'is-aprovacao' : ''}`} onClick={onAbrir}>
       <div className="flex items-center justify-between gap-2">
         <span className="tdr-numero">Rota #{r.numero}</span>
         <span className={`badge ${CLASSE_STATUS_ROTA[r.status]}`}>{ROTULO_STATUS_ROTA[r.status]}</span>
       </div>
-      <div className="text-sm" style={{ color: 'var(--gray-300)' }}>TaxiDog: <strong>{r.funcionario_nome ?? 'sem TaxiDog'}</strong></div>
+      {perfil === 'gestor' && (
+        <div className="text-sm" style={{ color: 'var(--gray-300)' }}>TaxiDog: <strong>{r.funcionario_nome ?? 'sem TaxiDog'}</strong></div>
+      )}
       <div className="text-sm text-muted">
-        {r.paradas.length} {r.paradas.length === 1 ? 'parada' : 'paradas'} · {contarPets(r)} {contarPets(r) === 1 ? 'pet' : 'pets'}
-        {googleConfigurado && (distancia && !desatualizada ? ` · ${distancia} · ~${duracao}` : falhaCalculo ? ' · distância indisponível' : ' · calculando rota...')}
+        {r.paradas.length} {r.paradas.length === 1 ? 'parada' : 'paradas'} · {pets} {pets === 1 ? 'pet' : 'pets'}
+        {trajeto ? ` · ${trajeto}` : ''}
       </div>
       {proxima && <div className="text-sm" style={{ color: 'var(--status-andamento-fg)' }}>Próxima: {tituloParada(proxima)}</div>}
       {r.ultima_alteracao && r.status !== 'concluida' && <div className="text-xs text-muted">Última alteração: {r.ultima_alteracao}</div>}
+      {perfil === 'gestor' && r.status === 'aguardando_aprovacao' && <span className="text-sm text-accent">Revisar e aprovar →</span>}
     </button>
   )
 }
 
-function NovaRota({ data, escolhidos, taxidogs, onFechar, onCriada }: {
+function NovaRota({ data, perfil, precisaAprovacao, escolhidos, taxidogs, onFechar, onCriada }: {
   data: string
+  perfil: PerfilRotas
+  precisaAprovacao: boolean
   escolhidos: TrechoPendente[]
   taxidogs: TaxiDogOpcao[]
   onFechar: () => void
   onCriada: (idRota: string) => void
 }) {
-  const [idTaxidog, setIdTaxidog] = useState(taxidogs.length === 1 ? taxidogs[0].id_funcionario : '')
+  // Sugestão: o TaxiDog que já tem as corridas escolhidas pelo Kanban.
+  const [idTaxidog, setIdTaxidog] = useState(() => {
+    const donos = [...new Set(escolhidos.map(t => t.id_funcionario).filter((x): x is string => !!x))]
+    if (donos.length === 1) return donos[0]
+    return taxidogs.length === 1 ? taxidogs[0].id_funcionario : ''
+  })
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const previa = useMemo(() => descreverPlano(montarPlanoInicial(escolhidos), escolhidos), [escolhidos])
@@ -292,9 +355,9 @@ function NovaRota({ data, escolhidos, taxidogs, onFechar, onCriada }: {
   function criar() {
     setErro(null)
     startTransition(async () => {
-      const r = await criarRotaAction(data, idTaxidog || null, escolhidos.map(t => ({ id_corrida: t.id_corrida, trecho: t.trecho })))
+      const r = await criarRotaAction(data, perfil === 'gestor' ? idTaxidog || null : null, escolhidos.map(t => ({ id_corrida: t.id_corrida, trecho: t.trecho })))
       if (r.error || !r.id_rota) {
-        setErro(r.error ?? 'Não foi possível criar a rota.')
+        setErro(r.error ?? 'Não foi possível montar a rota.')
         return
       }
       onCriada(r.id_rota)
@@ -310,14 +373,20 @@ function NovaRota({ data, escolhidos, taxidogs, onFechar, onCriada }: {
         </div>
         <div className="modal-body">
           {erro && <div className="alert alert-error"><IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{erro}</span></div>}
-          <div className="form-group">
-            <label className="form-label">TaxiDog</label>
-            <select className="form-select" value={idTaxidog} onChange={e => setIdTaxidog(e.target.value)}>
-              <option value="">Definir depois</option>
-              {taxidogs.map(t => <option key={t.id_funcionario} value={t.id_funcionario}>{t.nome}</option>)}
-            </select>
-            {taxidogs.length === 0 && <span className="form-hint">Nenhum funcionário habilitado como TaxiDog — habilite em Equipe.</span>}
-          </div>
+          {perfil === 'gestor' ? (
+            <div className="form-group">
+              <label className="form-label">TaxiDog</label>
+              <select className="form-select" value={idTaxidog} onChange={e => setIdTaxidog(e.target.value)}>
+                <option value="">Definir depois</option>
+                {taxidogs.map(t => <option key={t.id_funcionario} value={t.id_funcionario}>{t.nome}</option>)}
+              </select>
+              {taxidogs.length === 0 && <span className="form-hint">Nenhum funcionário habilitado como TaxiDog — habilite em Equipe.</span>}
+            </div>
+          ) : (
+            <p className="text-sm text-muted" style={{ margin: 0 }}>
+              A rota fica no seu nome.{precisaAprovacao ? ' Ela vai para aprovação da loja e você pode sair assim que aprovarem.' : ''}
+            </p>
+          )}
           <div className="form-label">Paradas (dá para reordenar depois)</div>
           <ol className="tdr-previa">
             {previa.map((p, i) => (
@@ -330,19 +399,27 @@ function NovaRota({ data, escolhidos, taxidogs, onFechar, onCriada }: {
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onFechar}>Cancelar</button>
-          <button className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`} disabled={isPending} onClick={criar}>Criar rota</button>
+          <button className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`} disabled={isPending} onClick={criar}>
+            {perfil === 'taxidog' && precisaAprovacao ? 'Enviar para aprovação' : 'Montar rota'}
+          </button>
         </div>
       </div>
     </div>
   )
 }
 
-function DetalheRota({ rota: r, pendentes, taxidogs, enderecoLoja, googleConfigurado, falhaCalculo, onFechar }: {
+// Detalhe/organização de uma rota: ordem das paradas, tirar e pôr pets,
+// TaxiDog, aprovar, cancelar. Usado pela gestão (a partir do card) e pelo
+// TaxiDog (botão "Editar paradas" da tela da rota).
+export function DetalheRota({ rota: r, perfil, precisaAprovacao, caminho, pendentes, taxidogs, enderecoLoja, trajeto, falhaCalculo, onFechar }: {
   rota: Rota
+  perfil: PerfilRotas
+  precisaAprovacao: boolean
+  caminho: string
   pendentes: TrechoPendente[]
   taxidogs: TaxiDogOpcao[]
   enderecoLoja: string
-  googleConfigurado: boolean
+  trajeto: string | null
   falhaCalculo?: string
   onFechar: () => void
 }) {
@@ -353,7 +430,9 @@ function DetalheRota({ rota: r, pendentes, taxidogs, enderecoLoja, googleConfigu
   const [adicionar, setAdicionar] = useState('')
   const [arrastando, setArrastando] = useState<string | null>(null)
 
-  const editavel = r.status === 'planejamento' || r.status === 'aguardando_saida' || r.status === 'em_andamento'
+  const gestor = perfil === 'gestor'
+  const antesDeSair = r.status === 'planejamento' || r.status === 'aguardando_aprovacao' || r.status === 'aguardando_saida'
+  const editavel = gestor ? antesDeSair || r.status === 'em_andamento' : r.status === 'aguardando_aprovacao' || r.status === 'aguardando_saida'
   const pendentesDaRota = r.paradas.filter(p => p.status === 'pendente')
   const idsPendentes = pendentesDaRota.map(p => p.id_parada)
   const [ordemLocal, setOrdemLocal] = useState(idsPendentes)
@@ -367,9 +446,12 @@ function DetalheRota({ rota: r, pendentes, taxidogs, enderecoLoja, googleConfigu
   const fixas = r.paradas.filter(p => p.status !== 'pendente')
   const pendentesOrdenadas = ordemLocal.map(id => pendentesDaRota.find(p => p.id_parada === id)).filter((p): p is Parada => !!p)
   const exibidas = [...fixas, ...pendentesOrdenadas]
+  const paraAdicionar = pendentes.filter(t => t.status_agendamento !== 'Pendente')
 
   function executar(acao: () => Promise<{ error?: string }>, depois?: () => void) {
     setErro(null)
+    // O TaxiDog mexendo na própria rota não recebe "Rota atualizada".
+    if (!gestor) avisarMudancaPropria(r.id_rota)
     startTransition(async () => {
       const res = await acao()
       if (res.error) {
@@ -404,9 +486,8 @@ function DetalheRota({ rota: r, pendentes, taxidogs, enderecoLoja, googleConfigu
     setOrdemLocal(nova)
   }
 
-  const distancia = formatarDistancia(r.distancia_m)
-  const duracao = formatarDuracao(r.duracao_s)
   const petsDaRota = [...new Map(r.paradas.flatMap(p => p.itens).map(i => [i.id_corrida, i])).values()]
+  const rotuloCancelar = gestor && r.status === 'aguardando_aprovacao' && r.id_funcionario ? 'Recusar rota' : 'Cancelar rota'
 
   return (
     <div className="modal-overlay" onClick={onFechar}>
@@ -422,10 +503,20 @@ function DetalheRota({ rota: r, pendentes, taxidogs, enderecoLoja, googleConfigu
         <div className="modal-body">
           {erro && <div className="alert alert-error"><IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{erro}</span></div>}
 
+          {gestor && r.status === 'aguardando_aprovacao' && (
+            <div className="alert alert-warning">
+              <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+              <span style={{ flex: 1 }}>{r.funcionario_nome ?? 'O TaxiDog'} montou esta rota. Confira as paradas e aprove para ele poder sair.</span>
+            </div>
+          )}
+          {!gestor && precisaAprovacao && r.status === 'aguardando_saida' && (
+            <p className="text-xs text-muted" style={{ margin: 0 }}>Se você mudar as paradas, a rota volta para aprovação da loja.</p>
+          )}
+
           <div className="tdr-resumo-rota">
             <div>
               <div className="text-xs text-muted">TaxiDog</div>
-              {r.status === 'planejamento' || r.status === 'aguardando_saida' ? (
+              {gestor && antesDeSair ? (
                 <select
                   className="form-select"
                   value={r.id_funcionario ?? ''}
@@ -434,6 +525,9 @@ function DetalheRota({ rota: r, pendentes, taxidogs, enderecoLoja, googleConfigu
                 >
                   <option value="">Sem TaxiDog</option>
                   {taxidogs.map(t => <option key={t.id_funcionario} value={t.id_funcionario}>{t.nome}</option>)}
+                  {r.id_funcionario && !taxidogs.some(t => t.id_funcionario === r.id_funcionario) && (
+                    <option value={r.id_funcionario}>{r.funcionario_nome ?? 'TaxiDog atual'}</option>
+                  )}
                 </select>
               ) : (
                 <div className="font-semibold">{r.funcionario_nome ?? '—'}</div>
@@ -441,9 +535,7 @@ function DetalheRota({ rota: r, pendentes, taxidogs, enderecoLoja, googleConfigu
             </div>
             <div>
               <div className="text-xs text-muted">Trajeto</div>
-              <div className="font-semibold">
-                {!googleConfigurado ? '—' : distancia && r.calculo_versao === r.versao ? `${distancia} · ~${duracao}` : falhaCalculo ? '—' : 'Calculando...'}
-              </div>
+              <div className="font-semibold">{trajeto ?? '—'}</div>
               {falhaCalculo && r.calculo_versao !== r.versao && <div className="text-xs text-muted">{falhaCalculo}</div>}
             </div>
             <div>
@@ -500,11 +592,11 @@ function DetalheRota({ rota: r, pendentes, taxidogs, enderecoLoja, googleConfigu
             <p className="text-xs text-muted" style={{ margin: 0 }}>Arraste as paradas (ou use ↑ ↓) para mudar a ordem. As idas ao Pet Shop se ajustam sozinhas.</p>
           )}
 
-          {editavel && pendentes.length > 0 && (
+          {editavel && paraAdicionar.length > 0 && (
             <div className="flex gap-2" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
               <select className="form-select" style={{ flex: 1, minWidth: 200 }} value={adicionar} onChange={e => setAdicionar(e.target.value)}>
-                <option value="">Adicionar solicitação à rota...</option>
-                {pendentes.filter(t => t.status_agendamento !== 'Pendente').map(t => (
+                <option value="">Adicionar corrida à rota...</option>
+                {paraAdicionar.map(t => (
                   <option key={chaveTrecho(t)} value={chaveTrecho(t)}>
                     {t.trecho === 'busca' ? 'Buscar' : 'Entregar'} {t.pet_nome} · {textoTrecho(t)}
                   </option>
@@ -527,19 +619,30 @@ function DetalheRota({ rota: r, pendentes, taxidogs, enderecoLoja, googleConfigu
           )}
         </div>
 
-        <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
-          {(r.status === 'planejamento' || r.status === 'aguardando_saida') ? (
-            confirmandoCancelar ? (
-              <div className="flex gap-2">
+        <div className="modal-footer" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div className="flex gap-2">
+            {antesDeSair && (confirmandoCancelar ? (
+              <>
                 <button className={`btn btn-danger btn-sm ${isPending ? 'btn-loading' : ''}`} disabled={isPending}
-                  onClick={() => executar(() => cancelarRotaAction(r.id_rota), onFechar)}>Confirmar cancelamento</button>
+                  onClick={() => executar(() => cancelarRotaAction(r.id_rota), onFechar)}>Confirmar</button>
                 <button className="btn btn-ghost btn-sm" onClick={() => setConfirmandoCancelar(false)}>Voltar</button>
-              </div>
+              </>
             ) : (
-              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmandoCancelar(true)}>Cancelar rota</button>
-            )
-          ) : <span />}
-          <button className="btn btn-secondary btn-sm" onClick={onFechar}>Fechar</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmandoCancelar(true)}>{rotuloCancelar}</button>
+            ))}
+            {gestor && r.status !== 'planejamento' && (
+              <Link href={`${caminho}?rota=${r.id_rota}`} className="btn btn-ghost btn-sm">Tela do TaxiDog</Link>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {gestor && r.status === 'aguardando_aprovacao' && (
+              <button className={`btn btn-primary btn-sm ${isPending ? 'btn-loading' : ''}`} disabled={isPending}
+                onClick={() => executar(() => aprovarRotaAction(r.id_rota))}>
+                Aprovar rota
+              </button>
+            )}
+            <button className="btn btn-secondary btn-sm" onClick={onFechar}>Fechar</button>
+          </div>
         </div>
       </div>
     </div>
