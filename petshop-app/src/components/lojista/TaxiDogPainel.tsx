@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { addDays, format, parseISO, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { assumirCorridaAction, atribuirCorridaAction, avancarCorridaAction, cancelarCorridaAction } from '@/lib/actions-taxidog'
+import { EVENTO_CORRIDA_ASSUMIDA } from '@/components/lojista/NotificacaoNovaCorrida'
 import { formatarTelefone } from '@/lib/format'
 import {
   ROTULO_GRUPO,
@@ -35,6 +36,9 @@ import {
 
 interface Props {
   data: string
+  // Página onde o painel está (Kanban do dono/equipe ou "Minhas corridas"
+  // do TaxiDog) — a navegação por dia fica nela.
+  caminho: string
   hojeISO: string
   corridas: CorridaDetalhe[]
   taxidogs: { id_funcionario: string; nome: string }[]
@@ -78,7 +82,7 @@ function linkRota(c: CorridaDetalhe): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}`
 }
 
-export default function TaxiDogPainel({ data, hojeISO, corridas, taxidogs, podeAtribuir, podeAssumir = false, modoMotorista = false }: Props) {
+export default function TaxiDogPainel({ data, caminho, hojeISO, corridas, taxidogs, podeAtribuir, podeAssumir = false, modoMotorista = false }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   // Qual card disparou a ação — só ele mostra o "carregando".
@@ -108,7 +112,7 @@ export default function TaxiDogPainel({ data, hojeISO, corridas, taxidogs, podeA
   const totalDia = contadas.filter(c => c.status !== 'cancelada').reduce((soma, c) => soma + c.valor, 0)
 
   function irParaDia(novaData: string) {
-    router.push(`/lojista/taxidog?data=${novaData}`)
+    router.push(`${caminho}${caminho.includes('?') ? '&' : '?'}data=${novaData}`)
   }
 
   function executar(acao: () => Promise<{ error?: string }>, idCorrida?: string) {
@@ -240,7 +244,10 @@ export default function TaxiDogPainel({ data, hojeISO, corridas, taxidogs, podeA
                       etapasNoCard={modoMotorista}
                       isPending={isPending}
                       carregando={isPending && idEmAcao === c.id_corrida}
-                      onAssumir={() => executar(() => assumirCorridaAction(c.id_corrida), c.id_corrida)}
+                      onAssumir={() => {
+                        avisarQueAssumiu(c.id_corrida)
+                        executar(() => assumirCorridaAction(c.id_corrida), c.id_corrida)
+                      }}
                       onAvancar={status => executar(() => avancarCorridaAction(c.id_corrida, status), c.id_corrida)}
                     />
                   </div>
@@ -322,6 +329,19 @@ function AcaoDoCard({ c, podeAssumir, etapasNoCard, isPending, carregando, onAss
     return <p className="kanban-card-acao text-xs text-muted" style={{ margin: 'var(--space-2) 0 0' }}>Aguardando o serviço terminar para a entrega</p>
   }
   return null
+}
+
+// Avisa o NotificacaoNovaCorrida (nesta aba e nas outras abertas): a
+// corrida que vai chegar como "atribuída a você" foi ele mesmo que pegou.
+function avisarQueAssumiu(idCorrida: string) {
+  window.dispatchEvent(new CustomEvent(EVENTO_CORRIDA_ASSUMIDA, { detail: idCorrida }))
+  try {
+    const canal = new BroadcastChannel(EVENTO_CORRIDA_ASSUMIDA)
+    canal.postMessage(idCorrida)
+    canal.close()
+  } catch {
+    // Sem BroadcastChannel: só a aba atual fica sabendo.
+  }
 }
 
 function SeletorTaxiDog({ c, podeAtribuir, taxidogs, disabled, onAtribuir }: {

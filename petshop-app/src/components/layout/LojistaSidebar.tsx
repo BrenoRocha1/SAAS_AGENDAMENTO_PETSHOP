@@ -32,7 +32,11 @@ const navItemsBase = [
   { href: '/lojista/dashboard',     icon: IconGrid,      label: 'Dashboard', restrito: true },
   { href: '/lojista/agendamentos',  icon: IconCalendar,  label: 'Agendamentos', permissao: 'agenda' as const },
   { href: '/lojista/kanban',        icon: IconKanban,    label: 'Kanban', condicao: 'kanban' as const, permissao: 'agenda' as const },
+  // Dono/equipe com agenda veem o TaxiDog dentro do Kanban ("Visualizar
+  // TaxiDog"); este item fica pro TaxiDog ("Minhas corridas") e pra loja
+  // com o Kanban desativado.
   { href: '/lojista/taxidog',       icon: IconCar,       label: 'TaxiDog', condicao: 'taxidog' as const, permissao: 'agenda' as const },
+  { href: '/lojista/taxidog/relatorio', icon: IconChartBar, label: 'Relatório de corridas', condicao: 'taxidogRelatorio' as const },
   { href: '/lojista/relatorios',    icon: IconChartBar,  label: 'Relatórios de Vendas', restrito: true },
   { href: '/lojista/servicos',      icon: IconScissors,  label: 'Serviços', permissao: 'servicos' as const },
   { href: '/lojista/produtos',      icon: IconPackage,   label: 'Produtos', permissao: 'produtos' as const },
@@ -85,7 +89,8 @@ export default function LojistaSidebar({
   // 'lojista'. Só um funcionário comum passa pelo corte de permissões.
   const navItems = navItemsBase.filter(item => {
     if (item.condicao === 'kanban' && !kanbanAtivo) return false
-    if (item.condicao === 'taxidog') return (gestorDaAgenda && taxidogAtivo) || podeTaxidog
+    if (item.condicao === 'taxidog') return soMotorista || (gestorDaAgenda && taxidogAtivo && !kanbanAtivo)
+    if (item.condicao === 'taxidogRelatorio') return podeTaxidog
     if (role === 'funcionario' && !acessoTotal) {
       if (item.restrito) return false
       if (item.permissao === 'agenda') return podeGerenciarAgenda
@@ -96,6 +101,11 @@ export default function LojistaSidebar({
     return true
   })
   const pathname = usePathname()
+  // Item ativo = o de caminho mais específico ("/lojista/taxidog/relatorio"
+  // não acende também "/lojista/taxidog").
+  const hrefAtivo = navItems
+    .filter(i => pathname === i.href || pathname.startsWith(`${i.href}/`))
+    .sort((x, y) => y.href.length - x.href.length)[0]?.href
   const [isPending, startTransition] = useTransition()
   const [colapsada, setColapsada] = useState(false)
 
@@ -170,7 +180,7 @@ export default function LojistaSidebar({
             <Link
               key={item.href}
               href={item.href}
-              className={`sidebar-link ${pathname.startsWith(item.href) ? 'active' : ''}`}
+              className={`sidebar-link ${item.href === hrefAtivo ? 'active' : ''}`}
               title={colapsada ? label : undefined}
             >
               <span className="sidebar-link-icon">

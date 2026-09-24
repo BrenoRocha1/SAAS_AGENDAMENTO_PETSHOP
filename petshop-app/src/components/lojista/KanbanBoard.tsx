@@ -246,11 +246,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
 
   return (
     <>
-      <div className="page-header">
-        <h1 className="page-title">Kanban de Agendamentos</h1>
-        <p className="page-subtitle">Acompanhe o atendimento em tempo real</p>
-      </div>
-
+      {/* Título e o botão "Visualizar TaxiDog" ficam na página (kanban/page.tsx). */}
       <div className="kanban-toolbar">
         <div className="dash-day-nav">
           <button onClick={() => irParaDia(format(subDays(selectedDateObj, 1), 'yyyy-MM-dd'))} aria-label="Dia anterior">
@@ -432,7 +428,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                       <span className="font-semibold text-success">{formatarReais(selecionado.taxidog.valor)}</span>
                     </div>
                     <div className="text-xs text-muted">{selecionado.taxidog.endereco}</div>
-                    <Link href={`/lojista/taxidog?data=${selecionado.dt_agendamento}`} className="text-xs text-accent">Ver no painel do TaxiDog</Link>
+                    <Link href={`/lojista/kanban?visao=taxidog&data=${selecionado.dt_agendamento}`} className="text-xs text-accent">Ver no Kanban do TaxiDog</Link>
                   </div>
                 </div>
               )}

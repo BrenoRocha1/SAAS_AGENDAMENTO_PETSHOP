@@ -3,14 +3,17 @@ import type { Metadata } from 'next'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import KanbanBoard, { type KanbanItem } from '@/components/lojista/KanbanBoard'
+import TaxiDogConteudo from '@/components/lojista/TaxiDogConteudo'
 import type { ModalidadeTaxiDog } from '@/lib/taxidog'
-import { IconAlert, IconKanban } from '@/components/icons'
+import { IconAlert, IconCar, IconChartBar, IconKanban } from '@/components/icons'
 import Link from 'next/link'
 
 export const metadata: Metadata = { title: 'Kanban de Agendamentos' }
 
 interface Props {
-  searchParams: Promise<{ data?: string }>
+  // visao=taxidog: o Kanban das corridas do TaxiDog, no lugar do de
+  // agendamentos ("Visualizar TaxiDog").
+  searchParams: Promise<{ data?: string; visao?: string }>
 }
 
 export default async function KanbanPage({ searchParams }: Props) {
@@ -69,6 +72,53 @@ export default async function KanbanPage({ searchParams }: Props) {
 
   const hojeISO = hojeBrasilISO()
   const selectedDate = params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO
+  const visaoTaxiDog = params.visao === 'taxidog'
+
+  // O botão "Visualizar TaxiDog" só aparece com o TaxiDog ativado (e sem a
+  // migration 042 a tabela nem existe — aí some também).
+  const { data: taxidogCfg, error: taxidogCfgErro } = await supabase
+    .from('taxidog_config')
+    .select('ativo')
+    .eq('id_lojista', lojistaId)
+    .maybeSingle()
+  const mostraTaxiDog = visaoTaxiDog || (!taxidogCfgErro && !!taxidogCfg?.ativo)
+
+  const cabecalho = (
+    <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
+      <div>
+        <h1 className="page-title">{visaoTaxiDog ? 'Kanban do TaxiDog' : 'Kanban de Agendamentos'}</h1>
+        <p className="page-subtitle">
+          {visaoTaxiDog ? 'Corridas de busca e entrega dos pets' : 'Acompanhe o atendimento em tempo real'}
+        </p>
+      </div>
+      {mostraTaxiDog && (
+        <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+          {visaoTaxiDog && (
+            <Link href="/lojista/taxidog/relatorio" className="btn btn-ghost btn-sm">
+              <IconChartBar style={{ width: 14, height: 14 }} /> Relatório de corridas
+            </Link>
+          )}
+          <Link
+            href={visaoTaxiDog ? `/lojista/kanban?data=${selectedDate}` : `/lojista/kanban?visao=taxidog&data=${selectedDate}`}
+            className="btn btn-secondary btn-sm"
+          >
+            {visaoTaxiDog
+              ? <><IconKanban style={{ width: 14, height: 14 }} /> Visualizar agendamentos</>
+              : <><IconCar style={{ width: 14, height: 14 }} /> Visualizar TaxiDog</>}
+          </Link>
+        </div>
+      )}
+    </div>
+  )
+
+  if (visaoTaxiDog) {
+    return (
+      <>
+        {cabecalho}
+        <TaxiDogConteudo contexto={contexto} data={selectedDate} hojeISO={hojeISO} caminho="/lojista/kanban?visao=taxidog" />
+      </>
+    )
+  }
 
   const [
     { data: agendaRaw, error: agendaErro },
@@ -207,13 +257,16 @@ export default async function KanbanPage({ searchParams }: Props) {
   }))
 
   return (
-    <KanbanBoard
-      selectedDate={selectedDate}
-      hojeISO={hojeISO}
-      itensIniciais={itens}
-      funcionarios={(funcionariosRaw ?? []) as { id_funcionario: string; nome: string }[]}
-      servicos={(servicosRaw ?? []) as { id_servico: string; nome: string }[]}
-      podeAtribuirProfissional={contexto.acessoTotal}
-    />
+    <>
+      {cabecalho}
+      <KanbanBoard
+        selectedDate={selectedDate}
+        hojeISO={hojeISO}
+        itensIniciais={itens}
+        funcionarios={(funcionariosRaw ?? []) as { id_funcionario: string; nome: string }[]}
+        servicos={(servicosRaw ?? []) as { id_servico: string; nome: string }[]}
+        podeAtribuirProfissional={contexto.acessoTotal}
+      />
+    </>
   )
 }

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import LojistaSidebar from '@/components/layout/LojistaSidebar'
 import NotificacaoNovoAgendamento from '@/components/lojista/NotificacaoNovoAgendamento'
 import AtualizacaoAoVivo from '@/components/lojista/AtualizacaoAoVivo'
+import NotificacaoNovaCorrida from '@/components/lojista/NotificacaoNovaCorrida'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 
@@ -100,6 +101,10 @@ export default async function LojistaLayout({
     <div className="app-layout lojista-shell">
       <NotificacaoNovoAgendamento lojistaId={contexto.idLojista} somAtivo={somAtivo} somTipo={somTipo} />
       <AtualizacaoAoVivo lojistaId={contexto.idLojista} />
+      {/* Aviso de corrida nova / pronta pra entrega — só pra quem é TaxiDog. */}
+      {contexto.podeTaxidog && (
+        <NotificacaoNovaCorrida lojistaId={contexto.idLojista} userId={user.id} somAtivo={somAtivo} somTipo={somTipo} />
+      )}
       <LojistaSidebar
         nomeLoja={nomeLoja}
         nomeUsuario={nomeUsuario}

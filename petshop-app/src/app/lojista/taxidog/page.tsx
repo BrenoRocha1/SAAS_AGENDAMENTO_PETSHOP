@@ -1,11 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { obterContextoLojista } from '@/lib/lojista-context'
-import { normalizarCorrida } from '@/lib/taxidog'
-import TaxiDogPainel from '@/components/lojista/TaxiDogPainel'
-import { IconAlert, IconCar } from '@/components/icons'
+import TaxiDogConteudo from '@/components/lojista/TaxiDogConteudo'
+import { IconCar, IconChartBar } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'TaxiDog — Corridas' }
 
@@ -13,6 +13,9 @@ interface Props {
   searchParams: Promise<{ data?: string }>
 }
 
+// "Minhas corridas" do funcionário que só é TaxiDog. Dono e equipe com
+// agenda veem as corridas dentro do Kanban ("Visualizar TaxiDog") — esta
+// rota só atende eles quando o Kanban está desativado na loja.
 export default async function TaxiDogPage({ searchParams }: Props) {
   const params = await searchParams
   const supabase = await createClient()
@@ -20,18 +23,30 @@ export default async function TaxiDogPage({ searchParams }: Props) {
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
   if (!contexto) return null
 
-  // Quem gerencia a agenda vê todas as corridas da loja; quem só tem a
-  // função TaxiDog vê as dele + as ainda sem TaxiDog (fn_listar_corridas
-  // já filtra assim, migration 046): pode assumir uma disponível e avançar
-  // as etapas das dele, mas não atribuir a outro nem cancelar.
   const modoMotorista = !contexto.podeGerenciarAgenda && contexto.podeTaxidog
+  const hojeISO = hojeBrasilISO()
+  const data = params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO
+
+  if (contexto.podeGerenciarAgenda) {
+    // Tolerante como o resto: sem a coluna, o Kanban conta como ativado.
+    const { data: lojistaRow, error } = await supabase.from('lojista').select('kanban_ativo').eq('id_lojista', contexto.idLojista).maybeSingle()
+    const kanbanAtivo = error ? true : (lojistaRow?.kanban_ativo ?? true)
+    if (kanbanAtivo) redirect(`/lojista/kanban?visao=taxidog&data=${data}`)
+  }
 
   const cabecalho = (
-    <div className="page-header">
-      <h1 className="page-title">{modoMotorista ? 'Minhas corridas' : 'TaxiDog'}</h1>
-      <p className="page-subtitle">
-        {modoMotorista ? 'Pegue as corridas disponíveis e acompanhe as suas' : 'Corridas de busca e entrega dos pets'}
-      </p>
+    <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
+      <div>
+        <h1 className="page-title">{modoMotorista ? 'Minhas corridas' : 'TaxiDog'}</h1>
+        <p className="page-subtitle">
+          {modoMotorista ? 'Pegue as corridas disponíveis e acompanhe as suas' : 'Corridas de busca e entrega dos pets'}
+        </p>
+      </div>
+      {(contexto.podeGerenciarAgenda || contexto.podeTaxidog) && (
+        <Link href="/lojista/taxidog/relatorio" className="btn btn-secondary btn-sm">
+          <IconChartBar style={{ width: 14, height: 14 }} /> Relatório de corridas
+        </Link>
+      )}
     </div>
   )
 
@@ -48,56 +63,10 @@ export default async function TaxiDogPage({ searchParams }: Props) {
     )
   }
 
-  const hojeISO = hojeBrasilISO()
-  const data = params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO
-  const podeAtribuir = contexto.role === 'lojista' || contexto.acessoTotal
-
-  const [corridasRes, configRes, { data: taxidogs }] = await Promise.all([
-    supabase.rpc('fn_listar_corridas', { p_data_ini: data, p_data_fim: data }),
-    supabase.from('taxidog_config').select('ativo').eq('id_lojista', contexto.idLojista).maybeSingle(),
-    podeAtribuir
-      ? supabase.from('funcionario').select('id_funcionario, nome').eq('id_lojista', contexto.idLojista).eq('ativo', true).eq('pode_taxidog', true).order('nome')
-      : Promise.resolve({ data: [] as { id_funcionario: string; nome: string }[] }),
-  ])
-
-  if (corridasRes.error) {
-    return (
-      <>
-        {cabecalho}
-        <div className="alert alert-error">
-          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-          <span>
-            Não foi possível carregar as corridas. Execute a migration 042_taxidog.sql se ainda não rodou.
-            {process.env.NODE_ENV !== 'production' && ` [DEV: ${corridasRes.error.message}]`}
-          </span>
-        </div>
-      </>
-    )
-  }
-
-  const corridas = ((corridasRes.data ?? []) as Record<string, unknown>[]).map(normalizarCorrida)
-
   return (
     <>
       {cabecalho}
-      {!configRes.data?.ativo && !modoMotorista && (
-        <div className="alert alert-info" style={{ marginBottom: 'var(--space-5)' }}>
-          <IconCar style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-          <span>
-            O TaxiDog está desativado — novos clientes não conseguem pedir.{' '}
-            {podeAtribuir && <Link href="/lojista/configuracoes/taxidog" className="text-accent">Configurar TaxiDog</Link>}
-          </span>
-        </div>
-      )}
-      <TaxiDogPainel
-        data={data}
-        hojeISO={hojeISO}
-        corridas={corridas}
-        taxidogs={(taxidogs ?? []) as { id_funcionario: string; nome: string }[]}
-        podeAtribuir={podeAtribuir}
-        podeAssumir={contexto.podeTaxidog}
-        modoMotorista={modoMotorista}
-      />
+      <TaxiDogConteudo contexto={contexto} data={data} hojeISO={hojeISO} caminho="/lojista/taxidog" />
     </>
   )
 }
