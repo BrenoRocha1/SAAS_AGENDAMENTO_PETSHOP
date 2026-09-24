@@ -227,6 +227,8 @@ export const enderecoTaxiDogSchema = z.object({
 export const taxiDogAgendamentoSchema = z.object({
   modalidade: z.enum(['buscar', 'entregar', 'buscar_entregar']),
   endereco: enderecoTaxiDogSchema,
+  // TaxiDog escolhido por quem agenda (migration 047) — vazio = sem preferência.
+  id_funcionario: z.string().uuid().nullable().optional(),
 })
 
 const valorTaxiDog = z.number({ message: 'Informe um valor' }).min(0, 'Valor não pode ser negativo').max(9999)

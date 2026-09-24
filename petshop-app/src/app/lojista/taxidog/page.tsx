@@ -90,7 +90,6 @@ export default async function TaxiDogPage({ searchParams }: Props) {
         </div>
       )}
       <TaxiDogPainel
-        idLojista={contexto.idLojista}
         data={data}
         hojeISO={hojeISO}
         corridas={corridas}

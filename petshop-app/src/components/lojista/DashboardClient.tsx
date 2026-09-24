@@ -216,7 +216,9 @@ export default function DashboardClient({
       })
 
     return () => { cancelado = true }
-  }, [viewMode, aggBase, lojistaId]) // eslint-disable-line react-hooks/exhaustive-deps
+    // agendaSelecionada: muda a cada router.refresh() (AtualizacaoAoVivo,
+    // agendamento novo) — assim a visão semana/mês também se atualiza.
+  }, [viewMode, aggBase, lojistaId, agendaSelecionada]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function irParaDia(iso: string) {
     setViewMode('dia')

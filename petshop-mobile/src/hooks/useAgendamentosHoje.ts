@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { hojeBrasilISO } from '@/lib/agenda'
 import type { Agendamento } from '@/types/database'
@@ -41,6 +41,21 @@ export function useAgendamentosHoje(idLojista: string | undefined) {
     setLoading(true)
     carregar()
   }, [carregar])
+
+  // Ao vivo: agendamento novo/alterado na loja recarrega a lista (mesmo
+  // canal que o painel web usa). Nome único por tela — Início e
+  // Agendamentos usam este hook ao mesmo tempo.
+  const idCanal = useId()
+  useEffect(() => {
+    if (!idLojista) return
+    const canal = supabase
+      .channel(`agenda-hoje-${idLojista}-${idCanal}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamento', filter: `id_lojista=eq.${idLojista}` }, () => carregar())
+      .subscribe()
+    return () => {
+      supabase.removeChannel(canal)
+    }
+  }, [idLojista, idCanal, carregar])
 
   return { agendamentos, loading, erro, recarregar: carregar }
 }

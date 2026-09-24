@@ -1704,7 +1704,11 @@ export async function criarAgendamentoLojistaAction(
     return { error: parsed.error.issues[0].message }
   }
 
-  const { data, error } = await supabase.rpc('fn_criar_agendamento_lojista', {
+  // TaxiDog opcional também no agendamento da loja (migration 047).
+  const taxidog = lerTaxiDogDoFormulario(formData)
+  if (taxidog.erro) return { error: taxidog.erro }
+
+  const paramsAgendamento = {
     p_id_lojista: parsed.data.id_lojista,
     p_id_cliente: parsed.data.id_cliente,
     p_id_pet: parsed.data.id_pet,
@@ -1712,9 +1716,24 @@ export async function criarAgendamentoLojistaAction(
     p_data: parsed.data.dt_agendamento,
     p_hora: parsed.data.hr_agendamento,
     p_obs: parsed.data.obs || null,
-  })
+  }
+
+  const { data, error } = taxidog.dados
+    ? await supabase.rpc('fn_criar_agendamento_lojista_com_taxidog', {
+        ...paramsAgendamento,
+        ...paramsRpcTaxiDog(
+          taxidog.dados,
+          await coordenadasParaTaxiDog(supabase, parsed.data.id_lojista, taxidog.dados.endereco, true)
+        ),
+      })
+    : await supabase.rpc('fn_criar_agendamento_lojista', paramsAgendamento)
 
   if (error) {
+    const erroTaxiDog = mensagemErroTaxiDog(error.message)
+    if (erroTaxiDog) return { error: erroTaxiDog }
+    if (taxidog.dados && (error.code === 'PGRST202' || error.message.includes('Could not find'))) {
+      return { error: 'Para agendar com TaxiDog pela loja, execute a migration 047_taxidog_agendamento_loja_e_escolha.sql.' }
+    }
     if (error.message.includes('does not exist') || error.message.includes('Could not find') || error.code === '42883') {
       return { error: 'Função fn_criar_agendamento_lojista não encontrada no banco. Execute a migration 008_fn_criar_agendamento_lojista.sql.' }
     }

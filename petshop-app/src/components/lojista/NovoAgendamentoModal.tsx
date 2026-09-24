@@ -3,7 +3,17 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { atribuirFuncionarioAction, criarAgendamentoLojistaAction, criarPetLojistaAction } from '@/lib/actions'
+import { cotarTaxiDogLojaAction } from '@/lib/actions-taxidog'
 import { formatarTelefone } from '@/lib/format'
+import { formatarReais, type TaxiDogOpcao } from '@/lib/taxidog'
+import {
+  ESTADO_TRANSPORTE_INICIAL,
+  TaxiDogCampos,
+  escolhaDoTransporte,
+  taxiDogParaFormulario,
+  transportePronto,
+  type EstadoTransporte,
+} from '@/components/cliente/TaxiDogEtapa'
 import { removerHorariosPassados } from '@/lib/agenda'
 import { format } from 'date-fns'
 import {
@@ -14,6 +24,7 @@ import {
   IconDog,
   IconPlus,
   IconScissors,
+  IconCar,
 } from '@/components/icons'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
 
@@ -75,6 +86,27 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
   // profissional, igual já acontecia antes desta opção existir.
   const [funcionarioId, setFuncionarioId] = useState(funcionarioIdPadrao ?? '')
 
+  // TaxiDog no agendamento da loja (migration 047). Começa em "o cliente
+  // leva o pet" — a maioria dos agendamentos de balcão não usa transporte.
+  const [taxidogAtivo, setTaxidogAtivo] = useState(false)
+  const [taxidogs, setTaxidogs] = useState<TaxiDogOpcao[]>([])
+  const [transporte, setTransporte] = useState<EstadoTransporte>({ ...ESTADO_TRANSPORTE_INICIAL, opcao: 'levar' })
+  const escolhaTaxiDog = escolhaDoTransporte(transporte)
+
+  useEffect(() => {
+    let cancelado = false
+    supabase
+      .from('taxidog_config')
+      .select('ativo')
+      .eq('id_lojista', lojistaId)
+      .maybeSingle()
+      .then(({ data }) => { if (!cancelado) setTaxidogAtivo(!!data?.ativo) })
+    supabase
+      .rpc('fn_taxidogs_publicos', { p_id_lojista: lojistaId })
+      .then(({ data }) => { if (!cancelado) setTaxidogs((data as TaxiDogOpcao[] | null) ?? []) })
+    return () => { cancelado = true }
+  }, [supabase, lojistaId])
+
   const [slots, setSlots] = useState<Slot[]>([])
   const [slotsLoadedKey, setSlotsLoadedKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -132,6 +164,8 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
   if (clienteId !== clienteIdAnterior) {
     setClienteIdAnterior(clienteId)
     setPetId('')
+    // Endereço/taxa eram do cliente anterior.
+    setTransporte({ ...ESTADO_TRANSPORTE_INICIAL, opcao: 'levar' })
   }
 
   // horário escolhido é limpo sempre que a data ou o serviço mudam
@@ -176,6 +210,7 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
     formData.set('dt_agendamento', data)
     formData.set('hr_agendamento', hora)
     formData.set('obs', obs)
+    if (taxidogAtivo && escolhaTaxiDog) formData.set('taxidog', taxiDogParaFormulario(escolhaTaxiDog))
 
     startTransition(async () => {
       const result = await criarAgendamentoLojistaAction(formData)
@@ -204,7 +239,7 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
           nome_servico: servicoSel!.nome,
           duracao: servicoSel!.duracao,
           status: 'Confirmado',
-          valor: Number(servicoSel!.preco),
+          valor: Number(servicoSel!.preco) + (taxidogAtivo && escolhaTaxiDog ? Number(escolhaTaxiDog.cotacao.valor ?? 0) : 0),
         },
         data
       )
@@ -212,7 +247,7 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
     })
   }
 
-  const podeSubmeter = !!(clienteId && petId && servicoId && data && hora) && !isPending && !success
+  const podeSubmeter = !!(clienteId && petId && servicoId && data && hora) && (!taxidogAtivo || transportePronto(transporte)) && !isPending && !success
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -534,6 +569,31 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* Transporte — só com o TaxiDog ativado na loja */}
+              {servicoId && taxidogAtivo && (
+                <div className="form-group">
+                  <label className="form-label">
+                    <IconCar style={{ width: 13, height: 13, verticalAlign: -2, marginRight: 4 }} />
+                    Transporte do pet
+                  </label>
+                  <TaxiDogCampos
+                    key={clienteId}
+                    valor={transporte}
+                    onChange={setTransporte}
+                    cotar={cotarTaxiDogLojaAction}
+                    taxidogs={taxidogs}
+                    modoLoja
+                    idCliente={clienteId}
+                  />
+                  {escolhaTaxiDog && servicoSel && (
+                    <p className="text-sm" style={{ margin: 0 }}>
+                      Total: <strong className="text-success">{formatarReais(Number(servicoSel.preco) + Number(escolhaTaxiDog.cotacao.valor ?? 0))}</strong>
+                      <span className="text-muted"> (serviço + TaxiDog)</span>
+                    </p>
+                  )}
                 </div>
               )}
 

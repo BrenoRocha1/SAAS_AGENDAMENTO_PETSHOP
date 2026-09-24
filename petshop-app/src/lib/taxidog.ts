@@ -164,6 +164,15 @@ export interface EscolhaTaxiDog {
   modalidade: ModalidadeTaxiDog
   endereco: EnderecoTaxiDog
   cotacao: CotacaoTaxiDog
+  // TaxiDog escolhido por quem agenda (migration 047); null = sem preferência.
+  idTaxidog: string | null
+  nomeTaxidog: string | null
+}
+
+// Opção da lista "quem faz a corrida" (fn_taxidogs_publicos).
+export interface TaxiDogOpcao {
+  id_funcionario: string
+  nome: string
 }
 
 // Linha de fn_listar_corridas (migration 042), já com números convertidos.

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import LojistaSidebar from '@/components/layout/LojistaSidebar'
 import NotificacaoNovoAgendamento from '@/components/lojista/NotificacaoNovoAgendamento'
+import AtualizacaoAoVivo from '@/components/lojista/AtualizacaoAoVivo'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 
@@ -98,6 +99,7 @@ export default async function LojistaLayout({
   return (
     <div className="app-layout lojista-shell">
       <NotificacaoNovoAgendamento lojistaId={contexto.idLojista} somAtivo={somAtivo} somTipo={somTipo} />
+      <AtualizacaoAoVivo lojistaId={contexto.idLojista} />
       <LojistaSidebar
         nomeLoja={nomeLoja}
         nomeUsuario={nomeUsuario}

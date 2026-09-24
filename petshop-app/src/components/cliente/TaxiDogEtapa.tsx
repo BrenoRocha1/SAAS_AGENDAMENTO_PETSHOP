@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cotarTaxiDogAction } from '@/lib/actions-taxidog'
 import {
@@ -16,15 +16,19 @@ import {
   type EnderecoTaxiDog,
   type EscolhaTaxiDog,
   type ModalidadeTaxiDog,
+  type TaxiDogOpcao,
 } from '@/lib/taxidog'
 import { IconAlert, IconCar, IconCheck, IconMapPin, IconStore } from '@/components/icons'
 
 // ============================================================
-// Etapa "Como seu pet irá até a loja?" — usada pelos dois fluxos de
-// agendamento do cliente (link público e conta do cliente).
+// Transporte do pet (TaxiDog) — campos compartilhados
 // ============================================================
-// O estado mora no wizard (pra não se perder ao voltar/avançar etapas);
-// este componente só edita esse estado. O preço exibido vem SEMPRE da
+// TaxiDogCampos é usado nos dois lados:
+//   • cliente: etapa "Como seu pet irá até a loja?" (TaxiDogEtapa, abaixo),
+//     nos fluxos de agendamento do link público e da conta do cliente;
+//   • loja: bloco "Transporte" do modal de novo agendamento (migration 047).
+// O estado mora em quem usa (pra não se perder ao voltar/avançar etapas);
+// estes componentes só editam esse estado. O preço exibido vem SEMPRE da
 // cotação do banco (fn_cotar_taxidog) — e é recalculado de novo no
 // momento de agendar, nunca aceito do navegador.
 
@@ -34,6 +38,9 @@ export interface EstadoTransporte {
   endereco: EnderecoTaxiDog
   cotacoes: Record<ModalidadeTaxiDog, CotacaoTaxiDog> | null
   precisao: 'endereco' | 'bairro' | 'cidade' | null
+  // Quem faz a corrida (opcional) — null = sem preferência.
+  idTaxidog: string | null
+  nomeTaxidog: string | null
 }
 
 export const ESTADO_TRANSPORTE_INICIAL: EstadoTransporte = {
@@ -42,14 +49,22 @@ export const ESTADO_TRANSPORTE_INICIAL: EstadoTransporte = {
   endereco: ENDERECO_VAZIO,
   cotacoes: null,
   precisao: null,
+  idTaxidog: null,
+  nomeTaxidog: null,
 }
 
-// O que efetivamente vai pro agendamento: null = cliente leva o pet.
+// O que efetivamente vai pro agendamento: null = o pet vai sem TaxiDog.
 export function escolhaDoTransporte(estado: EstadoTransporte): EscolhaTaxiDog | null {
   if (estado.opcao !== 'taxidog') return null
   const cotacao = estado.cotacoes?.[estado.modalidade]
   if (!cotacao?.disponivel) return null
-  return { modalidade: estado.modalidade, endereco: estado.endereco, cotacao }
+  return {
+    modalidade: estado.modalidade,
+    endereco: estado.endereco,
+    cotacao,
+    idTaxidog: estado.idTaxidog,
+    nomeTaxidog: estado.nomeTaxidog,
+  }
 }
 
 export function transportePronto(estado: EstadoTransporte): boolean {
@@ -58,8 +73,14 @@ export function transportePronto(estado: EstadoTransporte): boolean {
 
 // Campo JSON `taxidog` que as Server Actions de agendamento esperam.
 export function taxiDogParaFormulario(escolha: EscolhaTaxiDog): string {
-  return JSON.stringify({ modalidade: escolha.modalidade, endereco: escolha.endereco })
+  return JSON.stringify({ modalidade: escolha.modalidade, endereco: escolha.endereco, id_funcionario: escolha.idTaxidog })
 }
+
+type Cotar = (endereco: EnderecoTaxiDog) => Promise<{
+  error?: string
+  cotacoes?: Record<ModalidadeTaxiDog, CotacaoTaxiDog>
+  precisao?: 'endereco' | 'bairro' | 'cidade' | null
+}>
 
 function enderecoCompleto(e: EnderecoTaxiDog): boolean {
   return (
@@ -91,15 +112,16 @@ function estiloOpcao(selecionado: boolean): React.CSSProperties {
   }
 }
 
-interface Props {
-  idLojista: string
+export function TaxiDogCampos({ valor, onChange, cotar, taxidogs, modoLoja = false, idCliente }: {
   valor: EstadoTransporte
   onChange: Dispatch<SetStateAction<EstadoTransporte>>
-  onContinuar: () => void
-  rotuloContinuar?: string
-}
-
-export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, rotuloContinuar = 'Continuar' }: Props) {
+  cotar: Cotar
+  taxidogs: TaxiDogOpcao[]
+  // Agendamento feito pela loja: textos na 3ª pessoa e o último endereço
+  // vem do cliente escolhido (não de quem está logado).
+  modoLoja?: boolean
+  idCliente?: string
+}) {
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [erroCep, setErroCep] = useState<string | null>(null)
   const [cotando, setCotando] = useState(false)
@@ -108,14 +130,18 @@ export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, 
   const jaPreencheu = useRef(false)
 
   // Último endereço usado num TaxiDog deste cliente — poupa digitar de
-  // novo. RLS "taxidog_corrida: cliente ve proprias" já limita às dele.
+  // novo. No lado do cliente, a RLS "taxidog_corrida: cliente ve proprias"
+  // já limita às dele; no da loja, filtra pelo cliente escolhido.
   useEffect(() => {
     if (jaPreencheu.current || valor.endereco.cep) return
+    if (modoLoja && !idCliente) return
     jaPreencheu.current = true
     const supabase = createClient()
-    supabase
+    let consulta = supabase
       .from('taxidog_corrida')
       .select('cep, logradouro, numero, complemento, bairro, cidade, uf')
+    if (modoLoja && idCliente) consulta = consulta.eq('id_cliente', idCliente)
+    consulta
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -135,7 +161,7 @@ export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, 
           cotacoes: null,
         })
       })
-  }, [valor.endereco.cep, onChange])
+  }, [valor.endereco.cep, onChange, modoLoja, idCliente])
 
   const chaveEndereco = useMemo(
     () => (valor.opcao === 'taxidog' && enderecoCompleto(valor.endereco) ? JSON.stringify(valor.endereco) : ''),
@@ -151,7 +177,7 @@ export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, 
     const timer = setTimeout(async () => {
       setCotando(true)
       setErroCotacao(null)
-      const result = await cotarTaxiDogAction(idLojista, endereco)
+      const result = await cotar(endereco)
       setCotando(false)
       if (chaveAtual.current !== chaveEndereco) return
       if (result.error || !result.cotacoes) {
@@ -161,7 +187,7 @@ export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, 
       onChange(prev => ({ ...prev, cotacoes: result.cotacoes!, precisao: result.precisao ?? null }))
     }, 600)
     return () => clearTimeout(timer)
-  }, [chaveEndereco, valor.cotacoes, idLojista, onChange])
+  }, [chaveEndereco, valor.cotacoes, cotar, onChange])
 
   function atualizarEndereco(campo: keyof EnderecoTaxiDog, texto: string) {
     setErroCotacao(null)
@@ -175,7 +201,7 @@ export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, 
     if (digitos.length !== 8) return
 
     // ViaCEP: serviço público e gratuito de CEP do Brasil — só preenche o
-    // que o cliente ainda não digitou.
+    // que ainda não foi digitado.
     setBuscandoCep(true)
     try {
       const res = await fetch(`https://viacep.com.br/ws/${digitos}/json/`)
@@ -194,6 +220,7 @@ export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, 
           uf: json.uf || prev.endereco.uf,
         },
         cotacoes: null,
+        precisao: null,
       }))
     } catch {
       setErroCep('Não foi possível buscar o CEP. Preencha o endereço manualmente.')
@@ -202,21 +229,20 @@ export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, 
     }
   }
 
+  function escolherTaxiDog(idFuncionario: string) {
+    const t = taxidogs.find(x => x.id_funcionario === idFuncionario)
+    onChange(prev => ({ ...prev, idTaxidog: t?.id_funcionario ?? null, nomeTaxidog: t?.nome ?? null }))
+  }
+
   const cotacaoSelecionada = valor.cotacoes?.[valor.modalidade] ?? null
-  const podeContinuar = transportePronto(valor)
 
   return (
-    <div className="card">
-      <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-2)' }}>Como seu pet irá até a loja?</h2>
-      <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
-        Você pode levar o pet ou usar o TaxiDog da loja para buscar e/ou entregar.
-      </p>
-
+    <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-5)' }}>
         <button type="button" style={estiloOpcao(valor.opcao === 'levar')} onClick={() => onChange(prev => ({ ...prev, opcao: 'levar' }))}>
           <IconStore style={{ width: 20, height: 20, color: 'var(--gray-400)', flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
-            <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>Vou levar o pet até a loja</div>
+            <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{modoLoja ? 'O cliente leva o pet até a loja' : 'Vou levar o pet até a loja'}</div>
             <div className="text-sm text-muted">Sem taxa de transporte</div>
           </div>
           {valor.opcao === 'levar' && <IconCheck style={{ width: 16, height: 16, color: 'var(--primary-400)' }} />}
@@ -225,8 +251,8 @@ export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, 
         <button type="button" style={estiloOpcao(valor.opcao === 'taxidog')} onClick={() => onChange(prev => ({ ...prev, opcao: 'taxidog' }))}>
           <IconCar style={{ width: 20, height: 20, color: 'var(--gray-400)', flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
-            <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>Quero utilizar o TaxiDog</div>
-            <div className="text-sm text-muted">Buscamos e/ou entregamos o seu pet · taxa calculada pelo endereço</div>
+            <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{modoLoja ? 'Usar o TaxiDog' : 'Quero utilizar o TaxiDog'}</div>
+            <div className="text-sm text-muted">Busca e/ou entrega do pet · taxa calculada pelo endereço</div>
           </div>
           {valor.opcao === 'taxidog' && <IconCheck style={{ width: 16, height: 16, color: 'var(--primary-400)' }} />}
         </button>
@@ -235,7 +261,7 @@ export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, 
       {valor.opcao === 'taxidog' && (
         <>
           <div className="form-group">
-            <label className="form-label">O que você precisa?</label>
+            <label className="form-label">{modoLoja ? 'O que o cliente precisa?' : 'O que você precisa?'}</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               {MODALIDADES.map(m => {
                 const cot = valor.cotacoes?.[m]
@@ -331,7 +357,8 @@ export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, 
             <div className="alert alert-warning" style={{ marginBottom: 'var(--space-5)' }}>
               <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
               <span>
-                {cotacaoSelecionada.motivo ?? 'O TaxiDog não está disponível para este endereço.'} Você ainda pode levar o pet até a loja.
+                {cotacaoSelecionada.motivo ?? 'O TaxiDog não está disponível para este endereço.'}
+                {modoLoja ? ' O cliente ainda pode levar o pet até a loja.' : ' Você ainda pode levar o pet até a loja.'}
               </span>
             </div>
           ) : cotacaoSelecionada ? (
@@ -365,17 +392,55 @@ export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, 
                 <span className="font-semibold text-success">{formatarReais(cotacaoSelecionada.valor)}</span>
               </div>
               <p className="text-xs text-muted" style={{ margin: 0 }}>
-                A taxa do TaxiDog é referente ao transporte do seu pet e é cobrada separadamente do serviço.
+                A taxa do TaxiDog é referente ao transporte do pet e é cobrada separadamente do serviço.
                 {cotacaoSelecionada.distanciaKm != null && ' Distância em linha reta a partir da loja · dados de mapa © OpenStreetMap.'}
                 {valor.precisao === 'bairro' && ' Não achamos a rua exata no mapa, então usamos o centro do bairro.'}
               </p>
             </div>
           ) : null}
+
+          {/* Quem faz a corrida (migration 047) — opcional. */}
+          {taxidogs.length > 0 && (
+            <div className="form-group">
+              <label className="form-label">{modoLoja ? 'TaxiDog responsável (opcional)' : 'Quem vai fazer a corrida? (opcional)'}</label>
+              <select className="form-select" value={valor.idTaxidog ?? ''} onChange={e => escolherTaxiDog(e.target.value)}>
+                <option value="">{modoLoja ? 'Sem TaxiDog definido (a equipe pega depois)' : 'Sem preferência'}</option>
+                {taxidogs.map(t => <option key={t.id_funcionario} value={t.id_funcionario}>{t.nome}</option>)}
+              </select>
+            </div>
+          )}
         </>
       )}
+    </>
+  )
+}
+
+// ============================================================
+// Etapa do cliente: "Como seu pet irá até a loja?"
+// ============================================================
+interface Props {
+  idLojista: string
+  valor: EstadoTransporte
+  onChange: Dispatch<SetStateAction<EstadoTransporte>>
+  onContinuar: () => void
+  rotuloContinuar?: string
+  taxidogs?: TaxiDogOpcao[]
+}
+
+export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, rotuloContinuar = 'Continuar', taxidogs = [] }: Props) {
+  const cotar = useCallback((endereco: EnderecoTaxiDog) => cotarTaxiDogAction(idLojista, endereco), [idLojista])
+
+  return (
+    <div className="card">
+      <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-2)' }}>Como seu pet irá até a loja?</h2>
+      <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
+        Você pode levar o pet ou usar o TaxiDog da loja para buscar e/ou entregar.
+      </p>
+
+      <TaxiDogCampos valor={valor} onChange={onChange} cotar={cotar} taxidogs={taxidogs} />
 
       <div className="flex justify-end">
-        <button type="button" className="btn btn-primary" disabled={!podeContinuar} onClick={onContinuar}>
+        <button type="button" className="btn btn-primary" disabled={!transportePronto(valor)} onClick={onContinuar}>
           {rotuloContinuar}
         </button>
       </div>
@@ -398,6 +463,7 @@ export function ResumoTaxiDog({ escolha, disponivel }: { escolha: EscolhaTaxiDog
             <span className="font-semibold text-success">{formatarReais(escolha.cotacao.valor)}</span>
           </div>
           <div className="text-xs text-muted" style={{ marginTop: 2 }}>{enderecoEmUmaLinha(escolha.endereco)}</div>
+          {escolha.nomeTaxidog && <div className="text-xs text-muted" style={{ marginTop: 2 }}>TaxiDog: {escolha.nomeTaxidog}</div>}
         </>
       ) : (
         <div className="text-sm text-muted">Não utilizado</div>

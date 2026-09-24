@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { addDays, format, parseISO, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { createClient } from '@/lib/supabase/client'
 import { assumirCorridaAction, atribuirCorridaAction, avancarCorridaAction, cancelarCorridaAction } from '@/lib/actions-taxidog'
 import { formatarTelefone } from '@/lib/format'
 import {
@@ -35,7 +34,6 @@ import {
 } from '@/components/icons'
 
 interface Props {
-  idLojista: string
   data: string
   hojeISO: string
   corridas: CorridaDetalhe[]
@@ -80,7 +78,7 @@ function linkRota(c: CorridaDetalhe): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}`
 }
 
-export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxidogs, podeAtribuir, podeAssumir = false, modoMotorista = false }: Props) {
+export default function TaxiDogPainel({ data, hojeISO, corridas, taxidogs, podeAtribuir, podeAssumir = false, modoMotorista = false }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   // Qual card disparou a ação — só ele mostra o "carregando".
@@ -92,19 +90,8 @@ export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxi
   const aberta = corridas.find(c => c.id_corrida === abertaId) ?? null
   const dataObj = parseISO(data)
 
-  // Qualquer mudança numa corrida da loja (TaxiDog apertou "Cheguei",
-  // agendamento finalizado virou "pronto para entrega"…) recarrega o
-  // painel — mesmo mecanismo do som de novo agendamento (Realtime).
-  useEffect(() => {
-    const supabase = createClient()
-    const canal = supabase
-      .channel(`taxidog-painel-${idLojista}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'taxidog_corrida', filter: `id_lojista=eq.${idLojista}` }, () => router.refresh())
-      .subscribe()
-    return () => {
-      supabase.removeChannel(canal)
-    }
-  }, [idLojista, router])
+  // Atualização ao vivo (TaxiDog apertou "Cheguei", corrida nova...) vem
+  // do AtualizacaoAoVivo, montado no layout do painel.
 
   const grupos = useMemo(() => {
     const g: Record<GrupoCorrida, CorridaDetalhe[]> = { pendentes: [], atribuidas: [], andamento: [], concluidas: [] }

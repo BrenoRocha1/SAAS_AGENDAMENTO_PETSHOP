@@ -168,12 +168,16 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   // transporte simplesmente não aparece e o agendamento segue normal.
   // Número/complemento/bairro da loja (migration 045) no mesmo esquema
   // tolerante: sem a migration, o endereço aparece como antes.
-  const [{ data: taxidogRaw }, { data: estimadoRow }, { data: enderecoRow }] = await Promise.all([
+  // Lista de TaxiDogs pra escolher quem faz a corrida (migration 047) —
+  // sem a migration a função não existe e a escolha simplesmente não aparece.
+  const [{ data: taxidogRaw }, { data: estimadoRow }, { data: enderecoRow }, { data: taxidogsRaw }] = await Promise.all([
     supabase.rpc('fn_taxidog_publico', { p_id_lojista: lojista.id_lojista }),
     supabase.from('lojista').select('precos_estimados').eq('id_lojista', lojista.id_lojista).maybeSingle(),
     supabase.from('lojista').select('numero, complemento, bairro').eq('id_lojista', lojista.id_lojista).maybeSingle(),
+    supabase.rpc('fn_taxidogs_publicos', { p_id_lojista: lojista.id_lojista }),
   ])
   const taxidogDisponivel = !!(taxidogRaw as { disponivel: boolean }[] | null)?.[0]?.disponivel
+  const taxidogs = (taxidogsRaw as { id_funcionario: string; nome: string }[] | null) ?? []
   const precosEstimados = !!estimadoRow?.precos_estimados
 
   // Dados do próprio cliente — só buscados quando logado como cliente,
@@ -232,6 +236,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
           contaInvalida={contaInvalida}
           carrinhoInicial={servicosParam ? servicosParam.split(',').filter(Boolean) : []}
           taxidogDisponivel={taxidogDisponivel}
+          taxidogs={taxidogs}
           precosEstimados={precosEstimados}
         />
       </div>

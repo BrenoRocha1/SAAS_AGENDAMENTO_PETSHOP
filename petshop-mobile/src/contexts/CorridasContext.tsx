@@ -56,7 +56,7 @@ export function CorridasProvider({ children }: { children: ReactNode }) {
     jaAvisados.current.add(`${idCorrida}:nova`)
   }, [])
 
-  const mostrarAviso = useCallback(async (idCorrida: string, tipo: 'nova' | 'pronta') => {
+  const mostrarAviso = useCallback(async (idCorrida: string, tipo: 'nova' | 'pronta' | 'disponivel') => {
     const chave = `${idCorrida}:${tipo}`
     if (jaAvisados.current.has(chave)) return
     jaAvisados.current.add(chave)
@@ -68,13 +68,18 @@ export function CorridasProvider({ children }: { children: ReactNode }) {
     const c = normalizarCorrida(linha)
 
     const quando = c.dt_agendamento === hoje ? `às ${c.hr_agendamento.slice(0, 5)}` : `em ${c.dt_agendamento.split('-').reverse().slice(0, 2).join('/')} às ${c.hr_agendamento.slice(0, 5)}`
+    const trecho = `${trechoAtual(c) === 'busca' ? 'Buscar' : 'Entregar'} ${c.pet_nome} ${quando}`
     setAviso(tipo === 'nova'
-      ? { chave, idCorrida, titulo: 'Nova corrida', mensagem: `${trechoAtual(c) === 'busca' ? 'Buscar' : 'Entregar'} ${c.pet_nome} ${quando}` }
-      : { chave, idCorrida, titulo: 'Pronto para entrega', mensagem: `${c.pet_nome} está pronto para entrega.` })
+      ? { chave, idCorrida, titulo: 'Nova corrida', mensagem: trecho }
+      : tipo === 'disponivel'
+        ? { chave, idCorrida, titulo: 'Corrida disponível', mensagem: `${trecho} — toque para ver e pegar.` }
+        : { chave, idCorrida, titulo: 'Pronto para entrega', mensagem: `${c.pet_nome} está pronto para entrega.` })
   }, [])
 
+  const idLojista = contexto?.idLojista
+
   useEffect(() => {
-    if (!ativo || !userId) return
+    if (!ativo || !userId || !idLojista) return
     let cancelado = false
 
     // Semente: o que já é dele agora não gera aviso ao abrir o app.
@@ -90,11 +95,14 @@ export function CorridasProvider({ children }: { children: ReactNode }) {
         }
       })
 
+    // Todas as corridas da loja: a RLS (migration 046) só entrega as dele e
+    // as ainda sem TaxiDog — assim uma corrida nova disponível também
+    // atualiza as telas e avisa.
     const canal = supabase
       .channel(`taxidog-corridas-${userId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'taxidog_corrida', filter: `id_funcionario=eq.${userId}` },
+        { event: '*', schema: 'public', table: 'taxidog_corrida', filter: `id_lojista=eq.${idLojista}` },
         payload => {
           const nova = payload.new as LinhaRealtime | null
           if (!nova?.id_corrida) return
@@ -102,6 +110,10 @@ export function CorridasProvider({ children }: { children: ReactNode }) {
           conhecidas.current.set(nova.id_corrida, { status: nova.status, id_funcionario: nova.id_funcionario })
           setVersao(v => v + 1)
 
+          if (payload.eventType === 'INSERT' && !nova.id_funcionario && !encerrada(nova.status)) {
+            mostrarAviso(nova.id_corrida, 'disponivel')
+            return
+          }
           if (nova.id_funcionario !== userId || encerrada(nova.status)) return
           if (!anterior || anterior.id_funcionario !== userId) {
             mostrarAviso(nova.id_corrida, 'nova')
@@ -116,7 +128,7 @@ export function CorridasProvider({ children }: { children: ReactNode }) {
       cancelado = true
       supabase.removeChannel(canal)
     }
-  }, [ativo, userId, mostrarAviso])
+  }, [ativo, userId, idLojista, mostrarAviso])
 
   // Aparece, fica 6 s e some sozinho.
   useEffect(() => {
@@ -148,7 +160,7 @@ export function CorridasProvider({ children }: { children: ReactNode }) {
         <Animated.View pointerEvents="box-none" style={[styles.avisoWrap, { top: insets.top + spacing.sm, opacity: opacidade }]}>
           <Pressable onPress={abrirAviso} style={styles.aviso}>
             <View style={styles.avisoIcone}>
-              <Ionicons name={aviso.titulo === 'Nova corrida' ? 'car' : 'checkmark-done'} size={18} color={colors.white} />
+              <Ionicons name={aviso.titulo === 'Pronto para entrega' ? 'checkmark-done' : 'car'} size={18} color={colors.white} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.avisoTitulo}>{aviso.titulo}</Text>

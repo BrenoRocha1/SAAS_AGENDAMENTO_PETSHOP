@@ -12,6 +12,7 @@ import { enderecoTaxiDogSchema, perfilPetSchema, taxiDogConfigSchema } from '@/l
 import { geocodificarEndereco, geocodificarLoja } from '@/lib/geocodificacao'
 import { formatarEnderecoLoja } from '@/lib/format'
 import { MODALIDADES, type CotacaoTaxiDog, type ModalidadeTaxiDog } from '@/lib/taxidog'
+import { cobraPorDistancia, infoTaxiDog } from '@/lib/taxidog-servidor'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -31,27 +32,43 @@ function mensagemRpc(error: { message?: string; code?: string } | null, fallback
 // ============================================================
 // Devolve as três modalidades de uma vez (uma geocodificação só), pra
 // trocar entre "buscar", "entregar" e "buscar e entregar" ser instantâneo.
-export async function cotarTaxiDogAction(
-  idLojista: string,
-  enderecoBruto: unknown
-): Promise<{
+type ResultadoCotacao = {
   error?: string
   cotacoes?: Record<ModalidadeTaxiDog, CotacaoTaxiDog>
   precisao?: 'endereco' | 'bairro' | 'cidade' | null
-}> {
+}
+
+export async function cotarTaxiDogAction(idLojista: string, enderecoBruto: unknown): Promise<ResultadoCotacao> {
   if (!UUID_RE.test(idLojista)) return { error: 'Loja inválida.' }
+  const supabase = await createClient()
+  return cotarTodas(supabase, idLojista, enderecoBruto, false)
+}
+
+// Cotação do agendamento feito pela LOJA (migration 047): vale mesmo com
+// o TaxiDog fora do agendamento online. A loja é a do usuário logado.
+export async function cotarTaxiDogLojaAction(enderecoBruto: unknown): Promise<ResultadoCotacao> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto?.podeGerenciarAgenda) return { error: 'Você não tem permissão para gerenciar a agenda.' }
+  return cotarTodas(supabase, contexto.idLojista, enderecoBruto, true)
+}
+
+async function cotarTodas(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  idLojista: string,
+  enderecoBruto: unknown,
+  interno: boolean
+): Promise<ResultadoCotacao> {
   const parsed = enderecoTaxiDogSchema.safeParse(enderecoBruto)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
   const endereco = parsed.data
 
-  const supabase = await createClient()
-  const { data: pub, error: pubError } = await supabase.rpc('fn_taxidog_publico', { p_id_lojista: idLojista })
-  if (pubError) return { error: mensagemRpc(pubError, 'Não foi possível consultar o TaxiDog.') }
-  const info = (pub as { disponivel: boolean; modo_cobranca: string }[] | null)?.[0]
+  const info = await infoTaxiDog(supabase, idLojista, interno)
   if (!info?.disponivel) return { error: 'O TaxiDog não está disponível nesta loja no momento.' }
 
-  const precisaDistancia = info.modo_cobranca === 'distancia' || info.modo_cobranca === 'personalizado'
-  const coords = precisaDistancia ? await geocodificarEndereco(endereco) : null
+  const coords = cobraPorDistancia(info.modo_cobranca) ? await geocodificarEndereco(endereco) : null
 
   const resultados = await Promise.all(
     MODALIDADES.map(async modalidade => {
@@ -63,6 +80,8 @@ export async function cotarTaxiDogAction(
         p_uf: endereco.uf,
         p_lat: coords?.lat ?? null,
         p_lng: coords?.lng ?? null,
+        // Só no agendamento da loja — sem a migration 047 o parâmetro não existe.
+        ...(interno ? { p_interno: true } : {}),
       })
       const linha = (data as Array<{ disponivel: boolean; valor: unknown; distancia_km: unknown; criterio: string | null; motivo: string | null }> | null)?.[0]
       const cotacao: CotacaoTaxiDog = error || !linha

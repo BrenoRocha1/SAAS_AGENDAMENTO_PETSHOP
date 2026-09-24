@@ -28,17 +28,34 @@ export function lerTaxiDogDoFormulario(
   return { dados: parsed.data }
 }
 
+// Como a loja cobra o TaxiDog agora. `interno` = agendamento feito pela
+// própria loja (migration 047): lê a configuração direto (a equipe tem
+// RLS pra isso) e não depende de "disponível no agendamento online".
+export async function infoTaxiDog(
+  supabase: Supabase,
+  idLojista: string,
+  interno = false
+): Promise<{ disponivel: boolean; modo_cobranca: string } | null> {
+  if (interno) {
+    const { data } = await supabase.from('taxidog_config').select('ativo, modo_cobranca').eq('id_lojista', idLojista).maybeSingle()
+    return data ? { disponivel: !!data.ativo, modo_cobranca: data.modo_cobranca as string } : null
+  }
+  const { data } = await supabase.rpc('fn_taxidog_publico', { p_id_lojista: idLojista })
+  return (data as { disponivel: boolean; modo_cobranca: string }[] | null)?.[0] ?? null
+}
+
+export const cobraPorDistancia = (modo: string | undefined) => modo === 'distancia' || modo === 'personalizado'
+
 // Só geocodifica quando a loja cobra por distância — por valor fixo ou
 // por região o banco não precisa de coordenada nenhuma.
 export async function coordenadasParaTaxiDog(
   supabase: Supabase,
   idLojista: string,
-  endereco: TaxiDogAgendamento['endereco']
+  endereco: TaxiDogAgendamento['endereco'],
+  interno = false
 ): Promise<{ lat: number; lng: number; precisao: string } | null> {
-  const { data } = await supabase.rpc('fn_taxidog_publico', { p_id_lojista: idLojista })
-  const info = (data as { disponivel: boolean; modo_cobranca: string }[] | null)?.[0]
-  if (!info?.disponivel) return null
-  if (info.modo_cobranca !== 'distancia' && info.modo_cobranca !== 'personalizado') return null
+  const info = await infoTaxiDog(supabase, idLojista, interno)
+  if (!info?.disponivel || !cobraPorDistancia(info.modo_cobranca)) return null
   return geocodificarEndereco(endereco)
 }
 
@@ -54,6 +71,9 @@ export function paramsRpcTaxiDog(dados: TaxiDogAgendamento, coords: { lat: numbe
     p_tx_uf: dados.endereco.uf,
     p_tx_lat: coords?.lat ?? null,
     p_tx_lng: coords?.lng ?? null,
+    // Só vai quando escolhido: sem a migration 047 o parâmetro não existe,
+    // e o agendamento sem preferência continua funcionando.
+    ...(dados.id_funcionario ? { p_tx_id_funcionario: dados.id_funcionario } : {}),
   }
 }
 
