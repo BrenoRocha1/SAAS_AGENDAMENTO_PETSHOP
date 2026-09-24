@@ -32,12 +32,13 @@ import {
 const navItemsBase = [
   { href: '/lojista/dashboard',     icon: IconGrid,      label: 'Dashboard', restrito: true },
   { href: '/lojista/agendamentos',  icon: IconCalendar,  label: 'Agendamentos', permissao: 'agenda' as const },
-  { href: '/lojista/kanban',        icon: IconKanban,    label: 'Kanban', condicao: 'kanban' as const, permissao: 'agenda' as const },
-  // Kanban de corridas: dono/equipe com agenda veem dentro do Kanban
-  // ("Visualizar TaxiDog"); este item fica pro TaxiDog ("Minhas corridas")
-  // e pra loja com o Kanban desativado.
+  // Gestor de Agendamentos (o Kanban). Dono/equipe com agenda chegam ao
+  // TaxiDog por dentro dele ("Visualizar TaxiDog" → "Rotas do TaxiDog"),
+  // então as telas do TaxiDog acendem este item (`tambem`).
+  { href: '/lojista/kanban',        icon: IconKanban,    label: 'Gestor de Agendamentos', condicao: 'kanban' as const, permissao: 'agenda' as const, tambem: ['/lojista/taxidog'] },
+  // Kanban de corridas e rotas no menu: pro TaxiDog ("Minhas corridas" /
+  // "Minhas rotas") e pra loja com o Kanban desativado.
   { href: '/lojista/taxidog',       icon: IconCar,       label: 'TaxiDog', condicao: 'taxidog' as const, permissao: 'agenda' as const },
-  // Rotas (migration 053): página própria pra gestão e pro TaxiDog.
   { href: '/lojista/taxidog/rotas', icon: IconRoute,     label: 'Rotas do TaxiDog', condicao: 'taxidogRotas' as const },
   { href: '/lojista/taxidog/relatorio', icon: IconChartBar, label: 'Relatório de corridas', condicao: 'taxidogRelatorio' as const },
   { href: '/lojista/relatorios',    icon: IconChartBar,  label: 'Relatórios de Vendas', restrito: true },
@@ -93,7 +94,7 @@ export default function LojistaSidebar({
   const navItems = navItemsBase.filter(item => {
     if (item.condicao === 'kanban' && !kanbanAtivo) return false
     if (item.condicao === 'taxidog') return soMotorista || (gestorDaAgenda && taxidogAtivo && !kanbanAtivo)
-    if (item.condicao === 'taxidogRotas') return podeTaxidog || (gestorDaAgenda && taxidogAtivo)
+    if (item.condicao === 'taxidogRotas') return soMotorista || (gestorDaAgenda && taxidogAtivo && !kanbanAtivo)
     if (item.condicao === 'taxidogRelatorio') return podeTaxidog
     if (role === 'funcionario' && !acessoTotal) {
       if (item.restrito) return false
@@ -106,10 +107,17 @@ export default function LojistaSidebar({
   })
   const pathname = usePathname()
   // Item ativo = o de caminho mais específico ("/lojista/taxidog/relatorio"
-  // não acende também "/lojista/taxidog").
+  // não acende também "/lojista/taxidog"). `tambem` = outras telas que
+  // pertencem ao item.
   const hrefAtivo = navItems
-    .filter(i => pathname === i.href || pathname.startsWith(`${i.href}/`))
-    .sort((x, y) => y.href.length - x.href.length)[0]?.href
+    .map(i => ({
+      href: i.href,
+      alcance: [i.href, ...(i.tambem ?? [])]
+        .filter(h => pathname === h || pathname.startsWith(`${h}/`))
+        .reduce((maior, h) => Math.max(maior, h.length), -1),
+    }))
+    .filter(i => i.alcance >= 0)
+    .sort((x, y) => y.alcance - x.alcance)[0]?.href
   const [isPending, startTransition] = useTransition()
   const [colapsada, setColapsada] = useState(false)
 
