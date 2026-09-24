@@ -67,9 +67,15 @@ export default async function AgendamentosPage() {
     .from('taxidog_corrida')
     .select('id_agendamento, modalidade, status, valor, logradouro, numero, bairro, cidade, id_funcionario')
     .eq('id_cliente', user!.id)
+    .order('created_at')
 
+  // A loja pode trocar o transporte (migration 052): o agendamento fica
+  // com a solicitação antiga cancelada e a nova — vale a mais recente que
+  // não foi cancelada.
   const taxidog: Record<string, TaxiDogCliente> = {}
   for (const c of (corridasRaw ?? []) as Array<Record<string, string | number | null>>) {
+    const atual = taxidog[c.id_agendamento as string]
+    if (atual && atual.status !== 'cancelada' && c.status === 'cancelada') continue
     taxidog[c.id_agendamento as string] = {
       modalidade: c.modalidade as TaxiDogCliente['modalidade'],
       status: c.status as string,

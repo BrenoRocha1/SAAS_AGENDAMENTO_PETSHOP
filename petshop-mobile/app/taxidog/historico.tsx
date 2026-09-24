@@ -4,11 +4,11 @@ import { StyleSheet, Text, View } from 'react-native'
 import { format, subDays } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { EmptyState } from '@/components/EmptyState'
-import { CorridaCard } from '@/components/CorridaCard'
+import { RotaCard } from '@/components/RotaCard'
 import { Card } from '@/components/Card'
-import { useMinhasCorridas } from '@/hooks/useMinhasCorridas'
+import { useMinhasRotas } from '@/hooks/useMinhasRotas'
 import { agoraBrasil, hojeBrasilISO } from '@/lib/agenda'
-import { encerrada, formatarReais, type Corrida } from '@/lib/taxidog'
+import { contarPets, type Rota } from '@/lib/taxidog-rotas'
 import { colors, spacing, typography } from '@/theme/theme'
 
 const DIAS_PARA_TRAS = 30
@@ -16,14 +16,14 @@ const DIAS_PARA_TRAS = 30
 export default function HistoricoScreen() {
   const router = useRouter()
   const desde = format(subDays(agoraBrasil(), DIAS_PARA_TRAS), 'yyyy-MM-dd')
-  const { corridas, loading, erro, recarregar } = useMinhasCorridas(desde, hojeBrasilISO())
+  const { rotas, loading, erro, recarregar } = useMinhasRotas(desde, hojeBrasilISO())
 
-  const encerradas = useMemo(
-    () => corridas.filter(c => encerrada(c.status)).sort((a, b) => (b.dt_agendamento + b.hr_agendamento).localeCompare(a.dt_agendamento + a.hr_agendamento)),
-    [corridas]
+  const concluidas = useMemo(
+    () => rotas.filter(r => r.status === 'concluida').sort((a, b) => b.data.localeCompare(a.data) || b.numero - a.numero),
+    [rotas]
   )
-  const concluidas = encerradas.filter(c => c.status === 'concluida')
-  const total = concluidas.reduce((soma, c) => soma + c.valor, 0)
+  const pets = concluidas.reduce((soma, r) => soma + contarPets(r), 0)
+  const km = concluidas.reduce((soma, r) => soma + (r.calculo_versao === r.versao ? (r.distancia_m ?? 0) : 0), 0) / 1000
 
   return (
     <ScreenContainer refreshing={loading} onRefresh={recarregar}>
@@ -34,23 +34,29 @@ export default function HistoricoScreen() {
         <Card style={styles.resumo}>
           <View style={{ flex: 1 }}>
             <Text style={styles.resumoValor}>{concluidas.length}</Text>
-            <Text style={styles.resumoLabel}>corridas concluídas</Text>
+            <Text style={styles.resumoLabel}>{concluidas.length === 1 ? 'rota concluída' : 'rotas concluídas'}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.resumoValor}>{formatarReais(total)}</Text>
-            <Text style={styles.resumoLabel}>em corridas</Text>
+            <Text style={styles.resumoValor}>{pets}</Text>
+            <Text style={styles.resumoLabel}>pets transportados</Text>
           </View>
+          {km > 0 && (
+            <View style={{ flex: 1 }}>
+              <Text style={styles.resumoValor}>{km.toFixed(1).replace('.', ',')} km</Text>
+              <Text style={styles.resumoLabel}>percorridos</Text>
+            </View>
+          )}
         </Card>
       )}
 
       {erro ? (
         <EmptyState icon="alert-circle-outline" title="Não foi possível carregar" subtitle={erro} />
-      ) : !loading && encerradas.length === 0 ? (
-        <EmptyState icon="time-outline" title="Nenhuma corrida encerrada" subtitle="Suas corridas concluídas aparecem aqui." />
+      ) : !loading && concluidas.length === 0 ? (
+        <EmptyState icon="time-outline" title="Nenhuma rota concluída" subtitle="Suas rotas concluídas aparecem aqui." />
       ) : (
         <View style={{ gap: spacing.md }}>
-          {encerradas.map((c: Corrida) => (
-            <CorridaCard key={c.id_corrida} corrida={c} onPress={() => router.push(`/taxidog/corrida/${c.id_corrida}` as never)} />
+          {concluidas.map((r: Rota) => (
+            <RotaCard key={r.id_rota} rota={r} onPress={() => router.push(`/taxidog/rota/${r.id_rota}` as never)} />
           ))}
         </View>
       )}

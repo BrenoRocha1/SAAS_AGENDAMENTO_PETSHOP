@@ -34,6 +34,8 @@ import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAg
 import { classeBadgeStatus, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
 import NovoAgendamentoModal from './NovoAgendamentoModal'
 import { ROTULO_MODALIDADE, formatarReais, type ModalidadeTaxiDog } from '@/lib/taxidog'
+import type { TransporteVisita } from '@/lib/taxidog-visita'
+import TransporteAgendamento from '@/components/lojista/TransporteAgendamento'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
 
 export interface AgendamentoCalendario {
@@ -44,6 +46,7 @@ export interface AgendamentoCalendario {
   status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
   valor: number
   nome_pet: string
+  id_cliente: string | null
   nome_cliente: string
   nome_servico: string
   id_funcionario: string | null
@@ -52,8 +55,8 @@ export interface AgendamentoCalendario {
   // De onde veio (migration 049): lançado pela loja ou feito pelo cliente
   // online. null = agendamento antigo, de antes de o banco guardar isso.
   origem: 'loja' | 'online' | null
-  // TaxiDog pedido na visita (mesmo pet, mesmo dia) — null = sem.
-  taxidog: ModalidadeTaxiDog | null
+  // TaxiDog da visita (mesmo pet, mesmo dia) — null = sem.
+  taxidog: TransporteVisita | null
 }
 
 export interface FuncionarioFiltro {
@@ -82,6 +85,8 @@ interface Props {
   // do horário de funcionamento da loja (tabela horario), não fixo.
   horaInicioGrade: number
   horaFimGrade: number
+  // TaxiDog ativado na loja: mostra "Adicionar TaxiDog" no detalhe.
+  taxidogAtivo: boolean
 }
 
 const CORES = ['#4f46e5', '#0891b2', '#db2777', '#d97706', '#16a34a', '#7c3aed', '#2563eb']
@@ -201,6 +206,7 @@ export default function AgendaCalendar({
   podeAtribuirProfissional,
   horaInicioGrade,
   horaFimGrade,
+  taxidogAtivo,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -228,7 +234,9 @@ export default function AgendaCalendar({
   const [filtroProfissionais, setFiltroProfissionais] = useState<Set<string>>(
     () => new Set([...funcionarios.map(f => f.id_funcionario), SEM_PROFISSIONAL])
   )
-  const [selecionado, setSelecionado] = useState<AgendamentoCalendario | null>(null)
+  // Guarda só o id: o detalhe acompanha os dados novos do servidor.
+  const [selecionadoId, setSelecionadoId] = useState<string | null>(null)
+  const selecionado = agendamentos.find(a => a.id_agendamento === selecionadoId) ?? null
   const [modalAberto, setModalAberto] = useState(!!clienteFixoInicial || !!funcionarioIdPadraoInicial)
   const [acaoErro, setAcaoErro] = useState<string | null>(null)
 
@@ -264,7 +272,7 @@ export default function AgendaCalendar({
     const statusAnterior = atual.status
     setAcaoErro(null)
     setAgendamentos(prev => prev.map(a => a.id_agendamento === id ? { ...a, status: novoStatus } : a))
-    setSelecionado(null)
+    setSelecionadoId(null)
     startTransition(async () => {
       const result = novoStatus === 'Cancelado'
         ? await cancelarAgendamentoAction(id)
@@ -285,13 +293,11 @@ export default function AgendaCalendar({
     const nome = funcionarios.find(f => f.id_funcionario === idFuncionario)?.nome ?? null
     setAcaoErro(null)
     setAgendamentos(prev => prev.map(a => a.id_agendamento === id ? { ...a, id_funcionario: idFuncionario || null, nome_funcionario: nome } : a))
-    setSelecionado(prev => prev && prev.id_agendamento === id ? { ...prev, id_funcionario: idFuncionario || null, nome_funcionario: nome } : prev)
     startTransition(async () => {
       const result = await atribuirFuncionarioAction(id, idFuncionario || null)
       if (result?.error) {
         setAcaoErro(result.error)
         setAgendamentos(prev => prev.map(a => a.id_agendamento === id ? { ...a, ...funcionarioAnterior } : a))
-        setSelecionado(prev => prev && prev.id_agendamento === id ? { ...prev, ...funcionarioAnterior } : prev)
         return
       }
       router.refresh()
@@ -453,16 +459,16 @@ export default function AgendaCalendar({
                             borderLeftColor: cor,
                             filter: ev.status === 'Pendente' ? 'saturate(0.6)' : 'none',
                           }}
-                          onClick={() => setSelecionado(ev)}
+                          onClick={() => setSelecionadoId(ev.id_agendamento)}
                           title={[
                             `${ev.hr_agendamento.slice(0, 5)} · ${ev.nome_pet} · ${ev.nome_servico}`,
                             ev.origem ? ROTULO_ORIGEM[ev.origem] : null,
-                            ev.taxidog ? `TaxiDog: ${ROTULO_MODALIDADE[ev.taxidog]}` : null,
+                            ev.taxidog ? `TaxiDog: ${ROTULO_MODALIDADE[ev.taxidog.modalidade]}` : null,
                           ].filter(Boolean).join(' · ')}
                         >
                           <div className="cal-event-time">
                             {ev.hr_agendamento.slice(0, 5)}
-                            <IconesAgendamento origem={ev.origem} taxidog={ev.taxidog} />
+                            <IconesAgendamento origem={ev.origem} taxidog={ev.taxidog?.modalidade ?? null} />
                           </div>
                           <div className="cal-event-title">{ev.nome_pet} · {ev.nome_servico}</div>
                         </button>
@@ -477,11 +483,11 @@ export default function AgendaCalendar({
       </div>
 
       {selecionado && (
-        <div className="modal-overlay" onClick={() => setSelecionado(null)}>
+        <div className="modal-overlay" onClick={() => setSelecionadoId(null)}>
           <div className="modal" style={{ maxWidth: 440 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">Detalhes do agendamento</h3>
-              <button className="modal-close" onClick={() => setSelecionado(null)} aria-label="Fechar">
+              <button className="modal-close" onClick={() => setSelecionadoId(null)} aria-label="Fechar">
                 <IconClose style={{ width: 15, height: 15 }} />
               </button>
             </div>
@@ -501,11 +507,15 @@ export default function AgendaCalendar({
                   </span>
                 </div>
               )}
-              {selecionado.taxidog && (
-                <div className="dash-detail-row">
-                  <span>TaxiDog</span>
-                  <span className="flex items-center gap-1"><IconCar style={{ width: 13, height: 13 }} /> {ROTULO_MODALIDADE[selecionado.taxidog]}</span>
-                </div>
+              {(selecionado.taxidog || taxidogAtivo) && selecionado.status !== 'Cancelado' && (
+                <TransporteAgendamento
+                  key={`${selecionado.id_agendamento}:${selecionado.taxidog?.id_corrida ?? ''}:${selecionado.taxidog?.status ?? ''}`}
+                  idAgendamento={selecionado.id_agendamento}
+                  idCliente={selecionado.id_cliente}
+                  statusAgendamento={selecionado.status}
+                  transporte={selecionado.taxidog}
+                  podeAlterar
+                />
               )}
               <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(selecionado.status)}`}>{rotuloStatus(selecionado.status)}</span></span></div>
               {selecionado.obs && (

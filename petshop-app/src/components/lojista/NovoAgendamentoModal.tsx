@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { atribuirFuncionarioAction, criarAgendamentoLojistaAction, criarPetLojistaAction } from '@/lib/actions'
 import { cotarTaxiDogLojaAction } from '@/lib/actions-taxidog'
 import { formatarTelefone } from '@/lib/format'
-import { formatarReais, type TaxiDogOpcao } from '@/lib/taxidog'
+import { formatarReais } from '@/lib/taxidog'
 import {
   ESTADO_TRANSPORTE_INICIAL,
   TaxiDogCampos,
@@ -89,7 +89,6 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
   // TaxiDog no agendamento da loja (migration 047). Começa em "o cliente
   // leva o pet" — a maioria dos agendamentos de balcão não usa transporte.
   const [taxidogAtivo, setTaxidogAtivo] = useState(false)
-  const [taxidogs, setTaxidogs] = useState<TaxiDogOpcao[]>([])
   const [transporte, setTransporte] = useState<EstadoTransporte>({ ...ESTADO_TRANSPORTE_INICIAL, opcao: 'levar' })
   const escolhaTaxiDog = escolhaDoTransporte(transporte)
 
@@ -101,9 +100,6 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
       .eq('id_lojista', lojistaId)
       .maybeSingle()
       .then(({ data }) => { if (!cancelado) setTaxidogAtivo(!!data?.ativo) })
-    supabase
-      .rpc('fn_taxidogs_publicos', { p_id_lojista: lojistaId })
-      .then(({ data }) => { if (!cancelado) setTaxidogs((data as TaxiDogOpcao[] | null) ?? []) })
     return () => { cancelado = true }
   }, [supabase, lojistaId])
 
@@ -584,7 +580,6 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                     valor={transporte}
                     onChange={setTransporte}
                     cotar={cotarTaxiDogLojaAction}
-                    taxidogs={taxidogs}
                     modoLoja
                     idCliente={clienteId}
                   />

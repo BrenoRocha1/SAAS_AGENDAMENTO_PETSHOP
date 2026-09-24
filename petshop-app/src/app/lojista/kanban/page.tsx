@@ -4,7 +4,7 @@ import { hojeBrasilISO } from '@/lib/agenda'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import KanbanBoard, { type KanbanItem } from '@/components/lojista/KanbanBoard'
 import TaxiDogConteudo from '@/components/lojista/TaxiDogConteudo'
-import type { ModalidadeTaxiDog } from '@/lib/taxidog'
+import { carregarTransportePorVisita, chaveVisita } from '@/lib/taxidog-visita'
 import { IconAlert, IconCar, IconChartBar, IconKanban } from '@/components/icons'
 import Link from 'next/link'
 
@@ -86,9 +86,9 @@ export default async function KanbanPage({ searchParams }: Props) {
   const cabecalho = (
     <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
       <div>
-        <h1 className="page-title">{visaoTaxiDog ? 'Kanban do TaxiDog' : 'Kanban de Agendamentos'}</h1>
+        <h1 className="page-title">{visaoTaxiDog ? 'Rotas do TaxiDog' : 'Kanban de Agendamentos'}</h1>
         <p className="page-subtitle">
-          {visaoTaxiDog ? 'Corridas de busca e entrega dos pets' : 'Acompanhe o atendimento em tempo real'}
+          {visaoTaxiDog ? 'Organize as buscas e entregas dos pets em rotas' : 'Acompanhe o atendimento em tempo real'}
         </p>
       </div>
       {mostraTaxiDog && (
@@ -115,7 +115,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     return (
       <>
         {cabecalho}
-        <TaxiDogConteudo contexto={contexto} data={selectedDate} hojeISO={hojeISO} caminho="/lojista/kanban?visao=taxidog" />
+        <TaxiDogConteudo contexto={contexto} modo="loja" data={selectedDate} hojeISO={hojeISO} caminho="/lojista/kanban?visao=taxidog" />
       </>
     )
   }
@@ -128,7 +128,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     supabase
       .from('agendamento')
       .select(`
-        id_agendamento, dt_agendamento, hr_agendamento, status, valor, id_funcionario, id_servico, obs,
+        id_agendamento, dt_agendamento, hr_agendamento, status, valor, id_funcionario, id_servico, obs, id_pet, id_cliente,
         pet:id_pet ( nome, raca, especie, porte, foto_url ),
         servico:id_servico ( nome ),
         cliente:id_cliente ( nome ),
@@ -200,26 +200,11 @@ export default async function KanbanPage({ searchParams }: Props) {
     })
   }
 
-  // TaxiDog do dia (migration 042) — consulta plana e tolerante: sem a
-  // migration, a tabela não existe e o Kanban segue igual.
-  const { data: corridasRaw } = idsDoDia.length > 0
-    ? await supabase
-        .from('taxidog_corrida')
-        .select('id_agendamento, modalidade, status, valor, logradouro, numero, bairro, cidade, id_funcionario')
-        .in('id_agendamento', idsDoDia)
-    : { data: [] as Record<string, unknown>[] }
-
-  const taxidogPorAgendamento = new Map(
-    ((corridasRaw ?? []) as Array<{
-      id_agendamento: string; modalidade: ModalidadeTaxiDog; status: string; valor: number | string
-      logradouro: string; numero: string; bairro: string; cidade: string; id_funcionario: string | null
-    }>).map(c => [c.id_agendamento, {
-      modalidade: c.modalidade,
-      status: c.status,
-      valor: Number(c.valor),
-      endereco: `${c.logradouro}, ${c.numero} · ${c.bairro} · ${c.cidade}`,
-      temTaxiDog: !!c.id_funcionario,
-    }])
+  // TaxiDog de cada visita (mesmo pet, mesmo dia) — tolerante: sem as
+  // migrations do TaxiDog o Kanban segue igual.
+  const transportes = await carregarTransportePorVisita(
+    supabase,
+    ((agendaRaw ?? []) as unknown as { id_agendamento: string; id_pet: string; dt_agendamento: string }[]),
   )
 
   const itens: KanbanItem[] = ((agendaRaw ?? []) as unknown as Array<{
@@ -231,6 +216,8 @@ export default async function KanbanPage({ searchParams }: Props) {
     id_funcionario: string | null
     id_servico: string
     obs: string | null
+    id_pet: string
+    id_cliente: string | null
     pet: { nome: string; raca: string; especie: 'Cão' | 'Gato' | null; porte: 'Pequeno' | 'Médio' | 'Grande' | null; foto_url: string | null } | null
     servico: { nome: string } | null
     cliente: { nome: string } | null
@@ -246,6 +233,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     especie_pet: a.pet?.especie ?? null,
     porte_pet: a.pet?.porte ?? null,
     foto_pet: a.pet?.foto_url ?? null,
+    id_cliente: a.id_cliente,
     nome_cliente: a.cliente?.nome ?? '—',
     nome_servico: a.servico?.nome ?? 'Serviço',
     id_servico: a.id_servico,
@@ -253,7 +241,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     nome_funcionario: a.funcionario?.nome ?? null,
     obs: a.obs,
     produtos: produtosPorAgendamento[a.id_agendamento] ?? [],
-    taxidog: taxidogPorAgendamento.get(a.id_agendamento) ?? null,
+    taxidog: transportes.get(chaveVisita(a.id_pet, a.dt_agendamento)) ?? null,
   }))
 
   return (
@@ -266,6 +254,7 @@ export default async function KanbanPage({ searchParams }: Props) {
         funcionarios={(funcionariosRaw ?? []) as { id_funcionario: string; nome: string }[]}
         servicos={(servicosRaw ?? []) as { id_servico: string; nome: string }[]}
         podeAtribuirProfissional={contexto.acessoTotal}
+        taxidogAtivo={!taxidogCfgErro && !!taxidogCfg?.ativo}
       />
     </>
   )

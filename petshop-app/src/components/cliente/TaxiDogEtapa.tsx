@@ -16,7 +16,6 @@ import {
   type EnderecoTaxiDog,
   type EscolhaTaxiDog,
   type ModalidadeTaxiDog,
-  type TaxiDogOpcao,
 } from '@/lib/taxidog'
 import { IconAlert, IconCar, IconCheck, IconMapPin, IconStore } from '@/components/icons'
 
@@ -26,7 +25,8 @@ import { IconAlert, IconCar, IconCheck, IconMapPin, IconStore } from '@/componen
 // TaxiDogCampos é usado nos dois lados:
 //   • cliente: etapa "Como seu pet irá até a loja?" (TaxiDogEtapa, abaixo),
 //     nos fluxos de agendamento do link público e da conta do cliente;
-//   • loja: bloco "Transporte" do modal de novo agendamento (migration 047).
+//   • loja: bloco "Transporte" do modal de novo agendamento (migration 047)
+//     e a troca de transporte de um agendamento já feito (migration 052).
 // O estado mora em quem usa (pra não se perder ao voltar/avançar etapas);
 // estes componentes só editam esse estado. O preço exibido vem SEMPRE da
 // cotação do banco (fn_cotar_taxidog) — e é recalculado de novo no
@@ -38,7 +38,8 @@ export interface EstadoTransporte {
   endereco: EnderecoTaxiDog
   cotacoes: Record<ModalidadeTaxiDog, CotacaoTaxiDog> | null
   precisao: 'endereco' | 'bairro' | 'cidade' | null
-  // Quem faz a corrida (opcional) — null = sem preferência.
+  // Quem faz a corrida — com as rotas (migration 052) a loja escolhe o
+  // TaxiDog na rota, então fica sempre null.
   idTaxidog: string | null
   nomeTaxidog: string | null
 }
@@ -119,15 +120,17 @@ function estiloOpcao(selecionado: boolean): React.CSSProperties {
   }
 }
 
-export function TaxiDogCampos({ valor, onChange, cotar, taxidogs, modoLoja = false, idCliente }: {
+export function TaxiDogCampos({ valor, onChange, cotar, modoLoja = false, idCliente, modalidades = MODALIDADES, rotuloLevar }: {
   valor: EstadoTransporte
   onChange: Dispatch<SetStateAction<EstadoTransporte>>
   cotar: Cotar
-  taxidogs: TaxiDogOpcao[]
   // Agendamento feito pela loja: textos na 3ª pessoa e o último endereço
   // vem do cliente escolhido (não de quem está logado).
   modoLoja?: boolean
   idCliente?: string
+  // Tipos oferecidos (com o pet já na loja, só a entrega faz sentido).
+  modalidades?: readonly ModalidadeTaxiDog[]
+  rotuloLevar?: string
 }) {
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [erroCep, setErroCep] = useState<string | null>(null)
@@ -236,11 +239,6 @@ export function TaxiDogCampos({ valor, onChange, cotar, taxidogs, modoLoja = fal
     }
   }
 
-  function escolherTaxiDog(idFuncionario: string) {
-    const t = taxidogs.find(x => x.id_funcionario === idFuncionario)
-    onChange(prev => ({ ...prev, idTaxidog: t?.id_funcionario ?? null, nomeTaxidog: t?.nome ?? null }))
-  }
-
   const cotacaoSelecionada = valor.cotacoes?.[valor.modalidade] ?? null
 
   return (
@@ -249,7 +247,7 @@ export function TaxiDogCampos({ valor, onChange, cotar, taxidogs, modoLoja = fal
         <button type="button" style={estiloOpcao(valor.opcao === 'levar')} onClick={() => onChange(prev => ({ ...prev, opcao: 'levar' }))}>
           <IconStore style={{ width: 20, height: 20, color: 'var(--gray-400)', flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
-            <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{modoLoja ? 'O cliente leva o pet até a loja' : 'Vou levar o pet até a loja'}</div>
+            <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{rotuloLevar ?? (modoLoja ? 'O cliente leva o pet até a loja' : 'Vou levar o pet até a loja')}</div>
             <div className="text-sm text-muted">Sem taxa de transporte</div>
           </div>
           {valor.opcao === 'levar' && <IconCheck style={{ width: 16, height: 16, color: 'var(--primary-400)' }} />}
@@ -270,7 +268,7 @@ export function TaxiDogCampos({ valor, onChange, cotar, taxidogs, modoLoja = fal
           <div className="form-group">
             <label className="form-label">{modoLoja ? 'O que o cliente precisa?' : 'O que você precisa?'}</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-              {MODALIDADES.map(m => {
+              {modalidades.map(m => {
                 const cot = valor.cotacoes?.[m]
                 const selecionada = valor.modalidade === m
                 return (
@@ -406,16 +404,6 @@ export function TaxiDogCampos({ valor, onChange, cotar, taxidogs, modoLoja = fal
             </div>
           ) : null}
 
-          {/* Quem faz a corrida (migration 047) — só no agendamento da loja. */}
-          {modoLoja && taxidogs.length > 0 && (
-            <div className="form-group">
-              <label className="form-label">TaxiDog responsável (opcional)</label>
-              <select className="form-select" value={valor.idTaxidog ?? ''} onChange={e => escolherTaxiDog(e.target.value)}>
-                <option value="">Sem TaxiDog definido (a equipe pega depois)</option>
-                {taxidogs.map(t => <option key={t.id_funcionario} value={t.id_funcionario}>{t.nome}</option>)}
-              </select>
-            </div>
-          )}
         </>
       )}
     </>
@@ -445,7 +433,7 @@ export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, 
         Você pode levar o pet ou usar o TaxiDog da loja para buscar e/ou entregar.
       </p>
 
-      <TaxiDogCampos valor={valor} onChange={onChange} cotar={cotar} taxidogs={[]} />
+      <TaxiDogCampos valor={valor} onChange={onChange} cotar={cotar} />
 
       <div className="flex justify-end">
         <button type="button" className="btn btn-primary" disabled={!transportePronto(valor)} onClick={onContinuar}>

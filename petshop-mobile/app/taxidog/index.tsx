@@ -2,54 +2,43 @@ import { useMemo } from 'react'
 import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { format, subDays } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { StatCard } from '@/components/StatCard'
 import { SectionHeader } from '@/components/SectionHeader'
 import { EmptyState } from '@/components/EmptyState'
-import { Avatar } from '@/components/Avatar'
 import { Card } from '@/components/Card'
-import { CorridaCard, PillStatusCorrida } from '@/components/CorridaCard'
+import { PillStatusRota, RotaCard } from '@/components/RotaCard'
 import { useAuth } from '@/contexts/AuthContext'
-import { useMinhasCorridas } from '@/hooks/useMinhasCorridas'
-import { agoraBrasilHHMM, dataExtensaBrasil, hojeBrasilISO, saudacao } from '@/lib/agenda'
-import { disponivel, emMovimento, encerrada, formatarReais, trechoAtual, type Corrida } from '@/lib/taxidog'
+import { useMinhasRotas } from '@/hooks/useMinhasRotas'
+import { agoraBrasil, dataExtensaBrasil, hojeBrasilISO, saudacao } from '@/lib/agenda'
+import { contarPets, proximaParada, tituloParada, trajetoDaRota, type Rota } from '@/lib/taxidog-rotas'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
-// Qual corrida pede atenção primeiro: a que já está na rua, depois a que
-// está pronta pra entrega, depois a próxima por horário.
-function escolherProxima(corridas: Corrida[]): Corrida | null {
-  const ativas = corridas.filter(c => !encerrada(c.status) && c.status !== 'entregue_loja' && !(c.status === 'agendada' && c.modalidade === 'entregar'))
-  const naRua = ativas.find(c => emMovimento(c.status))
-  if (naRua) return naRua
-  const pronta = ativas.find(c => c.status === 'pronto_entrega')
-  if (pronta) return pronta
-  const agora = agoraBrasilHHMM()
-  return ativas.find(c => c.hr_agendamento.slice(0, 5) >= agora) ?? ativas[0] ?? null
-}
-
+// Início do TaxiDog: a rota que pede atenção agora (em andamento, ou a
+// próxima de hoje) em destaque, e o resumo do dia.
 export default function InicioTaxiDogScreen() {
   const { contexto } = useAuth()
   const router = useRouter()
   const hoje = hojeBrasilISO()
-  const { corridas, loading, erro, recarregar } = useMinhasCorridas(hoje, hoje)
+  // Ontem entra pra não perder uma rota que ficou em andamento.
+  const { rotas, loading, erro, recarregar } = useMinhasRotas(format(subDays(agoraBrasil(), 1), 'yyyy-MM-dd'), hoje)
 
   const resumo = useMemo(() => {
-    // Corridas sem TaxiDog (migration 046) ainda não são dele: ficam fora
-    // do resumo e aparecem só como "disponíveis para pegar".
-    const validas = corridas.filter(c => c.status !== 'cancelada' && !disponivel(c))
+    const doDia = rotas.filter(r => r.status !== 'cancelada' && (r.data === hoje || r.status === 'em_andamento'))
+    const emAndamento = doDia.find(r => r.status === 'em_andamento') ?? null
+    const destaque = emAndamento ?? doDia.find(r => r.status === 'aguardando_saida' || r.status === 'planejamento') ?? null
     return {
-      disponiveis: corridas.filter(c => disponivel(c) && !encerrada(c.status)).length,
-      total: validas.length,
-      pendentes: validas.filter(c => !encerrada(c.status)).length,
-      concluidas: validas.filter(c => c.status === 'concluida').length,
-      valor: validas.reduce((soma, c) => soma + c.valor, 0),
-      prontas: validas.filter(c => c.status === 'pronto_entrega'),
-      proxima: escolherProxima(validas),
+      doDia,
+      destaque,
+      outras: doDia.filter(r => r.id_rota !== destaque?.id_rota),
+      pets: doDia.reduce((soma, r) => soma + contarPets(r), 0),
+      concluidas: doDia.filter(r => r.status === 'concluida').length,
     }
-  }, [corridas])
+  }, [rotas, hoje])
 
   const primeiroNome = (contexto?.nome ?? '').split(' ')[0]
-  const abrir = (c: Corrida) => router.push(`/taxidog/corrida/${c.id_corrida}` as never)
+  const abrir = (r: Rota) => router.push(`/taxidog/rota/${r.id_rota}` as never)
 
   return (
     <ScreenContainer refreshing={loading} onRefresh={recarregar}>
@@ -58,9 +47,9 @@ export default function InicioTaxiDogScreen() {
         <Text style={styles.data}>{dataExtensaBrasil()}</Text>
         {!loading && !erro && (
           <Text style={styles.frase}>
-            {resumo.total === 0
-              ? 'Hoje você ainda não tem corridas.'
-              : `Hoje você tem ${resumo.total} ${resumo.total === 1 ? 'corrida' : 'corridas'}.`}
+            {resumo.doDia.length === 0
+              ? 'Hoje você ainda não tem rotas.'
+              : `Hoje você tem ${resumo.doDia.length} ${resumo.doDia.length === 1 ? 'rota' : 'rotas'}.`}
           </Text>
         )}
       </View>
@@ -69,43 +58,34 @@ export default function InicioTaxiDogScreen() {
         <EmptyState icon="alert-circle-outline" title="Não foi possível carregar" subtitle={erro} />
       ) : (
         <>
-          {resumo.disponiveis > 0 && (
-            <Pressable style={styles.disponiveis} onPress={() => router.push('/taxidog/corridas' as never)}>
-              <Ionicons name="hand-right-outline" size={20} color={colors.primary600} />
-              <Text style={styles.disponiveisTexto}>
-                {resumo.disponiveis === 1 ? '1 corrida disponível para pegar hoje' : `${resumo.disponiveis} corridas disponíveis para pegar hoje`}
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.primary600} />
-            </Pressable>
-          )}
-
-          {resumo.proxima && (
+          {resumo.destaque ? (
             <View style={styles.section}>
-              <SectionHeader title="Próxima corrida" />
-              <ProximaCorrida corrida={resumo.proxima} onAbrir={() => abrir(resumo.proxima!)} />
+              <SectionHeader title={resumo.destaque.status === 'em_andamento' ? 'Rota em andamento' : 'Próxima rota'} />
+              <RotaDestaque rota={resumo.destaque} onAbrir={() => abrir(resumo.destaque!)} />
+            </View>
+          ) : !loading && (
+            <View style={styles.section}>
+              <EmptyState icon="map-outline" title="Nenhuma rota para agora" subtitle="Quando a loja montar uma rota para você, ela aparece aqui e você recebe um aviso." />
             </View>
           )}
 
-          <View style={styles.statsRow}>
-            <StatCard icon="hourglass-outline" value={resumo.pendentes} label="Pendentes" tint={colors.accent600} />
-            <StatCard icon="checkmark-done-outline" value={resumo.concluidas} label="Concluídas" tint={colors.success} />
-          </View>
           <View style={[styles.statsRow, { marginBottom: spacing['2xl'] }]}>
-            <StatCard icon="cash-outline" value={formatarReais(resumo.valor)} label="Total das corridas do dia" />
+            <StatCard icon="paw-outline" value={resumo.pets} label="Pets hoje" tint={colors.accent600} />
+            <StatCard icon="checkmark-done-outline" value={resumo.concluidas} label="Rotas concluídas" tint={colors.success} />
           </View>
 
-          {resumo.prontas.length > 0 && (
+          {resumo.outras.length > 0 && (
             <View style={styles.section}>
-              <SectionHeader title="Prontos para entrega" />
+              <SectionHeader title="Outras rotas de hoje" />
               <View style={{ gap: spacing.md }}>
-                {resumo.prontas.map(c => <CorridaCard key={c.id_corrida} corrida={c} onPress={() => abrir(c)} />)}
+                {resumo.outras.map(r => <RotaCard key={r.id_rota} rota={r} onPress={() => abrir(r)} />)}
               </View>
             </View>
           )}
 
-          <Pressable style={styles.ctaTodas} onPress={() => router.push('/taxidog/corridas' as never)}>
-            <Ionicons name="car-outline" size={18} color={colors.primary600} />
-            <Text style={styles.ctaTexto}>Ver todas as corridas</Text>
+          <Pressable style={styles.ctaTodas} onPress={() => router.push('/taxidog/rotas' as never)}>
+            <Ionicons name="map-outline" size={18} color={colors.primary600} />
+            <Text style={styles.ctaTexto}>Ver todas as rotas</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.primary600} />
           </Pressable>
         </>
@@ -114,30 +94,30 @@ export default function InicioTaxiDogScreen() {
   )
 }
 
-function ProximaCorrida({ corrida: c, onAbrir }: { corrida: Corrida; onAbrir: () => void }) {
-  const entrega = trechoAtual(c) === 'entrega'
-  const pronta = c.status === 'pronto_entrega'
+function RotaDestaque({ rota: r, onAbrir }: { rota: Rota; onAbrir: () => void }) {
+  const andamento = r.status === 'em_andamento'
+  const proxima = proximaParada(r)
+  const trajeto = trajetoDaRota(r)
+  const pets = contarPets(r)
   return (
-    <Card style={styles.proxima}>
-      <View style={styles.proximaTopo}>
-        <Text style={styles.proximaHora}>{c.hr_agendamento.slice(0, 5)}</Text>
-        <PillStatusCorrida corrida={c} />
+    <Card style={styles.destaque}>
+      <View style={styles.destaqueTopo}>
+        <Text style={styles.destaqueNumero}>Rota #{r.numero}</Text>
+        <PillStatusRota status={r.status} />
       </View>
-      <View style={styles.proximaPet}>
-        <Avatar nome={c.pet_nome} fotoUrl={c.pet_foto_url} size={44} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.proximaTitulo}>
-            {pronta ? `${c.pet_nome} está pronto para entrega` : `${entrega ? 'Entregar' : 'Buscar'} ${c.pet_nome}`}
+      <Text style={styles.destaqueLinha}>
+        {r.paradas.length} {r.paradas.length === 1 ? 'parada' : 'paradas'} · {pets} {pets === 1 ? 'pet' : 'pets'}{trajeto ? ` · ${trajeto}` : ''}
+      </Text>
+      {proxima && (
+        <View style={styles.destaqueProxima}>
+          <Ionicons name={proxima.local === 'loja' ? 'storefront-outline' : 'location-outline'} size={16} color={colors.primary600} />
+          <Text style={styles.destaqueProximaTexto} numberOfLines={1}>
+            {andamento ? 'Próxima parada: ' : 'Primeira parada: '}{tituloParada(proxima)}
           </Text>
-          <Text style={styles.proximaLinha}>Cliente: {c.cliente_nome}</Text>
         </View>
-      </View>
-      <View style={styles.proximaEndereco}>
-        <Ionicons name="location-outline" size={15} color={colors.textMuted} />
-        <Text style={styles.proximaLinha} numberOfLines={2}>{c.logradouro}, {c.numero} · {c.bairro}</Text>
-      </View>
-      <Pressable style={styles.proximaBotao} onPress={onAbrir}>
-        <Text style={styles.proximaBotaoTexto}>Ver corrida</Text>
+      )}
+      <Pressable style={styles.destaqueBotao} onPress={onAbrir}>
+        <Text style={styles.destaqueBotaoTexto}>{andamento ? 'CONTINUAR ROTA' : 'VER ROTA'}</Text>
       </Pressable>
     </Card>
   )
@@ -150,20 +130,21 @@ const styles = StyleSheet.create({
   frase: { ...typography.body.lg, color: colors.textDim, marginTop: spacing.sm, fontWeight: '600' },
   section: { marginBottom: spacing['2xl'] },
   statsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
-  proxima: { gap: spacing.md, borderColor: colors.primary200, borderWidth: 1.5 },
-  proximaTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  proximaHora: { ...typography.heading.lg, color: colors.text },
-  proximaPet: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  proximaTitulo: { ...typography.heading.md, color: colors.text },
-  proximaLinha: { ...typography.body.md, color: colors.textMuted, flexShrink: 1 },
-  proximaEndereco: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs },
-  proximaBotao: {
+  destaque: { gap: spacing.sm, borderColor: colors.primary200, borderWidth: 1.5 },
+  destaqueTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  destaqueNumero: { ...typography.heading.lg, color: colors.text },
+  destaqueLinha: { ...typography.body.md, color: colors.textMuted },
+  destaqueProxima: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  destaqueProximaTexto: { ...typography.label.md, color: colors.primary600, flex: 1 },
+  destaqueBotao: {
     backgroundColor: colors.primary600,
     borderRadius: radius.md,
-    paddingVertical: spacing.md,
+    minHeight: 52,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
   },
-  proximaBotaoTexto: { ...typography.heading.sm, color: colors.white },
+  destaqueBotaoTexto: { ...typography.heading.sm, color: colors.white, letterSpacing: 0.5 },
   ctaTodas: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -174,16 +155,4 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   ctaTexto: { ...typography.label.md, color: colors.primary600 },
-  disponiveis: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.primary50,
-    borderColor: colors.primary200,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.xl,
-  },
-  disponiveisTexto: { ...typography.label.md, color: colors.primary600, flex: 1 },
 })

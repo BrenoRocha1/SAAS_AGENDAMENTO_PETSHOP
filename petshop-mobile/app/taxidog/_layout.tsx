@@ -7,11 +7,11 @@ export default function TaxiDogLayout() {
   return (
     <Tabs screenOptions={opcoesTabBar}>
       <Tabs.Screen name="index" options={{ title: 'Início', tabBarIcon: tabIcon('home', 'home-outline') }} />
-      <Tabs.Screen name="corridas" options={{ title: 'Corridas', tabBarIcon: tabIcon('car', 'car-outline') }} />
+      <Tabs.Screen name="rotas" options={{ title: 'Rotas', tabBarIcon: tabIcon('map', 'map-outline') }} />
       <Tabs.Screen name="historico" options={{ title: 'Histórico', tabBarIcon: tabIcon('time', 'time-outline') }} />
       <Tabs.Screen name="mais" options={{ title: 'Mais', tabBarIcon: tabIcon('grid', 'grid-outline') }} />
-      {/* Detalhe da corrida: rota da área, mas sem aba própria. */}
-      <Tabs.Screen name="corrida/[id]" options={{ href: null }} />
+      {/* Tela da rota (execução): rota da área, mas sem aba própria. */}
+      <Tabs.Screen name="rota/[id]" options={{ href: null }} />
     </Tabs>
   )
 }

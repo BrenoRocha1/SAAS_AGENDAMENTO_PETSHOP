@@ -10,7 +10,7 @@ export default function MaisTaxiDogScreen() {
   const { contexto, temAcessoLoja, setModo, signOut } = useAuth()
 
   function confirmarSaida() {
-    Alert.alert('Sair da conta', 'Você precisará entrar de novo e deixará de receber avisos de corridas.', [
+    Alert.alert('Sair da conta', 'Você precisará entrar de novo e deixará de receber avisos de rotas.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Sair', style: 'destructive', onPress: signOut },
     ])

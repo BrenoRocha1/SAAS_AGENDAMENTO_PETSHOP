@@ -11,8 +11,8 @@ const TELAS_AO_VIVO = ['/lojista/agendamentos', '/lojista/kanban', '/lojista/das
 
 // Um canal só pro painel inteiro (montado no layout do lojista), no lugar
 // de cada tela assinar o seu. Quem recebe o quê a RLS decide: dono e
-// equipe com agenda recebem os agendamentos; o TaxiDog, as corridas dele
-// e as ainda sem TaxiDog (migration 046). A tela aberta é recarregada com
+// equipe com agenda recebem os agendamentos e as rotas; o TaxiDog, as
+// corridas e as rotas dele. A tela aberta é recarregada com
 // router.refresh() — os componentes das telas já re-sincronizam o estado
 // quando os dados do servidor mudam.
 export default function AtualizacaoAoVivo({ lojistaId }: { lojistaId: string }) {
@@ -40,6 +40,8 @@ export default function AtualizacaoAoVivo({ lojistaId }: { lojistaId: string }) 
       .channel(`painel-ao-vivo-${lojistaId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamento', filter: `id_lojista=eq.${lojistaId}` }, atualizar)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'taxidog_corrida', filter: `id_lojista=eq.${lojistaId}` }, atualizar)
+      // Rotas (migration 052): toda mudança nas paradas mexe na linha da rota.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'taxidog_rota', filter: `id_lojista=eq.${lojistaId}` }, atualizar)
     const desfazer = assinarComSessao(supabase, canal)
 
     return () => {

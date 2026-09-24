@@ -3424,3 +3424,237 @@ a:hover { color: var(--primary-300); }
   background: var(--gray-850);
 }
 
+
+/* ============================================================
+   TaxiDog — rotas (loja: organizar / TaxiDog: executar)
+   ============================================================ */
+.tdr-grade {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+.tdr-coluna { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.tdr-grupo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-500);
+  margin: var(--space-3) 0 var(--space-1);
+}
+.tdr-pendente {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border: 1px solid var(--gray-800);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+.tdr-pendente input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--primary-400); flex-shrink: 0; }
+.tdr-pendente:hover { border-color: var(--gray-600); }
+.tdr-pendente.is-marcado { border-color: var(--primary-400); background: var(--primary-soft-bg); }
+.tdr-pendente.is-bloqueado { cursor: not-allowed; opacity: 0.75; }
+.tdr-badge { margin-top: var(--space-1); text-transform: none; letter-spacing: 0; }
+.tdr-truncar { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.tdr-card-rota {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.tdr-card-rota:hover { border-color: var(--primary-400); }
+.tdr-numero { font-family: var(--font-heading); font-weight: 700; color: var(--gray-100); }
+
+.tdr-previa { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: var(--space-1); font-size: 0.875rem; }
+
+.tdr-resumo-rota {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--gray-850);
+}
+.tdr-resumo-rota .form-select { margin-top: 2px; }
+
+.tdr-paradas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.tdr-parada {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border: 1px solid var(--gray-800);
+  border-radius: var(--radius-md);
+  background: var(--gray-900);
+}
+.tdr-parada[draggable='true'] { cursor: grab; }
+.tdr-parada.is-arrastando { opacity: 0.5; border-style: dashed; }
+.tdr-parada.is-concluida { opacity: 0.6; }
+.tdr-parada.is-chegou { border-color: var(--status-andamento-solid); }
+.tdr-parada-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  background: var(--gray-850);
+  color: var(--gray-300);
+}
+.tdr-parada.is-concluida .tdr-parada-num { background: var(--status-concluido-bg); color: var(--status-concluido-fg); }
+.tdr-mover { display: flex; flex-direction: column; gap: 2px; }
+.tdr-mover button {
+  width: 28px;
+  height: 24px;
+  border: 1px solid var(--gray-800);
+  border-radius: 6px;
+  background: var(--gray-900);
+  color: var(--gray-300);
+  cursor: pointer;
+  font-size: 0.8125rem;
+}
+.tdr-mover button:disabled { opacity: 0.35; cursor: not-allowed; }
+.tdr-remover {
+  display: block;
+  margin-top: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--status-cancelado-fg);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.tdr-remover:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* TaxiDog executando */
+.tdm { display: flex; flex-direction: column; gap: var(--space-4); max-width: 640px; }
+.tdm-titulo { font-family: var(--font-heading); font-size: 1.375rem; font-weight: 700; color: var(--gray-100); margin: 0; }
+.tdm-abas { display: flex; gap: var(--space-1); padding: 4px; border-radius: var(--radius-md); background: var(--gray-850); }
+.tdm-abas button {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--gray-400);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tdm-abas button.is-ativa { background: var(--gray-900); color: var(--gray-100); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.tdm-andamento {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--status-andamento-ring);
+  border-radius: var(--radius-lg);
+  background: var(--status-andamento-bg);
+  color: var(--status-andamento-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.tdm-andamento-cta { font-weight: 700; font-size: 0.875rem; }
+.tdm-aviso { align-items: center; }
+.tdm-proxima {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border: 2px solid var(--primary-400);
+  border-radius: var(--radius-lg);
+  background: var(--gray-900);
+}
+.tdm-proxima-topo {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--primary-400);
+}
+.tdm-proxima-titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-heading);
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--gray-100);
+}
+.tdm-telefone { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 0.875rem; font-weight: 600; }
+.tdm-botoes { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
+.tdm-botao {
+  width: 100%;
+  justify-content: center;
+  min-height: 52px;
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.tdm-pets { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.tdm-pets li { padding: var(--space-3); border: 1px solid var(--gray-800); border-radius: var(--radius-md); }
+.tdm-pets li.is-marcado { border-color: var(--status-concluido-ring); background: var(--status-concluido-bg); }
+.tdm-pet { display: flex; align-items: center; gap: var(--space-3); cursor: pointer; }
+.tdm-pet input { width: 20px; height: 20px; accent-color: var(--status-concluido-solid); flex-shrink: 0; }
+.tdm-pet-foto {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gray-850);
+}
+.tdm-pet-obs { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); margin-top: var(--space-2); }
+.tdm-feitas summary { cursor: pointer; font-size: 0.875rem; font-weight: 600; color: var(--gray-400); margin-bottom: var(--space-2); }
+.tdm-fim {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--status-concluido-bg);
+  color: var(--status-concluido-fg);
+}
+
+@media (max-width: 900px) {
+  .tdr-grade { grid-template-columns: 1fr; }
+}
+
+/* Bloco "Transporte" no detalhe do agendamento (Kanban / Agenda) */
+.transporte-bloco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--gray-850);
+}
+.transporte-edicao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--gray-800);
+  border-radius: var(--radius-md);
+  background: var(--gray-900);
+}

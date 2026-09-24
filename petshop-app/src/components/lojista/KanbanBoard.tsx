@@ -7,12 +7,12 @@ import { ptBR } from 'date-fns/locale'
 import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
 import { classeBadgeStatus, ORDEM_ETAPA, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
 import { rotuloEstoque } from '@/lib/produto'
-import { ROTULO_MODALIDADE, formatarReais, rotuloStatusCorrida, type ModalidadeTaxiDog } from '@/lib/taxidog'
-import Link from 'next/link'
+import { formatarReais } from '@/lib/taxidog'
+import type { TransporteVisita } from '@/lib/taxidog-visita'
+import TransporteAgendamento from '@/components/lojista/TransporteAgendamento'
 import {
   IconAlert,
   IconCalendar,
-  IconCar,
   IconCheck,
   IconChevronLeft,
   IconChevronRight,
@@ -36,6 +36,7 @@ export interface KanbanItem {
   especie_pet: 'Cão' | 'Gato' | null
   porte_pet: 'Pequeno' | 'Médio' | 'Grande' | null
   foto_pet: string | null
+  id_cliente: string | null
   nome_cliente: string
   nome_servico: string
   id_servico: string
@@ -45,8 +46,9 @@ export interface KanbanItem {
   // Produtos comprados junto (migration 039) — vazio na maioria dos
   // agendamentos, já que produto é opcional no agendamento online.
   produtos: { nome: string; unidade_venda: string; quantidade: number; preco_unitario: number }[]
-  // TaxiDog pedido junto (migration 042) — a taxa já está somada em `valor`.
-  taxidog: { modalidade: ModalidadeTaxiDog; status: string; valor: number; endereco: string; temTaxiDog: boolean } | null
+  // TaxiDog da visita (mesmo pet, mesmo dia) — a taxa já está somada no
+  // `valor` do serviço que carrega a solicitação (taxidog.id_agendamento).
+  taxidog: TransporteVisita | null
 }
 
 interface Props {
@@ -58,6 +60,8 @@ interface Props {
   // Só o responsável pela conta ou um administrador pode atribuir/trocar
   // o profissional responsável — ver atribuirFuncionarioAction.
   podeAtribuirProfissional: boolean
+  // TaxiDog ativado na loja: mostra "Adicionar TaxiDog" no detalhe.
+  taxidogAtivo: boolean
 }
 
 const COLUNAS: { status: KanbanItem['status']; titulo: string; borda: string }[] = [
@@ -71,7 +75,7 @@ function parseDia(iso: string) {
   return parseISO(`${iso}T12:00:00`)
 }
 
-export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, funcionarios, servicos, podeAtribuirProfissional }: Props) {
+export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, funcionarios, servicos, podeAtribuirProfissional, taxidogAtivo }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [itens, setItens] = useState(itensIniciais)
@@ -186,17 +190,20 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
   // ainda emitem um clique residual logo após soltar um drag, então essa
   // ref marca "acabei de arrastar" por um instante pra ignorar esse clique.
   const acabouDeArrastarRef = useRef(false)
-  const [selecionado, setSelecionado] = useState<KanbanItem | null>(null)
+  // Guarda só o id: o detalhe acompanha os dados novos do servidor
+  // (atualização ao vivo, troca de transporte...).
+  const [selecionadoId, setSelecionadoId] = useState<string | null>(null)
+  const selecionado = itens.find(it => it.id_agendamento === selecionadoId) ?? null
   const [modalErro, setModalErro] = useState<string | null>(null)
 
   function handleCardClick(item: KanbanItem) {
     if (acabouDeArrastarRef.current) return
     setModalErro(null)
-    setSelecionado(item)
+    setSelecionadoId(item.id_agendamento)
   }
 
   function fecharModal() {
-    setSelecionado(null)
+    setSelecionadoId(null)
     setModalErro(null)
   }
 
@@ -234,7 +241,6 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
       if (result?.error) { setModalErro(result.error); return }
       const nome = funcionarios.find(f => f.id_funcionario === idFuncionario)?.nome ?? null
       setItens(prev => prev.map(it => it.id_agendamento === item.id_agendamento ? { ...it, id_funcionario: idFuncionario || null, nome_funcionario: nome } : it))
-      setSelecionado(prev => prev ? { ...prev, id_funcionario: idFuncionario || null, nome_funcionario: nome } : prev)
       router.refresh()
     })
   }
@@ -419,18 +425,15 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                   </div>
                 </div>
               )}
-              {selecionado.taxidog && (
-                <div className="dash-detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
-                  <span className="flex items-center gap-1"><IconCar style={{ width: 13, height: 13 }} /> TaxiDog</span>
-                  <div style={{ width: '100%' }} className="text-sm">
-                    <div className="flex items-center justify-between" style={{ color: 'var(--gray-300)' }}>
-                      <span>{ROTULO_MODALIDADE[selecionado.taxidog.modalidade]} · {rotuloStatusCorrida({ status: selecionado.taxidog.status, modalidade: selecionado.taxidog.modalidade, temTaxiDog: selecionado.taxidog.temTaxiDog, statusAgendamento: selecionado.status })}</span>
-                      <span className="font-semibold text-success">{formatarReais(selecionado.taxidog.valor)}</span>
-                    </div>
-                    <div className="text-xs text-muted">{selecionado.taxidog.endereco}</div>
-                    <Link href={`/lojista/kanban?visao=taxidog&data=${selecionado.dt_agendamento}`} className="text-xs text-accent">Ver no Kanban do TaxiDog</Link>
-                  </div>
-                </div>
+              {(selecionado.taxidog || taxidogAtivo) && (
+                <TransporteAgendamento
+                  key={`${selecionado.id_agendamento}:${selecionado.taxidog?.id_corrida ?? ''}:${selecionado.taxidog?.status ?? ''}`}
+                  idAgendamento={selecionado.id_agendamento}
+                  idCliente={selecionado.id_cliente}
+                  statusAgendamento={selecionado.status}
+                  transporte={selecionado.taxidog}
+                  podeAlterar
+                />
               )}
               <div className="dash-detail-row"><span>Data</span><span>{format(parseDia(selecionado.dt_agendamento), 'dd/MM/yyyy')}</span></div>
               <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>
@@ -439,7 +442,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                 <span style={{ textAlign: 'right' }}>
                   {formatarReais(selecionado.valor)}
                   {/* A taxa do TaxiDog já está somada em `valor`. */}
-                  {selecionado.taxidog && selecionado.taxidog.status !== 'cancelada' && (
+                  {selecionado.taxidog?.id_agendamento === selecionado.id_agendamento && (
                     <><br /><span className="text-xs text-muted">inclui TaxiDog</span></>
                   )}
                 </span>

@@ -5,7 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
-import { CorridasProvider } from '@/contexts/CorridasContext'
+import { RotasProvider } from '@/contexts/RotasContext'
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
 
@@ -17,9 +17,9 @@ export default function RootLayout() {
           <StatusBar style="dark" />
           {/* Fica acima das duas áreas: o TaxiDog recebe o aviso de corrida
               nova mesmo se estiver olhando o painel da loja. */}
-          <CorridasProvider>
+          <RotasProvider>
             <RootNavigator />
-          </CorridasProvider>
+          </RotasProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
