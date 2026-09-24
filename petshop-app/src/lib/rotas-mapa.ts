@@ -5,6 +5,8 @@
 // ordem (loja → paradas...) e devolve a soma pelo trajeto de carro.
 // Configuração: GOOGLE_MAPS_API_KEY no .env.local, de um projeto do
 // Google Cloud com a "Routes API" ativada (e faturamento ligado).
+// Custo: quem chama reserva as chamadas antes (fn_reservar_chamadas_google,
+// migration 055) — o sistema não passa do limite grátis do mês.
 
 export type PontoRota = { endereco: string } | { lat: number; lng: number }
 
@@ -21,6 +23,20 @@ const MAX_INTERMEDIARIOS = 10
 
 export function googleMapsConfigurado(): boolean {
   return !!process.env.GOOGLE_MAPS_API_KEY
+}
+
+// Limite de chamadas por mês que o sistema se permite (a cota grátis é
+// 10 mil). GOOGLE_MAPS_LIMITE_MENSAL muda; o banco nunca aceita mais de 10 mil.
+export function limiteMensalGoogle(): number {
+  const n = Number(process.env.GOOGLE_MAPS_LIMITE_MENSAL)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 9000
+}
+
+// Quantas chamadas à Routes API um trajeto custa (pedaços de até 10
+// intermediários — ver calcularTrajeto).
+export function chamadasNecessarias(pontos: PontoRota[]): number {
+  if (pontos.length < 2) return 0
+  return Math.ceil((pontos.length - 1) / (MAX_INTERMEDIARIOS + 1))
 }
 
 function waypoint(p: PontoRota) {

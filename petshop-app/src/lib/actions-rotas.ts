@@ -14,7 +14,7 @@ import { obterContextoLojista } from '@/lib/lojista-context'
 import { formatarEnderecoLoja } from '@/lib/format'
 import { taxiDogAgendamentoSchema } from '@/lib/validations'
 import { coordenadasParaTaxiDog, mensagemErroTaxiDog } from '@/lib/taxidog-servidor'
-import { calcularTrajeto, googleMapsConfigurado, type PontoRota } from '@/lib/rotas-mapa'
+import { calcularTrajeto, chamadasNecessarias, googleMapsConfigurado, limiteMensalGoogle, type PontoRota } from '@/lib/rotas-mapa'
 import {
   montarPlanoInicial,
   normalizarPlano,
@@ -89,6 +89,18 @@ async function recalcular(supabase: Supabase, idRota: string, idLojista: string)
     loja,
     ...rota.paradas.map(p => (p.local === 'loja' || !p.itens[0] ? loja : pontoDoCliente(p.itens[0]))),
   ]
+  // Conta as chamadas do mês antes de chamar o Google (migration 055).
+  const { data: liberado, error: erroLimite } = await supabase.rpc('fn_reservar_chamadas_google', {
+    p_quantidade: chamadasNecessarias(pontos),
+    p_limite: limiteMensalGoogle(),
+  })
+  if (erroLimite) {
+    return erroLimite.code === 'PGRST202' || erroLimite.message.includes('Could not find the function')
+      ? 'Execute a migration 055_google_maps_limite.sql para liberar o cálculo de distância.'
+      : 'Não foi possível calcular a distância agora.'
+  }
+  if (!liberado) return 'O limite grátis do Google Maps deste mês acabou — a distância volta no mês que vem.'
+
   const r = await calcularTrajeto(pontos)
   if (!r.ok) {
     if (r.motivo === 'falha') console.error('[rotas] Google Maps:', r.detalhe)

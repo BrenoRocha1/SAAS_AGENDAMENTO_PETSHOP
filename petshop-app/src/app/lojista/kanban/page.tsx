@@ -8,7 +8,7 @@ import { carregarTransportePorVisita } from '@/lib/taxidog-visita'
 import { IconAlert, IconCar, IconChartBar, IconKanban, IconRoute } from '@/components/icons'
 import Link from 'next/link'
 
-export const metadata: Metadata = { title: 'Kanban de Agendamentos' }
+export const metadata: Metadata = { title: 'Gestor de Agendamentos' }
 
 interface Props {
   // visao=taxidog: o Kanban das corridas do TaxiDog, no lugar do de
@@ -28,7 +28,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     return (
       <>
         <div className="page-header">
-          <h1 className="page-title">Kanban de Agendamentos</h1>
+          <h1 className="page-title">Gestor de Agendamentos</h1>
         </div>
         <div className="empty-state card">
           <IconKanban style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
@@ -56,11 +56,11 @@ export default async function KanbanPage({ searchParams }: Props) {
     return (
       <>
         <div className="page-header">
-          <h1 className="page-title">Kanban de Agendamentos</h1>
+          <h1 className="page-title">Gestor de Agendamentos</h1>
         </div>
         <div className="empty-state card">
           <IconKanban style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
-          <div className="empty-state-title">O Kanban está desativado</div>
+          <div className="empty-state-title">O Gestor de Agendamentos está desativado</div>
           <p style={{ marginBottom: 'var(--space-4)' }}>
             Ative o Gestor de Agendamentos no Perfil da Loja pra usar essa tela.
           </p>
@@ -86,7 +86,7 @@ export default async function KanbanPage({ searchParams }: Props) {
   const cabecalho = (
     <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
       <div>
-        <h1 className="page-title">{visaoTaxiDog ? 'Kanban do TaxiDog' : 'Kanban de Agendamentos'}</h1>
+        <h1 className="page-title">{visaoTaxiDog ? 'Gestor de Agendamentos · TaxiDog' : 'Gestor de Agendamentos'}</h1>
         <p className="page-subtitle">
           {visaoTaxiDog ? 'Corridas de busca e entrega dos pets' : 'Acompanhe o atendimento em tempo real'}
         </p>
@@ -161,7 +161,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     return (
       <>
         <div className="page-header">
-          <h1 className="page-title">Kanban de Agendamentos</h1>
+          <h1 className="page-title">Gestor de Agendamentos</h1>
         </div>
         <div className="alert alert-error">
           <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />

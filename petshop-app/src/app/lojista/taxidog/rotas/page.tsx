@@ -19,9 +19,10 @@ interface Props {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-// Rotas do TaxiDog (migration 053) — página própria no menu, ao lado do
-// Kanban de corridas. Gestão (dono, administrador, gestão de agendamentos)
-// monta rotas com qualquer corrida e aprova as dos TaxiDogs; o TaxiDog
+// Rotas do TaxiDog (migration 053). A gestão (dono, administrador, gestão
+// de agendamentos) chega por dentro do Gestor de Agendamentos ("Visualizar
+// TaxiDog" → "Rotas do TaxiDog"), monta rotas com qualquer corrida e
+// aprova as dos TaxiDogs; o TaxiDog chega por "Minhas rotas" no menu e
 // monta as dele. ?rota=... abre a tela da rota (execução).
 export default async function RotasTaxiDogPage({ searchParams }: Props) {
   const params = await searchParams
@@ -43,7 +44,7 @@ export default async function RotasTaxiDogPage({ searchParams }: Props) {
         <p className="page-subtitle">Junte várias buscas e entregas numa rota só</p>
       </div>
       <Link href={perfil === 'taxidog' ? '/lojista/taxidog' : `/lojista/kanban?visao=taxidog&data=${data}`} className="btn btn-ghost btn-sm">
-        <IconKanban style={{ width: 14, height: 14 }} /> Kanban de corridas
+        <IconKanban style={{ width: 14, height: 14 }} /> {perfil === 'taxidog' ? 'Minhas corridas' : 'Corridas do TaxiDog'}
       </Link>
     </div>
   )
