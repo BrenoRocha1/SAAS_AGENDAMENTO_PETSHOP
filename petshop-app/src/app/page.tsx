@@ -100,18 +100,7 @@ function use3DTilt(maxDeg: number = 8) {
     })
   }, [])
 
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    el.addEventListener('mousemove', handleMove)
-    el.addEventListener('mouseleave', handleLeave)
-    return () => {
-      el.removeEventListener('mousemove', handleMove)
-      el.removeEventListener('mouseleave', handleLeave)
-    }
-  }, [handleMove, handleLeave])
-
-  return { nodeRef: ref, style }
+  return { nodeRef: ref, style, handleMove, handleLeave }
 }
 
 /* ------------------------------------------------------------------ *
@@ -256,6 +245,17 @@ export default function LandingPage() {
               </Link>
             </div>
           </div>
+          <span className="sidebar-logo-text">
+            SA<span>IP</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link href="/login" className="btn btn-ghost btn-sm">
+            Entrar
+          </Link>
+          <Link href="/cadastro" className="btn btn-primary btn-sm">
+            Criar Conta
+          </Link>
         </div>
       </nav>
 

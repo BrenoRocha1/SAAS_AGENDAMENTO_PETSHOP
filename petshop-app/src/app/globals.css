@@ -2225,11 +2225,11 @@ a:hover { color: var(--primary-300); }
 
 /* ============================================================
    TELA DE LOGIN  (/login)
-   Escopo isolado: NÃO usa o dark mode nem o --primary global.
-   Cor de acento (verde-azulado) vive só dentro de .login-shell.
+   Paleta SAIP: índigo #4f46e5 como cor primária/ações,
+   chumbo #111827 para texto principal, #f9fafb para fundo.
    ============================================================ */
 .login-shell {
-  /* --- paleta local (não vaza pro resto do sistema) --- */
+  /* --- paleta SAIP local (não vaza pro resto do sistema) --- */
   --lg-accent:      #4f46e5;
   --lg-accent-600:  #4338ca;
   --lg-accent-700:  #3730a3;
@@ -2242,9 +2242,9 @@ a:hover { color: var(--primary-300); }
   --lg-border:      #e5e7eb;
   --lg-border-str:  #d1d5db;
   --lg-ink:         #111827;
-  --lg-ink-soft:    #4b5563;
+  --lg-ink-soft:    #374151;
   --lg-ink-mute:    #6b7280;
-  --lg-star:        #e0a92e;
+  --lg-star:        #f59e0b;
 
   min-height: 100vh;
   display: grid;
@@ -2489,6 +2489,84 @@ a:hover { color: var(--primary-300); }
   color: var(--lg-ink-mute);
   text-align: center;
 }
+
+/* --- Toggle Cliente / Lojista --- */
+.login-perfil-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  background: var(--lg-panel);
+  border: 1px solid var(--lg-border);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  margin-bottom: var(--space-6);
+}
+
+.login-perfil-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 36px;
+  border: none;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--lg-ink-mute);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.login-perfil-tab svg { width: 15px; height: 15px; flex-shrink: 0; }
+.login-perfil-tab:hover:not(.active) { background: var(--lg-border); color: var(--lg-ink-soft); }
+.login-perfil-tab.active {
+  background: #ffffff;
+  color: var(--lg-accent);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+
+/* --- Link troca de perfil (abaixo do Google) --- */
+.login-switch-perfil {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: 0.8125rem;
+  color: var(--lg-ink-mute);
+  padding: var(--space-1) 0;
+}
+
+.login-switch-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--lg-accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--transition-fast);
+}
+.login-switch-link:hover { color: var(--lg-accent-600); }
+
+/* --- Dica de cadastro --- */
+.login-register-hint {
+  font-size: 0.8125rem;
+  color: var(--lg-ink-mute);
+  text-align: center;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--lg-border);
+}
+.login-register-hint a {
+  color: var(--lg-accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.login-register-hint a:hover { color: var(--lg-accent-600); }
 
 .login-alert {
   display: flex;
@@ -2841,3 +2919,508 @@ a:hover { color: var(--primary-300); }
   background: var(--gray-800);
   border-radius: var(--radius-md);
 }
+
+/* ============================================================
+   VITRINE PÚBLICA DO PETSHOP (/[slug])
+   ============================================================ */
+.vitrine-shell {
+  min-height: 100vh;
+  background: var(--gray-950);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Hero / Header */
+.vitrine-hero {
+  position: relative;
+  background: var(--gray-900);
+  border-bottom: 1px solid var(--gray-800);
+  overflow: hidden;
+}
+
+.vitrine-hero-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(79,70,229,0.08) 0%, rgba(99,102,241,0.04) 50%, transparent 100%);
+  pointer-events: none;
+}
+
+.vitrine-hero-content {
+  position: relative;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: var(--space-10) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-5);
+}
+
+.vitrine-logo-wrap {
+  flex-shrink: 0;
+}
+
+.vitrine-logo-img {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-xl);
+  object-fit: cover;
+  box-shadow: var(--shadow-lg);
+  border: 2px solid var(--gray-800);
+}
+
+.vitrine-logo-placeholder {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--primary-soft-bg), var(--primary-100));
+  border: 2px solid var(--primary-soft-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-glow-sm);
+}
+
+.vitrine-hero-info { flex: 1; width: 100%; }
+
+.vitrine-nome {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-family: var(--font-heading);
+  font-weight: 800;
+  color: var(--gray-50);
+  margin-bottom: var(--space-3);
+  line-height: 1.15;
+}
+
+.vitrine-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.vitrine-stars {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.vitrine-stars-label {
+  font-size: 0.875rem;
+  color: var(--gray-400);
+  margin-left: var(--space-1);
+}
+
+.vitrine-descricao {
+  color: var(--gray-300);
+  font-size: 1rem;
+  line-height: 1.65;
+  margin-bottom: var(--space-4);
+  max-width: 560px;
+}
+
+.vitrine-contatos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+}
+
+.vitrine-contato-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.875rem;
+  color: var(--gray-400);
+}
+
+.vitrine-contato-link {
+  color: var(--primary-400);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.vitrine-contato-link:hover { color: var(--primary-300); }
+
+.vitrine-cta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 1rem;
+  padding: var(--space-3) var(--space-6);
+  box-shadow: var(--shadow-glow);
+}
+
+/* Conteúdo principal */
+.vitrine-main {
+  flex: 1;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+}
+
+.vitrine-section { display: flex; flex-direction: column; gap: var(--space-5); }
+
+.vitrine-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 1.25rem;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--gray-50);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--gray-800);
+}
+
+/* Serviços */
+.vitrine-categoria { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.vitrine-categoria-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--primary-400);
+  padding: var(--space-1) var(--space-2);
+  background: var(--primary-soft-bg);
+  border-radius: var(--radius-sm);
+  width: fit-content;
+}
+
+.vitrine-servicos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+
+.vitrine-servico-card {
+  background: var(--gray-900);
+  border: 1px solid var(--gray-800);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+.vitrine-servico-card:hover {
+  border-color: var(--primary-soft-border);
+  box-shadow: var(--shadow-md);
+}
+
+.vitrine-servico-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-1);
+}
+
+.vitrine-servico-nome {
+  font-weight: 600;
+  color: var(--gray-100);
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+
+.vitrine-servico-preco {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--primary-400);
+  white-space: nowrap;
+}
+
+.vitrine-servico-desc {
+  font-size: 0.8125rem;
+  color: var(--gray-400);
+  line-height: 1.5;
+  margin-bottom: var(--space-2);
+}
+
+.vitrine-servico-duracao {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  margin-top: var(--space-2);
+}
+
+/* Horários */
+.vitrine-horarios-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-2);
+}
+
+.vitrine-horario-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--gray-900);
+  border: 1px solid var(--gray-800);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+}
+
+.vitrine-horario-row.vitrine-horario-hoje {
+  border-color: var(--primary-soft-border);
+  background: var(--primary-soft-bg);
+}
+
+.vitrine-horario-dia {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 600;
+  color: var(--gray-200);
+}
+
+.vitrine-hoje-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--primary-400);
+  background: var(--primary-soft-bg);
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-full);
+}
+
+.vitrine-horario-horas {
+  color: var(--gray-400);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Avaliações */
+.vitrine-media-badge {
+  font-size: 0.8125rem;
+  color: var(--gray-400);
+  font-weight: 500;
+  margin-left: auto;
+}
+
+.vitrine-avaliacoes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+
+.vitrine-avaliacao-card {
+  background: var(--gray-900);
+  border: 1px solid var(--gray-800);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  transition: box-shadow var(--transition-fast);
+}
+.vitrine-avaliacao-card:hover { box-shadow: var(--shadow-md); }
+
+.vitrine-avaliacao-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.vitrine-avaliacao-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-400), var(--primary-700));
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.vitrine-avaliacao-nome {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--gray-100);
+}
+
+.vitrine-avaliacao-data {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+}
+
+.vitrine-avaliacao-stars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.vitrine-avaliacao-texto {
+  font-size: 0.875rem;
+  color: var(--gray-300);
+  line-height: 1.55;
+}
+
+/* CTA final */
+.vitrine-cta-bottom {
+  padding: var(--space-2) 0;
+}
+
+.vitrine-cta-card {
+  background: var(--gray-900);
+  border: 1px solid var(--primary-soft-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  box-shadow: var(--shadow-glow-sm);
+}
+
+.vitrine-cta-card-offline {
+  border-color: rgba(245,158,11,0.3);
+  box-shadow: none;
+  background: var(--warning-900);
+}
+
+.vitrine-cta-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--gray-50);
+  margin-bottom: var(--space-1);
+}
+
+.vitrine-cta-sub {
+  font-size: 0.875rem;
+  color: var(--gray-400);
+}
+
+/* Footer */
+.vitrine-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  font-size: 0.8125rem;
+  color: var(--gray-500);
+  border-top: 1px solid var(--gray-800);
+  background: var(--gray-900);
+}
+
+/* ============================================================
+   MARKETPLACE (/cliente/petshops)
+   ============================================================ */
+.marketplace-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-5);
+}
+
+.marketplace-card {
+  background: var(--gray-900);
+  border: 1px solid var(--gray-800);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow var(--transition-normal), border-color var(--transition-normal), transform var(--transition-normal);
+}
+.marketplace-card:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--gray-700);
+  transform: translateY(-2px);
+}
+
+.marketplace-card-header {
+  display: block;
+  height: 140px;
+  background: linear-gradient(135deg, var(--primary-soft-bg), rgba(99,102,241,0.06));
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.marketplace-logo-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.marketplace-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-slow);
+}
+.marketplace-card:hover .marketplace-logo-img { transform: scale(1.04); }
+
+.marketplace-logo-placeholder {
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, var(--primary-soft-bg), var(--primary-100));
+  border: 2px solid var(--primary-soft-border);
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-glow-sm);
+}
+
+.marketplace-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 40%, rgba(255,255,255,0.08));
+}
+
+.marketplace-card-body {
+  padding: var(--space-4) var(--space-5);
+  flex: 1;
+}
+
+.marketplace-nome {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--gray-50);
+  font-family: var(--font-heading);
+  text-decoration: none;
+  line-height: 1.3;
+  transition: color var(--transition-fast);
+}
+.marketplace-nome:hover { color: var(--primary-400); }
+
+.marketplace-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.8125rem;
+  color: var(--gray-500);
+  margin-top: var(--space-2);
+}
+
+.marketplace-descricao {
+  font-size: 0.875rem;
+  color: var(--gray-400);
+  line-height: 1.5;
+  margin-top: var(--space-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.marketplace-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--gray-800);
+  background: var(--gray-850);
+}
+

@@ -11,6 +11,7 @@ import {
   IconPlus,
   IconDog,
   IconUser,
+  IconStore,
   IconLogout,
   IconChevronLeft,
   IconChevronRight,
@@ -20,6 +21,7 @@ const navItems = [
   { href: '/cliente/dashboard', icon: IconGrid, label: 'Dashboard' },
   { href: '/cliente/agendamentos', icon: IconCalendar, label: 'Meus Agendamentos' },
   { href: '/cliente/novo-agendamento', icon: IconPlus, label: 'Novo Agendamento' },
+  { href: '/cliente/petshops', icon: IconStore, label: 'Petshops' },
   { href: '/cliente/pets', icon: IconDog, label: 'Meus Pets' },
   { href: '/cliente/perfil', icon: IconUser, label: 'Meu Perfil' },
 ]
@@ -99,11 +101,12 @@ export default function ClienteSidebar({ userName, userEmail }: Props) {
         {!colapsada && <span className="sidebar-section-label">Menu</span>}
         {navItems.map(item => {
           const Icon = item.icon
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`sidebar-link ${pathname.startsWith(item.href) ? 'active' : ''}`}
+              className={`sidebar-link ${isActive ? 'active' : ''}`}
               title={colapsada ? item.label : undefined}
             >
               <span className="sidebar-link-icon">
