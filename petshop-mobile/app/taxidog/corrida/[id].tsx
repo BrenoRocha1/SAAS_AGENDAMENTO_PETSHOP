@@ -20,6 +20,7 @@ import {
   formatarCep,
   formatarKm,
   formatarReais,
+  disponivel,
   proximaAcaoCorrida,
   trechoAtual,
   type Corrida,
@@ -39,7 +40,7 @@ function abrirMapa(destino: string) {
 
 export default function CorridaDetalheScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  const { versao } = useCorridasTempoReal()
+  const { versao, marcarComoVista } = useCorridasTempoReal()
   const [corrida, setCorrida] = useState<Corrida | null>(null)
   const [loading, setLoading] = useState(true)
   const [enviando, setEnviando] = useState(false)
@@ -58,6 +59,19 @@ export default function CorridaDetalheScreen() {
     setErro(null)
     setEnviando(true)
     const { error } = await supabase.rpc('fn_avancar_corrida', { p_id_corrida: id, p_novo_status: novoStatus })
+    setEnviando(false)
+    if (error) {
+      setErro(error.message)
+      return
+    }
+    carregar()
+  }
+
+  async function assumir() {
+    setErro(null)
+    setEnviando(true)
+    marcarComoVista(id)
+    const { error } = await supabase.rpc('fn_assumir_corrida', { p_id_corrida: id })
     setEnviando(false)
     if (error) {
       setErro(error.message)
@@ -97,13 +111,16 @@ export default function CorridaDetalheScreen() {
   }
 
   const c = corrida
+  // Sem TaxiDog (migration 046): em vez da etapa, "Atribuir para mim" —
+  // que só libera depois de a loja aceitar o agendamento.
+  const semTaxiDog = disponivel(c)
   // A busca só sai depois de a loja aceitar o agendamento (migration 043).
-  const aguardandoAceite = c.status === 'agendada' && c.modalidade !== 'entregar' && c.status_agendamento === 'Pendente'
-  const acao = aguardandoAceite ? null : proximaAcaoCorrida(c.status, c.modalidade)
+  const aguardandoAceite = c.status === 'agendada' && c.status_agendamento === 'Pendente' && (semTaxiDog || c.modalidade !== 'entregar')
+  const acao = aguardandoAceite || semTaxiDog ? null : proximaAcaoCorrida(c.status, c.modalidade)
   const indoParaLoja = c.status === 'pet_embarcado'
   // loja_endereco vem '' (não null) quando a loja não tem endereço.
   const destino = indoParaLoja ? c.loja_endereco || c.loja_nome : `${enderecoCliente(c)}, ${formatarCep(c.cep)}, Brasil`
-  const aguardandoServico = c.status === 'entregue_loja' || (c.status === 'agendada' && c.modalidade === 'entregar')
+  const aguardandoServico = !semTaxiDog && (c.status === 'entregue_loja' || (c.status === 'agendada' && c.modalidade === 'entregar'))
   const comportamento = (c.pet_comportamento ?? []).filter(Boolean)
   const observacoes = [c.obs_agendamento, c.pet_obs, c.pet_obs_comportamento].filter(Boolean) as string[]
   const telefone = c.cliente_telefone.replace(/\D/g, '')
@@ -159,9 +176,20 @@ export default function CorridaDetalheScreen() {
           <View style={styles.aguardando}>
             <Ionicons name="hourglass-outline" size={18} color={colors.warningFg} />
             <Text style={styles.aguardandoTexto}>
-              A loja ainda não aceitou este agendamento. A busca libera assim que ela aceitar.
+              {semTaxiDog
+                ? 'Aguardando aceite da loja. Assim que ela aceitar, você pode pegar esta corrida.'
+                : 'A loja ainda não aceitou este agendamento. A busca libera assim que ela aceitar.'}
             </Text>
           </View>
+        )}
+        {semTaxiDog && !aguardandoAceite && (
+          <Pressable
+            style={({ pressed }) => [styles.botaoAcao, (pressed || enviando) && { opacity: 0.85 }]}
+            disabled={enviando}
+            onPress={assumir}
+          >
+            {enviando ? <ActivityIndicator color={colors.white} /> : <Text style={styles.botaoAcaoTexto}>ATRIBUIR PARA MIM</Text>}
+          </Pressable>
         )}
         {aguardandoServico && (
           <View style={styles.aguardando}>

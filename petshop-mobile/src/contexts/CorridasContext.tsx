@@ -30,9 +30,12 @@ interface Aviso {
 
 interface CorridasState {
   versao: number
+  // Corrida que o próprio TaxiDog acabou de assumir: não vira aviso de
+  // "Nova corrida" quando o Realtime trouxer a mudança.
+  marcarComoVista: (idCorrida: string) => void
 }
 
-const CorridasContext = createContext<CorridasState>({ versao: 0 })
+const CorridasContext = createContext<CorridasState>({ versao: 0, marcarComoVista: () => {} })
 
 type LinhaRealtime = { id_corrida: string; status: string; id_funcionario: string | null }
 
@@ -48,6 +51,10 @@ export function CorridasProvider({ children }: { children: ReactNode }) {
 
   const userId = session?.user.id
   const ativo = !!userId && !!contexto?.podeTaxidog
+
+  const marcarComoVista = useCallback((idCorrida: string) => {
+    jaAvisados.current.add(`${idCorrida}:nova`)
+  }, [])
 
   const mostrarAviso = useCallback(async (idCorrida: string, tipo: 'nova' | 'pronta') => {
     const chave = `${idCorrida}:${tipo}`
@@ -135,7 +142,7 @@ export function CorridasProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <CorridasContext.Provider value={{ versao }}>
+    <CorridasContext.Provider value={{ versao, marcarComoVista }}>
       {children}
       {aviso && (
         <Animated.View pointerEvents="box-none" style={[styles.avisoWrap, { top: insets.top + spacing.sm, opacity: opacidade }]}>

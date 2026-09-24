@@ -23,17 +23,20 @@ export const ROTULO_MODALIDADE: Record<ModalidadeTaxiDog, string> = {
   buscar_entregar: 'Buscar e entregar',
 }
 
+// Rótulos do ponto de vista do TaxiDog: corrida sem TaxiDog (migration
+// 046) é "Disponível para atribuição" — ou "Aguardando aceite da loja"
+// enquanto o agendamento está Pendente.
 export function rotuloStatusCorrida(c: { status: string; modalidade: string; temTaxiDog: boolean; statusAgendamento?: string | null }): string {
   switch (c.status) {
     case 'agendada':
-      if (c.modalidade === 'entregar') return 'Aguardando serviço'
-      if (c.statusAgendamento === 'Pendente') return 'Pendente'
-      return c.temTaxiDog ? 'Corrida atribuída' : 'Aguardando TaxiDog'
+      if (c.statusAgendamento === 'Pendente') return 'Aguardando aceite da loja'
+      if (!c.temTaxiDog) return 'Disponível para atribuição'
+      return c.modalidade === 'entregar' ? 'Aguardando serviço' : 'Corrida atribuída'
     case 'a_caminho_cliente': return 'A caminho do cliente'
     case 'no_endereco': return 'Chegou ao endereço'
     case 'pet_embarcado': return 'Pet embarcado'
-    case 'entregue_loja': return 'Pet entregue na loja'
-    case 'pronto_entrega': return c.temTaxiDog ? 'Pronto para entrega' : 'Pronto · aguardando TaxiDog'
+    case 'entregue_loja': return c.temTaxiDog ? 'Pet entregue na loja' : 'Disponível para atribuição'
+    case 'pronto_entrega': return c.temTaxiDog ? 'Pronto para entrega' : 'Disponível para atribuição'
     case 'a_caminho_entrega': return 'A caminho para entrega'
     case 'no_endereco_entrega': return 'Chegou ao endereço'
     case 'concluida': return 'Corrida concluída'
@@ -58,6 +61,8 @@ export function proximaAcaoCorrida(status: string, modalidade: string): { status
 const EM_MOVIMENTO = ['a_caminho_cliente', 'no_endereco', 'pet_embarcado', 'a_caminho_entrega', 'no_endereco_entrega']
 export const emMovimento = (status: string) => EM_MOVIMENTO.includes(status)
 export const encerrada = (status: string) => status === 'concluida' || status === 'cancelada'
+// Sem TaxiDog: aparece pra todo TaxiDog da loja pegar (migration 046).
+export const disponivel = (c: { id_funcionario: string | null }) => !c.id_funcionario
 
 // Em qual "perna" da corrida o TaxiDog está — decide o verbo ("Buscar
 // Thor" / "Entregar Thor") e pra onde a rota aponta.

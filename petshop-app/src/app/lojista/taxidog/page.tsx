@@ -21,15 +21,16 @@ export default async function TaxiDogPage({ searchParams }: Props) {
   if (!contexto) return null
 
   // Quem gerencia a agenda vê todas as corridas da loja; quem só tem a
-  // função TaxiDog vê as dele (fn_listar_corridas já filtra assim) e pode
-  // avançar as etapas, mas não atribuir nem cancelar.
+  // função TaxiDog vê as dele + as ainda sem TaxiDog (fn_listar_corridas
+  // já filtra assim, migration 046): pode assumir uma disponível e avançar
+  // as etapas das dele, mas não atribuir a outro nem cancelar.
   const modoMotorista = !contexto.podeGerenciarAgenda && contexto.podeTaxidog
 
   const cabecalho = (
     <div className="page-header">
       <h1 className="page-title">{modoMotorista ? 'Minhas corridas' : 'TaxiDog'}</h1>
       <p className="page-subtitle">
-        {modoMotorista ? 'Corridas de busca e entrega atribuídas a você' : 'Corridas de busca e entrega dos pets'}
+        {modoMotorista ? 'Pegue as corridas disponíveis e acompanhe as suas' : 'Corridas de busca e entrega dos pets'}
       </p>
     </div>
   )
@@ -95,6 +96,7 @@ export default async function TaxiDogPage({ searchParams }: Props) {
         corridas={corridas}
         taxidogs={(taxidogs ?? []) as { id_funcionario: string; nome: string }[]}
         podeAtribuir={podeAtribuir}
+        podeAssumir={contexto.podeTaxidog}
         modoMotorista={modoMotorista}
       />
     </>

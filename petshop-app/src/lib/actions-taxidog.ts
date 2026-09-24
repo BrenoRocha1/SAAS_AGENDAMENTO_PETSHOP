@@ -211,6 +211,17 @@ export async function atribuirCorridaAction(idCorrida: string, idFuncionario: st
   return { success: true }
 }
 
+// O próprio TaxiDog pega uma corrida sem TaxiDog (migration 046) — só
+// depois de a loja aceitar o agendamento; o banco confere tudo.
+export async function assumirCorridaAction(idCorrida: string) {
+  if (!UUID_RE.test(idCorrida)) return { error: 'Corrida inválida.' }
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('fn_assumir_corrida', { p_id_corrida: idCorrida })
+  if (error) return { error: mensagemRpc(error, 'Não foi possível assumir a corrida.') }
+  revalidatePath('/lojista/taxidog')
+  return { success: true }
+}
+
 export async function avancarCorridaAction(idCorrida: string, novoStatus: string) {
   if (!UUID_RE.test(idCorrida)) return { error: 'Corrida inválida.' }
   const supabase = await createClient()

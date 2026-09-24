@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { CorridaCard } from '@/components/CorridaCard'
 import { useMinhasCorridas } from '@/hooks/useMinhasCorridas'
 import { agoraBrasil, hojeBrasilISO } from '@/lib/agenda'
-import { emMovimento, encerrada, type Corrida } from '@/lib/taxidog'
+import { disponivel, emMovimento, encerrada, type Corrida } from '@/lib/taxidog'
 import { colors, spacing, typography } from '@/theme/theme'
 
 const DIAS_A_FRENTE = 7
@@ -24,11 +24,15 @@ export default function CorridasScreen() {
   const { corridas, loading, erro, recarregar } = useMinhasCorridas(desde, ate)
 
   const secoes = useMemo(() => {
-    const ativas = corridas.filter(c => !encerrada(c.status))
+    const abertas = corridas.filter(c => !encerrada(c.status))
+    // Sem TaxiDog = pra pegar; o resto (as dele) segue nas seções de sempre.
+    const disponiveis = abertas.filter(disponivel)
+    const ativas = abertas.filter(c => !disponivel(c))
     const naRua = ativas.filter(c => emMovimento(c.status))
     const prontas = ativas.filter(c => c.status === 'pronto_entrega')
     const resto = ativas.filter(c => !emMovimento(c.status) && c.status !== 'pronto_entrega')
     return [
+      { titulo: 'Disponíveis para pegar', itens: disponiveis },
       { titulo: 'Na rua agora', itens: naRua },
       { titulo: 'Prontos para entrega', itens: prontas },
       { titulo: 'Dias anteriores', itens: resto.filter(c => c.dt_agendamento < hoje) },

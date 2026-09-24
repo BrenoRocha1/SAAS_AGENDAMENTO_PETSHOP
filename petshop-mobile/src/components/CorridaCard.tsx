@@ -7,8 +7,10 @@ import { formatarReais, rotuloStatusCorrida, trechoAtual, emMovimento, type Corr
 import { colors, radius, spacing, statusColors, typography } from '@/theme/theme'
 
 // Cor da etapa, reaproveitando a paleta de status do atendimento.
-export function corDaCorrida(status: string) {
+export function corDaCorrida(c: Pick<Corrida, 'status' | 'status_agendamento'>) {
+  const status = c.status
   if (status === 'cancelada') return statusColors.Cancelado
+  if (status === 'agendada' && c.status_agendamento === 'Pendente') return statusColors.Pendente
   if (status === 'concluida' || status === 'pronto_entrega') return statusColors['Concluído']
   if (emMovimento(status)) return statusColors['Em andamento']
   if (status === 'entregue_loja') return statusColors.Pendente
@@ -16,7 +18,7 @@ export function corDaCorrida(status: string) {
 }
 
 export function PillStatusCorrida({ corrida }: { corrida: Corrida }) {
-  const cor = corDaCorrida(corrida.status)
+  const cor = corDaCorrida(corrida)
   return (
     <View style={[styles.pill, { backgroundColor: cor.bg }]}>
       <Text style={[styles.pillTexto, { color: cor.fg }]}>

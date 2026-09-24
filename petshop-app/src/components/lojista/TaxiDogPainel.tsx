@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { addDays, format, parseISO, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
-import { atribuirCorridaAction, avancarCorridaAction, cancelarCorridaAction } from '@/lib/actions-taxidog'
+import { assumirCorridaAction, atribuirCorridaAction, avancarCorridaAction, cancelarCorridaAction } from '@/lib/actions-taxidog'
 import { formatarTelefone } from '@/lib/format'
 import {
   ROTULO_GRUPO,
@@ -43,8 +43,11 @@ interface Props {
   // Responsável pela loja ou administrador — mesma regra de
   // fn_atribuir_corrida/fn_cancelar_corrida no banco.
   podeAtribuir: boolean
-  // Funcionário que só é TaxiDog: vê só as corridas dele (o banco já
-  // filtra), então a coluna "Pendentes" (sem TaxiDog) nunca teria nada.
+  // Quem vê o painel tem a função TaxiDog: pode pegar uma corrida sem
+  // TaxiDog pra si ("Atribuir para mim", migration 046).
+  podeAssumir?: boolean
+  // Funcionário que só é TaxiDog: vê as corridas dele + as sem TaxiDog
+  // (o banco já filtra), e as etapas ficam em botões no próprio card.
   modoMotorista?: boolean
 }
 
@@ -54,6 +57,13 @@ const COLUNAS: { grupo: GrupoCorrida; cor: string; badge: string; vazio: string 
   { grupo: 'andamento', cor: 'var(--status-andamento-solid)', badge: 'badge-em-andamento', vazio: 'Nenhum TaxiDog na rua agora.' },
   { grupo: 'concluidas', cor: 'var(--status-concluido-solid)', badge: 'badge-concluido', vazio: 'Nenhuma corrida concluída ainda.' },
 ]
+
+const VAZIO_MOTORISTA: Record<GrupoCorrida, string> = {
+  pendentes: 'Nenhuma corrida disponível agora.',
+  atribuidas: 'Nenhuma corrida sua aguardando saída.',
+  andamento: 'Você não está em nenhuma corrida agora.',
+  concluidas: 'Nenhuma corrida concluída neste dia.',
+}
 
 function classeBadge(c: CorridaDetalhe): string {
   if (c.status === 'cancelada') return 'badge-cancelado'
@@ -70,10 +80,11 @@ function linkRota(c: CorridaDetalhe): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}`
 }
 
-export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxidogs, podeAtribuir, modoMotorista = false }: Props) {
-  const colunas = modoMotorista ? COLUNAS.filter(col => col.grupo !== 'pendentes') : COLUNAS
+export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxidogs, podeAtribuir, podeAssumir = false, modoMotorista = false }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  // Qual card disparou a ação — só ele mostra o "carregando".
+  const [idEmAcao, setIdEmAcao] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [abertaId, setAbertaId] = useState<string | null>(null)
   const [confirmandoCancelamento, setConfirmandoCancelamento] = useState(false)
@@ -104,15 +115,18 @@ export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxi
     return g
   }, [corridas])
 
-  const canceladas = corridas.filter(c => c.status === 'cancelada').length
-  const totalDia = corridas.filter(c => c.status !== 'cancelada').reduce((soma, c) => soma + c.valor, 0)
+  const contadas = modoMotorista ? corridas.filter(c => c.id_funcionario) : corridas
+  const canceladas = contadas.filter(c => c.status === 'cancelada').length
+  const totalCorridas = contadas.length - canceladas
+  const totalDia = contadas.filter(c => c.status !== 'cancelada').reduce((soma, c) => soma + c.valor, 0)
 
   function irParaDia(novaData: string) {
     router.push(`/lojista/taxidog?data=${novaData}`)
   }
 
-  function executar(acao: () => Promise<{ error?: string }>) {
+  function executar(acao: () => Promise<{ error?: string }>, idCorrida?: string) {
     setErro(null)
+    setIdEmAcao(idCorrida ?? null)
     startTransition(async () => {
       const result = await acao()
       if (result?.error) {
@@ -152,7 +166,7 @@ export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxi
           )}
         </div>
         <div className="flex items-center gap-3 text-sm text-muted" style={{ flexWrap: 'wrap' }}>
-          <span><strong style={{ color: 'var(--gray-100)' }}>{corridas.length - canceladas}</strong> {corridas.length - canceladas === 1 ? 'corrida' : 'corridas'}</span>
+          <span><strong style={{ color: 'var(--gray-100)' }}>{totalCorridas}</strong> {totalCorridas === 1 ? 'corrida' : 'corridas'}</span>
           <span>Total do dia <strong className="text-success">{formatarReais(totalDia)}</strong></span>
           {canceladas > 0 && <span>{canceladas} cancelada{canceladas > 1 ? 's' : ''}</span>}
         </div>
@@ -174,16 +188,16 @@ export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxi
       {corridas.length === 0 ? (
         <div className="empty-state card">
           <IconCar style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
-          <div className="empty-state-title">{modoMotorista ? 'Nenhuma corrida atribuída a você neste dia' : 'Nenhuma corrida neste dia'}</div>
+          <div className="empty-state-title">Nenhuma corrida neste dia</div>
           <p>
             {modoMotorista
-              ? 'Quando a loja atribuir uma corrida a você, ela aparece aqui. Pelo app SAIP no celular você também recebe um aviso.'
+              ? 'Quando um cliente pedir TaxiDog, a corrida aparece aqui para você pegar — ou a loja atribui a você.'
               : 'As corridas aparecem aqui quando um cliente pede TaxiDog no agendamento.'}
           </p>
         </div>
       ) : (
-        <div className={`kanban-columns ${colunas.length === 3 ? 'kanban-columns--3' : ''}`}>
-          {colunas.map(col => (
+        <div className="kanban-columns">
+          {COLUNAS.map(col => (
             <div key={col.grupo} className="kanban-column">
               <div className="kanban-column-header" style={{ borderTopColor: col.cor }}>
                 <span>{ROTULO_GRUPO[col.grupo]}</span>
@@ -191,7 +205,7 @@ export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxi
               </div>
               <div className="kanban-column-body">
                 {grupos[col.grupo].length === 0 ? (
-                  <p className="text-sm text-muted" style={{ padding: 'var(--space-3)' }}>{col.vazio}</p>
+                  <p className="text-sm text-muted" style={{ padding: 'var(--space-3)' }}>{modoMotorista ? VAZIO_MOTORISTA[col.grupo] : col.vazio}</p>
                 ) : grupos[col.grupo].map(c => (
                   <div
                     key={c.id_corrida}
@@ -221,12 +235,27 @@ export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxi
                     </div>
                     <div className="flex gap-1" style={{ flexWrap: 'wrap', margin: 'var(--space-1) 0' }}>
                       <span className="badge badge-inativo" style={{ textTransform: 'none', letterSpacing: 0 }}>{ROTULO_MODALIDADE[c.modalidade]}</span>
-                      <span className={`badge ${classeBadge(c)}`} style={{ textTransform: 'none', letterSpacing: 0 }}>{rotulo(c)}</span>
+                      {/* Sem TaxiDog, na visão do TaxiDog, o botão do card já diz o estado. */}
+                      {!(modoMotorista && !c.id_funcionario) && (
+                        <span className={`badge ${classeBadge(c)}`} style={{ textTransform: 'none', letterSpacing: 0 }}>{rotulo(c)}</span>
+                      )}
                     </div>
-                    <div className="kanban-card-prof" onClick={e => e.stopPropagation()}>
-                      <IconUserBadge style={{ width: 12, height: 12, flexShrink: 0 }} />
-                      {seletorDe(c)}
-                    </div>
+                    {/* O TaxiDog não precisa ver o próprio nome em todo card. */}
+                    {!modoMotorista && (
+                      <div className="kanban-card-prof" onClick={e => e.stopPropagation()}>
+                        <IconUserBadge style={{ width: 12, height: 12, flexShrink: 0 }} />
+                        {seletorDe(c)}
+                      </div>
+                    )}
+                    <AcaoDoCard
+                      c={c}
+                      podeAssumir={podeAssumir && !podeAtribuir}
+                      etapasNoCard={modoMotorista}
+                      isPending={isPending}
+                      carregando={isPending && idEmAcao === c.id_corrida}
+                      onAssumir={() => executar(() => assumirCorridaAction(c.id_corrida), c.id_corrida)}
+                      onAvancar={status => executar(() => avancarCorridaAction(c.id_corrida, status), c.id_corrida)}
+                    />
                   </div>
                 ))}
               </div>
@@ -241,6 +270,7 @@ export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxi
           erro={erro}
           isPending={isPending}
           podeAtribuir={podeAtribuir}
+          mostrarEtapas={!modoMotorista}
           confirmandoCancelamento={confirmandoCancelamento}
           seletor={seletorDe(aberta)}
           onFechar={() => { setAbertaId(null); setErro(null); setConfirmandoCancelamento(false) }}
@@ -252,6 +282,59 @@ export default function TaxiDogPainel({ idLojista, data, hojeISO, corridas, taxi
       )}
     </>
   )
+}
+
+// Botão no próprio card. Sem TaxiDog: "Aguardando aceite da loja"
+// (amarelo, enquanto o agendamento está Pendente) ou "Atribuir para mim".
+// Na visão do TaxiDog, também a próxima etapa ("Cheguei", "Pet
+// entregue"...) — sem precisar abrir o detalhe.
+function AcaoDoCard({ c, podeAssumir, etapasNoCard, isPending, carregando, onAssumir, onAvancar }: {
+  c: CorridaDetalhe
+  podeAssumir: boolean
+  etapasNoCard: boolean
+  isPending: boolean
+  carregando: boolean
+  onAssumir: () => void
+  onAvancar: (status: string) => void
+}) {
+  const pendenteNaLoja = c.status_agendamento === 'Pendente'
+  const aguardandoAceite = (
+    <div className="kanban-card-acao">
+      <button type="button" className="btn btn-sm btn-aguardando" disabled>Aguardando aceite da loja</button>
+    </div>
+  )
+
+  if (!c.id_funcionario) {
+    if (!podeAssumir || !podeReatribuir(c.status)) return null
+    if (pendenteNaLoja) return aguardandoAceite
+    return (
+      <div className="kanban-card-acao" onClick={e => e.stopPropagation()}>
+        <div className="text-xs font-semibold" style={{ color: 'var(--status-aceito-fg)', marginBottom: 'var(--space-1)' }}>
+          Disponível para atribuição
+        </div>
+        <button type="button" className={`btn btn-primary btn-sm ${carregando ? 'btn-loading' : ''}`} disabled={isPending} onClick={onAssumir}>
+          Atribuir para mim
+        </button>
+      </div>
+    )
+  }
+
+  if (!etapasNoCard) return null
+  const acao = proximaAcaoCorrida(c.status, c.modalidade)
+  if (acao?.status === 'a_caminho_cliente' && pendenteNaLoja) return aguardandoAceite
+  if (acao) {
+    return (
+      <div className="kanban-card-acao" onClick={e => e.stopPropagation()}>
+        <button type="button" className={`btn btn-primary btn-sm ${carregando ? 'btn-loading' : ''}`} disabled={isPending} onClick={() => onAvancar(acao.status)}>
+          {acao.rotulo}
+        </button>
+      </div>
+    )
+  }
+  if (c.status === 'entregue_loja' || (c.status === 'agendada' && c.modalidade === 'entregar')) {
+    return <p className="kanban-card-acao text-xs text-muted" style={{ margin: 'var(--space-2) 0 0' }}>Aguardando o serviço terminar para a entrega</p>
+  }
+  return null
 }
 
 function SeletorTaxiDog({ c, podeAtribuir, taxidogs, disabled, onAtribuir }: {
@@ -283,13 +366,15 @@ function SeletorTaxiDog({ c, podeAtribuir, taxidogs, disabled, onAtribuir }: {
 }
 
 function DetalheCorrida({
-  corrida: c, erro, isPending, podeAtribuir, confirmandoCancelamento, seletor,
+  corrida: c, erro, isPending, podeAtribuir, mostrarEtapas, confirmandoCancelamento, seletor,
   onFechar, onAvancar, onPedirCancelamento, onDesistirCancelamento, onCancelar,
 }: {
   corrida: CorridaDetalhe
   erro: string | null
   isPending: boolean
   podeAtribuir: boolean
+  // Na visão do TaxiDog as etapas ficam no card, não aqui.
+  mostrarEtapas: boolean
   confirmandoCancelamento: boolean
   seletor: React.ReactNode
   onFechar: () => void
@@ -298,7 +383,7 @@ function DetalheCorrida({
   onDesistirCancelamento: () => void
   onCancelar: () => void
 }) {
-  const acao = proximaAcaoCorrida(c.status, c.modalidade)
+  const acao = mostrarEtapas ? proximaAcaoCorrida(c.status, c.modalidade) : null
   const precisaTaxiDog = !!acao && (acao.status === 'a_caminho_cliente' || acao.status === 'a_caminho_entrega') && !c.id_funcionario
   // Mesma regra de fn_avancar_corrida (migration 043): a busca só sai
   // depois de a loja aceitar o agendamento.
@@ -428,10 +513,10 @@ function DetalheCorrida({
               </button>
             </div>
           )}
-          {!acao && c.status === 'entregue_loja' && (
+          {mostrarEtapas && !acao && c.status === 'entregue_loja' && (
             <span className="text-sm text-muted">Aguardando o serviço terminar para a entrega</span>
           )}
-          {!acao && c.status === 'agendada' && c.modalidade === 'entregar' && (
+          {mostrarEtapas && !acao && c.status === 'agendada' && c.modalidade === 'entregar' && (
             <span className="text-sm text-muted">A entrega libera quando o serviço for finalizado</span>
           )}
         </div>

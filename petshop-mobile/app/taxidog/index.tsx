@@ -12,7 +12,7 @@ import { CorridaCard, PillStatusCorrida } from '@/components/CorridaCard'
 import { useAuth } from '@/contexts/AuthContext'
 import { useMinhasCorridas } from '@/hooks/useMinhasCorridas'
 import { agoraBrasilHHMM, dataExtensaBrasil, hojeBrasilISO, saudacao } from '@/lib/agenda'
-import { emMovimento, encerrada, formatarReais, trechoAtual, type Corrida } from '@/lib/taxidog'
+import { disponivel, emMovimento, encerrada, formatarReais, trechoAtual, type Corrida } from '@/lib/taxidog'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 // Qual corrida pede atenção primeiro: a que já está na rua, depois a que
@@ -34,8 +34,11 @@ export default function InicioTaxiDogScreen() {
   const { corridas, loading, erro, recarregar } = useMinhasCorridas(hoje, hoje)
 
   const resumo = useMemo(() => {
-    const validas = corridas.filter(c => c.status !== 'cancelada')
+    // Corridas sem TaxiDog (migration 046) ainda não são dele: ficam fora
+    // do resumo e aparecem só como "disponíveis para pegar".
+    const validas = corridas.filter(c => c.status !== 'cancelada' && !disponivel(c))
     return {
+      disponiveis: corridas.filter(c => disponivel(c) && !encerrada(c.status)).length,
       total: validas.length,
       pendentes: validas.filter(c => !encerrada(c.status)).length,
       concluidas: validas.filter(c => c.status === 'concluida').length,
@@ -66,6 +69,16 @@ export default function InicioTaxiDogScreen() {
         <EmptyState icon="alert-circle-outline" title="Não foi possível carregar" subtitle={erro} />
       ) : (
         <>
+          {resumo.disponiveis > 0 && (
+            <Pressable style={styles.disponiveis} onPress={() => router.push('/taxidog/corridas' as never)}>
+              <Ionicons name="hand-right-outline" size={20} color={colors.primary600} />
+              <Text style={styles.disponiveisTexto}>
+                {resumo.disponiveis === 1 ? '1 corrida disponível para pegar hoje' : `${resumo.disponiveis} corridas disponíveis para pegar hoje`}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.primary600} />
+            </Pressable>
+          )}
+
           {resumo.proxima && (
             <View style={styles.section}>
               <SectionHeader title="Próxima corrida" />
@@ -161,4 +174,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   ctaTexto: { ...typography.label.md, color: colors.primary600 },
+  disponiveis: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary50,
+    borderColor: colors.primary200,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  disponiveisTexto: { ...typography.label.md, color: colors.primary600, flex: 1 },
 })

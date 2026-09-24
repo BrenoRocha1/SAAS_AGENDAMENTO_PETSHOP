@@ -1889,12 +1889,24 @@ a:hover { color: var(--primary-300); }
   border-top: 1px solid var(--gray-800);
 }
 
-/* Painel "Minhas corridas" do TaxiDog: 3 colunas (sem "Pendentes"). */
-.kanban-columns.kanban-columns--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Ação no próprio card (painel do TaxiDog): um botão por card, largura
+   toda — "Atribuir para mim", "Cheguei", "Pet entregue"... */
+.kanban-card-acao { margin-top: var(--space-2); }
+.kanban-card-acao .btn { width: 100%; justify-content: center; }
+
+/* "Aguardando aceite da loja": amarelo, não clicável, mas sem o apagado
+   de .btn:disabled — é um aviso, não um botão quebrado. */
+.btn.btn-aguardando,
+.btn.btn-aguardando:disabled {
+  background: var(--status-aguardando-bg);
+  color: var(--status-aguardando-fg);
+  border: 1px solid var(--status-aguardando-ring);
+  opacity: 1;
+  cursor: default;
+}
 
 @media (max-width: 1024px) {
-  .kanban-columns,
-  .kanban-columns.kanban-columns--3 { grid-template-columns: 1fr; }
+  .kanban-columns { grid-template-columns: 1fr; }
   .kanban-column { max-height: none; }
 }
 
