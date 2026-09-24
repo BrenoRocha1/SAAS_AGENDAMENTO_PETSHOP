@@ -142,7 +142,12 @@ export default function TaxiDogRotaExecucao({ rota: r, perfil, precisaAprovacao,
       {mostrarAviso && (
         <div className="alert alert-warning tdm-aviso">
           <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-          <span style={{ flex: 1 }}><strong>Rota atualizada</strong> — {r.ultima_alteracao}</span>
+          <span style={{ flex: 1 }}>
+            {/* "Rota aprovada — já pode sair" já diz tudo sozinha. */}
+            {r.ultima_alteracao?.startsWith('Rota aprovada')
+              ? <strong>{r.ultima_alteracao}</strong>
+              : <><strong>Rota atualizada</strong> — {r.ultima_alteracao}</>}
+          </span>
           <button type="button" className="btn btn-ghost btn-sm" onClick={marcarAvisoVisto}>Ok</button>
         </div>
       )}

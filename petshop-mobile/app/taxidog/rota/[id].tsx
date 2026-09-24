@@ -102,7 +102,7 @@ export default function RotaScreen() {
         <View style={styles.aviso}>
           <Ionicons name="refresh-circle" size={22} color={colors.warningFg} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.avisoTitulo}>Rota atualizada</Text>
+            <Text style={styles.avisoTitulo}>{r.ultima_alteracao?.startsWith('Rota aprovada') ? 'Rota aprovada' : 'Rota atualizada'}</Text>
             <Text style={styles.avisoTexto}>{r.ultima_alteracao}</Text>
           </View>
           <Pressable onPress={() => setAvisoFechado(r.versao)} hitSlop={8}>
