@@ -59,9 +59,12 @@ interface Props {
   taxidog: Record<string, TaxiDogCliente>
 }
 
-// Uma visita = mesmo pet, mesma loja, mesmo dia. Um carrinho com vários
-// serviços vira vários agendamentos no banco (migration 022), mas pro
-// cliente é uma ida só — então aparece como um card só.
+// Um card = um agendamento feito de uma vez. Um carrinho com vários
+// serviços vira vários agendamentos no banco (migration 022), todos
+// gravados na mesma transação — mesmo created_at —, então é por ele (junto
+// de loja, pet e dia) que os serviços se juntam. Dois agendamentos
+// separados pro mesmo pet no mesmo dia continuam sendo dois cards, cada um
+// com o seu TaxiDog.
 interface Visita {
   chave: string
   dt: string
@@ -87,7 +90,7 @@ function statusDaVisita(itens: AgendamentoCliente[]): Status {
 function montarVisitas(agendamentos: AgendamentoCliente[], taxidog: Props['taxidog'], produtos: Props['produtosComprados']): Visita[] {
   const grupos = new Map<string, AgendamentoCliente[]>()
   for (const ag of agendamentos) {
-    const chave = `${ag.id_lojista}|${ag.id_pet}|${ag.dt_agendamento}`
+    const chave = `${ag.id_lojista}|${ag.id_pet}|${ag.dt_agendamento}|${ag.created_at}`
     grupos.set(chave, [...(grupos.get(chave) ?? []), ag])
   }
   return [...grupos.entries()].map(([chave, lista]) => {

@@ -1,5 +1,5 @@
 -- ============================================================
--- PETSHOP SaaS - Migration 042: Catálogo de Serviços Padrão
+-- PETSHOP SaaS - Migration 050: Catálogo de Serviços Padrão
 -- ============================================================
 -- Contexto: o lojista precisava cadastrar cada serviço do zero.
 -- Essa migration resolve isso em dois passos:
