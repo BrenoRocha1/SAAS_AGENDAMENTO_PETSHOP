@@ -17,7 +17,7 @@ import TaxiDogEtapa, {
   taxiDogParaFormulario,
   type EstadoTransporte,
 } from './TaxiDogEtapa'
-import { formatarReais, type TaxiDogOpcao } from '@/lib/taxidog'
+import { formatarReais } from '@/lib/taxidog'
 import {
   IconAlert, IconCalendar, IconCheck, IconClock, IconDog,
   IconMapPin, IconMoney, IconPackage, IconScissors, IconStore,
@@ -126,7 +126,6 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const [lojistaId, setLojistaId] = useState('')
   const [taxidogDisponivel, setTaxidogDisponivel] = useState(false)
   const [precosEstimados, setPrecosEstimados] = useState(false)
-  const [taxidogs, setTaxidogs] = useState<TaxiDogOpcao[]>([])
   const [transporte, setTransporte] = useState<EstadoTransporte>(ESTADO_TRANSPORTE_INICIAL)
   const escolhaTaxiDog = escolhaDoTransporte(transporte)
 
@@ -143,7 +142,6 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
     setTransporte(ESTADO_TRANSPORTE_INICIAL)
     setTaxidogDisponivel(false)
     setPrecosEstimados(false)
-    setTaxidogs([])
   }
   const [petId, setPetId] = useState('')
   const [servicos, setServicos] = useState<Servico[]>([])
@@ -190,10 +188,6 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
     supabase
       .rpc('fn_taxidog_publico', { p_id_lojista: lojistaId })
       .then(({ data }) => setTaxidogDisponivel(!!(data as { disponivel: boolean }[] | null)?.[0]?.disponivel))
-    // Quem pode fazer a corrida (migration 047) — sem ela, lista vazia.
-    supabase
-      .rpc('fn_taxidogs_publicos', { p_id_lojista: lojistaId })
-      .then(({ data }) => setTaxidogs((data as TaxiDogOpcao[] | null) ?? []))
     supabase
       .from('lojista')
       .select('precos_estimados')
@@ -462,7 +456,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       {/* Transporte — só quando a loja oferece TaxiDog */}
       {step === 'transporte' && (
         <>
-          <TaxiDogEtapa idLojista={lojistaId} valor={transporte} onChange={setTransporte} onContinuar={avancar} rotuloContinuar="Próximo" taxidogs={taxidogs} />
+          <TaxiDogEtapa idLojista={lojistaId} valor={transporte} onChange={setTransporte} onContinuar={avancar} rotuloContinuar="Próximo" />
           <div style={{ marginTop: 'var(--space-4)' }}>
             <button className="btn btn-secondary" onClick={voltar}>Voltar</button>
           </div>

@@ -406,12 +406,12 @@ export function TaxiDogCampos({ valor, onChange, cotar, taxidogs, modoLoja = fal
             </div>
           ) : null}
 
-          {/* Quem faz a corrida (migration 047) — opcional. */}
-          {taxidogs.length > 0 && (
+          {/* Quem faz a corrida (migration 047) — só no agendamento da loja. */}
+          {modoLoja && taxidogs.length > 0 && (
             <div className="form-group">
-              <label className="form-label">{modoLoja ? 'TaxiDog responsável (opcional)' : 'Quem vai fazer a corrida? (opcional)'}</label>
+              <label className="form-label">TaxiDog responsável (opcional)</label>
               <select className="form-select" value={valor.idTaxidog ?? ''} onChange={e => escolherTaxiDog(e.target.value)}>
-                <option value="">{modoLoja ? 'Sem TaxiDog definido (a equipe pega depois)' : 'Sem preferência'}</option>
+                <option value="">Sem TaxiDog definido (a equipe pega depois)</option>
                 {taxidogs.map(t => <option key={t.id_funcionario} value={t.id_funcionario}>{t.nome}</option>)}
               </select>
             </div>
@@ -431,10 +431,11 @@ interface Props {
   onChange: Dispatch<SetStateAction<EstadoTransporte>>
   onContinuar: () => void
   rotuloContinuar?: string
-  taxidogs?: TaxiDogOpcao[]
 }
 
-export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, rotuloContinuar = 'Continuar', taxidogs = [] }: Props) {
+// O cliente não escolhe quem faz a corrida — isso fica com a loja (modal de
+// novo agendamento) ou com o próprio TaxiDog, que assume a corrida.
+export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, rotuloContinuar = 'Continuar' }: Props) {
   const cotar = useCallback((endereco: EnderecoTaxiDog) => cotarTaxiDogAction(idLojista, endereco), [idLojista])
 
   return (
@@ -444,7 +445,7 @@ export default function TaxiDogEtapa({ idLojista, valor, onChange, onContinuar, 
         Você pode levar o pet ou usar o TaxiDog da loja para buscar e/ou entregar.
       </p>
 
-      <TaxiDogCampos valor={valor} onChange={onChange} cotar={cotar} taxidogs={taxidogs} />
+      <TaxiDogCampos valor={valor} onChange={onChange} cotar={cotar} taxidogs={[]} />
 
       <div className="flex justify-end">
         <button type="button" className="btn btn-primary" disabled={!transportePronto(valor)} onClick={onContinuar}>
@@ -470,7 +471,6 @@ export function ResumoTaxiDog({ escolha, disponivel }: { escolha: EscolhaTaxiDog
             <span className="font-semibold text-success">{formatarReais(escolha.cotacao.valor)}</span>
           </div>
           <div className="text-xs text-muted" style={{ marginTop: 2 }}>{enderecoEmUmaLinha(escolha.endereco)}</div>
-          {escolha.nomeTaxidog && <div className="text-xs text-muted" style={{ marginTop: 2 }}>TaxiDog: {escolha.nomeTaxidog}</div>}
         </>
       ) : (
         <div className="text-sm text-muted">Não utilizado</div>

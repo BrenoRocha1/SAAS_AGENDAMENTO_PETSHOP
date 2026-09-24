@@ -18,7 +18,7 @@ import TaxiDogEtapa, {
   taxiDogParaFormulario,
   type EstadoTransporte,
 } from './TaxiDogEtapa'
-import { ROTULO_MODALIDADE, formatarReais, type TaxiDogOpcao } from '@/lib/taxidog'
+import { ROTULO_MODALIDADE, formatarReais } from '@/lib/taxidog'
 import {
   IconAlert,
   IconCheck,
@@ -112,8 +112,6 @@ interface Props {
   // TaxiDog ligado e liberado pro agendamento online (fn_taxidog_publico,
   // migration 042) — decide se a etapa "Transporte" existe.
   taxidogDisponivel: boolean
-  // TaxiDogs da loja pra escolher quem faz a corrida (migration 047).
-  taxidogs: TaxiDogOpcao[]
   // lojista.precos_estimados (migration 042) — mostra o aviso de que o
   // preço do serviço pode ser ajustado pela loja.
   precosEstimados: boolean
@@ -160,7 +158,7 @@ function ProgressoEtapas({ etapas, atual }: { etapas: Step[]; atual: Step }) {
 
 export default function AgendamentoOnlineWizard({
   lojista, horarios, janela, servicos, produtos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
-  taxidogDisponivel, taxidogs, precosEstimados,
+  taxidogDisponivel, precosEstimados,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [step, setStep] = useState<Step>('servicos')
@@ -326,7 +324,7 @@ export default function AgendamentoOnlineWizard({
     `Olá! Acabei de agendar em ${lojista.nome}:`,
     ...servicosCarrinho.map(s => `- ${s.nome}`),
     ...itensCarrinhoProdutos.map(i => `- ${i.produto.nome} (${i.quantidade} ${rotuloUnidade(i.produto.unidade_venda)})`),
-    ...(escolhaTaxiDog ? [`TaxiDog: ${ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]} (${formatarReais(escolhaTaxiDog.cotacao.valor)})${escolhaTaxiDog.nomeTaxidog ? ` com ${escolhaTaxiDog.nomeTaxidog}` : ''}`] : []),
+    ...(escolhaTaxiDog ? [`TaxiDog: ${ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]} (${formatarReais(escolhaTaxiDog.cotacao.valor)})`] : []),
     `Pet: ${petSel?.nome ?? ''}`,
     `Data: ${data ? format(new Date(data + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR }) : ''} às ${horaInicio}`,
     `Total: ${formatarReais(totalGeral)}`,
@@ -563,7 +561,7 @@ export default function AgendamentoOnlineWizard({
 
       {/* Transporte — só existe quando a loja oferece TaxiDog */}
       {step === 'transporte' && (
-        <TaxiDogEtapa idLojista={lojista.id} valor={transporte} onChange={setTransporte} onContinuar={avancar} taxidogs={taxidogs} />
+        <TaxiDogEtapa idLojista={lojista.id} valor={transporte} onChange={setTransporte} onContinuar={avancar} />
       )}
 
       {/* Tutor (revisão) */}

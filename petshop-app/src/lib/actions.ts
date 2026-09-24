@@ -1537,7 +1537,8 @@ export async function criarAgendamentoAction(formData: FormData) {
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   // TaxiDog opcional (migration 042) — sem ele, o caminho é o de sempre.
-  const taxidog = lerTaxiDogDoFormulario(formData)
+  // O cliente não escolhe quem faz a corrida (só a loja).
+  const taxidog = lerTaxiDogDoFormulario(formData, { semEscolhaDeTaxiDog: true })
   if (taxidog.erro) return { error: taxidog.erro }
 
   const paramsAgendamento = {
@@ -1625,7 +1626,7 @@ export async function criarAgendamentoOnlineAction(
   const parsed = agendamentoOnlineSchema.safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  const taxidog = lerTaxiDogDoFormulario(formData)
+  const taxidog = lerTaxiDogDoFormulario(formData, { semEscolhaDeTaxiDog: true })
   if (taxidog.erro) return { error: taxidog.erro }
 
   const paramsAgendamento = {

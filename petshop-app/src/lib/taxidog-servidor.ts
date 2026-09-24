@@ -10,8 +10,11 @@ type Supabase = Awaited<ReturnType<typeof createClient>>
 export type TaxiDogAgendamento = z.infer<typeof taxiDogAgendamentoSchema>
 
 // `taxidog` ausente/vazio = cliente vai levar o pet (caminho de sempre).
+// semEscolhaDeTaxiDog: agendamento do cliente — quem faz a corrida é
+// decidido pela loja ou pelo TaxiDog, então um id enviado é descartado.
 export function lerTaxiDogDoFormulario(
-  formData: FormData
+  formData: FormData,
+  { semEscolhaDeTaxiDog = false }: { semEscolhaDeTaxiDog?: boolean } = {}
 ): { dados: TaxiDogAgendamento | null; erro?: string } {
   const bruto = formData.get('taxidog') as string | null
   if (!bruto) return { dados: null }
@@ -25,7 +28,7 @@ export function lerTaxiDogDoFormulario(
 
   const parsed = taxiDogAgendamentoSchema.safeParse(json)
   if (!parsed.success) return { dados: null, erro: parsed.error.issues[0].message }
-  return { dados: parsed.data }
+  return { dados: semEscolhaDeTaxiDog ? { ...parsed.data, id_funcionario: null } : parsed.data }
 }
 
 // Como a loja cobra o TaxiDog agora. `interno` = agendamento feito pela
