@@ -289,6 +289,10 @@ function ProximaParada({ parada: p, numero, total, enderecoLoja, enviando, onChe
     () => new Set(aFazer.filter(i => i.acao !== 'pegar_loja' || i.status_corrida === 'pronto_entrega').map(i => i.id_item)),
   )
   const desmarcados = aFazer.filter(i => acaoOpcional(i.acao) && !marcados.has(i.id_item))
+  // Nenhum pet vai ser confirmado (todos desmarcados): o botão diz isso.
+  const rotuloBotao = desmarcados.length === aFazer.length
+    ? (aFazer.length > 1 ? 'Continuar sem os pets' : 'Continuar sem o pet')
+    : rotuloConfirmar(p)
   const temOpcional = aFazer.some(i => acaoOpcional(i.acao))
   const horario = horarioParada(p)
   // Um contato por tutor (dois pets do mesmo tutor = um telefone só).
@@ -368,7 +372,7 @@ function ProximaParada({ parada: p, numero, total, enderecoLoja, enviando, onChe
             </Text>
           )}
           <View style={styles.botoes}>
-            <BotaoGrande rotulo={rotuloConfirmar(p).toUpperCase()} carregando={enviando} onPress={confirmar} />
+            <BotaoGrande rotulo={rotuloBotao.toUpperCase()} carregando={enviando} onPress={confirmar} />
           </View>
         </>
       )}

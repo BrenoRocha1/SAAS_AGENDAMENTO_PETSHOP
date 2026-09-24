@@ -7,7 +7,7 @@ import { obterContextoLojista } from '@/lib/lojista-context'
 import AgendaCalendar, { type AgendamentoCalendario, type FuncionarioFiltro } from '@/components/lojista/AgendaCalendar'
 import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/DashboardClient'
 import { IconCalendar } from '@/components/icons'
-import { carregarTransportePorVisita, chaveVisita } from '@/lib/taxidog-visita'
+import { carregarTransportePorVisita } from '@/lib/taxidog-visita'
 
 export const metadata: Metadata = { title: 'Agendamentos' }
 
@@ -119,7 +119,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
 
   // Ícones da agenda — consultas tolerantes: sem a migration 049 (origem)
   // ou as do TaxiDog elas só voltam vazias e o ícone some.
-  const [{ data: origensRaw }, transportes, { data: taxidogCfg }] = await Promise.all([
+  const [{ data: origensRaw }, transporteDe, { data: taxidogCfg }] = await Promise.all([
     idsDaSemana.length > 0
       ? supabase.from('agendamento').select('id_agendamento, origem').in('id_agendamento', idsDaSemana)
       : Promise.resolve({ data: [] }),
@@ -144,7 +144,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     nome_funcionario: a.funcionario?.nome ?? null,
     obs: a.obs,
     origem: origemPorAgendamento.get(a.id_agendamento) ?? null,
-    taxidog: transportes.get(chaveVisita(a.id_pet, a.dt_agendamento)) ?? null,
+    taxidog: transporteDe(a),
   }))
 
   const funcionarios: FuncionarioFiltro[] = (funcionariosRaw ?? []) as FuncionarioFiltro[]

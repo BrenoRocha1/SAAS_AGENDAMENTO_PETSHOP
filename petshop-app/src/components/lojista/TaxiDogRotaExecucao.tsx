@@ -282,6 +282,10 @@ function ProximaParada({ parada: p, numero, total, enderecoLoja, ocupado, onCheg
   )
   const temOpcional = aFazer.some(opcional)
   const desmarcados = aFazer.filter(i => opcional(i) && !marcados.has(i.id_item))
+  // Nenhum pet vai ser confirmado (todos desmarcados): o botão diz isso.
+  const rotuloBotao = desmarcados.length === aFazer.length
+    ? (aFazer.length > 1 ? 'Continuar sem os pets' : 'Continuar sem o pet')
+    : rotuloConfirmar(p)
   const clientes = [...new Map(p.itens.filter(() => p.local === 'cliente').map(i => [i.cliente_telefone, i])).values()]
 
   function alternar(id: string) {
@@ -369,7 +373,7 @@ function ProximaParada({ parada: p, numero, total, enderecoLoja, ocupado, onCheg
             disabled={ocupado}
             onClick={() => onConfirmar(desmarcados.length > 0 ? aFazer.filter(i => marcados.has(i.id_item) || !opcional(i)).map(i => i.id_item) : null)}
           >
-            {rotuloConfirmar(p)}
+            {rotuloBotao}
           </button>
         </>
       )}

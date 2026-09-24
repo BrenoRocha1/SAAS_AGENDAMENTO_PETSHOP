@@ -97,7 +97,7 @@ function enderecoCompleto(e: EnderecoTaxiDog): boolean {
 // Descrições do lado da loja (as de DESCRICAO_MODALIDADE falam com o cliente).
 const DESCRICAO_MODALIDADE_LOJA: Record<ModalidadeTaxiDog, string> = {
   buscar: 'Busca o pet no endereço do cliente. Ele retira na loja depois.',
-  entregar: 'O cliente traz o pet. A entrega no endereço dele é depois do serviço.',
+  entregar: 'Entrega o pet no endereço do cliente depois do serviço.',
   buscar_entregar: 'Busca o pet e leva de volta quando o serviço terminar.',
 }
 

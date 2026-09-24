@@ -262,34 +262,50 @@ export function normalizarPlano(fixas: ParadaPlano[], pendentes: ParadaPlano[]):
     plano[destino].itens.push({ id_corrida: id, acao: 'deixar_loja' })
   }
 
-  // 3) Cada entrega pega o pet na última parada na loja antes dela.
+  // 3) Cada entrega pega o pet na última parada na loja antes dela — e,
+  //    se o pet foi deixado nesta mesma rota, depois da parada em que foi
+  //    deixado (o serviço acontece entre as duas). Sem parada assim, entra
+  //    uma ida à loja logo antes da entrega.
   const entregas = plano.flatMap(p => p.itens.filter(i => i.acao === 'entregar').map(i => i.id_corrida))
   for (const id of entregas) {
     if (nasFixas(id, 'pegar_loja')) continue
     const d = indiceDe(id, 'entregar')
+    const deixado = indiceDe(id, 'deixar_loja') // -1 = já estava na loja
     let origem = -1
-    for (let idx = d - 1; idx >= 0; idx--) {
+    for (let idx = d - 1; idx > deixado; idx--) {
       if (plano[idx].local === 'loja') { origem = idx; break }
     }
     if (origem < 0) {
-      plano.unshift({ local: 'loja', itens: [] })
-      origem = 0
+      if (deixado < 0) {
+        plano.unshift({ local: 'loja', itens: [] })
+        origem = 0
+      } else {
+        plano.splice(d, 0, { local: 'loja', itens: [] })
+        origem = d
+      }
     }
     plano[origem].itens.push({ id_corrida: id, acao: 'pegar_loja' })
   }
 
-  // 4) Paradas na loja vazias somem; duas seguidas viram uma.
+  // 4) Paradas na loja vazias somem; duas seguidas viram uma — menos
+  //    quando juntar poria "deixar" e "pegar" do mesmo pet na mesma parada.
   const limpo: ParadaPlano[] = []
   for (const p of plano) {
     if (p.itens.length === 0) continue
     const anterior = limpo[limpo.length - 1]
-    if (anterior && anterior.local === 'loja' && p.local === 'loja') {
+    if (anterior && anterior.local === 'loja' && p.local === 'loja' && !deixaEPega(anterior, p)) {
       anterior.itens.push(...p.itens)
       continue
     }
     limpo.push(p)
   }
   return limpo
+}
+
+// A parada `a` deixa na loja um pet que a parada `b` pega de volta?
+function deixaEPega(a: ParadaPlano, b: ParadaPlano): boolean {
+  const deixados = new Set(a.itens.filter(i => i.acao === 'deixar_loja').map(i => i.id_corrida))
+  return b.itens.some(i => i.acao === 'pegar_loja' && deixados.has(i.id_corrida))
 }
 
 const minutos = (hhmm: string | null | undefined) => {

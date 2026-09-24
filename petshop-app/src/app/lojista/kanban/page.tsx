@@ -4,7 +4,7 @@ import { hojeBrasilISO } from '@/lib/agenda'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import KanbanBoard, { type KanbanItem } from '@/components/lojista/KanbanBoard'
 import TaxiDogConteudo from '@/components/lojista/TaxiDogConteudo'
-import { carregarTransportePorVisita, chaveVisita } from '@/lib/taxidog-visita'
+import { carregarTransportePorVisita } from '@/lib/taxidog-visita'
 import { IconAlert, IconCar, IconChartBar, IconKanban, IconRoute } from '@/components/icons'
 import Link from 'next/link'
 
@@ -207,7 +207,7 @@ export default async function KanbanPage({ searchParams }: Props) {
 
   // TaxiDog de cada visita (mesmo pet, mesmo dia) — tolerante: sem as
   // migrations do TaxiDog o Kanban segue igual.
-  const transportes = await carregarTransportePorVisita(
+  const transporteDe = await carregarTransportePorVisita(
     supabase,
     ((agendaRaw ?? []) as unknown as { id_agendamento: string; id_pet: string; dt_agendamento: string }[]),
   )
@@ -246,7 +246,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     nome_funcionario: a.funcionario?.nome ?? null,
     obs: a.obs,
     produtos: produtosPorAgendamento[a.id_agendamento] ?? [],
-    taxidog: transportes.get(chaveVisita(a.id_pet, a.dt_agendamento)) ?? null,
+    taxidog: transporteDe(a),
   }))
 
   return (
