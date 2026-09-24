@@ -93,6 +93,13 @@ function enderecoCompleto(e: EnderecoTaxiDog): boolean {
   )
 }
 
+// Descrições do lado da loja (as de DESCRICAO_MODALIDADE falam com o cliente).
+const DESCRICAO_MODALIDADE_LOJA: Record<ModalidadeTaxiDog, string> = {
+  buscar: 'Busca o pet no endereço do cliente. Ele retira na loja depois.',
+  entregar: 'O cliente traz o pet. A entrega no endereço dele é depois do serviço.',
+  buscar_entregar: 'Busca o pet e leva de volta quando o serviço terminar.',
+}
+
 const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
 
 function estiloOpcao(selecionado: boolean): React.CSSProperties {
@@ -283,7 +290,7 @@ export function TaxiDogCampos({ valor, onChange, cotar, taxidogs, modoLoja = fal
                     />
                     <div style={{ flex: 1 }}>
                       <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{ROTULO_MODALIDADE[m]}</div>
-                      <div className="text-xs text-muted">{DESCRICAO_MODALIDADE[m]}</div>
+                      <div className="text-xs text-muted">{(modoLoja ? DESCRICAO_MODALIDADE_LOJA : DESCRICAO_MODALIDADE)[m]}</div>
                     </div>
                     {cot && (
                       <span className={`text-sm font-semibold ${cot.disponivel ? 'text-success' : 'text-muted'}`} style={{ flexShrink: 0 }}>

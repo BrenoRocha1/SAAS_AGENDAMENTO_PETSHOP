@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { assinarComSessao } from '@/lib/supabase/realtime'
 import { tocarSom } from '@/lib/sons-notificacao'
 
 interface Props {
@@ -51,11 +52,7 @@ export default function NotificacaoNovoAgendamento({ lojistaId, somAtivo, somTip
           tocarSom(somTipo)
         }
       )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(canal)
-    }
+    return assinarComSessao(supabase, canal)
   }, [lojistaId, somAtivo, somTipo])
 
   return null

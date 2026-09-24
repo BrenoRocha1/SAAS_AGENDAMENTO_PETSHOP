@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { assinarComSessao } from '@/lib/supabase/realtime'
 
 // Telas que mostram agendamentos/corridas e por isso se atualizam sozinhas
 // quando algo muda na loja (novo agendamento, aceite, TaxiDog andou...).
@@ -39,11 +40,11 @@ export default function AtualizacaoAoVivo({ lojistaId }: { lojistaId: string }) 
       .channel(`painel-ao-vivo-${lojistaId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamento', filter: `id_lojista=eq.${lojistaId}` }, atualizar)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'taxidog_corrida', filter: `id_lojista=eq.${lojistaId}` }, atualizar)
-      .subscribe()
+    const desfazer = assinarComSessao(supabase, canal)
 
     return () => {
       clearTimeout(timer)
-      supabase.removeChannel(canal)
+      desfazer()
     }
   }, [lojistaId, router])
 
