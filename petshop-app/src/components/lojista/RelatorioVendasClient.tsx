@@ -536,7 +536,9 @@ function VendasPorPagamento({ linhas }: { linhas: VendaPorPagamento[] | null }) 
               <div className="relatorio-lista-info">
                 <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{rotuloForma(l.forma === 'nao_informada' ? null : l.forma)}</div>
                 <div className="text-xs text-muted">
-                  {l.pedidos} pedido{l.pedidos !== 1 ? 's' : ''} · recebido {moeda(l.recebido)} · a receber {moeda(l.pendente)}
+                  {l.pedidos} pedido{l.pedidos !== 1 ? 's' : ''} · {l.forma === 'nao_informada'
+                    ? 'de antes das formas de pagamento'
+                    : `recebido ${moeda(l.recebido)} · a receber ${moeda(l.pendente)}`}
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>

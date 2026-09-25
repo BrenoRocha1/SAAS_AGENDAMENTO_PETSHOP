@@ -13,6 +13,9 @@ import { format } from 'date-fns'
 // hoje. `agoraBrasil()` devolve um Date cujos campos já são o relógio de
 // Brasília — date-fns (format/subDays/getHours etc.) continua funcionando
 // normalmente em cima dele, só que batendo com o horário real da loja.
+// Montado no fuso LOCAL de quem roda (não em UTC): date-fns lê os campos
+// locais, então o resultado é o mesmo num servidor em UTC (Vercel) e num
+// PC em Brasília (dev) — em UTC, o de Brasília voltava um dia entre 0h e 3h.
 // ============================================================
 export function agoraBrasil(): Date {
   const partes = new Intl.DateTimeFormat('en-US', {
@@ -28,14 +31,14 @@ export function agoraBrasil(): Date {
 
   const valor = (tipo: string) => Number(partes.find(p => p.type === tipo)?.value ?? 0)
 
-  return new Date(Date.UTC(
+  return new Date(
     valor('year'),
     valor('month') - 1,
     valor('day'),
     valor('hour') % 24, // alguns motores ICU retornam "24" pra meia-noite
     valor('minute'),
     valor('second')
-  ))
+  )
 }
 
 /** Data de hoje ('yyyy-MM-dd') no fuso do petshop. */
