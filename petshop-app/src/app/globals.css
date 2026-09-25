@@ -3659,3 +3659,61 @@ a:hover { color: var(--primary-300); }
   border-radius: var(--radius-md);
   background: var(--gray-900);
 }
+
+/* Página pública "Acompanhar agendamento" (/acompanhar/[id]) */
+.acomp-destaque { display: flex; flex-direction: column; gap: var(--space-5); margin-bottom: var(--space-4); border-width: 2px; }
+.acomp-destaque.is-ativo { border-color: var(--primary-400); }
+.acomp-destaque.is-pronto { border-color: var(--status-concluido-solid); background: var(--status-concluido-bg); }
+.acomp-destaque.is-cancelado { border-color: var(--status-cancelado-solid); }
+.acomp-pet { display: flex; align-items: center; gap: var(--space-4); }
+.acomp-pet-foto {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gray-850);
+  color: var(--gray-500);
+}
+.acomp-titulo { font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; color: var(--gray-100); }
+.acomp-texto { font-size: 0.9375rem; color: var(--gray-300); margin-top: 2px; }
+.acomp-passos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-1); }
+.acomp-passos li { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; position: relative; }
+.acomp-passos li:not(:first-child)::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--gray-800);
+  z-index: 0;
+}
+.acomp-passos li.is-feito:not(:first-child)::before { background: var(--primary-400); }
+.acomp-passo-bola {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--gray-850);
+  color: var(--gray-500);
+  position: relative;
+  z-index: 1;
+}
+.acomp-passos li.is-feito .acomp-passo-bola { background: var(--primary-400); color: #fff; }
+.acomp-passo-rotulo { font-size: 0.6875rem; color: var(--gray-500); }
+.acomp-passos li.is-feito .acomp-passo-rotulo { color: var(--gray-200); font-weight: 600; }
+.acomp-detalhes { display: flex; flex-direction: column; gap: var(--space-4); margin-bottom: var(--space-4); }
+.acomp-linha { display: flex; align-items: center; gap: var(--space-2); font-weight: 600; color: var(--gray-200); }
+.acomp-servicos { display: flex; flex-direction: column; gap: var(--space-2); }
+.acomp-servico { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-md); background: var(--gray-850); }
+.acomp-taxidog { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--gray-800); color: var(--primary-400); }
+.acomp-total { display: flex; justify-content: space-between; padding-top: var(--space-3); border-top: 1px solid var(--gray-800); }
+.acomp-acoes { display: flex; flex-direction: column; gap: var(--space-2); }

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useTransition, useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { criarAgendamentoAction } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
@@ -10,6 +9,7 @@ import { removerHorariosPassados } from '@/lib/agenda'
 import { rotuloUnidade } from '@/lib/produto'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
+import ConfirmacaoAgendamento from './ConfirmacaoAgendamento'
 import TaxiDogEtapa, {
   ESTADO_TRANSPORTE_INICIAL,
   ResumoTaxiDog,
@@ -17,7 +17,7 @@ import TaxiDogEtapa, {
   taxiDogParaFormulario,
   type EstadoTransporte,
 } from './TaxiDogEtapa'
-import { formatarReais } from '@/lib/taxidog'
+import { ROTULO_MODALIDADE, formatarReais } from '@/lib/taxidog'
 import {
   IconAlert, IconCalendar, IconCheck, IconClock, IconDog,
   IconMapPin, IconMoney, IconPackage, IconScissors, IconStore,
@@ -26,6 +26,7 @@ import {
 interface Lojista {
   id_lojista: string
   nome_loja: string
+  telefone?: string | null
   cidade?: string | null
   estado?: string | null
   descricao?: string | null
@@ -117,7 +118,6 @@ function ProgressoEtapas({ etapas, atual }: { etapas: Step[]; atual: Step }) {
 }
 
 export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
-  const router = useRouter()
   const supabase = createClient()
   const [step, setStep] = useState<Step>('loja')
   const [error, setError] = useState<string | null>(null)
@@ -128,6 +128,8 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const [precosEstimados, setPrecosEstimados] = useState(false)
   const [transporte, setTransporte] = useState<EstadoTransporte>(ESTADO_TRANSPORTE_INICIAL)
   const escolhaTaxiDog = escolhaDoTransporte(transporte)
+  // Depois de agendar: tela de confirmação (WhatsApp + link pra acompanhar).
+  const [agendado, setAgendado] = useState<{ id: string | null } | null>(null)
 
   const etapas: Step[] = taxidogDisponivel
     ? ['loja', 'petservico', 'transporte', 'datahora', 'confirmar']
@@ -272,7 +274,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
     startTransition(async () => {
       const result = await criarAgendamentoAction(formData)
       if (result?.error) setError(result.error)
-      else router.push('/cliente/agendamentos')
+      else setAgendado({ id: typeof result?.id_agendamento === 'string' ? result.id_agendamento : null })
     })
   }
 
@@ -282,6 +284,26 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const diasAbertos = useMemo(() => new Set(horarios.filter(h => h.ativo).map(h => h.dia_semana)), [horarios])
   const minInstante = useMemo(() => new Date(agora + (janela.minUnidade === 'dias' ? janela.minValor * 24 : janela.minValor) * 3600_000), [agora, janela])
   const maxInstante = useMemo(() => new Date(agora + (janela.maxUnidade === 'dias' ? janela.maxValor * 24 : janela.maxValor) * 3600_000), [agora, janela])
+
+  if (agendado && lojistaSel && servicoSel) {
+    return (
+      <div style={{ maxWidth: 680 }}>
+        <ConfirmacaoAgendamento
+          idAgendamento={agendado.id}
+          loja={{ nome: lojistaSel.nome_loja, telefone: lojistaSel.telefone }}
+          pet={petSel?.nome ?? ''}
+          itens={[
+            servicoSel.nome,
+            ...itensCarrinhoProdutos.map(i => `${i.produto.nome} (${i.quantidade} ${rotuloUnidade(i.produto.unidade_venda)})`),
+            ...(escolhaTaxiDog ? [`TaxiDog: ${ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]} (${formatarReais(escolhaTaxiDog.cotacao.valor)})`] : []),
+          ]}
+          data={data}
+          hora={hora}
+          total={totalGeral}
+        />
+      </div>
+    )
+  }
 
   return (
     <div style={{ maxWidth: 680 }}>

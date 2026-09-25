@@ -10,6 +10,7 @@ import { formatarCpf, formatarEnderecoLoja, formatarTelefone } from '@/lib/forma
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
+import ConfirmacaoAgendamento from './ConfirmacaoAgendamento'
 import { Estrelas, formatarMedia } from './Estrelas'
 import TaxiDogEtapa, {
   ESTADO_TRANSPORTE_INICIAL,
@@ -30,7 +31,6 @@ import {
   IconPackage,
   IconPaw,
   IconScissors,
-  IconWhatsapp,
 } from '@/components/icons'
 
 interface Lojista {
@@ -320,15 +320,12 @@ export default function AgendamentoOnlineWizard({
   const minInstante = useMemo(() => new Date(agora + (janela.minUnidade === 'dias' ? janela.minValor * 24 : janela.minValor) * 3600_000), [agora, janela])
   const maxInstante = useMemo(() => new Date(agora + (janela.maxUnidade === 'dias' ? janela.maxValor * 24 : janela.maxValor) * 3600_000), [agora, janela])
 
-  const mensagemWhatsapp = [
-    `Olá! Acabei de agendar em ${lojista.nome}:`,
-    ...servicosCarrinho.map(s => `- ${s.nome}`),
-    ...itensCarrinhoProdutos.map(i => `- ${i.produto.nome} (${i.quantidade} ${rotuloUnidade(i.produto.unidade_venda)})`),
+  // Linhas do resumo da confirmação / mensagem do WhatsApp.
+  const itensResumo = [
+    ...servicosCarrinho.map(s => s.nome),
+    ...itensCarrinhoProdutos.map(i => `${i.produto.nome} (${i.quantidade} ${rotuloUnidade(i.produto.unidade_venda)})`),
     ...(escolhaTaxiDog ? [`TaxiDog: ${ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]} (${formatarReais(escolhaTaxiDog.cotacao.valor)})`] : []),
-    `Pet: ${petSel?.nome ?? ''}`,
-    `Data: ${data ? format(new Date(data + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR }) : ''} às ${horaInicio}`,
-    `Total: ${formatarReais(totalGeral)}`,
-  ].join('\n')
+  ]
 
   const enderecoCompleto = formatarEnderecoLoja(lojista)
 
@@ -729,33 +726,15 @@ export default function AgendamentoOnlineWizard({
 
       {/* Confirmação */}
       {step === 'feito' && resultado && (
-        <div className="card" style={{ textAlign: 'center' }}>
-          <span style={{
-            display: 'inline-flex', width: 64, height: 64, borderRadius: 'var(--radius-full)',
-            background: 'rgba(16,185,129,0.15)', color: 'var(--success-400)',
-            alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-5)',
-          }}>
-            <IconCheck style={{ width: 30, height: 30 }} />
-          </span>
-          <h2 style={{ fontSize: '1.3rem', marginBottom: 'var(--space-6)' }}>Serviço agendado!</h2>
-
-          <a
-            href={`https://wa.me/55${lojista.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(mensagemWhatsapp)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-primary btn-lg"
-            style={{ width: '100%', justifyContent: 'center', marginBottom: 'var(--space-3)' }}
-          >
-            <IconWhatsapp style={{ width: 16, height: 16 }} /> Enviar no Whatsapp
-          </a>
-          <p className="text-xs text-muted" style={{ marginBottom: 'var(--space-5)' }}>
-            Clique para enviar seu agendamento para o WhatsApp da loja
-          </p>
-
-          <Link href="/cliente/agendamentos" className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center' }}>
-            Ver meus agendamentos
-          </Link>
-        </div>
+        <ConfirmacaoAgendamento
+          idAgendamento={resultado.ids[0] ?? null}
+          loja={{ nome: lojista.nome, telefone: lojista.telefone }}
+          pet={petSel?.nome ?? ''}
+          itens={itensResumo}
+          data={data}
+          hora={horaInicio}
+          total={totalGeral}
+        />
       )}
 
       {/* MODAL — Detalhes do serviço */}

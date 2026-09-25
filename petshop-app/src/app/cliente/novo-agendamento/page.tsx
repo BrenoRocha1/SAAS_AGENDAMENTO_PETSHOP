@@ -31,12 +31,12 @@ export default async function NovoAgendamentoPage() {
   const { data: lojistas } = idsLojistas.length
     ? await supabase
         .from('lojista')
-        .select('id_lojista, nome_loja, cidade, estado, descricao')
+        .select('id_lojista, nome_loja, cidade, estado, descricao, telefone')
         .eq('ativo', true)
         .eq('aceita_agendamento_online', true)
         .in('id_lojista', idsLojistas)
         .order('nome_loja')
-    : { data: [] as { id_lojista: string; nome_loja: string; cidade: string | null; estado: string | null; descricao: string | null }[] }
+    : { data: [] as { id_lojista: string; nome_loja: string; cidade: string | null; estado: string | null; descricao: string | null; telefone: string | null }[] }
 
   return (
     <>
