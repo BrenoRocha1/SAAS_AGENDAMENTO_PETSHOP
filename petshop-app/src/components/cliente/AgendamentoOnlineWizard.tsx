@@ -11,6 +11,8 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
 import ConfirmacaoAgendamento from './ConfirmacaoAgendamento'
+import PagamentoEtapa, { PixDaLoja } from './PagamentoEtapa'
+import { ROTULO_FORMA_PAGAMENTO, type FormaPagamento, type FormasLoja } from '@/lib/pagamento'
 import { Estrelas, formatarMedia } from './Estrelas'
 import TaxiDogEtapa, {
   ESTADO_TRANSPORTE_INICIAL,
@@ -115,17 +117,20 @@ interface Props {
   // lojista.precos_estimados (migration 042) — mostra o aviso de que o
   // preço do serviço pode ser ajustado pela loja.
   precosEstimados: boolean
+  // Formas de pagamento aceitas pela loja (migration 057).
+  formasPagamento: FormasLoja
 }
 
 // Etapas nomeadas (não numeradas) porque "Transporte" só existe quando a
-// loja oferece TaxiDog.
-type Step = 'servicos' | 'pet' | 'transporte' | 'dados' | 'horario' | 'resumo' | 'feito'
+// loja oferece TaxiDog. "Pagamento" vem logo depois do transporte.
+type Step = 'servicos' | 'pet' | 'transporte' | 'pagamento' | 'dados' | 'horario' | 'resumo' | 'feito'
 type Slot = { hr_slot: string; disponivel: boolean }
 
 const ROTULO_ETAPA: Record<Exclude<Step, 'feito'>, string> = {
   servicos: 'Serviços',
   pet: 'Pet',
   transporte: 'Transporte',
+  pagamento: 'Pagamento',
   dados: 'Seus dados',
   horario: 'Horário',
   resumo: 'Confirmar',
@@ -158,20 +163,22 @@ function ProgressoEtapas({ etapas, atual }: { etapas: Step[]; atual: Step }) {
 
 export default function AgendamentoOnlineWizard({
   lojista, horarios, janela, servicos, produtos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
-  taxidogDisponivel, precosEstimados,
+  taxidogDisponivel, precosEstimados, formasPagamento,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [step, setStep] = useState<Step>('servicos')
   const etapas: Step[] = useMemo(
     () => taxidogDisponivel
-      ? ['servicos', 'pet', 'transporte', 'dados', 'horario', 'resumo']
-      : ['servicos', 'pet', 'dados', 'horario', 'resumo'],
+      ? ['servicos', 'pet', 'transporte', 'pagamento', 'dados', 'horario', 'resumo']
+      : ['servicos', 'pet', 'pagamento', 'dados', 'horario', 'resumo'],
     [taxidogDisponivel]
   )
   const avancar = () => setStep(atual => etapas[etapas.indexOf(atual) + 1] ?? atual)
   const voltar = () => setStep(atual => etapas[etapas.indexOf(atual) - 1] ?? atual)
   const [transporte, setTransporte] = useState<EstadoTransporte>(ESTADO_TRANSPORTE_INICIAL)
   const escolhaTaxiDog = escolhaDoTransporte(transporte)
+  // Forma de pagamento do pedido inteiro (migration 057) — obrigatória.
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -301,6 +308,12 @@ export default function AgendamentoOnlineWizard({
       fd.set('produtos', JSON.stringify(itensCarrinhoProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))))
     }
     if (escolhaTaxiDog) fd.set('taxidog', taxiDogParaFormulario(escolhaTaxiDog))
+    if (!formaPagamento) {
+      setErro('Escolha a forma de pagamento.')
+      setStep('pagamento')
+      return
+    }
+    fd.set('forma_pagamento', formaPagamento)
 
     startTransition(async () => {
       const result = await criarAgendamentoOnlineAction(fd)
@@ -561,6 +574,17 @@ export default function AgendamentoOnlineWizard({
         <TaxiDogEtapa idLojista={lojista.id} valor={transporte} onChange={setTransporte} onContinuar={avancar} />
       )}
 
+      {/* Forma de pagamento — depois do transporte */}
+      {step === 'pagamento' && (
+        <PagamentoEtapa
+          formas={formasPagamento}
+          valor={formaPagamento}
+          onChange={setFormaPagamento}
+          resumoTaxiDog={escolhaTaxiDog ? `TaxiDog · ${ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]} · ${formatarReais(escolhaTaxiDog.cotacao.valor)}` : null}
+          onContinuar={avancar}
+        />
+      )}
+
       {/* Tutor (revisão) */}
       {step === 'dados' && (
         <div className="card">
@@ -666,6 +690,20 @@ export default function AgendamentoOnlineWizard({
               <div className="agenonline-resumo-row"><span className="text-muted">Produtos</span><span>{formatarReais(totalProdutos)}</span></div>
             )}
             <div className="agenonline-resumo-row"><span className="font-semibold">Total</span><span className="font-semibold text-success">{formatarReais(totalGeral)}</span></div>
+            <div className="agenonline-resumo-row">
+              <span className="text-muted">Pagamento</span>
+              <span>
+                {formaPagamento ? ROTULO_FORMA_PAGAMENTO[formaPagamento] : '—'}{' '}
+                <button type="button" className="text-accent text-sm" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} onClick={() => setStep('pagamento')}>
+                  Trocar
+                </button>
+              </span>
+            </div>
+            {formaPagamento === 'pix' && (
+              <div style={{ marginTop: 'var(--space-2)' }}>
+                <PixDaLoja chave={formasPagamento.pix_chave} nome={formasPagamento.pix_nome} />
+              </div>
+            )}
             {precosEstimados && (
               <p className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>
                 O valor dos serviços é uma estimativa: a loja pode ajustar o preço final conforme a pelagem e as condições do pet no dia.
@@ -734,6 +772,7 @@ export default function AgendamentoOnlineWizard({
           data={data}
           hora={horaInicio}
           total={totalGeral}
+          pagamento={formaPagamento ? { forma: formaPagamento, pixChave: formasPagamento.pix_chave, pixNome: formasPagamento.pix_nome } : null}
         />
       )}
 

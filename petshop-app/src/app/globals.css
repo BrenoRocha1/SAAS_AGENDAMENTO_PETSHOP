@@ -3717,3 +3717,17 @@ a:hover { color: var(--primary-300); }
 .acomp-taxidog { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--gray-800); color: var(--primary-400); }
 .acomp-total { display: flex; justify-content: space-between; padding-top: var(--space-3); border-top: 1px solid var(--gray-800); }
 .acomp-acoes { display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* Formas de pagamento (migration 057) */
+.pag-config-linha { padding: var(--space-4) var(--space-5); border-top: 1px solid var(--gray-800); display: flex; flex-direction: column; gap: var(--space-4); }
+.pag-config-pix { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-md); background: var(--gray-850); }
+.pag-resumo-taxidog { padding: var(--space-3); border-radius: var(--radius-md); background: var(--gray-850); margin-bottom: var(--space-4); color: var(--gray-200); }
+.pag-detalhe-campos { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.pix-loja { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--primary-soft-border); background: var(--primary-soft-bg); text-align: left; }
+.pix-loja-linha { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.pix-loja-linha > .text-xs { width: 44px; flex-shrink: 0; }
+.pix-loja-chave { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; color: var(--gray-100); word-break: break-all; flex: 1; min-width: 0; }
+.pag-rel-barra { display: flex; height: 6px; border-radius: 999px; overflow: hidden; background: var(--gray-850); }
+.pag-rel-barra-pago { background: var(--status-concluido-solid); }
+.pag-rel-barra-pendente { background: var(--status-aguardando-solid); }
+.acomp-pagamento { display: flex; flex-direction: column; gap: var(--space-3); }

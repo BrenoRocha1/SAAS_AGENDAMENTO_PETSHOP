@@ -8,6 +8,7 @@ import {
   IconCar,
   IconChevronRight,
   IconClock,
+  IconMoney,
   IconShield,
   IconStar,
   IconStore,
@@ -67,6 +68,12 @@ export default async function ConfiguracoesPage() {
           icon: <IconClock style={{ width: 18, height: 18 }} />,
           titulo: 'Horários de funcionamento',
           descricao: 'Configure os dias e horários de atendimento',
+        },
+        {
+          href: '/lojista/configuracoes/pagamentos',
+          icon: <IconMoney style={{ width: 18, height: 18 }} />,
+          titulo: 'Formas de pagamentos aceitas',
+          descricao: 'Pix, dinheiro e cartões que a loja aceita nos agendamentos',
         },
         {
           href: '/lojista/configuracoes/avaliacoes',

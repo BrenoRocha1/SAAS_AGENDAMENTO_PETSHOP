@@ -9,7 +9,9 @@ import RelatorioVendasClient, {
   type VendaPorCliente,
   type ClientesResumo,
   type LinhaDetalhamento,
+  type VendaPorPagamento,
 } from '@/components/lojista/RelatorioVendasClient'
+import { carregarPagamentos } from '@/lib/pagamento-servidor'
 import {
   calcularPeriodo,
   calcularPeriodoAnterior,
@@ -96,6 +98,7 @@ export default async function RelatoriosVendasPage({ searchParams }: Props) {
     porProfissionalRes,
     porClienteRes,
     clientesResumoRes,
+    porPagamentoRes,
     { data: funcionariosRaw },
     { data: servicosRaw },
     detalhamentoRes,
@@ -107,6 +110,7 @@ export default async function RelatoriosVendasPage({ searchParams }: Props) {
     supabase.rpc('fn_relatorio_vendas_por_profissional', { p_id_lojista: lojistaId, p_data_ini: periodo.ini, p_data_fim: periodo.fim }),
     supabase.rpc('fn_relatorio_vendas_por_cliente', { p_id_lojista: lojistaId, p_data_ini: periodo.ini, p_data_fim: periodo.fim, p_limite: 10 }),
     supabase.rpc('fn_relatorio_clientes_resumo', { p_id_lojista: lojistaId, p_data_ini: periodo.ini, p_data_fim: periodo.fim }),
+    supabase.rpc('fn_relatorio_vendas_por_pagamento', { p_id_lojista: lojistaId, p_data_ini: periodo.ini, p_data_fim: periodo.fim }),
     supabase.from('funcionario').select('id_funcionario, nome').eq('id_lojista', lojistaId).eq('ativo', true).order('nome'),
     supabase.from('servico').select('id_servico, nome').eq('id_lojista', lojistaId).order('nome'),
     baseDetalhamento()
@@ -144,6 +148,16 @@ export default async function RelatoriosVendasPage({ searchParams }: Props) {
   const porProfissional = (porProfissionalRes.data ?? []) as VendaPorProfissional[]
   const porCliente = (porClienteRes.data ?? []) as VendaPorCliente[]
   const clientesResumo = (clientesResumoRes.data ?? null) as ClientesResumo | null
+  // Sem a migration 057 a função não existe: a seção avisa.
+  const porPagamento: VendaPorPagamento[] | null = porPagamentoRes.error
+    ? null
+    : ((porPagamentoRes.data ?? []) as Array<{ forma: string; pedidos: number | string; total: number | string; recebido: number | string; pendente: number | string }>).map(l => ({
+        forma: l.forma,
+        pedidos: Number(l.pedidos),
+        total: Number(l.total),
+        recebido: Number(l.recebido),
+        pendente: Number(l.pendente),
+      }))
   const funcionarios = (funcionariosRaw ?? []) as { id_funcionario: string; nome: string }[]
   const servicos = (servicosRaw ?? []) as { id_servico: string; nome: string }[]
 
@@ -167,8 +181,16 @@ export default async function RelatoriosVendasPage({ searchParams }: Props) {
     nome_servico: row.servico?.nome ?? '—',
     nome_cliente: row.cliente?.nome ?? '—',
     nome_funcionario: row.funcionario?.nome ?? null,
+    forma_pagamento: null,
+    status_pagamento: null,
   }))
   const totalDetalhamento = detalhamentoRes.count ?? 0
+  // Forma e status do pagamento das linhas da página (tolerante).
+  const pagamentos = await carregarPagamentos(supabase, lojistaId, detalhamento.map(d => d.id_agendamento))
+  for (const d of detalhamento) {
+    d.forma_pagamento = pagamentos.porAgendamento.get(d.id_agendamento)?.forma ?? null
+    d.status_pagamento = pagamentos.porAgendamento.get(d.id_agendamento)?.status ?? null
+  }
 
   return (
     <RelatorioVendasClient
@@ -181,6 +203,7 @@ export default async function RelatoriosVendasPage({ searchParams }: Props) {
       porProfissional={porProfissional}
       porCliente={porCliente}
       clientesResumo={clientesResumo}
+      porPagamento={porPagamento}
       funcionarios={funcionarios}
       servicos={servicos}
       filtroFuncionario={filtroFuncionario}

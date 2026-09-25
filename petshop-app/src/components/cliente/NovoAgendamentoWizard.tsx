@@ -10,6 +10,8 @@ import { rotuloUnidade } from '@/lib/produto'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
 import ConfirmacaoAgendamento from './ConfirmacaoAgendamento'
+import PagamentoEtapa, { PixDaLoja } from './PagamentoEtapa'
+import { FORMAS_LOJA_PADRAO, ROTULO_FORMA_PAGAMENTO, normalizarFormasLoja, type FormaPagamento, type FormasLoja } from '@/lib/pagamento'
 import TaxiDogEtapa, {
   ESTADO_TRANSPORTE_INICIAL,
   ResumoTaxiDog,
@@ -82,13 +84,15 @@ interface Props {
 }
 
 // Etapas nomeadas: "Transporte" só existe quando a loja escolhida oferece
-// TaxiDog no agendamento online (migration 042).
-type Step = 'loja' | 'petservico' | 'transporte' | 'datahora' | 'confirmar'
+// TaxiDog no agendamento online (migration 042). "Pagamento" vem logo
+// depois do transporte (migration 057).
+type Step = 'loja' | 'petservico' | 'transporte' | 'pagamento' | 'datahora' | 'confirmar'
 
 const ROTULO_ETAPA: Record<Step, string> = {
   loja: 'Petshop',
   petservico: 'Pet & Serviço',
   transporte: 'Transporte',
+  pagamento: 'Pagamento',
   datahora: 'Data & Hora',
   confirmar: 'Confirmar',
 }
@@ -130,10 +134,13 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const escolhaTaxiDog = escolhaDoTransporte(transporte)
   // Depois de agendar: tela de confirmação (WhatsApp + link pra acompanhar).
   const [agendado, setAgendado] = useState<{ id: string | null } | null>(null)
+  // Formas que a loja escolhida aceita e a escolhida pelo cliente.
+  const [formasLoja, setFormasLoja] = useState<FormasLoja>(FORMAS_LOJA_PADRAO)
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(null)
 
   const etapas: Step[] = taxidogDisponivel
-    ? ['loja', 'petservico', 'transporte', 'datahora', 'confirmar']
-    : ['loja', 'petservico', 'datahora', 'confirmar']
+    ? ['loja', 'petservico', 'transporte', 'pagamento', 'datahora', 'confirmar']
+    : ['loja', 'petservico', 'pagamento', 'datahora', 'confirmar']
   const avancar = () => setStep(atual => etapas[etapas.indexOf(atual) + 1] ?? atual)
   const voltar = () => setStep(atual => etapas[etapas.indexOf(atual) - 1] ?? atual)
 
@@ -144,6 +151,8 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
     setTransporte(ESTADO_TRANSPORTE_INICIAL)
     setTaxidogDisponivel(false)
     setPrecosEstimados(false)
+    setFormaPagamento(null)
+    setFormasLoja(FORMAS_LOJA_PADRAO)
   }
   const [petId, setPetId] = useState('')
   const [servicos, setServicos] = useState<Servico[]>([])
@@ -196,6 +205,10 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       .eq('id_lojista', lojistaId)
       .maybeSingle()
       .then(({ data }) => setPrecosEstimados(!!data?.precos_estimados))
+    // Formas de pagamento aceitas (migration 057).
+    supabase
+      .rpc('fn_formas_pagamento_loja', { p_id_lojista: lojistaId })
+      .then(({ data }) => setFormasLoja(normalizarFormasLoja(data)))
   }, [lojistaId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Dias abertos + janela de antecedência da loja escolhida — precisa pra
@@ -270,6 +283,12 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       formData.set('produtos', JSON.stringify(itensCarrinhoProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))))
     }
     if (escolhaTaxiDog) formData.set('taxidog', taxiDogParaFormulario(escolhaTaxiDog))
+    if (!formaPagamento) {
+      setError('Escolha a forma de pagamento.')
+      setStep('pagamento')
+      return
+    }
+    formData.set('forma_pagamento', formaPagamento)
 
     startTransition(async () => {
       const result = await criarAgendamentoAction(formData)
@@ -300,6 +319,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
           data={data}
           hora={hora}
           total={totalGeral}
+          pagamento={formaPagamento ? { forma: formaPagamento, pixChave: formasLoja.pix_chave, pixNome: formasLoja.pix_nome } : null}
         />
       </div>
     )
@@ -485,6 +505,23 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
         </>
       )}
 
+      {/* Forma de pagamento — depois do transporte */}
+      {step === 'pagamento' && (
+        <>
+          <PagamentoEtapa
+            formas={formasLoja}
+            valor={formaPagamento}
+            onChange={setFormaPagamento}
+            resumoTaxiDog={escolhaTaxiDog ? `TaxiDog · ${ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]} · ${formatarReais(escolhaTaxiDog.cotacao.valor)}` : null}
+            onContinuar={avancar}
+            rotuloContinuar="Próximo"
+          />
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <button className="btn btn-secondary" onClick={voltar}>Voltar</button>
+          </div>
+        </>
+      )}
+
       {/* Data e Hora */}
       {step === 'datahora' && (
         <div className="card">
@@ -590,6 +627,16 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
               <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>Total</span>
               <span className="font-semibold text-success">{formatarReais(totalGeral)}</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted">Pagamento</span>
+              <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>
+                {formaPagamento ? ROTULO_FORMA_PAGAMENTO[formaPagamento] : '—'}{' '}
+                <button type="button" className="text-accent text-sm" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 400 }} onClick={() => setStep('pagamento')}>
+                  Trocar
+                </button>
+              </span>
+            </div>
+            {formaPagamento === 'pix' && <PixDaLoja chave={formasLoja.pix_chave} nome={formasLoja.pix_nome} />}
             {precosEstimados && (
               <p className="text-xs text-muted" style={{ margin: 0 }}>
                 O valor do serviço é uma estimativa: a loja pode ajustar o preço final conforme a pelagem e as condições do pet no dia.

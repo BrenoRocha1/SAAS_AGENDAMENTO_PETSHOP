@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import { diaSemanaBrasil, agoraBrasilHHMM } from '@/lib/agenda'
 import AgendamentoOnlineWizard from '@/components/cliente/AgendamentoOnlineWizard'
+import { normalizarFormasLoja } from '@/lib/pagamento'
 import { IconAlert, IconPaw } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'Agendar horário' }
@@ -168,10 +169,13 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   // transporte simplesmente não aparece e o agendamento segue normal.
   // Número/complemento/bairro da loja (migration 045) no mesmo esquema
   // tolerante: sem a migration, o endereço aparece como antes.
-  const [{ data: taxidogRaw }, { data: estimadoRow }, { data: enderecoRow }] = await Promise.all([
+  // Formas de pagamento aceitas (migration 057) — sem a migration, vale o
+  // padrão (dinheiro e cartões); o agendamento em si avisa da migration.
+  const [{ data: taxidogRaw }, { data: estimadoRow }, { data: enderecoRow }, { data: formasRaw }] = await Promise.all([
     supabase.rpc('fn_taxidog_publico', { p_id_lojista: lojista.id_lojista }),
     supabase.from('lojista').select('precos_estimados').eq('id_lojista', lojista.id_lojista).maybeSingle(),
     supabase.from('lojista').select('numero, complemento, bairro').eq('id_lojista', lojista.id_lojista).maybeSingle(),
+    supabase.rpc('fn_formas_pagamento_loja', { p_id_lojista: lojista.id_lojista }),
   ])
   const taxidogDisponivel = !!(taxidogRaw as { disponivel: boolean }[] | null)?.[0]?.disponivel
   const precosEstimados = !!estimadoRow?.precos_estimados
@@ -233,6 +237,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
           carrinhoInicial={servicosParam ? servicosParam.split(',').filter(Boolean) : []}
           taxidogDisponivel={taxidogDisponivel}
           precosEstimados={precosEstimados}
+          formasPagamento={normalizarFormasLoja(formasRaw)}
         />
       </div>
     </div>

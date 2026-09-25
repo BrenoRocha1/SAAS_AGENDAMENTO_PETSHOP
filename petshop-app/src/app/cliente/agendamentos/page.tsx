@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import AgendamentosClienteList, { type AgendamentoCliente, type ProdutoComprado, type TaxiDogCliente } from '@/components/cliente/AgendamentosClienteList'
+import AgendamentosClienteList, { type AgendamentoCliente, type PagamentoCliente, type ProdutoComprado, type TaxiDogCliente } from '@/components/cliente/AgendamentosClienteList'
+import { normalizarFormasLoja } from '@/lib/pagamento'
 import type { AvaliacaoExistente } from '@/components/cliente/AvaliacaoModal'
 import type { Metadata } from 'next'
 
@@ -85,6 +86,28 @@ export default async function AgendamentosPage() {
     }
   }
 
+  // Pagamento (migration 057) — consulta tolerante como a do TaxiDog.
+  const { data: pagamentosRaw, error: pagamentosErro } = await supabase
+    .from('agendamento')
+    .select('id_agendamento, id_lojista, forma_pagamento, status_pagamento')
+    .eq('id_cliente', user!.id)
+  const linhasPagamento = (pagamentosErro ? [] : pagamentosRaw ?? []) as Array<{ id_agendamento: string; id_lojista: string; forma_pagamento: string | null; status_pagamento: string | null }>
+  // Chave Pix só das lojas com Pix ainda por pagar.
+  const lojasComPix = [...new Set(linhasPagamento.filter(l => l.forma_pagamento === 'pix' && l.status_pagamento === 'pendente').map(l => l.id_lojista))]
+  const pixDaLoja = new Map(await Promise.all(lojasComPix.map(async id => {
+    const { data } = await supabase.rpc('fn_formas_pagamento_loja', { p_id_lojista: id })
+    const formas = normalizarFormasLoja(data)
+    return [id, formas.pix && formas.pix_chave ? { chave: formas.pix_chave, nome: formas.pix_nome } : null] as const
+  })))
+  const pagamentos: Record<string, PagamentoCliente> = {}
+  for (const l of linhasPagamento) {
+    pagamentos[l.id_agendamento] = {
+      forma: l.forma_pagamento,
+      status: l.status_pagamento,
+      pix: l.forma_pagamento === 'pix' ? pixDaLoja.get(l.id_lojista) ?? null : null,
+    }
+  }
+
   return (
     <>
       <div className="page-header">
@@ -97,6 +120,7 @@ export default async function AgendamentosPage() {
         avaliacoes={avaliacoes}
         produtosComprados={produtosComprados}
         taxidog={taxidog}
+        pagamentos={pagamentos}
       />
     </>
   )

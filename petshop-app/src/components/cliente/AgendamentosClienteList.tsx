@@ -8,7 +8,9 @@ import { hojeBrasilISO } from '@/lib/agenda'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import { rotuloEstoque } from '@/lib/produto'
 import { ROTULO_MODALIDADE, formatarReais, rotuloStatusCorrida, type ModalidadeTaxiDog } from '@/lib/taxidog'
-import { IconAlert, IconCalendar, IconCar, IconChevronRight, IconPackage, IconPencil, IconStar, IconStore, IconTrash } from '@/components/icons'
+import { CLASSE_STATUS_PAGAMENTO, ROTULO_STATUS_PAGAMENTO, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
+import { PixDaLoja } from '@/components/cliente/PagamentoEtapa'
+import { IconAlert, IconCalendar, IconCar, IconChevronRight, IconMoney, IconPackage, IconPencil, IconStar, IconStore, IconTrash } from '@/components/icons'
 import AvaliacaoModal, { type AvaliacaoExistente } from './AvaliacaoModal'
 import { Estrelas } from './Estrelas'
 
@@ -48,6 +50,14 @@ export interface TaxiDogCliente {
   temTaxiDog: boolean
 }
 
+// Forma e status do pagamento do pedido; a chave Pix da loja vem junto
+// enquanto um Pix está pendente, pro cliente conseguir pagar.
+export interface PagamentoCliente {
+  forma: string | null
+  status: string | null
+  pix: { chave: string; nome: string | null } | null
+}
+
 interface Props {
   agendamentos: AgendamentoCliente[]
   // Avaliações que o próprio cliente já deixou, indexadas pelo agendamento
@@ -57,6 +67,8 @@ interface Props {
   // maioria dos casos (produto é opcional no agendamento online).
   produtosComprados: Record<string, ProdutoComprado[]>
   taxidog: Record<string, TaxiDogCliente>
+  // Pagamento de cada agendamento (migration 057) — vazio sem ela.
+  pagamentos: Record<string, PagamentoCliente>
 }
 
 // Um card = um agendamento feito de uma vez. Um carrinho com vários
@@ -74,6 +86,7 @@ interface Visita {
   criadoEm: string
   taxidog: TaxiDogCliente | null
   produtos: ProdutoComprado[]
+  pagamento: PagamentoCliente | null
 }
 
 const ORDEM: Status[] = ['Pendente', 'Confirmado', 'Em andamento', 'Concluído']
@@ -87,7 +100,7 @@ function statusDaVisita(itens: AgendamentoCliente[]): Status {
   return ativos.reduce((menor, i) => (ORDEM.indexOf(i.status) < ORDEM.indexOf(menor) ? i.status : menor), ativos[0].status)
 }
 
-function montarVisitas(agendamentos: AgendamentoCliente[], taxidog: Props['taxidog'], produtos: Props['produtosComprados']): Visita[] {
+function montarVisitas(agendamentos: AgendamentoCliente[], taxidog: Props['taxidog'], produtos: Props['produtosComprados'], pagamentos: Props['pagamentos']): Visita[] {
   const grupos = new Map<string, AgendamentoCliente[]>()
   for (const ag of agendamentos) {
     const chave = `${ag.id_lojista}|${ag.id_pet}|${ag.dt_agendamento}|${ag.created_at}`
@@ -106,13 +119,14 @@ function montarVisitas(agendamentos: AgendamentoCliente[], taxidog: Props['taxid
       criadoEm: itens.reduce((min, i) => (i.created_at < min ? i.created_at : min), itens[0].created_at),
       taxidog: itens.map(i => taxidog[i.id_agendamento]).find(Boolean) ?? null,
       produtos: itens.flatMap(i => produtos[i.id_agendamento] ?? []),
+      pagamento: itens.map(i => pagamentos[i.id_agendamento]).find(p => p?.forma) ?? null,
     }
   })
 }
 
 const primeiraHora = (v: Visita) => (v.itens.find(i => i.status !== 'Cancelado') ?? v.itens[0]).hr_agendamento
 
-export default function AgendamentosClienteList({ agendamentos, avaliacoes, produtosComprados, taxidog }: Props) {
+export default function AgendamentosClienteList({ agendamentos, avaliacoes, produtosComprados, taxidog, pagamentos }: Props) {
   const [cancelId, setCancelId] = useState<string | null>(null)
   const [motivo, setMotivo] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -122,14 +136,14 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
 
   const { proximas, historico } = useMemo(() => {
     const hoje = hojeBrasilISO()
-    const visitas = montarVisitas(agendamentos, taxidog, produtosComprados)
+    const visitas = montarVisitas(agendamentos, taxidog, produtosComprados, pagamentos)
     const ativa = (v: Visita) => ['Pendente', 'Confirmado', 'Em andamento'].includes(v.status) && v.dt >= hoje
     return {
       // Próximos: o mais perto primeiro. Histórico: o mais recente primeiro.
       proximas: visitas.filter(ativa).sort((a, b) => (a.dt + primeiraHora(a)).localeCompare(b.dt + primeiraHora(b))),
       historico: visitas.filter(v => !ativa(v)).sort((a, b) => (b.dt + primeiraHora(b)).localeCompare(a.dt + primeiraHora(a))),
     }
-  }, [agendamentos, taxidog, produtosComprados])
+  }, [agendamentos, taxidog, produtosComprados, pagamentos])
 
   const [aba, setAba] = useState<'proximos' | 'historico'>(proximas.length > 0 ? 'proximos' : 'historico')
 
@@ -263,6 +277,23 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
               <span className="font-semibold text-success">{formatarReais(p.preco_unitario * p.quantidade)}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {v.pagamento && v.status !== 'Cancelado' && (
+        <div className="agc-bloco">
+          <div className="agc-bloco-titulo"><IconMoney style={{ width: 13, height: 13 }} /> Pagamento</div>
+          <div className="flex items-center justify-between text-sm" style={{ gap: 'var(--space-3)' }}>
+            <span style={{ color: 'var(--gray-300)' }}>{rotuloForma(v.pagamento.forma)}</span>
+            {ehStatusPagamento(v.pagamento.status) && (
+              <span className={`badge ${CLASSE_STATUS_PAGAMENTO[v.pagamento.status]}`}>{ROTULO_STATUS_PAGAMENTO[v.pagamento.status]}</span>
+            )}
+          </div>
+          {v.pagamento.pix && v.pagamento.status === 'pendente' && (
+            <div style={{ marginTop: 'var(--space-2)' }}>
+              <PixDaLoja chave={v.pagamento.pix.chave} nome={v.pagamento.pix.nome} />
+            </div>
+          )}
         </div>
       )}
 

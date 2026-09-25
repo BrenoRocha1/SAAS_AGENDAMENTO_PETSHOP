@@ -36,6 +36,8 @@ import NovoAgendamentoModal from './NovoAgendamentoModal'
 import { ROTULO_MODALIDADE, formatarReais, type ModalidadeTaxiDog } from '@/lib/taxidog'
 import type { TransporteVisita } from '@/lib/taxidog-visita'
 import TransporteAgendamento from '@/components/lojista/TransporteAgendamento'
+import PagamentoAgendamento from '@/components/lojista/PagamentoAgendamento'
+import type { FormaPagamento } from '@/lib/pagamento'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
 
 export interface AgendamentoCalendario {
@@ -57,6 +59,9 @@ export interface AgendamentoCalendario {
   origem: 'loja' | 'online' | null
   // TaxiDog da visita (mesmo pet, mesmo dia) — null = sem.
   taxidog: TransporteVisita | null
+  // Pagamento do pedido (migration 057) — null em agendamento antigo.
+  forma_pagamento: string | null
+  status_pagamento: string | null
 }
 
 export interface FuncionarioFiltro {
@@ -87,6 +92,8 @@ interface Props {
   horaFimGrade: number
   // TaxiDog ativado na loja: mostra "Adicionar TaxiDog" no detalhe.
   taxidogAtivo: boolean
+  // Formas que a loja aceita (seletor do bloco Pagamento).
+  formasPagamento: FormaPagamento[]
 }
 
 const CORES = ['#4f46e5', '#0891b2', '#db2777', '#d97706', '#16a34a', '#7c3aed', '#2563eb']
@@ -207,6 +214,7 @@ export default function AgendaCalendar({
   horaInicioGrade,
   horaFimGrade,
   taxidogAtivo,
+  formasPagamento,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -514,6 +522,15 @@ export default function AgendaCalendar({
                   idCliente={selecionado.id_cliente}
                   statusAgendamento={selecionado.status}
                   transporte={selecionado.taxidog}
+                  podeAlterar
+                />
+              )}
+              {selecionado.status !== 'Cancelado' && (
+                <PagamentoAgendamento
+                  idAgendamento={selecionado.id_agendamento}
+                  forma={selecionado.forma_pagamento}
+                  status={selecionado.status_pagamento}
+                  formasAceitas={formasPagamento}
                   podeAlterar
                 />
               )}

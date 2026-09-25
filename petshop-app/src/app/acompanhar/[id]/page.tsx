@@ -6,6 +6,8 @@ import { formatarEnderecoLoja, formatarTelefone } from '@/lib/format'
 import { ROTULO_MODALIDADE, formatarReais, type ModalidadeTaxiDog } from '@/lib/taxidog'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import AtualizarSozinho from '@/components/AtualizarSozinho'
+import { PixDaLoja } from '@/components/cliente/PagamentoEtapa'
+import { CLASSE_STATUS_PAGAMENTO, ROTULO_STATUS_PAGAMENTO, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
 import { IconAlert, IconCar, IconCheck, IconClock, IconMapPin, IconPaw, IconWhatsapp } from '@/components/icons'
 
 // Página pública "Acompanhar agendamento" (migration 056). O link vai pro
@@ -34,6 +36,8 @@ interface Acompanhamento {
   pet: { nome: string; foto_url: string | null } | null
   servicos: { nome: string; hora: string; duracao: number; status: Status; valor: number | string }[]
   taxidog: { modalidade: ModalidadeTaxiDog; status: string; valor: number | string; tem_taxidog: boolean } | null
+  // Migration 057 — ausente antes dela.
+  pagamento?: { forma: string | null; status: string | null; pix_chave: string | null; pix_nome: string | null } | null
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -197,6 +201,18 @@ export default async function AcompanharPage({ params }: Props) {
             <div className="acomp-total">
               <span>Total</span>
               <span className="font-semibold text-success">{formatarReais(total)}</span>
+            </div>
+          )}
+
+          {status !== 'Cancelado' && a.pagamento?.forma && (
+            <div className="acomp-pagamento">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm">Pagamento: <strong>{rotuloForma(a.pagamento.forma)}</strong></span>
+                {ehStatusPagamento(a.pagamento.status) && (
+                  <span className={`badge ${CLASSE_STATUS_PAGAMENTO[a.pagamento.status]}`}>{ROTULO_STATUS_PAGAMENTO[a.pagamento.status]}</span>
+                )}
+              </div>
+              {a.pagamento.pix_chave && <PixDaLoja chave={a.pagamento.pix_chave} nome={a.pagamento.pix_nome} />}
             </div>
           )}
         </div>

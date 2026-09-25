@@ -38,6 +38,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } from '@/lib/lojista-context'
 import { ORDEM_ETAPA, etapaEncerrada } from '@/lib/status-agendamento'
 import { coordenadasParaTaxiDog, lerTaxiDogDoFormulario, mensagemErroTaxiDog, paramsRpcTaxiDog } from '@/lib/taxidog-servidor'
+import { ehFormaPagamento, mensagemErroPagamento, type FormaPagamento } from '@/lib/pagamento'
 import type { ServicoVariacaoData } from '@/lib/validations'
 
 // ============================================================
@@ -1507,6 +1508,20 @@ export async function toggleHorarioAction(id_horario: string, ativo: boolean) {
 // AGENDAMENTO ACTIONS
 // ============================================================
 
+// Forma de pagamento do pedido (migration 057) — obrigatória em todo
+// agendamento novo. O banco confere de novo se a loja aceita.
+function lerFormaPagamento(formData: FormData): { forma?: FormaPagamento; erro?: string } {
+  const forma = formData.get('forma_pagamento')
+  if (!ehFormaPagamento(forma)) return { erro: 'Escolha a forma de pagamento.' }
+  return { forma }
+}
+
+// Função "com pagamento" ainda não existe no banco.
+function faltaMigrationPagamento(error: { message: string; code?: string }): boolean {
+  return (error.code === 'PGRST202' || error.message.includes('Could not find the function')) && error.message.includes('com_pagamento')
+}
+const MSG_MIGRATION_PAGAMENTO = 'Para agendar com forma de pagamento, execute a migration 057_formas_pagamento.sql.'
+
 export async function criarAgendamentoAction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -1540,8 +1555,11 @@ export async function criarAgendamentoAction(formData: FormData) {
   // O cliente não escolhe quem faz a corrida (só a loja).
   const taxidog = lerTaxiDogDoFormulario(formData, { semEscolhaDeTaxiDog: true })
   if (taxidog.erro) return { error: taxidog.erro }
+  const pagamento = lerFormaPagamento(formData)
+  if (pagamento.erro) return { error: pagamento.erro }
 
   const paramsAgendamento = {
+    p_forma_pagamento: pagamento.forma,
     p_id_pet: parsed.data.id_pet,
     p_id_servico: parsed.data.id_servico,
     p_id_cliente: user.id,
@@ -1555,16 +1573,19 @@ export async function criarAgendamentoAction(formData: FormData) {
 
   // Chamar função do banco que possui lock anti-double-booking
   const { data, error } = taxidog.dados
-    ? await supabase.rpc('fn_criar_agendamento_com_taxidog', {
+    ? await supabase.rpc('fn_criar_agendamento_com_taxidog_com_pagamento', {
         ...paramsAgendamento,
         ...paramsRpcTaxiDog(
           taxidog.dados,
           await coordenadasParaTaxiDog(supabase, parsed.data.id_lojista, taxidog.dados.endereco)
         ),
       })
-    : await supabase.rpc('fn_criar_agendamento', paramsAgendamento)
+    : await supabase.rpc('fn_criar_agendamento_com_pagamento', paramsAgendamento)
 
   if (error) {
+    if (faltaMigrationPagamento(error)) return { error: MSG_MIGRATION_PAGAMENTO }
+    const erroPagamento = mensagemErroPagamento(error.message)
+    if (erroPagamento) return { error: erroPagamento }
     const erroTaxiDog = mensagemErroTaxiDog(error.message)
     if (erroTaxiDog) return { error: erroTaxiDog }
     if (error.message.includes('Horário não disponível')) {
@@ -1628,8 +1649,11 @@ export async function criarAgendamentoOnlineAction(
 
   const taxidog = lerTaxiDogDoFormulario(formData, { semEscolhaDeTaxiDog: true })
   if (taxidog.erro) return { error: taxidog.erro }
+  const pagamento = lerFormaPagamento(formData)
+  if (pagamento.erro) return { error: pagamento.erro }
 
   const paramsAgendamento = {
+    p_forma_pagamento: pagamento.forma,
     p_id_pet: parsed.data.id_pet,
     p_id_cliente: user.id,
     p_id_lojista: parsed.data.id_lojista,
@@ -1643,16 +1667,19 @@ export async function criarAgendamentoOnlineAction(
   }
 
   const { data, error } = taxidog.dados
-    ? await supabase.rpc('fn_criar_agendamento_multiplo_com_taxidog', {
+    ? await supabase.rpc('fn_criar_agendamento_multiplo_com_taxidog_com_pagamento', {
         ...paramsAgendamento,
         ...paramsRpcTaxiDog(
           taxidog.dados,
           await coordenadasParaTaxiDog(supabase, parsed.data.id_lojista, taxidog.dados.endereco)
         ),
       })
-    : await supabase.rpc('fn_criar_agendamento_multiplo', paramsAgendamento)
+    : await supabase.rpc('fn_criar_agendamento_multiplo_com_pagamento', paramsAgendamento)
 
   if (error) {
+    if (faltaMigrationPagamento(error)) return { error: MSG_MIGRATION_PAGAMENTO }
+    const erroPagamento = mensagemErroPagamento(error.message)
+    if (erroPagamento) return { error: erroPagamento }
     const erroTaxiDog = mensagemErroTaxiDog(error.message)
     if (erroTaxiDog) return { error: erroTaxiDog }
     if (error.message.includes('Horário não disponível')) {
@@ -1708,8 +1735,14 @@ export async function criarAgendamentoLojistaAction(
   // TaxiDog opcional também no agendamento da loja (migration 047).
   const taxidog = lerTaxiDogDoFormulario(formData)
   if (taxidog.erro) return { error: taxidog.erro }
+  // Pagamento obrigatório (migration 057): a loja pode lançar já "pago".
+  const pagamento = lerFormaPagamento(formData)
+  if (pagamento.erro) return { error: pagamento.erro }
+  const statusPagamento = formData.get('status_pagamento') === 'pago' ? 'pago' : 'pendente'
 
   const paramsAgendamento = {
+    p_forma_pagamento: pagamento.forma,
+    p_status_pagamento: statusPagamento,
     p_id_lojista: parsed.data.id_lojista,
     p_id_cliente: parsed.data.id_cliente,
     p_id_pet: parsed.data.id_pet,
@@ -1720,16 +1753,19 @@ export async function criarAgendamentoLojistaAction(
   }
 
   const { data, error } = taxidog.dados
-    ? await supabase.rpc('fn_criar_agendamento_lojista_com_taxidog', {
+    ? await supabase.rpc('fn_criar_agendamento_lojista_com_taxidog_com_pagamento', {
         ...paramsAgendamento,
         ...paramsRpcTaxiDog(
           taxidog.dados,
           await coordenadasParaTaxiDog(supabase, parsed.data.id_lojista, taxidog.dados.endereco, true)
         ),
       })
-    : await supabase.rpc('fn_criar_agendamento_lojista', paramsAgendamento)
+    : await supabase.rpc('fn_criar_agendamento_lojista_com_pagamento', paramsAgendamento)
 
   if (error) {
+    if (faltaMigrationPagamento(error)) return { error: MSG_MIGRATION_PAGAMENTO }
+    const erroPagamento = mensagemErroPagamento(error.message)
+    if (erroPagamento) return { error: erroPagamento }
     const erroTaxiDog = mensagemErroTaxiDog(error.message)
     if (erroTaxiDog) return { error: erroTaxiDog }
     if (taxidog.dados && (error.code === 'PGRST202' || error.message.includes('Could not find'))) {

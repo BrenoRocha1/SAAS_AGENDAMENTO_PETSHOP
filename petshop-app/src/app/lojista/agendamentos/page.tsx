@@ -8,6 +8,7 @@ import AgendaCalendar, { type AgendamentoCalendario, type FuncionarioFiltro } fr
 import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/DashboardClient'
 import { IconCalendar } from '@/components/icons'
 import { carregarTransportePorVisita } from '@/lib/taxidog-visita'
+import { carregarPagamentos } from '@/lib/pagamento-servidor'
 
 export const metadata: Metadata = { title: 'Agendamentos' }
 
@@ -119,12 +120,14 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
 
   // Ícones da agenda — consultas tolerantes: sem a migration 049 (origem)
   // ou as do TaxiDog elas só voltam vazias e o ícone some.
-  const [{ data: origensRaw }, transporteDe, { data: taxidogCfg }] = await Promise.all([
+  const [{ data: origensRaw }, transporteDe, { data: taxidogCfg }, pagamentos] = await Promise.all([
     idsDaSemana.length > 0
       ? supabase.from('agendamento').select('id_agendamento, origem').in('id_agendamento', idsDaSemana)
       : Promise.resolve({ data: [] }),
     carregarTransportePorVisita(supabase, linhasAgenda),
     supabase.from('taxidog_config').select('ativo').eq('id_lojista', lojistaId).maybeSingle(),
+    // Forma e status do pagamento (migration 057).
+    carregarPagamentos(supabase, lojistaId, idsDaSemana),
   ])
   const origemPorAgendamento = new Map(
     ((origensRaw ?? []) as { id_agendamento: string; origem: 'loja' | 'online' | null }[]).map(o => [o.id_agendamento, o.origem])
@@ -145,6 +148,8 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     obs: a.obs,
     origem: origemPorAgendamento.get(a.id_agendamento) ?? null,
     taxidog: transporteDe(a),
+    forma_pagamento: pagamentos.porAgendamento.get(a.id_agendamento)?.forma ?? null,
+    status_pagamento: pagamentos.porAgendamento.get(a.id_agendamento)?.status ?? null,
   }))
 
   const funcionarios: FuncionarioFiltro[] = (funcionariosRaw ?? []) as FuncionarioFiltro[]
@@ -217,6 +222,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
       horaInicioGrade={horaInicioGrade}
       horaFimGrade={horaFimGrade}
       taxidogAtivo={!!taxidogCfg?.ativo}
+      formasPagamento={pagamentos.formasAceitas}
     />
   )
 }

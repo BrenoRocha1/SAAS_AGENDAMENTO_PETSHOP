@@ -7,6 +7,7 @@ import { ptBR } from 'date-fns/locale'
 import { exportarRelatorioVendasCsvAction } from '@/lib/actions'
 import { PRESETS, variacaoPercentual, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
+import { CLASSE_STATUS_PAGAMENTO, ROTULO_STATUS_PAGAMENTO, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
 import {
   IconAlert,
   IconCalendar,
@@ -59,7 +60,14 @@ export interface LinhaDetalhamento {
   nome_servico: string
   nome_cliente: string
   nome_funcionario: string | null
+  // Migration 057 — null em agendamento antigo (ou sem a migration).
+  forma_pagamento: string | null
+  status_pagamento: string | null
 }
+
+// fn_relatorio_vendas_por_pagamento (migration 057): pedidos do período
+// (sem cancelados) por forma — registrado, recebido (pago) e a receber.
+export interface VendaPorPagamento { forma: string; pedidos: number; total: number; recebido: number; pendente: number }
 
 interface Props {
   preset: PeriodoPreset
@@ -71,6 +79,8 @@ interface Props {
   porProfissional: VendaPorProfissional[]
   porCliente: VendaPorCliente[]
   clientesResumo: ClientesResumo | null
+  // null = a migration 057 ainda não rodou.
+  porPagamento: VendaPorPagamento[] | null
   funcionarios: { id_funcionario: string; nome: string }[]
   servicos: { id_servico: string; nome: string }[]
   filtroFuncionario: string
@@ -99,6 +109,7 @@ export default function RelatorioVendasClient({
   porProfissional,
   porCliente,
   clientesResumo,
+  porPagamento,
   funcionarios,
   servicos,
   filtroFuncionario,
@@ -303,6 +314,14 @@ export default function RelatorioVendasClient({
             <GraficoFaturamento dados={porDia} />
           </div>
 
+          {/* ── Vendas por forma de pagamento (migration 057) ── */}
+          <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
+            <h3 className="relatorio-secao-titulo">
+              <IconMoney style={{ width: 15, height: 15 }} /> Vendas por forma de pagamento
+            </h3>
+            <VendasPorPagamento linhas={porPagamento} />
+          </div>
+
           <div className="grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'start' }}>
             {/* ── Vendas por serviço ── */}
             <div className="card">
@@ -352,7 +371,7 @@ export default function RelatorioVendasClient({
             </div>
           </div>
 
-          <div className="grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'start' }}>
+          <div style={{ marginBottom: 'var(--space-6)' }}>
             {/* ── Clientes ── */}
             <div className="card">
               <h3 className="relatorio-secao-titulo">
@@ -380,21 +399,6 @@ export default function RelatorioVendasClient({
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* ── Dados ainda não disponíveis (honestidade > inventar) ── */}
-            <div className="card" style={{ borderStyle: 'dashed' }}>
-              <h3 className="relatorio-secao-titulo">
-                <IconAlert style={{ width: 15, height: 15 }} /> Dados ainda não disponíveis
-              </h3>
-              <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-3)' }}>
-                Estas análises fazem parte do pedido, mas o banco ainda não guarda essa informação —
-                por isso não aparecem aqui (nenhum valor foi inventado):
-              </p>
-              <ul style={{ margin: 0, paddingLeft: 'var(--space-5)', color: 'var(--gray-400)', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                <li><strong>Forma de pagamento</strong> — não existe coluna de forma de pagamento em <code>agendamento</code> nem tabela de pagamentos.</li>
-                <li><strong>Taxidog</strong> — não existe campo <code>needs_taxidog</code> (ou equivalente) em nenhuma tabela deste projeto.</li>
-              </ul>
             </div>
           </div>
 
@@ -453,6 +457,7 @@ export default function RelatorioVendasClient({
                         <th>Serviço</th>
                         <th>Profissional</th>
                         <th>Valor</th>
+                        <th>Pagamento</th>
                         <th>Status</th>
                       </tr>
                     </thead>
@@ -466,6 +471,12 @@ export default function RelatorioVendasClient({
                           <td>{row.nome_servico}</td>
                           <td>{row.nome_funcionario ?? '—'}</td>
                           <td>{moeda(row.valor)}</td>
+                          <td>
+                            <span className="text-sm">{rotuloForma(row.forma_pagamento)}</span>
+                            {ehStatusPagamento(row.status_pagamento) && (
+                              <span className={`badge ${CLASSE_STATUS_PAGAMENTO[row.status_pagamento]}`} style={{ marginLeft: 6 }}>{ROTULO_STATUS_PAGAMENTO[row.status_pagamento]}</span>
+                            )}
+                          </td>
                           <td><span className={`badge ${classeBadgeStatus(row.status)}`}>{rotuloStatus(row.status)}</span></td>
                         </tr>
                       ))}
@@ -492,6 +503,58 @@ export default function RelatorioVendasClient({
         </>
       )}
     </div>
+  )
+}
+
+// ============================================================
+// Vendas por forma de pagamento: registrado, recebido e a receber no
+// período, e cada forma com quantos pedidos e quanto.
+// ============================================================
+function VendasPorPagamento({ linhas }: { linhas: VendaPorPagamento[] | null }) {
+  if (linhas === null) {
+    return <p className="text-sm text-muted">Execute a migration 057_formas_pagamento.sql para ver as vendas por forma de pagamento.</p>
+  }
+  if (linhas.length === 0) {
+    return <p className="text-sm text-muted">Nenhum pedido neste período.</p>
+  }
+  const total = linhas.reduce((s, l) => s + l.total, 0)
+  const recebido = linhas.reduce((s, l) => s + l.recebido, 0)
+  const pendente = linhas.reduce((s, l) => s + l.pendente, 0)
+  const pedidos = linhas.reduce((s, l) => s + l.pedidos, 0)
+
+  return (
+    <>
+      <div className="relatorio-mini-stats">
+        <div><span>{moeda(total)}</span>registrado em {pedidos} pedido{pedidos !== 1 ? 's' : ''}</div>
+        <div><span className="text-success">{moeda(recebido)}</span>recebido</div>
+        <div><span style={{ color: 'var(--warning-400)' }}>{moeda(pendente)}</span>a receber</div>
+      </div>
+      <div className="relatorio-lista">
+        {linhas.map(l => (
+          <div key={l.forma} className="relatorio-lista-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)' }}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="relatorio-lista-info">
+                <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{rotuloForma(l.forma === 'nao_informada' ? null : l.forma)}</div>
+                <div className="text-xs text-muted">
+                  {l.pedidos} pedido{l.pedidos !== 1 ? 's' : ''} · recebido {moeda(l.recebido)} · a receber {moeda(l.pendente)}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div className="font-semibold text-success">{moeda(l.total)}</div>
+                <div className="text-xs text-muted">{((l.total / total) * 100 || 0).toFixed(1)}%</div>
+              </div>
+            </div>
+            <div className="pag-rel-barra" aria-hidden>
+              <span className="pag-rel-barra-pago" style={{ width: `${(l.recebido / (total || 1)) * 100}%` }} />
+              <span className="pag-rel-barra-pendente" style={{ width: `${(l.pendente / (total || 1)) * 100}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-muted" style={{ margin: 'var(--space-3) 0 0' }}>
+        Pedidos com data no período, sem os cancelados. &quot;Recebido&quot; é o que a loja marcou como pago; &quot;Não informada&quot; são agendamentos de antes das formas de pagamento.
+      </p>
+    </>
   )
 }
 

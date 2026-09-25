@@ -6,6 +6,7 @@ import { atribuirFuncionarioAction, criarAgendamentoLojistaAction, criarPetLojis
 import { cotarTaxiDogLojaAction } from '@/lib/actions-taxidog'
 import { formatarTelefone } from '@/lib/format'
 import { formatarReais } from '@/lib/taxidog'
+import { FORMAS_LOJA_PADRAO, ROTULO_FORMA_PAGAMENTO, formasAtivas, normalizarFormasLoja, type FormaPagamento, type FormasLoja } from '@/lib/pagamento'
 import {
   ESTADO_TRANSPORTE_INICIAL,
   TaxiDogCampos,
@@ -92,6 +93,12 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
   const [transporte, setTransporte] = useState<EstadoTransporte>({ ...ESTADO_TRANSPORTE_INICIAL, opcao: 'levar' })
   const escolhaTaxiDog = escolhaDoTransporte(transporte)
 
+  // Pagamento do pedido (migration 057) — obrigatório; a loja pode lançar
+  // já "Pago" (cliente pagou no balcão).
+  const [formasLoja, setFormasLoja] = useState<FormasLoja>(FORMAS_LOJA_PADRAO)
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | ''>('')
+  const [statusPagamento, setStatusPagamento] = useState<'pendente' | 'pago'>('pendente')
+
   useEffect(() => {
     let cancelado = false
     supabase
@@ -100,6 +107,9 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
       .eq('id_lojista', lojistaId)
       .maybeSingle()
       .then(({ data }) => { if (!cancelado) setTaxidogAtivo(!!data?.ativo) })
+    supabase
+      .rpc('fn_formas_pagamento_loja', { p_id_lojista: lojistaId })
+      .then(({ data }) => { if (!cancelado) setFormasLoja(normalizarFormasLoja(data)) })
     return () => { cancelado = true }
   }, [supabase, lojistaId])
 
@@ -207,6 +217,12 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
     formData.set('hr_agendamento', hora)
     formData.set('obs', obs)
     if (taxidogAtivo && escolhaTaxiDog) formData.set('taxidog', taxiDogParaFormulario(escolhaTaxiDog))
+    if (!formaPagamento) {
+      setError('Escolha a forma de pagamento.')
+      return
+    }
+    formData.set('forma_pagamento', formaPagamento)
+    formData.set('status_pagamento', statusPagamento)
 
     startTransition(async () => {
       const result = await criarAgendamentoLojistaAction(formData)
@@ -243,7 +259,7 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
     })
   }
 
-  const podeSubmeter = !!(clienteId && petId && servicoId && data && hora) && (!taxidogAtivo || transportePronto(transporte)) && !isPending && !success
+  const podeSubmeter = !!(clienteId && petId && servicoId && data && hora && formaPagamento) && (!taxidogAtivo || transportePronto(transporte)) && !isPending && !success
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -589,6 +605,42 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                       <span className="text-muted"> (serviço + TaxiDog)</span>
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* Pagamento — obrigatório (migration 057) */}
+              {servicoId && (
+                <div className="form-group">
+                  <label className="form-label">Pagamento</label>
+                  <div className="form-grid-2">
+                    <div>
+                      <select
+                        className="form-select"
+                        value={formaPagamento}
+                        onChange={e => setFormaPagamento(e.target.value as FormaPagamento | '')}
+                        disabled={isPending}
+                        aria-label="Forma de pagamento"
+                      >
+                        <option value="">Forma de pagamento...</option>
+                        {formasAtivas(formasLoja).map(f => <option key={f} value={f}>{ROTULO_FORMA_PAGAMENTO[f]}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <select
+                        className="form-select"
+                        value={statusPagamento}
+                        onChange={e => setStatusPagamento(e.target.value === 'pago' ? 'pago' : 'pendente')}
+                        disabled={isPending}
+                        aria-label="Status do pagamento"
+                      >
+                        <option value="pendente">Pendente</option>
+                        <option value="pago">Pago</option>
+                      </select>
+                    </div>
+                  </div>
+                  <span className="form-hint">
+                    Vale para o pedido todo{taxidogAtivo && escolhaTaxiDog ? ' (serviço e TaxiDog)' : ''}. Obrigatório para salvar.
+                  </span>
                 </div>
               )}
 

@@ -5,6 +5,7 @@ import { obterContextoLojista } from '@/lib/lojista-context'
 import KanbanBoard, { type KanbanItem } from '@/components/lojista/KanbanBoard'
 import TaxiDogConteudo from '@/components/lojista/TaxiDogConteudo'
 import { carregarTransportePorVisita } from '@/lib/taxidog-visita'
+import { carregarPagamentos } from '@/lib/pagamento-servidor'
 import { IconAlert, IconCar, IconChartBar, IconKanban, IconRoute } from '@/components/icons'
 import Link from 'next/link'
 
@@ -211,6 +212,8 @@ export default async function KanbanPage({ searchParams }: Props) {
     supabase,
     ((agendaRaw ?? []) as unknown as { id_agendamento: string; id_pet: string; dt_agendamento: string }[]),
   )
+  // Forma e status do pagamento (migration 057) — tolerante também.
+  const pagamentos = await carregarPagamentos(supabase, lojistaId, idsDoDia)
 
   const itens: KanbanItem[] = ((agendaRaw ?? []) as unknown as Array<{
     id_agendamento: string
@@ -247,6 +250,8 @@ export default async function KanbanPage({ searchParams }: Props) {
     obs: a.obs,
     produtos: produtosPorAgendamento[a.id_agendamento] ?? [],
     taxidog: transporteDe(a),
+    forma_pagamento: pagamentos.porAgendamento.get(a.id_agendamento)?.forma ?? null,
+    status_pagamento: pagamentos.porAgendamento.get(a.id_agendamento)?.status ?? null,
   }))
 
   return (
@@ -260,6 +265,7 @@ export default async function KanbanPage({ searchParams }: Props) {
         servicos={(servicosRaw ?? []) as { id_servico: string; nome: string }[]}
         podeAtribuirProfissional={contexto.acessoTotal}
         taxidogAtivo={!taxidogCfgErro && !!taxidogCfg?.ativo}
+        formasPagamento={pagamentos.formasAceitas}
       />
     </>
   )

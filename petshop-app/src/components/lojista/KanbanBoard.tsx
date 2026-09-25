@@ -10,6 +10,8 @@ import { rotuloEstoque } from '@/lib/produto'
 import { formatarReais } from '@/lib/taxidog'
 import type { TransporteVisita } from '@/lib/taxidog-visita'
 import TransporteAgendamento from '@/components/lojista/TransporteAgendamento'
+import PagamentoAgendamento from '@/components/lojista/PagamentoAgendamento'
+import type { FormaPagamento } from '@/lib/pagamento'
 import {
   IconAlert,
   IconCalendar,
@@ -49,6 +51,9 @@ export interface KanbanItem {
   // TaxiDog da visita (mesmo pet, mesmo dia) — a taxa já está somada no
   // `valor` do serviço que carrega a solicitação (taxidog.id_agendamento).
   taxidog: TransporteVisita | null
+  // Pagamento do pedido (migration 057) — null em agendamento antigo.
+  forma_pagamento: string | null
+  status_pagamento: string | null
 }
 
 interface Props {
@@ -62,6 +67,8 @@ interface Props {
   podeAtribuirProfissional: boolean
   // TaxiDog ativado na loja: mostra "Adicionar TaxiDog" no detalhe.
   taxidogAtivo: boolean
+  // Formas que a loja aceita (seletor do bloco Pagamento).
+  formasPagamento: FormaPagamento[]
 }
 
 const COLUNAS: { status: KanbanItem['status']; titulo: string; borda: string }[] = [
@@ -75,7 +82,7 @@ function parseDia(iso: string) {
   return parseISO(`${iso}T12:00:00`)
 }
 
-export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, funcionarios, servicos, podeAtribuirProfissional, taxidogAtivo }: Props) {
+export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, funcionarios, servicos, podeAtribuirProfissional, taxidogAtivo, formasPagamento }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [itens, setItens] = useState(itensIniciais)
@@ -435,6 +442,13 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                   podeAlterar
                 />
               )}
+              <PagamentoAgendamento
+                idAgendamento={selecionado.id_agendamento}
+                forma={selecionado.forma_pagamento}
+                status={selecionado.status_pagamento}
+                formasAceitas={formasPagamento}
+                podeAlterar
+              />
               <div className="dash-detail-row"><span>Data</span><span>{format(parseDia(selecionado.dt_agendamento), 'dd/MM/yyyy')}</span></div>
               <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>
               <div className="dash-detail-row">

@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { formatarReais } from '@/lib/taxidog'
+import { ROTULO_FORMA_PAGAMENTO, type FormaPagamento } from '@/lib/pagamento'
+import { PixDaLoja } from './PagamentoEtapa'
 import { IconCheck, IconLink, IconWhatsapp } from '@/components/icons'
 
 // Tela "Serviço agendado!" dos dois fluxos do cliente (link público e
@@ -20,13 +22,15 @@ interface Props {
   data: string
   hora: string
   total: number
+  // Forma de pagamento escolhida (migration 057) — Pix mostra a chave.
+  pagamento?: { forma: FormaPagamento; pixChave?: string | null; pixNome?: string | null } | null
 }
 
 // Endereço do site só existe no navegador (no servidor fica vazio).
 const assinarNada = () => () => {}
 const origemDoSite = () => window.location.origin
 
-export default function ConfirmacaoAgendamento({ idAgendamento, loja, pet, itens, data, hora, total }: Props) {
+export default function ConfirmacaoAgendamento({ idAgendamento, loja, pet, itens, data, hora, total, pagamento }: Props) {
   const origem = useSyncExternalStore(assinarNada, origemDoSite, () => '')
   const linkAcompanhar = idAgendamento ? `/acompanhar/${idAgendamento}` : null
   const quando = `${format(parseISO(data), 'dd/MM/yyyy', { locale: ptBR })} às ${hora.slice(0, 5)}`
@@ -37,6 +41,7 @@ export default function ConfirmacaoAgendamento({ idAgendamento, loja, pet, itens
     `Pet: ${pet}`,
     `Data: ${quando}`,
     `Total: ${formatarReais(total)}`,
+    ...(pagamento ? [`Pagamento: ${ROTULO_FORMA_PAGAMENTO[pagamento.forma]}`] : []),
   ]
   // Pra loja: o resumo de sempre + o link (fica no chat, o cliente acha depois).
   const mensagemLoja = [`Olá! Acabei de agendar em ${loja.nome}:`, ...resumo, ...linhaLink].join('\n')
@@ -54,9 +59,17 @@ export default function ConfirmacaoAgendamento({ idAgendamento, loja, pet, itens
         <IconCheck style={{ width: 30, height: 30 }} />
       </span>
       <h2 style={{ fontSize: '1.3rem', marginBottom: 'var(--space-2)' }}>Serviço agendado!</h2>
-      <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-6)' }}>
+      <p className="text-sm text-muted" style={{ marginBottom: pagamento ? 'var(--space-2)' : 'var(--space-6)' }}>
         {pet} · {quando} · {loja.nome}
       </p>
+      {pagamento && (
+        <div style={{ marginBottom: 'var(--space-6)', textAlign: 'left' }}>
+          <p className="text-sm" style={{ textAlign: 'center', margin: '0 0 var(--space-3)' }}>
+            Pagamento: <strong>{ROTULO_FORMA_PAGAMENTO[pagamento.forma]}</strong> · {formatarReais(total)}
+          </p>
+          {pagamento.forma === 'pix' && <PixDaLoja chave={pagamento.pixChave ?? null} nome={pagamento.pixNome ?? null} />}
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {telefoneLoja && (
