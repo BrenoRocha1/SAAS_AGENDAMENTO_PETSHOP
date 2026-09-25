@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 import { format } from 'date-fns'
 import { agoraBrasil } from '@/lib/agenda'
@@ -18,7 +19,10 @@ export default async function LojistaDashboard({ searchParams }: Props) {
   const params = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const lojistaId = user!.id
+  // Dono ou administrador da equipe (acesso total) — o id é o da loja.
+  const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
+  if (!contexto) return null
+  const lojistaId = contexto.idLojista
 
   // agoraBrasil(), não new Date(): o servidor roda em UTC, e "hoje"/"agora"
   // precisam refletir o horário da loja (Brasil), não o do servidor —

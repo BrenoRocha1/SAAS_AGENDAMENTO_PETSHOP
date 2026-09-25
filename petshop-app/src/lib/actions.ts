@@ -2546,7 +2546,10 @@ export async function exportarRelatorioVendasCsvAction(filtros: {
 }): Promise<{ csv: string } | { error: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'lojista') {
+  if (!user) return { error: 'Não autenticado' }
+  // Dono ou administrador da equipe (acesso total), como a tela de Relatórios.
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
     return { error: 'Acesso não autorizado' }
   }
 
@@ -2559,7 +2562,7 @@ export async function exportarRelatorioVendasCsvAction(filtros: {
       cliente:id_cliente ( nome ),
       funcionario:id_funcionario ( nome )
     `)
-    .eq('id_lojista', user.id)
+    .eq('id_lojista', contexto.idLojista)
     .gte('dt_agendamento', filtros.dataIni)
     .lte('dt_agendamento', filtros.dataFim)
     .order('dt_agendamento', { ascending: true })

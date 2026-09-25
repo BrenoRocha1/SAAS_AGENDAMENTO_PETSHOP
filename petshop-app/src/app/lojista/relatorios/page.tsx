@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 import { IconAlert } from '@/components/icons'
 import RelatorioVendasClient, {
@@ -41,7 +42,10 @@ export default async function RelatoriosVendasPage({ searchParams }: Props) {
   const params = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const lojistaId = user!.id
+  // Dono ou administrador da equipe (acesso total) — o id é o da loja.
+  const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
+  if (!contexto) return null
+  const lojistaId = contexto.idLojista
 
   const preset: PeriodoPreset = PRESETS_VALIDOS.includes(params.periodo as PeriodoPreset)
     ? (params.periodo as PeriodoPreset)

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import Link from 'next/link'
 import PerfilLojistaForm from '@/components/lojista/PerfilLojistaForm'
 import LogoLojaUpload from '@/components/lojista/LogoLojaUpload'
@@ -10,11 +11,15 @@ export const metadata: Metadata = { title: 'Perfil da Loja' }
 export default async function PerfilLojistaPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  // Dono ou administrador da equipe (acesso total) — o id é o da loja.
+  const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
+  if (!contexto) return null
+  const lojistaId = contexto.idLojista
 
   const { data: lojista } = await supabase
     .from('lojista')
     .select('*')
-    .eq('id_lojista', user!.id)
+    .eq('id_lojista', lojistaId)
     .single()
 
   return (

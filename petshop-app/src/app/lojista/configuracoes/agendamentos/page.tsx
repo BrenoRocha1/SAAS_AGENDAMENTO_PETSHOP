@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { alternarKanbanAction, alternarAgendamentoOnlineAction } from '@/lib/actions'
@@ -13,11 +14,15 @@ export const metadata: Metadata = { title: 'Configurações de Agendamentos — 
 export default async function ConfiguracoesAgendamentosPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  // Dono ou administrador da equipe (acesso total) — o id é o da loja.
+  const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
+  if (!contexto) return null
+  const lojistaId = contexto.idLojista
 
   const { data: lojista, error } = await supabase
     .from('lojista')
     .select('kanban_ativo, aceita_agendamento_online')
-    .eq('id_lojista', user!.id)
+    .eq('id_lojista', lojistaId)
     .maybeSingle()
 
   // Busca o slug numa query separada, de propósito: é uma coluna nova
@@ -28,7 +33,7 @@ export default async function ConfiguracoesAgendamentosPage() {
   const { data: slugRow, error: slugError } = await supabase
     .from('lojista')
     .select('slug')
-    .eq('id_lojista', user!.id)
+    .eq('id_lojista', lojistaId)
     .maybeSingle()
   const slugPendente = !!slugError
 
@@ -38,7 +43,7 @@ export default async function ConfiguracoesAgendamentosPage() {
   const { data: janelaRow, error: janelaError } = await supabase
     .from('lojista')
     .select('agendamento_min_valor, agendamento_min_unidade, agendamento_max_valor, agendamento_max_unidade')
-    .eq('id_lojista', user!.id)
+    .eq('id_lojista', lojistaId)
     .maybeSingle()
   const janelaPendente = !!janelaError
 
@@ -46,7 +51,7 @@ export default async function ConfiguracoesAgendamentosPage() {
   const { data: estimadoRow, error: estimadoError } = await supabase
     .from('lojista')
     .select('precos_estimados')
-    .eq('id_lojista', user!.id)
+    .eq('id_lojista', lojistaId)
     .maybeSingle()
 
   return (
@@ -104,7 +109,7 @@ export default async function ConfiguracoesAgendamentosPage() {
                   </span>
                 </div>
               )}
-              <LinkAgendamentoOnline idLojista={user!.id} slugAtual={slugRow?.slug ?? null} />
+              <LinkAgendamentoOnline idLojista={lojistaId} slugAtual={slugRow?.slug ?? null} />
 
               {janelaPendente ? (
                 <div className="alert alert-warning">

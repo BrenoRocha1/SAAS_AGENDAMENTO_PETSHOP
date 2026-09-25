@@ -18,7 +18,15 @@ export default async function DetalhePetPage({ params }: Props) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
-  if (!contexto || !contexto.podeGerenciarClientesPets) return null
+  if (!contexto) return null
+  if (!contexto.podeGerenciarClientesPets) {
+    return (
+      <div className="empty-state card">
+        <div className="empty-state-title">Sem permissão para ver pets</div>
+        <p>Fale com o responsável pelo petshop para liberar esse acesso.</p>
+      </div>
+    )
+  }
   const podeEditar = contexto.role === 'lojista' || contexto.acessoTotal
   const lojistaId = contexto.idLojista
 
