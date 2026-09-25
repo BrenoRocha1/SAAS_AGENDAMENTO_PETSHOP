@@ -471,11 +471,11 @@ export default async function PerfilClientePage({ params }: Props) {
           <h3 className="relatorio-secao-titulo">Linha do tempo</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             {timeline.map(a => (
-              <div key={a.id_agendamento} style={{ display: 'flex', gap: 'var(--space-3)', paddingBottom: 'var(--space-3)', borderBottom: '1px solid var(--gray-850)' }}>
+              <div key={a.id_agendamento} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-3)', paddingBottom: 'var(--space-3)', borderBottom: '1px solid var(--gray-850)' }}>
                 <div style={{ minWidth: 90, fontSize: '0.8rem', color: 'var(--gray-400)' }}>
                   {format(parseISO(a.dt_agendamento), 'dd/MM/yyyy')}
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 160 }}>
                   <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{a.servico?.nome ?? 'Serviço'}</span>
                   {' · '}
                   <span className="text-sm text-muted">Pet: {a.pet?.nome ?? '—'}</span>

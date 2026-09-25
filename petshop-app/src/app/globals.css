@@ -243,6 +243,9 @@ a:hover { color: var(--primary-300); }
 .app-main {
   margin-left: var(--sidebar-width);
   flex: 1;
+  /* Sem isso, uma tabela larga alarga a página toda em vez de rolar no
+     próprio .table-container (item flex não encolhe abaixo do conteúdo). */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -1601,7 +1604,7 @@ a:hover { color: var(--primary-300); }
 }
 .dash-detail-row:last-of-type { border-bottom: none; }
 .dash-detail-row span:first-child { color: var(--gray-500); }
-.dash-detail-row span:last-child { color: var(--gray-100); font-weight: 600; text-align: right; }
+.dash-detail-row span:last-child { color: var(--gray-100); font-weight: 600; text-align: right; min-width: 0; overflow-wrap: anywhere; }
 
 .dash-detail-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
 
@@ -1763,7 +1766,7 @@ a:hover { color: var(--primary-300); }
 .cal-event.is-cancelado { opacity: 0.5; text-decoration: line-through; }
 
 @media (max-width: 1024px) {
-  .cal-shell { grid-template-columns: 1fr; }
+  .cal-shell { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 768px) {
   .cal-week-head, .cal-body { grid-template-columns: 40px repeat(7, minmax(70px, 1fr)); }
@@ -2201,12 +2204,30 @@ a:hover { color: var(--primary-300); }
 .config-item-titulo { font-weight: 600; color: var(--gray-100); }
 .config-item-desc { font-size: 0.8125rem; color: var(--gray-400); margin-top: 2px; }
 
+/* Barra do topo com o botão do menu — só aparece até 1024px, quando a
+   barra lateral sai da tela (ver RESPONSIVO). */
+:root { --menu-mobile-altura: 52px; }
+.menu-mobile-barra {
+  display: none; align-items: center; gap: var(--space-3);
+  position: fixed; top: 0; left: 0; right: 0; height: var(--menu-mobile-altura);
+  padding: 0 var(--space-4); background: var(--gray-900); border-bottom: 1px solid var(--gray-800); z-index: 45;
+}
+.menu-mobile-botao {
+  display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+  border: 1px solid var(--gray-800); border-radius: var(--radius-md); background: transparent; color: var(--gray-100); cursor: pointer;
+}
+.menu-mobile-titulo { font-weight: 700; color: var(--gray-100); }
+.menu-mobile-fundo { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: 49; }
+
 /* ============================================================
    RESPONSIVO
    ============================================================ */
 @media (max-width: 1024px) {
   .app-sidebar { transform: translateX(-100%); transition: transform var(--transition-normal); }
   .app-sidebar.open { transform: translateX(0); }
+  .menu-mobile-barra { display: flex; }
+  .menu-mobile-fundo { display: block; }
+  .app-main { padding-top: var(--menu-mobile-altura); }
   .app-main { margin-left: 0; }
   .grid-4 { grid-template-columns: 1fr 1fr; }
   .dash-grid { grid-template-columns: 1fr; }
@@ -2215,12 +2236,12 @@ a:hover { color: var(--primary-300); }
 
 @media (max-width: 768px) {
   .app-content { padding: var(--space-4); }
-  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: minmax(0, 1fr); }
   .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
   .auth-card { padding: var(--space-6); }
   .hero-actions { flex-direction: column; }
-  .dash-topbar-right { margin-left: 0; width: 100%; justify-content: space-between; }
-  .dash-search { max-width: none; order: 3; }
+  .dash-topbar-right { margin-left: 0; width: 100%; justify-content: space-between; flex-wrap: wrap; }
+  .dash-search { max-width: none; min-width: 0; order: 3; }
 }
 
 /* ============================================================

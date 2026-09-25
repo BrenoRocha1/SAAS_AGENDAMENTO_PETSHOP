@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 import { logoutAction } from '@/lib/actions'
+import { BarraMenuMobile, useMenuMobile } from '@/components/layout/MenuMobile'
 import {
   IconPaw,
   IconGrid,
@@ -120,6 +121,7 @@ export default function LojistaSidebar({
     .sort((x, y) => y.alcance - x.alcance)[0]?.href
   const [isPending, startTransition] = useTransition()
   const [colapsada, setColapsada] = useState(false)
+  const menu = useMenuMobile()
 
   // Lembrar a preferência entre sessões (só neste navegador — não precisa
   // de servidor pra isso, é só conveniência visual). Só dá pra ler
@@ -158,7 +160,10 @@ export default function LojistaSidebar({
   const initial = nomeExibido[0]?.toUpperCase() ?? 'P'
 
   return (
-    <aside className={`app-sidebar ${colapsada ? 'is-collapsed' : ''}`}>
+    <>
+    <BarraMenuMobile aberto={menu.aberto} onAbrir={menu.abrir} onFechar={menu.fechar} />
+    {/* Aberta no celular, sempre expandida (recolher é coisa do desktop). */}
+    <aside className={`app-sidebar ${colapsada && !menu.aberto ? 'is-collapsed' : ''} ${menu.aberto ? 'open' : ''}`}>
       {/* Logo — recolhida, some e fica só o botão de expandir, pra nunca sobrepor nada */}
       <div className="sidebar-logo">
         {!colapsada && (
@@ -234,5 +239,6 @@ export default function LojistaSidebar({
         </button>
       </div>
     </aside>
+    </>
   )
 }

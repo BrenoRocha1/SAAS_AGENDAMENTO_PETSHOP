@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 import { logoutAction } from '@/lib/actions'
+import { BarraMenuMobile, useMenuMobile } from '@/components/layout/MenuMobile'
 import {
   IconPaw,
   IconGrid,
@@ -37,6 +38,7 @@ export default function ClienteSidebar({ userName, userEmail }: Props) {
   const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
   const [colapsada, setColapsada] = useState(false)
+  const menu = useMenuMobile()
 
   // Mesmo padrão de LojistaSidebar.tsx — lembrar a preferência entre
   // sessões, só neste navegador.
@@ -74,7 +76,10 @@ export default function ClienteSidebar({ userName, userEmail }: Props) {
     .toUpperCase()
 
   return (
-    <aside className={`app-sidebar ${colapsada ? 'is-collapsed' : ''}`}>
+    <>
+    <BarraMenuMobile aberto={menu.aberto} onAbrir={menu.abrir} onFechar={menu.fechar} />
+    {/* Aberta no celular, sempre expandida (recolher é coisa do desktop). */}
+    <aside className={`app-sidebar ${colapsada && !menu.aberto ? 'is-collapsed' : ''} ${menu.aberto ? 'open' : ''}`}>
       <div className="sidebar-logo">
         {!colapsada && (
           <>
@@ -143,5 +148,6 @@ export default function ClienteSidebar({ userName, userEmail }: Props) {
         </button>
       </div>
     </aside>
+    </>
   )
 }

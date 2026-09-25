@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTransition } from 'react'
 import { logoutAction } from '@/lib/actions'
+import { BarraMenuMobile, useMenuMobile } from '@/components/layout/MenuMobile'
 import { IconGrid, IconLogout, IconStore } from '@/components/icons'
 
 const navItems = [
@@ -18,6 +19,7 @@ interface Props {
 export default function AdminSidebar({ nome, email }: Props) {
   const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
+  const menu = useMenuMobile()
 
   function handleLogout() {
     startTransition(() => logoutAction())
@@ -26,7 +28,9 @@ export default function AdminSidebar({ nome, email }: Props) {
   const initial = (nome || email)[0]?.toUpperCase() ?? 'A'
 
   return (
-    <aside className="app-sidebar">
+    <>
+    <BarraMenuMobile aberto={menu.aberto} onAbrir={menu.abrir} onFechar={menu.fechar} titulo="SAIP Admin" />
+    <aside className={`app-sidebar ${menu.aberto ? 'open' : ''}`}>
       <div className="sidebar-logo">
         <div className="sidebar-logo-icon">
           <IconStore style={{ width: 18, height: 18 }} />
@@ -74,5 +78,6 @@ export default function AdminSidebar({ nome, email }: Props) {
         </button>
       </div>
     </aside>
+    </>
   )
 }
