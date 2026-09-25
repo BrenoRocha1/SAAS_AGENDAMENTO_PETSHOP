@@ -3752,3 +3752,55 @@ a:hover { color: var(--primary-300); }
 .pag-rel-barra-pago { background: var(--status-concluido-solid); }
 .pag-rel-barra-pendente { background: var(--status-aguardando-solid); }
 .acomp-pagamento { display: flex; flex-direction: column; gap: var(--space-3); }
+
+/* ============================================================
+   PLANOS RECORRENTES (migration 060)
+   ============================================================ */
+.planos-abas { display: flex; gap: var(--space-1); padding: 4px; margin-bottom: var(--space-5); border-radius: var(--radius-md); background: var(--gray-850); width: fit-content; max-width: 100%; overflow-x: auto; }
+.planos-abas a { padding: 6px 14px; border-radius: var(--radius-sm); font-size: 0.875rem; font-weight: 600; color: var(--gray-400); white-space: nowrap; text-decoration: none; }
+.planos-abas a.is-ativa { background: var(--gray-900); color: var(--gray-100); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.planos-filtros { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-4); }
+
+.planos-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-4); }
+.plano-card { display: flex; flex-direction: column; gap: var(--space-2); }
+.plano-card.is-inativo { opacity: 0.6; }
+.plano-card-nome { font-weight: 700; font-size: 1rem; color: var(--gray-100); }
+.plano-card-valor { font-size: 1.5rem; font-weight: 800; color: var(--gray-100); }
+.plano-card-valor span { font-size: 0.8125rem; font-weight: 500; color: var(--gray-400); margin-left: 2px; }
+.plano-card-servicos { list-style: none; margin: 0; padding: var(--space-2) 0; border-top: 1px solid var(--gray-800); border-bottom: 1px solid var(--gray-800); display: flex; flex-direction: column; gap: 4px; }
+.plano-card-servicos li { display: flex; justify-content: space-between; gap: var(--space-2); font-size: 0.875rem; color: var(--gray-300); }
+
+.plano-form-servicos { display: flex; flex-direction: column; gap: var(--space-2); max-height: 260px; overflow-y: auto; }
+.plano-form-servico { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--gray-800); border-radius: var(--radius-md); }
+.plano-form-servico.is-marcado { border-color: var(--primary-500); background: var(--gray-850); }
+.plano-form-servico-nome { font-weight: 600; color: var(--gray-100); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.planos-assinaturas { display: flex; flex-direction: column; gap: var(--space-3); }
+.plano-assinatura { display: flex; flex-direction: column; gap: var(--space-2); }
+div.plano-assinatura:not(.card) { padding: var(--space-3); border: 1px solid var(--gray-800); border-radius: var(--radius-md); }
+.plano-assinatura.is-cancelada { opacity: 0.75; }
+.plano-beneficios { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-2) var(--space-4); }
+.plano-beneficios li { font-size: 0.875rem; color: var(--gray-300); display: flex; flex-direction: column; gap: 4px; }
+.plano-beneficio-barra { height: 6px; border-radius: 999px; background: var(--gray-800); overflow: hidden; }
+.plano-beneficio-barra span { display: block; height: 100%; background: var(--primary-500); border-radius: 999px; }
+.plano-beneficios li.is-esgotado .plano-beneficio-barra span { background: var(--warning-400); }
+
+.plano-cobranca-pag { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.plano-cobranca-pag .form-select { width: auto; min-width: 130px; padding-top: 4px; padding-bottom: 4px; }
+.plano-cancelar { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md); background: var(--gray-850); }
+.plano-lista-detalhe { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.plano-lista-detalhe li { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-2) 0; border-bottom: 1px solid var(--gray-800); }
+.plano-lista-detalhe li:last-child { border-bottom: none; }
+.plano-lista-detalhe li.is-estornada { opacity: 0.6; text-decoration: line-through; }
+.plano-historico { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.plano-historico li { display: flex; flex-direction: column; gap: 2px; font-size: 0.875rem; color: var(--gray-300); padding-bottom: var(--space-2); border-bottom: 1px solid var(--gray-800); }
+.plano-historico li:last-child { border-bottom: none; }
+
+.plano-resumo-numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); }
+.plano-resumo-numeros > div, .plano-resumo-numeros > a { display: flex; flex-direction: column; font-size: 0.8125rem; color: var(--gray-400); padding: var(--space-3); border-radius: var(--radius-md); background: var(--gray-850); text-decoration: none; }
+.plano-resumo-numeros span { font-size: 1.125rem; font-weight: 700; color: var(--gray-100); }
+.plano-resumo-numeros .is-alerta span { color: var(--danger-400); }
+.plano-resumo-proximas { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-4); }
+
+.plano-aviso-agendamento { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); margin-bottom: var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--primary-500); background: var(--gray-850); }
+.plano-aviso-agendamento.is-esgotado { border-color: var(--gray-700); }

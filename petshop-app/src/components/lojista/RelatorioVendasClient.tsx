@@ -8,6 +8,7 @@ import { exportarRelatorioVendasCsvAction } from '@/lib/actions'
 import { PRESETS, variacaoPercentual, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import { CLASSE_STATUS_PAGAMENTO, ROTULO_STATUS_PAGAMENTO, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
+import type { RelatorioPlanos } from '@/lib/planos'
 import {
   IconAlert,
   IconCalendar,
@@ -24,6 +25,7 @@ import {
   IconTrendUp,
   IconUserBadge,
   IconUsers,
+  IconRepeat,
 } from '@/components/icons'
 
 // ============================================================
@@ -81,6 +83,8 @@ interface Props {
   clientesResumo: ClientesResumo | null
   // null = a migration 057 ainda não rodou.
   porPagamento: VendaPorPagamento[] | null
+  // Planos recorrentes (migration 060) — null sem ela.
+  relatorioPlanos: RelatorioPlanos | null
   funcionarios: { id_funcionario: string; nome: string }[]
   servicos: { id_servico: string; nome: string }[]
   filtroFuncionario: string
@@ -110,6 +114,7 @@ export default function RelatorioVendasClient({
   porCliente,
   clientesResumo,
   porPagamento,
+  relatorioPlanos,
   funcionarios,
   servicos,
   filtroFuncionario,
@@ -331,6 +336,16 @@ export default function RelatorioVendasClient({
             <VendasPorPagamento linhas={porPagamento} />
           </div>
 
+          {/* ── Planos recorrentes (migration 060) ── */}
+          {relatorioPlanos?.tem_planos && (
+            <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
+              <h3 className="relatorio-secao-titulo">
+                <IconRepeat style={{ width: 15, height: 15 }} /> Planos e assinaturas
+              </h3>
+              <PlanosNoRelatorio r={relatorioPlanos} />
+            </div>
+          )}
+
           <div className="grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'start' }}>
             {/* ── Vendas por serviço ── */}
             <div className="card">
@@ -512,6 +527,66 @@ export default function RelatorioVendasClient({
         </>
       )}
     </div>
+  )
+}
+
+// ============================================================
+// Planos: receita paga no período, cobranças pelo vencimento, os planos
+// e os serviços mais usados pelos benefícios.
+// ============================================================
+function PlanosNoRelatorio({ r }: { r: RelatorioPlanos }) {
+  const maiorUso = Math.max(1, ...r.servicos.map(s => Number(s.usos)))
+  return (
+    <>
+      <div className="relatorio-mini-stats">
+        <div><span className="text-success">{moeda(Number(r.receita_periodo))}</span>receita de planos (pagamentos no período)</div>
+        <div><span>{r.ativas}</span>planos ativos · {moeda(Number(r.receita_mensal))}/mês recorrente</div>
+      </div>
+      <div className="relatorio-mini-stats">
+        <div><span className="text-success">{r.pagas_qtd}</span>pagas · {moeda(Number(r.pagas_valor))}</div>
+        <div><span style={{ color: 'var(--warning-400)' }}>{r.pendentes_qtd}</span>pendentes · {moeda(Number(r.pendentes_valor))}</div>
+        <div><span style={{ color: 'var(--danger-400)' }}>{r.vencidas_qtd}</span>vencidas · {moeda(Number(r.vencidas_valor))}</div>
+      </div>
+      <div className="grid-2" style={{ alignItems: 'start', marginTop: 'var(--space-4)' }}>
+        <div>
+          <div className="text-xs text-muted" style={{ marginBottom: 'var(--space-2)' }}>Planos mais vendidos</div>
+          <div className="relatorio-lista">
+            {r.planos.map(p => (
+              <div key={p.plano} className="relatorio-lista-item">
+                <div className="relatorio-lista-info">
+                  <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{p.plano}</div>
+                  <div className="text-xs text-muted">{p.ativas} ativa{p.ativas !== 1 ? 's' : ''} · {p.novas} nova{p.novas !== 1 ? 's' : ''} no período</div>
+                </div>
+                <div className="font-semibold text-success">{moeda(Number(p.receita))}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-muted" style={{ marginBottom: 'var(--space-2)' }}>Serviços mais usados pelos planos</div>
+          {r.servicos.length === 0 ? (
+            <p className="text-sm text-muted" style={{ margin: 0 }}>Nenhum benefício usado neste período.</p>
+          ) : (
+            <div className="relatorio-lista">
+              {r.servicos.map(s => (
+                <div key={s.servico} className="relatorio-lista-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-1)' }}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{s.servico}</span>
+                    <span className="text-sm">{s.usos} uso{Number(s.usos) !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="pag-rel-barra" aria-hidden>
+                    <span className="pag-rel-barra-pago" style={{ width: `${(Number(s.usos) / maiorUso) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <p className="text-xs text-muted" style={{ margin: 'var(--space-3) 0 0' }}>
+        Pagas/pendentes/vencidas: cobranças com vencimento no período. Receita: cobranças marcadas como pagas no período. Serviço usado pelo plano não entra no faturamento dos atendimentos (a receita vem da cobrança do plano).
+      </p>
+    </>
   )
 }
 

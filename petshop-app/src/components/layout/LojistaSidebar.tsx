@@ -21,6 +21,7 @@ import {
   IconChevronRight,
   IconCar,
   IconRoute,
+  IconRepeat,
 } from '@/components/icons'
 
 // Perfil da Loja e Horários saíram daqui — agora são acessados via
@@ -43,6 +44,8 @@ const navItemsBase = [
   { href: '/lojista/taxidog/rotas', icon: IconRoute,     label: 'Rotas do TaxiDog', condicao: 'taxidogRotas' as const },
   { href: '/lojista/taxidog/relatorio', icon: IconChartBar, label: 'Relatório de corridas', condicao: 'taxidogRelatorio' as const },
   { href: '/lojista/relatorios',    icon: IconChartBar,  label: 'Relatórios de Vendas', restrito: true },
+  // Planos recorrentes (migration 060) — financeiro: dono/administrador.
+  { href: '/lojista/planos',        icon: IconRepeat,    label: 'Planos', restrito: true },
   { href: '/lojista/servicos',      icon: IconScissors,  label: 'Serviços', permissao: 'servicos' as const },
   { href: '/lojista/produtos',      icon: IconPackage,   label: 'Produtos', permissao: 'produtos' as const },
   { href: '/lojista/clientes',      icon: IconUsers,     label: 'Clientes', permissao: 'clientesPets' as const },

@@ -12,6 +12,7 @@ import { formatarReais } from '@/lib/taxidog'
 import type { TransporteVisita } from '@/lib/taxidog-visita'
 import TransporteAgendamento from '@/components/lojista/TransporteAgendamento'
 import PagamentoAgendamento from '@/components/lojista/PagamentoAgendamento'
+import BeneficioAgendamento from '@/components/lojista/planos/BeneficioAgendamento'
 import type { FormaPagamento } from '@/lib/pagamento'
 import {
   IconAlert,
@@ -443,6 +444,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                   podeAlterar
                 />
               )}
+              <BeneficioAgendamento idAgendamento={selecionado.id_agendamento} status={selecionado.status} />
               <PagamentoAgendamento
                 idAgendamento={selecionado.id_agendamento}
                 forma={selecionado.forma_pagamento}

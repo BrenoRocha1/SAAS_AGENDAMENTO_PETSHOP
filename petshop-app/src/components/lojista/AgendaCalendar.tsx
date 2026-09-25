@@ -38,6 +38,7 @@ import { ROTULO_MODALIDADE, formatarReais, type ModalidadeTaxiDog } from '@/lib/
 import type { TransporteVisita } from '@/lib/taxidog-visita'
 import TransporteAgendamento from '@/components/lojista/TransporteAgendamento'
 import PagamentoAgendamento from '@/components/lojista/PagamentoAgendamento'
+import BeneficioAgendamento from '@/components/lojista/planos/BeneficioAgendamento'
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
 import type { FormaPagamento } from '@/lib/pagamento'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
@@ -527,6 +528,7 @@ export default function AgendaCalendar({
                   podeAlterar
                 />
               )}
+              <BeneficioAgendamento idAgendamento={selecionado.id_agendamento} status={selecionado.status} />
               {selecionado.status !== 'Cancelado' && (
                 <PagamentoAgendamento
                   idAgendamento={selecionado.id_agendamento}

@@ -1718,7 +1718,7 @@ export async function criarAgendamentoOnlineAction(
 // (migration 008) e agendamentoLojistaSchema.
 export async function criarAgendamentoLojistaAction(
   formData: FormData
-): Promise<{ error?: string; success?: boolean; id_agendamento?: string }> {
+): Promise<{ error?: string; success?: boolean; id_agendamento?: string; aviso?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
@@ -1793,9 +1793,18 @@ export async function criarAgendamentoLojistaAction(
     }
   }
 
+  // Benefício do plano (migration 060): se o lojista marcou, usa agora.
+  // Se não der (limite, plano sem o serviço…), o agendamento continua
+  // criado como avulso e a tela avisa.
+  let aviso: string | undefined
+  if (formData.get('usar_beneficio') === '1' && typeof data === 'string') {
+    const { error: erroBeneficio } = await supabase.rpc('fn_usar_beneficio', { p_id_agendamento: data })
+    if (erroBeneficio) aviso = `Agendamento criado, mas o benefício do plano não foi usado: ${erroBeneficio.message}`
+  }
+
   revalidatePath('/lojista/dashboard')
   revalidatePath('/lojista/agendamentos')
-  return { success: true, id_agendamento: data }
+  return { success: true, id_agendamento: data, aviso }
 }
 
 export async function cancelarAgendamentoAction(id_agendamento: string, motivo?: string) {

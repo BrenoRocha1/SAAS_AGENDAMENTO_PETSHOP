@@ -20,6 +20,9 @@ import {
   IconWhatsapp,
 } from '@/components/icons'
 import { Estrelas, formatarMedia } from '@/components/cliente/Estrelas'
+import PlanosDoCliente from '@/components/lojista/planos/PlanosDoCliente'
+import { formasAtivas, normalizarFormasLoja } from '@/lib/pagamento'
+import type { Assinatura, Plano } from '@/lib/planos'
 
 export const metadata: Metadata = { title: 'Perfil do Cliente — Lojista' }
 
@@ -123,6 +126,24 @@ export default async function PerfilClientePage({ params }: Props) {
       .limit(50)
       .returns<AvaliacaoRow[]>(),
   ])
+
+  // Planos e assinaturas (migration 060) — financeiro: só dono/administrador.
+  // Tolerante: sem a migration, a seção simplesmente não aparece.
+  let planosCliente: { assinaturas: Assinatura[]; planos: Plano[]; formas: ReturnType<typeof formasAtivas> } | null = null
+  if (cliente && podeEditar) {
+    const [assRes, planosRes, formasRes] = await Promise.all([
+      supabase.rpc('fn_assinaturas_da_loja', { p_id_cliente: id, p_detalhes: true }),
+      supabase.rpc('fn_planos_da_loja'),
+      supabase.rpc('fn_formas_pagamento_loja', { p_id_lojista: lojistaId }),
+    ])
+    if (!assRes.error && !planosRes.error) {
+      planosCliente = {
+        assinaturas: (assRes.data ?? []) as Assinatura[],
+        planos: (planosRes.data ?? []) as Plano[],
+        formas: formasAtivas(normalizarFormasLoja(formasRes.data)),
+      }
+    }
+  }
 
   if (!cliente) {
     return (
@@ -430,6 +451,16 @@ export default async function PerfilClientePage({ params }: Props) {
           </div>
         )}
       </div>
+
+      {planosCliente && (
+        <PlanosDoCliente
+          assinaturas={planosCliente.assinaturas}
+          planos={planosCliente.planos}
+          pets={pets.map(p => ({ id_pet: p.id_pet, nome: p.nome }))}
+          hojeISO={hojeISO}
+          formasAceitas={planosCliente.formas}
+        />
+      )}
 
       {/* ── Avaliações feitas pelo cliente ── */}
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>

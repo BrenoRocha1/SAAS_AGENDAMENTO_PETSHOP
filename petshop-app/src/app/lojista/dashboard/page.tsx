@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import type { ResumoPlanos } from '@/lib/planos'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 import { format } from 'date-fns'
@@ -96,6 +97,10 @@ export default async function LojistaDashboard({ searchParams }: Props) {
 
   const m = (metricas as Record<string, number>) ?? {}
 
+  // Planos recorrentes (migration 060): tolerante — sem ela, o card some.
+  const { data: resumoPlanosRaw, error: resumoPlanosErro } = await supabase.rpc('fn_resumo_planos', { p_id_lojista: lojistaId })
+  const resumoPlanos = resumoPlanosErro ? null : (resumoPlanosRaw as ResumoPlanos | null)
+
   const listaHoje = (agendaHoje ?? []) as AgendaItem[]
   const listaSelecionada = selectedDate === hojeISO ? listaHoje : ((agendaSelecionada ?? []) as AgendaItem[])
 
@@ -149,6 +154,7 @@ export default async function LojistaDashboard({ searchParams }: Props) {
       slugLoja={lojista?.slug ?? null}
       hojeISO={hojeISO}
       selectedDate={selectedDate}
+      resumoPlanos={resumoPlanos}
       stats={{
         agendamentosHoje: m.hoje ?? listaHoje.length,
         faturamentoHoje,

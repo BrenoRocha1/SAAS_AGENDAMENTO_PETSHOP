@@ -16,6 +16,7 @@ import {
   type EstadoTransporte,
 } from '@/components/cliente/TaxiDogEtapa'
 import { removerHorariosPassados } from '@/lib/agenda'
+import type { PlanoDoPet } from '@/lib/planos'
 import { format } from 'date-fns'
 import {
   IconClose,
@@ -134,6 +135,28 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
   // Preço de cada serviço PARA o pet escolhido (faixas por porte/raça,
   // migration 010) — o mesmo cálculo que o banco faz ao criar.
   const [precosDoPet, setPrecosDoPet] = useState<{ petId: string; precos: Record<string, number> } | null>(null)
+  // Planos do pet no dia escolhido (migration 060). Sem plano (ou sem a
+  // migration), nada muda: o serviço é cobrado avulso como sempre.
+  const [planosDoPet, setPlanosDoPet] = useState<{ chave: string; planos: PlanoDoPet[] } | null>(null)
+  const [usarBeneficio, setUsarBeneficio] = useState(true)
+  const [avisoPlano, setAvisoPlano] = useState<string | null>(null)
+  useEffect(() => {
+    if (!petId || !data) return
+    let cancelado = false
+    const chave = `${petId}|${data}`
+    supabase.rpc('fn_beneficios_do_pet', { p_id_pet: petId, p_data: data }).then(({ data: rows, error }) => {
+      if (!cancelado) setPlanosDoPet({ chave, planos: error ? [] : ((rows ?? []) as PlanoDoPet[]) })
+    })
+    return () => { cancelado = true }
+  }, [petId, data, supabase])
+  // O benefício deste serviço com mais saldo (se o pet tiver mais de um plano).
+  const beneficioServico = planosDoPet?.chave === `${petId}|${data}` && servicoId
+    ? planosDoPet.planos
+        .flatMap(p => p.beneficios.filter(b => b.id_servico === servicoId).map(b => ({ plano: p.plano, quantidade: b.quantidade, usados: Number(b.usados) })))
+        .sort((a, b) => (b.quantidade - b.usados) - (a.quantidade - a.usados))[0] ?? null
+    : null
+  const beneficioDisponivel = !!beneficioServico && beneficioServico.quantidade > beneficioServico.usados
+  const vaiUsarBeneficio = beneficioDisponivel && usarBeneficio
   const precoDoServico = (s: { id_servico: string; preco: number | string }) =>
     precosDoPet?.petId === petId && precosDoPet.precos[s.id_servico] != null ? precosDoPet.precos[s.id_servico] : Number(s.preco)
   useEffect(() => {
@@ -239,6 +262,7 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
     }
     formData.set('forma_pagamento', formaPagamento)
     formData.set('status_pagamento', statusPagamento)
+    if (vaiUsarBeneficio) formData.set('usar_beneficio', '1')
 
     startTransition(async () => {
       const result = await criarAgendamentoLojistaAction(formData)
@@ -258,6 +282,7 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
         }
       }
       setSuccess(true)
+      if (result?.aviso) setAvisoPlano(result.aviso)
       onCreated(
         {
           id_agendamento: result?.id_agendamento ?? crypto.randomUUID(),
@@ -267,11 +292,12 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
           nome_servico: servicoSel!.nome,
           duracao: servicoSel!.duracao,
           status: 'Confirmado',
-          valor: Number(servicoSel!.preco) + (taxidogAtivo && escolhaTaxiDog ? Number(escolhaTaxiDog.cotacao.valor ?? 0) : 0),
+          valor: (vaiUsarBeneficio && !result?.aviso ? 0 : precoDoServico(servicoSel!)) + (taxidogAtivo && escolhaTaxiDog ? Number(escolhaTaxiDog.cotacao.valor ?? 0) : 0),
         },
         data
       )
-      setTimeout(onClose, 1200)
+      // Com aviso do plano, a tela fica aberta pra pessoa ler.
+      if (!result?.aviso) setTimeout(onClose, 1200)
     })
   }
 
@@ -296,10 +322,21 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
           )}
 
           {success ? (
-            <div className="alert alert-success">
-              <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-              <span>Agendamento criado e confirmado com sucesso.</span>
-            </div>
+            <>
+              <div className="alert alert-success">
+                <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+                <span>
+                  Agendamento criado e confirmado com sucesso.
+                  {vaiUsarBeneficio && !avisoPlano && ' O benefício do plano foi usado.'}
+                </span>
+              </div>
+              {avisoPlano && (
+                <div className="alert alert-error" style={{ marginTop: 'var(--space-3)' }}>
+                  <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+                  <span>{avisoPlano}</span>
+                </div>
+              )}
+            </>
           ) : (
             <>
               {/* Cliente */}
@@ -617,9 +654,30 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                   />
                   {escolhaTaxiDog && servicoSel && (
                     <p className="text-sm" style={{ margin: 0 }}>
-                      Total: <strong className="text-success">{formatarReais(precoDoServico(servicoSel) + Number(escolhaTaxiDog.cotacao.valor ?? 0))}</strong>
+                      Total: <strong className="text-success">{formatarReais((vaiUsarBeneficio ? 0 : precoDoServico(servicoSel)) + Number(escolhaTaxiDog.cotacao.valor ?? 0))}</strong>
                       <span className="text-muted"> (serviço + TaxiDog)</span>
                     </p>
+                  )}
+                </div>
+              )}
+
+              {/* Plano do pet (migration 060) */}
+              {servicoId && beneficioServico && (
+                <div className={`plano-aviso-agendamento ${beneficioDisponivel ? '' : 'is-esgotado'}`}>
+                  {beneficioDisponivel ? (
+                    <>
+                      <span className="text-sm">
+                        <strong>Este serviço está incluído no plano do cliente</strong> ({beneficioServico.plano}: {beneficioServico.quantidade - beneficioServico.usados} de {beneficioServico.quantidade} restante{beneficioServico.quantidade - beneficioServico.usados !== 1 ? 's' : ''} no período).
+                      </span>
+                      <label className="flex items-center gap-2 text-sm" style={{ cursor: 'pointer' }}>
+                        <input type="checkbox" checked={usarBeneficio} onChange={e => setUsarBeneficio(e.target.checked)} disabled={isPending} />
+                        Usar o benefício do plano (o serviço não é cobrado neste agendamento)
+                      </label>
+                    </>
+                  ) : (
+                    <span className="text-sm">
+                      Os usos deste serviço no plano {beneficioServico.plano} acabaram neste período ({beneficioServico.usados} de {beneficioServico.quantidade}) — ele será cobrado como avulso.
+                    </span>
                   )}
                 </div>
               )}

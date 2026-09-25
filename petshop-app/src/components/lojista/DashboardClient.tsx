@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
 import { classeBadgeStatus, corSolidaStatus, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
+import ResumoPlanosCard from '@/components/lojista/planos/ResumoPlanosCard'
+import type { ResumoPlanos } from '@/lib/planos'
 import {
   format,
   parseISO,
@@ -97,6 +99,8 @@ interface Props {
   clientesComPets: ClienteComPets[]
   servicos: ServicoAtivo[]
   funcionarios: { id_funcionario: string; nome: string }[]
+  // Planos recorrentes (migration 060) — null sem a migration.
+  resumoPlanos: ResumoPlanos | null
 }
 
 type Selecionado =
@@ -124,6 +128,7 @@ export default function DashboardClient({
   clientesComPets,
   servicos,
   funcionarios,
+  resumoPlanos,
 }: Props) {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
@@ -375,6 +380,8 @@ export default function DashboardClient({
       </div>
 
       {/* Agenda + painel lateral */}
+      {resumoPlanos?.tem_planos && <ResumoPlanosCard resumo={resumoPlanos} />}
+
       <div className="dash-grid">
         <div className="card">
           <div className="dash-schedule-header">

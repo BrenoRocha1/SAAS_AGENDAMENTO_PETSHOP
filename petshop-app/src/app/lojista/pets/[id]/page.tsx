@@ -6,6 +6,10 @@ import { formatarTelefone } from '@/lib/format'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import { IconChevronLeft, IconDog, IconPencil, IconUsers } from '@/components/icons'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
+import { hojeBrasilISO } from '@/lib/agenda'
+import { formasAtivas, normalizarFormasLoja } from '@/lib/pagamento'
+import type { Plano, PlanoDoPet as PlanoAtivo } from '@/lib/planos'
+import PlanoDoPet from '@/components/lojista/planos/PlanoDoPet'
 
 export const metadata: Metadata = { title: 'Detalhes do Pet — Lojista' }
 
@@ -70,6 +74,21 @@ export default async function DetalhePetPage({ params }: Props) {
         </div>
       </>
     )
+  }
+
+  // Plano do pet (migration 060). Tolerante: sem a migration (ou sem
+  // permissão de agenda) o bloco não aparece.
+  const hojeISO = hojeBrasilISO()
+  const [benRes, planosRes, formasRes] = await Promise.all([
+    supabase.rpc('fn_beneficios_do_pet', { p_id_pet: id, p_data: hojeISO }),
+    podeEditar ? supabase.rpc('fn_planos_da_loja') : Promise.resolve({ data: [], error: null }),
+    podeEditar ? supabase.rpc('fn_formas_pagamento_loja', { p_id_lojista: lojistaId }) : Promise.resolve({ data: null, error: null }),
+  ])
+  const planoDoPet = benRes.error ? null : {
+    ativos: (benRes.data ?? []) as PlanoAtivo[],
+    planos: (planosRes.error ? [] : planosRes.data ?? []) as Plano[],
+    formas: formasAtivas(normalizarFormasLoja(formasRes.data)),
+    podeAssinar: podeEditar && !planosRes.error,
   }
 
   const cliente = pet.cliente as unknown as { id_cliente: string; nome: string; telefone: string; email: string } | null
@@ -150,6 +169,18 @@ export default async function DetalhePetPage({ params }: Props) {
           )}
         </div>
       </div>
+
+      {planoDoPet && (
+        <PlanoDoPet
+          ativos={planoDoPet.ativos}
+          idPet={pet.id_pet}
+          nomePet={pet.nome}
+          planos={planoDoPet.planos}
+          hojeISO={hojeISO}
+          formasAceitas={planoDoPet.formas}
+          podeAssinar={planoDoPet.podeAssinar}
+        />
+      )}
 
       <div className="card">
         <h3 className="relatorio-secao-titulo">Histórico de atendimentos neste petshop</h3>
