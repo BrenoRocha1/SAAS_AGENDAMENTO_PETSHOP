@@ -178,7 +178,7 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
           >
             {isPendingToggle ? 'Salvando...' : funcionario.ativo ? 'Desativar' : 'Reativar'}
           </button>
-          <Link href="/lojista/equipe" className="btn btn-primary btn-sm">
+          <Link href={`/lojista/equipe?editar=${funcionario.id_funcionario}`} className="btn btn-primary btn-sm">
             <IconPencil style={{ width: 14, height: 14 }} /> Editar
           </Link>
         </div>
@@ -451,10 +451,9 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
             <div className="relatorio-tabela-filtros">
               <select className="form-select" value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)}>
                 <option value="">Todos os status</option>
-                <option value="Pendente">Pendente</option>
-                <option value="Confirmado">Confirmado</option>
-                <option value="Concluído">Concluído</option>
-                <option value="Cancelado">Cancelado</option>
+                {(['Pendente', 'Confirmado', 'Em andamento', 'Concluído', 'Cancelado'] as const).map(s => (
+                  <option key={s} value={s}>{rotuloStatus(s)}</option>
+                ))}
               </select>
               <select className="form-select" value={filtroServico} onChange={e => setFiltroServico(e.target.value)}>
                 <option value="">Todos os serviços</option>

@@ -347,6 +347,29 @@ function referencia(t: Pick<TrechoPendente, 'trecho' | 'hr_agendamento' | 'hr_fi
   return t.trecho === 'busca' ? minutos(t.hr_agendamento) : minutos(t.hr_fim_visita ?? t.hr_agendamento) || minutos(t.hr_agendamento) + 60
 }
 
+// Parada nova numa rota já montada: entra antes da primeira parada no
+// cliente que acontece depois dela (busca = horário do agendamento;
+// entrega = fim do serviço, ou 1 h depois do horário quando não se sabe).
+// Sem nenhuma depois, vai pro fim. As idas à loja se ajustam depois, no
+// normalizarPlano.
+export function inserirPorHorario(
+  pendentes: ParadaPlano[],
+  horarioDe: (p: ParadaPlano) => number | null,
+  nova: ParadaPlano,
+  horarioNova: number,
+): ParadaPlano[] {
+  const pos = pendentes.findIndex(p => {
+    if (p.local !== 'cliente') return false
+    const h = horarioDe(p)
+    return h != null && h > horarioNova
+  })
+  return pos < 0 ? [...pendentes, nova] : [...pendentes.slice(0, pos), nova, ...pendentes.slice(pos)]
+}
+
+export function horarioReferencia(t: Pick<TrechoPendente, 'trecho' | 'hr_agendamento' | 'hr_fim_visita'>): number {
+  return referencia(t)
+}
+
 // Rota gravada → (fixas, pendentes) no formato do plano.
 export function planoDaRota(r: Pick<Rota, 'paradas'>): { fixas: ParadaPlano[]; pendentes: ParadaPlano[] } {
   const paraPlano = (p: Parada): ParadaPlano => ({

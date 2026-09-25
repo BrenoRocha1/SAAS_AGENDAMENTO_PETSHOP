@@ -36,9 +36,11 @@ import {
 } from '@/lib/validations'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } from '@/lib/lojista-context'
-import { ORDEM_ETAPA, etapaEncerrada } from '@/lib/status-agendamento'
+import { ORDEM_ETAPA, etapaEncerrada, etapaExigeDia } from '@/lib/status-agendamento'
+import { hojeBrasilISO } from '@/lib/agenda'
 import { coordenadasParaTaxiDog, lerTaxiDogDoFormulario, mensagemErroTaxiDog, paramsRpcTaxiDog } from '@/lib/taxidog-servidor'
 import { ehFormaPagamento, mensagemErroPagamento, type FormaPagamento } from '@/lib/pagamento'
+import { erroQuantidadeInteira } from '@/lib/produto'
 import type { ServicoVariacaoData } from '@/lib/validations'
 
 // ============================================================
@@ -1061,6 +1063,8 @@ export async function criarProdutoAction(formData: FormData) {
 
   const parsed = produtoSchema.safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
+  const erroInteiro = erroQuantidadeInteira(parsed.data.unidade_venda, parsed.data.estoque_atual, parsed.data.estoque_minimo)
+  if (erroInteiro) return { error: erroInteiro }
 
   const { data: novoProduto, error } = await supabase
     .from('produto')
@@ -1103,6 +1107,8 @@ export async function editarProdutoAction(id_produto: string, formData: FormData
 
   const parsed = produtoSchema.omit({ estoque_atual: true }).safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
+  const erroInteiro = erroQuantidadeInteira(parsed.data.unidade_venda, parsed.data.estoque_minimo)
+  if (erroInteiro) return { error: erroInteiro }
 
   const { data: atualizado, error } = await supabase
     .from('produto')
@@ -1160,6 +1166,10 @@ export async function movimentarEstoqueAction(id_produto: string, formData: Form
     motivo: (formData.get('motivo') as string) || undefined,
   })
   if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const { data: produtoAtual } = await supabase.from('produto').select('unidade_venda').eq('id_produto', id_produto).maybeSingle()
+  const erroInteiro = produtoAtual ? erroQuantidadeInteira(produtoAtual.unidade_venda, parsed.data.quantidade) : null
+  if (erroInteiro) return { error: erroInteiro }
 
   const { data: novoEstoque, error } = await supabase.rpc('fn_movimentar_estoque', {
     p_id_produto: id_produto,
@@ -1822,12 +1832,16 @@ export async function atualizarStatusAgendamentoAction(
   // verdade é aqui: busca o status atual antes de aceitar a mudança).
   const { data: atual, error: buscaError } = await supabase
     .from('agendamento')
-    .select('status')
+    .select('status, dt_agendamento')
     .eq('id_agendamento', id_agendamento)
     .eq('id_lojista', contexto.idLojista)
     .maybeSingle()
 
   if (buscaError || !atual) return { error: 'Agendamento não encontrado.' }
+  if (etapaExigeDia(status) && atual.dt_agendamento > hojeBrasilISO()) {
+    const [, mes, dia] = atual.dt_agendamento.split('-')
+    return { error: `Este agendamento é para ${dia}/${mes} — o atendimento só pode ser iniciado ou finalizado a partir desse dia.` }
+  }
   if (etapaEncerrada(atual.status)) {
     return { error: 'Este agendamento já foi finalizado e não pode mais mudar de status.' }
   }

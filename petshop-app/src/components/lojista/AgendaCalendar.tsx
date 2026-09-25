@@ -31,12 +31,14 @@ import {
   IconCar,
 } from '@/components/icons'
 import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
-import { classeBadgeStatus, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
+import { classeBadgeStatus, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
+import { hojeBrasilISO } from '@/lib/agenda'
 import NovoAgendamentoModal from './NovoAgendamentoModal'
 import { ROTULO_MODALIDADE, formatarReais, type ModalidadeTaxiDog } from '@/lib/taxidog'
 import type { TransporteVisita } from '@/lib/taxidog-visita'
 import TransporteAgendamento from '@/components/lojista/TransporteAgendamento'
 import PagamentoAgendamento from '@/components/lojista/PagamentoAgendamento'
+import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
 import type { FormaPagamento } from '@/lib/pagamento'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
 
@@ -565,17 +567,25 @@ export default function AgendaCalendar({
 
               {(selecionado.status === 'Pendente' || selecionado.status === 'Confirmado' || selecionado.status === 'Em andamento') && (
                 <div className="dash-detail-actions">
-                  <button
-                    className="btn btn-success btn-sm"
-                    style={{ flex: 1 }}
+                  {podeAvancarEtapa(selecionado.status, selecionado.dt_agendamento, hojeBrasilISO()) ? (
+                    <button
+                      className="btn btn-success btn-sm"
+                      style={{ flex: 1 }}
+                      disabled={isPending}
+                      onClick={() => mudarStatus(selecionado.id_agendamento, PROXIMA_ETAPA[selecionado.status]!.status)}
+                    >
+                      <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[selecionado.status]!.acao}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-muted" style={{ flex: 1, alignSelf: 'center' }}>
+                      Iniciar e finalizar a partir do dia do agendamento.
+                    </span>
+                  )}
+                  <BotaoCancelarAgendamento
+                    key={selecionado.id_agendamento}
                     disabled={isPending}
-                    onClick={() => mudarStatus(selecionado.id_agendamento, PROXIMA_ETAPA[selecionado.status]!.status)}
-                  >
-                    <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[selecionado.status]!.acao}
-                  </button>
-                  <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => mudarStatus(selecionado.id_agendamento, 'Cancelado')}>
-                    Cancelar
-                  </button>
+                    onConfirmar={() => mudarStatus(selecionado.id_agendamento, 'Cancelado')}
+                  />
                 </div>
               )}
             </div>

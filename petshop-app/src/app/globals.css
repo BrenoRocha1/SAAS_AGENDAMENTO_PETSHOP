@@ -1603,7 +1603,7 @@ a:hover { color: var(--primary-300); }
 .dash-detail-row span:first-child { color: var(--gray-500); }
 .dash-detail-row span:last-child { color: var(--gray-100); font-weight: 600; text-align: right; }
 
-.dash-detail-actions { display: flex; gap: var(--space-2); margin-top: var(--space-4); }
+.dash-detail-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
 
 .queue-item {
   display: flex;

@@ -20,6 +20,8 @@ import {
   normalizarPlano,
   normalizarRota,
   normalizarTrecho,
+  horarioReferencia,
+  inserirPorHorario,
   planoDaRota,
   planoParaBanco,
   type ItemParada,
@@ -231,7 +233,18 @@ export async function adicionarNaRotaAction(idRota: string, idCorrida: string, t
 
   const { fixas, pendentes } = planoDaRota(rota)
   const nova: ParadaPlano = { local: 'cliente', itens: [{ id_corrida: idCorrida, acao: trecho === 'busca' ? 'embarcar' : 'entregar' }] }
-  const plano = normalizarPlano(fixas, [...pendentes, nova])
+  // Horário de cada parada já na rota, pelo item gravado.
+  const itemPorCorrida = new Map(rota.paradas.flatMap(p => p.itens).map(i => [`${i.id_corrida}:${i.acao}`, i]))
+  const horarioDe = (p: ParadaPlano) => {
+    const item = p.itens[0] && itemPorCorrida.get(`${p.itens[0].id_corrida}:${p.itens[0].acao}`)
+    if (!item) return null
+    return horarioReferencia({
+      trecho: item.acao === 'embarcar' ? 'busca' : 'entrega',
+      hr_agendamento: item.hr_agendamento,
+      hr_fim_visita: null,
+    })
+  }
+  const plano = normalizarPlano(fixas, inserirPorHorario(pendentes, horarioDe, nova, horarioReferencia(t)))
   return salvarPlano(supabase, rota, plano, trecho === 'busca' ? `Nova parada: buscar ${t.pet_nome}` : `Nova parada: entregar ${t.pet_nome}`)
 }
 

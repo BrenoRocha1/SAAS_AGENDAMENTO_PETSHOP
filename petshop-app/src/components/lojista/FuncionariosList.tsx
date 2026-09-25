@@ -54,11 +54,14 @@ interface Props {
   // (é a própria lojista), então aparece aqui só como um card fixo,
   // sempre "Administrador" e nunca editável ou removível.
   donoConta: { nome: string; email: string } | null
+  // ?editar=<id> (botão "Editar" do perfil do membro): abre já editando.
+  editarInicial?: string
 }
 
-export default function FuncionariosList({ funcionarios: initial, podeConcederAcessoTotal, donoConta }: Props) {
-  const [showModal, setShowModal] = useState(false)
-  const [editId, setEditId] = useState<string | null>(null)
+export default function FuncionariosList({ funcionarios: initial, podeConcederAcessoTotal, donoConta, editarInicial }: Props) {
+  const editarInicialValido = editarInicial && initial.some(f => f.id_funcionario === editarInicial) ? editarInicial : null
+  const [showModal, setShowModal] = useState(!!editarInicialValido)
+  const [editId, setEditId] = useState<string | null>(editarInicialValido)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [confirmarExclusao, setConfirmarExclusao] = useState<Funcionario | null>(null)

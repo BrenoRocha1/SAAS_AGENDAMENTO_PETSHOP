@@ -149,9 +149,15 @@ export default async function PerfilClientePage({ params }: Props) {
   const maiorValor = qtdVendas > 0 ? Math.max(...concluidos.map(a => Number(a.valor))) : null
   const qtdCancelados = agendamentos.filter(a => a.status === 'Cancelado').length
 
-  const conclidosOrdAsc = [...concluidos].sort((a, b) => (a.dt_agendamento + a.hr_agendamento).localeCompare(b.dt_agendamento + b.hr_agendamento))
+  // Só até hoje: um agendamento de data futura marcado como concluído
+  // (dado antigo, de antes da trava) não é "último atendimento".
+  const conclidosOrdAsc = concluidos
+    .filter(a => a.dt_agendamento <= hojeISO)
+    .sort((a, b) => (a.dt_agendamento + a.hr_agendamento).localeCompare(b.dt_agendamento + b.hr_agendamento))
   const dataPrimeiroAtendimento = conclidosOrdAsc[0]?.dt_agendamento ?? null
   const ultimoAtendimento = conclidosOrdAsc[conclidosOrdAsc.length - 1] ?? null
+  // Dias com atendimento: vários serviços no mesmo dia são uma visita só.
+  const diasComAtendimento = new Set(conclidosOrdAsc.map(a => a.dt_agendamento)).size
   const diasDesdeUltimo = ultimoAtendimento
     ? differenceInCalendarDays(agoraBrasil(), parseISO(ultimoAtendimento.dt_agendamento))
     : null
@@ -159,8 +165,8 @@ export default async function PerfilClientePage({ params }: Props) {
   // intervalo real entre elas — com 0 ou 1, não tem o que medir, e por
   // isso a métrica simplesmente não aparece (não vira uma aproximação
   // inventada, tipo "assumir 30 dias").
-  const frequenciaMediaDias = qtdVendas >= 2 && dataPrimeiroAtendimento && ultimoAtendimento
-    ? Math.round(differenceInCalendarDays(parseISO(ultimoAtendimento.dt_agendamento), parseISO(dataPrimeiroAtendimento)) / (qtdVendas - 1))
+  const frequenciaMediaDias = diasComAtendimento >= 2 && dataPrimeiroAtendimento && ultimoAtendimento
+    ? Math.max(1, Math.round(differenceInCalendarDays(parseISO(ultimoAtendimento.dt_agendamento), parseISO(dataPrimeiroAtendimento)) / (diasComAtendimento - 1)))
     : null
 
   const proximoAgendamento = agendamentos
@@ -183,7 +189,7 @@ export default async function PerfilClientePage({ params }: Props) {
   // histórico já carregado, sem N+1 (uma consulta por pet).
   const petsComStats = pets.map(pet => {
     const doPet = naoCancelados.filter(a => a.id_pet === pet.id_pet)
-    const concluidosDoPet = doPet.filter(a => a.status === 'Concluído')
+    const concluidosDoPet = doPet.filter(a => a.status === 'Concluído' && a.dt_agendamento <= hojeISO)
       .sort((a, b) => (b.dt_agendamento + b.hr_agendamento).localeCompare(a.dt_agendamento + a.hr_agendamento))
     const proximoDoPet = doPet
       .filter(a => ehEtapaAtiva(a.status) && a.dt_agendamento >= hojeISO)
@@ -297,7 +303,9 @@ export default async function PerfilClientePage({ params }: Props) {
               <div className="dash-detail-row"><span>Valor</span><span>{moeda(Number(ultimoAtendimento.valor))}</span></div>
               {diasDesdeUltimo !== null && (
                 <p className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>
-                  Há {diasDesdeUltimo} dia{diasDesdeUltimo !== 1 ? 's' : ''} desde o último atendimento.
+                  {diasDesdeUltimo === 0
+                    ? 'Último atendimento foi hoje.'
+                    : `Há ${diasDesdeUltimo} dia${diasDesdeUltimo !== 1 ? 's' : ''} desde o último atendimento.`}
                 </p>
               )}
             </>

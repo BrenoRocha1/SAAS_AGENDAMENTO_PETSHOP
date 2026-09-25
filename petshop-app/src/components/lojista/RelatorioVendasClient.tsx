@@ -128,6 +128,15 @@ export default function RelatorioVendasClient({
 
   const [customIni, setCustomIni] = useState(periodo.ini)
   const [customFim, setCustomFim] = useState(periodo.fim)
+  // Ao trocar de período (outro preset ou "Aplicar"), os campos De/Até
+  // passam a mostrar o período que está valendo.
+  const chavePeriodo = `${periodo.ini}|${periodo.fim}`
+  const [chavePeriodoAnterior, setChavePeriodoAnterior] = useState(chavePeriodo)
+  if (chavePeriodoAnterior !== chavePeriodo) {
+    setChavePeriodoAnterior(chavePeriodo)
+    setCustomIni(periodo.ini)
+    setCustomFim(periodo.fim)
+  }
 
   function navegar(overrides: Record<string, string | undefined>) {
     const params: Record<string, string | undefined> = {
@@ -270,7 +279,7 @@ export default function RelatorioVendasClient({
             <CardIndicador
               icon={<IconMoney style={{ width: 20, height: 20 }} />}
               cor="warning"
-              label="Faturamento (recebido)"
+              label="Faturamento (atendimentos concluídos)"
               valor={moeda(resumo.faturamento)}
               comparacao={resumoAnterior ? { atual: resumo.faturamento, anterior: resumoAnterior.faturamento } : undefined}
             />

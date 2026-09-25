@@ -5,7 +5,8 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Equipe — Lojista' }
 
-export default async function EquipePage() {
+export default async function EquipePage({ searchParams }: { searchParams: Promise<{ editar?: string }> }) {
+  const { editar } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
@@ -38,6 +39,7 @@ export default async function EquipePage() {
         funcionarios={funcionarios ?? []}
         podeConcederAcessoTotal={ehResponsavelPelaConta(contexto)}
         donoConta={donoLojista ? { nome: donoLojista.nome_loja, email: donoLojista.email } : null}
+        editarInicial={editar}
       />
     </>
   )

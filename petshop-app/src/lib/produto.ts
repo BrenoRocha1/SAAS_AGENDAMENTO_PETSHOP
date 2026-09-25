@@ -30,6 +30,21 @@ export const SUBUNIDADE: Partial<Record<UnidadeVenda, { label: string; fator: nu
   litro: { label: 'ml', fator: 0.001 },
 }
 
+// Só kg e litro têm fração; unidade, caixa e pacote se contam inteiros
+// (não existe "2,5 caixas" no estoque).
+export function unidadeFracionavel(unidade: string): boolean {
+  return unidade === 'kg' || unidade === 'litro'
+}
+
+// Mensagem de erro se alguma quantidade tiver fração numa unidade que se
+// conta inteira; null se estiver tudo certo.
+export function erroQuantidadeInteira(unidade: string, ...quantidades: number[]): string | null {
+  if (unidadeFracionavel(unidade)) return null
+  return quantidades.some(q => !Number.isInteger(q))
+    ? `Produto vendido por ${rotuloUnidade(unidade).toLowerCase()}: use números inteiros no estoque.`
+    : null
+}
+
 // Sem casas decimais desnecessárias: 15 -> "15", 12.5 -> "12.5" (mesma
 // convenção sem localização que o resto do app usa pra número — ver
 // "R$ {valor.toFixed(2)}" espalhado pelas telas de agendamento).

@@ -689,7 +689,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                   <>
                     <CampoQuantidade name="estoque_atual" label="Estoque atual" required unidadeVenda={unidadeSelecionada} />
                     <p className="text-xs text-muted" style={{ marginTop: '-8px' }}>
-                      Quanto a loja já tem hoje. Depois de cadastrado, o estoque só muda pelo botão &quot;Estoque&quot; da listagem.
+                      Quanto a loja já tem hoje. Depois de cadastrado, o estoque muda clicando no produto na listagem (entrada, saída ou ajuste).
                     </p>
                   </>
                 )}

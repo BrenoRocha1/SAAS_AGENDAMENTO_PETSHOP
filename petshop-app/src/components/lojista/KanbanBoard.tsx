@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { format, addDays, subDays, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
-import { classeBadgeStatus, ORDEM_ETAPA, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
+import { classeBadgeStatus, ORDEM_ETAPA, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
+import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
 import { rotuloEstoque } from '@/lib/produto'
 import { formatarReais } from '@/lib/taxidog'
 import type { TransporteVisita } from '@/lib/taxidog-visita'
@@ -492,17 +493,21 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
 
               {(selecionado.status === 'Pendente' || selecionado.status === 'Confirmado' || selecionado.status === 'Em andamento') && (
                 <div className="dash-detail-actions">
-                  <button
-                    className="btn btn-success btn-sm"
-                    style={{ flex: 1 }}
-                    disabled={isPending}
-                    onClick={() => mudarStatusModal(PROXIMA_ETAPA[selecionado.status]!.status)}
-                  >
-                    <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[selecionado.status]!.acao}
-                  </button>
-                  <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={cancelarModal}>
-                    Cancelar
-                  </button>
+                  {podeAvancarEtapa(selecionado.status, selectedDate, hojeISO) ? (
+                    <button
+                      className="btn btn-success btn-sm"
+                      style={{ flex: 1 }}
+                      disabled={isPending}
+                      onClick={() => mudarStatusModal(PROXIMA_ETAPA[selecionado.status]!.status)}
+                    >
+                      <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[selecionado.status]!.acao}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-muted" style={{ flex: 1, alignSelf: 'center' }}>
+                      Iniciar e finalizar a partir do dia do agendamento.
+                    </span>
+                  )}
+                  <BotaoCancelarAgendamento key={selecionado.id_agendamento} disabled={isPending} onConfirmar={cancelarModal} />
                 </div>
               )}
               {selecionado.status === 'Concluído' && (

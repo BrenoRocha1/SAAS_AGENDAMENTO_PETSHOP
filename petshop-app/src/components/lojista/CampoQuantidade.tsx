@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { rotuloUnidade, SUBUNIDADE, type UnidadeVenda } from '@/lib/produto'
+import { rotuloUnidade, SUBUNIDADE, unidadeFracionavel, type UnidadeVenda } from '@/lib/produto'
 
 interface Props {
   name: string
@@ -65,7 +65,7 @@ export default function CampoQuantidade({ name, label, required, unidadeVenda, v
         value={texto}
         onChange={e => setTexto(e.target.value)}
         placeholder="0"
-        step={usarSub ? '1' : '0.001'}
+        step={usarSub || !unidadeFracionavel(unidadeVenda) ? '1' : '0.001'}
         min="0"
         required={required}
         autoFocus={autoFocus}

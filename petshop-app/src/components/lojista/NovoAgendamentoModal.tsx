@@ -131,6 +131,22 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
   const clienteSel = clientes.find(c => c.id_cliente === clienteId)
   const petsDoCliente = [...(clienteSel?.pets ?? []), ...(petsExtras[clienteId] ?? [])]
   const servicoSel = servicos.find(s => s.id_servico === servicoId)
+  // Preço de cada serviço PARA o pet escolhido (faixas por porte/raça,
+  // migration 010) — o mesmo cálculo que o banco faz ao criar.
+  const [precosDoPet, setPrecosDoPet] = useState<{ petId: string; precos: Record<string, number> } | null>(null)
+  const precoDoServico = (s: { id_servico: string; preco: number | string }) =>
+    precosDoPet?.petId === petId && precosDoPet.precos[s.id_servico] != null ? precosDoPet.precos[s.id_servico] : Number(s.preco)
+  useEffect(() => {
+    if (!petId || servicos.length === 0) return
+    let cancelado = false
+    Promise.all(servicos.map(s =>
+      supabase.rpc('fn_calcular_preco_servico', { p_id_servico: s.id_servico, p_id_pet: petId })
+        .then(({ data: preco, error }) => [s.id_servico, error || preco == null ? Number(s.preco) : Number(preco)] as const)
+    )).then(pares => {
+      if (!cancelado) setPrecosDoPet({ petId, precos: Object.fromEntries(pares) })
+    })
+    return () => { cancelado = true }
+  }, [petId, servicos, supabase])
   const petSel = petsDoCliente.find(p => p.id_pet === petId)
 
   function handleCriarPet() {
@@ -510,7 +526,7 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                             <div className="picker-item-sub">{s.duracao} min</div>
                           </div>
                           <div className="font-semibold text-success" style={{ flexShrink: 0 }}>
-                            R$ {Number(s.preco).toFixed(2)}
+                            R$ {precoDoServico(s).toFixed(2)}
                           </div>
                         </button>
                       ))}
@@ -601,7 +617,7 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                   />
                   {escolhaTaxiDog && servicoSel && (
                     <p className="text-sm" style={{ margin: 0 }}>
-                      Total: <strong className="text-success">{formatarReais(Number(servicoSel.preco) + Number(escolhaTaxiDog.cotacao.valor ?? 0))}</strong>
+                      Total: <strong className="text-success">{formatarReais(precoDoServico(servicoSel) + Number(escolhaTaxiDog.cotacao.valor ?? 0))}</strong>
                       <span className="text-muted"> (serviço + TaxiDog)</span>
                     </p>
                   )}

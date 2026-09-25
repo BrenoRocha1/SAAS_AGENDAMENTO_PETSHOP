@@ -505,7 +505,7 @@ function PrecosVariacoes({
         <div style={{ marginTop: 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           <p className="text-xs text-muted">
             Prioridade de cálculo: <strong>raça específica</strong> &gt; <strong>porte + espécie</strong> &gt; preço base.
-            {!idServico && ' As faixas abaixo só são salvas quando você confirmar "Criar serviço".'}
+            {!idServico && ' As faixas abaixo só são salvas quando você clicar em "Salvar Serviço".'}
           </p>
 
           {erro && (

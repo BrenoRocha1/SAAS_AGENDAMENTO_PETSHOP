@@ -50,6 +50,17 @@ export const PROXIMA_ETAPA = {
   Cancelado: null,
 } as const satisfies Record<StatusAgendamento, { status: StatusAgendamento; acao: string } | null>
 
+// Iniciar e finalizar só a partir do dia do agendamento — um atendimento
+// de data futura ainda não aconteceu (aceitar vale a qualquer momento).
+export function etapaExigeDia(status: string): boolean {
+  return status === 'Em andamento' || status === 'Concluído'
+}
+
+export function podeAvancarEtapa(statusAtual: StatusAgendamento, dtAgendamento: string, hojeISO: string): boolean {
+  const proxima = PROXIMA_ETAPA[statusAtual]
+  return !!proxima && (!etapaExigeDia(proxima.status) || dtAgendamento <= hojeISO)
+}
+
 export function rotuloStatus(status: string): string {
   return ROTULO_STATUS[status as StatusAgendamento] ?? status
 }

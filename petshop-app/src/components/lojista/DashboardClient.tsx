@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
-import { classeBadgeStatus, corSolidaStatus, PROXIMA_ETAPA, rotuloStatus } from '@/lib/status-agendamento'
+import { classeBadgeStatus, corSolidaStatus, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
+import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
 import {
   format,
   parseISO,
@@ -294,7 +295,8 @@ export default function DashboardClient({
           <input
             placeholder="Buscar cliente, pet ou agendamento..."
             value={busca}
-            onChange={e => setBusca(e.target.value)}
+            // A busca filtra a lista do dia — em Semana/Mês não haveria o que filtrar.
+            onChange={e => { setBusca(e.target.value); if (e.target.value) setViewMode('dia') }}
           />
         </div>
         <div className="dash-topbar-right">
@@ -510,6 +512,8 @@ export default function DashboardClient({
                 selecionado={selecionado}
                 isPending={isPending}
                 onMudarStatus={mudarStatus}
+                dataAgenda={selectedDate}
+                hojeISO={hojeISO}
               />
             )}
           </div>
@@ -564,10 +568,15 @@ function DetalheAgendamento({
   selecionado,
   isPending,
   onMudarStatus,
+  dataAgenda,
+  hojeISO,
 }: {
   selecionado: NonNullable<Selecionado>
   isPending: boolean
   onMudarStatus: (id: string, status: 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado') => void
+  // Dia da agenda aberta (os itens da agenda são desse dia).
+  dataAgenda: string
+  hojeISO: string
 }) {
   const isAgenda = selecionado.tipo === 'agenda'
   const item = selecionado.item
@@ -580,6 +589,7 @@ function DetalheAgendamento({
   const valor = Number(item.valor)
   const status = isAgenda ? (item as AgendaItem).status : 'Pendente'
   const id = item.id_agendamento
+  const dataItem = isAgenda ? dataAgenda : (item as PendenteItem).dt_agendamento
 
   return (
     <div>
@@ -592,17 +602,21 @@ function DetalheAgendamento({
 
       {(status === 'Pendente' || status === 'Confirmado' || status === 'Em andamento') && (
         <div className="dash-detail-actions">
-          <button
-            className="btn btn-success btn-sm"
-            style={{ flex: 1 }}
-            disabled={isPending}
-            onClick={() => onMudarStatus(id, PROXIMA_ETAPA[status]!.status)}
-          >
-            <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[status]!.acao}
-          </button>
-          <button className="btn btn-danger btn-sm" style={{ flex: 1 }} disabled={isPending} onClick={() => onMudarStatus(id, 'Cancelado')}>
-            Cancelar
-          </button>
+          {podeAvancarEtapa(status, dataItem, hojeISO) ? (
+            <button
+              className="btn btn-success btn-sm"
+              style={{ flex: 1 }}
+              disabled={isPending}
+              onClick={() => onMudarStatus(id, PROXIMA_ETAPA[status]!.status)}
+            >
+              <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[status]!.acao}
+            </button>
+          ) : (
+            <span className="text-xs text-muted" style={{ flex: 1, alignSelf: 'center' }}>
+              Iniciar e finalizar a partir do dia do agendamento.
+            </span>
+          )}
+          <BotaoCancelarAgendamento key={id} disabled={isPending} onConfirmar={() => onMudarStatus(id, 'Cancelado')} />
         </div>
       )}
     </div>
