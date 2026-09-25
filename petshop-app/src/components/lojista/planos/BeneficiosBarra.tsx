@@ -10,8 +10,8 @@ export default function BeneficiosBarra({ beneficios }: {
         const esgotado = usados >= b.quantidade
         return (
           <li key={b.servico} className={esgotado ? 'is-esgotado' : ''}>
-            <div className="flex items-center justify-between gap-2">
-              <span>{b.servico}</span>
+            <div className="plano-beneficio-topo">
+              <span className="font-semibold">{b.servico}</span>
               <span className="text-xs">
                 <strong>{usados}</strong> de {b.quantidade} usado{b.quantidade !== 1 ? 's' : ''}
                 {!esgotado && <span className="text-muted"> · {b.quantidade - usados} restante{b.quantidade - usados !== 1 ? 's' : ''}</span>}

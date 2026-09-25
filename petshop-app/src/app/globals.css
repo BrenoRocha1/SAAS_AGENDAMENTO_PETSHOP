@@ -3779,8 +3779,9 @@ a:hover { color: var(--primary-300); }
 .plano-assinatura { display: flex; flex-direction: column; gap: var(--space-2); }
 div.plano-assinatura:not(.card) { padding: var(--space-3); border: 1px solid var(--gray-800); border-radius: var(--radius-md); }
 .plano-assinatura.is-cancelada { opacity: 0.75; }
-.plano-beneficios { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-2) var(--space-4); }
+.plano-beneficios { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-2) var(--space-4); }
 .plano-beneficios li { font-size: 0.875rem; color: var(--gray-300); display: flex; flex-direction: column; gap: 4px; }
+.plano-beneficio-topo { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0 var(--space-2); }
 .plano-beneficio-barra { height: 6px; border-radius: 999px; background: var(--gray-800); overflow: hidden; }
 .plano-beneficio-barra span { display: block; height: 100%; background: var(--primary-500); border-radius: 999px; }
 .plano-beneficios li.is-esgotado .plano-beneficio-barra span { background: var(--warning-400); }
