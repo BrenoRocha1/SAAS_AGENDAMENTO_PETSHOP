@@ -162,7 +162,9 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const [horarios, setHorarios] = useState<Horario[]>([])
   const [janela, setJanela] = useState<Janela>(JANELA_PADRAO)
   const [data, setData] = useState('')
-  const [slots, setSlots] = useState<Slot[]>([])
+  // Horários da data+serviço escolhidos. Guarda a chave pra distinguir
+  // "ainda carregando" (outra chave) de "carregou e não há horário" ([]).
+  const [slotsCarregados, setSlotsCarregados] = useState<{ chave: string; slots: Slot[] } | null>(null)
   const [hora, setHora] = useState('')
   const [obs, setObs] = useState('')
 
@@ -251,12 +253,27 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
         p_duracao: servico.duracao,
       })
       .then(({ data: rows }) => {
-        setSlots(removerHorariosPassados(rows ?? [], dataSelecionada))
+        setSlotsCarregados({ chave: `${dataSelecionada}|${servico.id_servico}`, slots: removerHorariosPassados(rows ?? [], dataSelecionada) })
         setHora('')
       })
   }, [data, servicoId, lojistaId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const servicoSel = servicos.find(s => s.id_servico === servicoId)
+  // Preço de cada serviço PARA o pet escolhido (faixas por porte/raça,
+  // migration 010) — o mesmo que o banco cobra; o link público já faz isso.
+  const [precosDoPet, setPrecosDoPet] = useState<{ petId: string; precos: Record<string, number> } | null>(null)
+  useEffect(() => {
+    if (!petId || servicos.length === 0) return
+    let cancelado = false
+    Promise.all(servicos.map(s =>
+      supabase.rpc('fn_calcular_preco_servico', { p_id_servico: s.id_servico, p_id_pet: petId })
+        .then(({ data: preco, error }) => [s.id_servico, error || preco == null ? Number(s.preco) : Number(preco)] as const)
+    )).then(pares => { if (!cancelado) setPrecosDoPet({ petId, precos: Object.fromEntries(pares) }) })
+    return () => { cancelado = true }
+  }, [petId, servicos]) // eslint-disable-line react-hooks/exhaustive-deps
+  const precoDoServico = (s: { id_servico: string; preco: number | string }) =>
+    precosDoPet?.petId === petId && precosDoPet.precos[s.id_servico] != null ? precosDoPet.precos[s.id_servico] : Number(s.preco)
+  const slots = slotsCarregados?.chave === `${data}|${servicoId}` ? slotsCarregados.slots : null
   const lojistaSel = lojistas.find(l => l.id_lojista === lojistaId)
   const petSel = pets.find(p => p.id_pet === petId)
 
@@ -268,7 +285,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   )
   const totalProdutos = itensCarrinhoProdutos.reduce((acc, i) => acc + i.produto.preco_venda * i.quantidade, 0)
   const valorTaxiDog = escolhaTaxiDog?.cotacao.valor ?? 0
-  const totalGeral = (servicoSel?.preco ?? 0) + totalProdutos + valorTaxiDog
+  const totalGeral = (servicoSel ? precoDoServico(servicoSel) : 0) + totalProdutos + valorTaxiDog
 
   function handleSubmit() {
     setError(null)
@@ -472,7 +489,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
                       {s.descricao && <div className="text-sm text-muted">{s.descricao}</div>}
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div className="font-semibold text-success">{formatarReais(s.preco)}</div>
+                      <div className="font-semibold text-success">{formatarReais(precoDoServico(s))}</div>
                       <div className="text-xs text-muted">{s.duracao} min</div>
                     </div>
                     {servicoId === s.id_servico && <span style={{ color: 'var(--primary-400)' }}><IconCheck style={{ width: 16, height: 16 }} /></span>}
@@ -541,10 +558,15 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
           {data && (
             <div className="form-group">
               <label className="form-label form-label-required">Horário disponível</label>
-              {slots.length === 0 ? (
+              {slots === null ? (
                 <div className="alert alert-info">
                   <IconClock style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
                   <span>Carregando horários disponíveis...</span>
+                </div>
+              ) : slots.length === 0 ? (
+                <div className="alert alert-info">
+                  <IconClock style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+                  <span>Nenhum horário disponível nesse dia. Escolha outra data.</span>
                 </div>
               ) : (
                 <div className="slots-grid">
@@ -604,7 +626,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
               { Icon: IconCalendar, label: 'Data', value: format(new Date(data + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) },
               { Icon: IconClock, label: 'Horário', value: hora?.slice(0, 5) },
               { Icon: IconClock, label: 'Duração', value: `${servicoSel?.duracao} minutos` },
-              { Icon: IconMoney, label: 'Valor do serviço', value: formatarReais(servicoSel?.preco ?? 0) },
+              { Icon: IconMoney, label: 'Valor do serviço', value: formatarReais(servicoSel ? precoDoServico(servicoSel) : 0) },
             ].map(item => (
               <div key={item.label} className="flex justify-between">
                 <span className="text-sm text-muted flex items-center gap-1">

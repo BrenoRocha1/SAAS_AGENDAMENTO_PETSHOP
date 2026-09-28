@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { differenceInHours, format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cancelarAgendamentoAction } from '@/lib/actions'
-import { hojeBrasilISO } from '@/lib/agenda'
+import { agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import { rotuloEstoque } from '@/lib/produto'
 import { ROTULO_MODALIDADE, formatarReais, rotuloStatusCorrida, type ModalidadeTaxiDog } from '@/lib/taxidog'
@@ -185,7 +185,11 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
     <div className="agc-detalhes">
       <div className="agc-servicos">
         {v.itens.map(ag => {
-          const podeCanc = ['Pendente', 'Confirmado'].includes(ag.status)
+          // Cliente cancela só antes do horário (depois, fala com a loja) —
+          // a mesma regra vale no banco (fn_cancelar_agendamento, migration 063).
+          const horarioAindaVem = ag.dt_agendamento > hojeBrasilISO()
+            || (ag.dt_agendamento === hojeBrasilISO() && ag.hr_agendamento.slice(0, 5) > agoraBrasilHHMM())
+          const podeCanc = ['Pendente', 'Confirmado'].includes(ag.status) && horarioAindaVem
           const cancelando = cancelId === ag.id_agendamento
           const avaliacao = avaliacoes[ag.id_agendamento]
           return (
@@ -284,12 +288,19 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
         <div className="agc-bloco">
           <div className="agc-bloco-titulo"><IconMoney style={{ width: 13, height: 13 }} /> Pagamento</div>
           <div className="flex items-center justify-between text-sm" style={{ gap: 'var(--space-3)' }}>
-            <span style={{ color: 'var(--gray-300)' }}>{rotuloForma(v.pagamento.forma)}</span>
-            {ehStatusPagamento(v.pagamento.status) && (
-              <span className={`badge ${CLASSE_STATUS_PAGAMENTO[v.pagamento.status]}`}>{ROTULO_STATUS_PAGAMENTO[v.pagamento.status]}</span>
+            {/* Tudo coberto (ex.: plano): não há o que pagar neste agendamento. */}
+            {v.valor === 0 ? (
+              <span style={{ color: 'var(--gray-300)' }}>Nada a pagar neste agendamento</span>
+            ) : (
+              <>
+                <span style={{ color: 'var(--gray-300)' }}>{rotuloForma(v.pagamento.forma)}</span>
+                {ehStatusPagamento(v.pagamento.status) && (
+                  <span className={`badge ${CLASSE_STATUS_PAGAMENTO[v.pagamento.status]}`}>{ROTULO_STATUS_PAGAMENTO[v.pagamento.status]}</span>
+                )}
+              </>
             )}
           </div>
-          {v.pagamento.pix && v.pagamento.status === 'pendente' && (
+          {v.valor > 0 && v.pagamento.pix && v.pagamento.status === 'pendente' && (
             <div style={{ marginTop: 'var(--space-2)' }}>
               <PixDaLoja chave={v.pagamento.pix.chave} nome={v.pagamento.pix.nome} />
             </div>

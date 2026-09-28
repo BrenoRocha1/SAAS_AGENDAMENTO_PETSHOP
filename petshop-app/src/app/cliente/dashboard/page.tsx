@@ -36,7 +36,8 @@ export default async function ClienteDashboard() {
       `)
       .eq('id_cliente', user!.id)
       .gte('dt_agendamento', hojeBrasilISO())
-      .not('status', 'eq', 'Cancelado')
+      // Só o que ainda vai acontecer: finalizado ou cancelado não é "próximo".
+      .in('status', ['Pendente', 'Confirmado', 'Em andamento'])
       .order('dt_agendamento', { ascending: true })
       .order('hr_agendamento', { ascending: true })
       .limit(5),

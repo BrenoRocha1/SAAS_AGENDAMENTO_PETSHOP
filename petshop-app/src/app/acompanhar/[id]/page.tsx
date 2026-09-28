@@ -206,13 +206,20 @@ export default async function AcompanharPage({ params }: Props) {
 
           {status !== 'Cancelado' && a.pagamento?.forma && (
             <div className="acomp-pagamento">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm">Pagamento: <strong>{rotuloForma(a.pagamento.forma)}</strong></span>
-                {ehStatusPagamento(a.pagamento.status) && (
-                  <span className={`badge ${CLASSE_STATUS_PAGAMENTO[a.pagamento.status]}`}>{ROTULO_STATUS_PAGAMENTO[a.pagamento.status]}</span>
-                )}
-              </div>
-              {a.pagamento.pix_chave && <PixDaLoja chave={a.pagamento.pix_chave} nome={a.pagamento.pix_nome} />}
+              {total === 0 ? (
+                // Tudo coberto (ex.: plano): nada a pagar.
+                <span className="text-sm">Pagamento: <strong>nada a pagar neste agendamento</strong></span>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm">Pagamento: <strong>{rotuloForma(a.pagamento.forma)}</strong></span>
+                    {ehStatusPagamento(a.pagamento.status) && (
+                      <span className={`badge ${CLASSE_STATUS_PAGAMENTO[a.pagamento.status]}`}>{ROTULO_STATUS_PAGAMENTO[a.pagamento.status]}</span>
+                    )}
+                  </div>
+                  {a.pagamento.pix_chave && <PixDaLoja chave={a.pagamento.pix_chave} nome={a.pagamento.pix_nome} />}
+                </>
+              )}
             </div>
           )}
         </div>
