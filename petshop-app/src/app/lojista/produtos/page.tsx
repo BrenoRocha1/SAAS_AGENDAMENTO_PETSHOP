@@ -33,7 +33,7 @@ export default async function ProdutosPage() {
   // select — o embed depende do PostgREST reconhecer a FK no cache de
   // schema, e isso já se mostrou frágil logo após rodar a migration.
   // Um select plano não tem essa dependência.
-  const [{ data: produtos }, { data: categorias }] = await Promise.all([
+  const [{ data: produtos }, { data: categorias }, custosRes] = await Promise.all([
     supabase
       .from('produto')
       .select('*')
@@ -44,7 +44,18 @@ export default async function ProdutosPage() {
       .select('id_categoria, nome')
       .eq('id_lojista', contexto.idLojista)
       .order('nome'),
+    // Custo (CMV, migration 062) numa tabela à parte, só da equipe.
+    // Tolerante: sem a migration, o campo de custo não aparece.
+    supabase
+      .from('produto_custo')
+      .select('id_produto, custo_unitario')
+      .eq('id_lojista', contexto.idLojista),
   ])
+  const custoPorProduto = new Map(
+    ((custosRes.error ? [] : custosRes.data ?? []) as { id_produto: string; custo_unitario: number }[])
+      .map(c => [c.id_produto, Number(c.custo_unitario)]),
+  )
+  const produtosComCusto = (produtos ?? []).map(p => ({ ...p, custo_unitario: custoPorProduto.get(p.id_produto) ?? null }))
 
   return (
     <>
@@ -52,7 +63,7 @@ export default async function ProdutosPage() {
         <h1 className="page-title">Produtos</h1>
         <p className="page-subtitle">Cadastre e controle os produtos vendidos pelo seu petshop</p>
       </div>
-      <ProdutosList produtos={produtos ?? []} categorias={categorias ?? []} />
+      <ProdutosList produtos={produtosComCusto} categorias={categorias ?? []} cmvAtivo={!custosRes.error} />
     </>
   )
 }

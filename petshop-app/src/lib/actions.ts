@@ -1034,6 +1034,30 @@ export async function removerVariacaoServicoAction(id_variacao: string) {
   return { success: true }
 }
 
+// Custo por unidade (CMV, migration 062): '' = sem custo. Fica numa
+// tabela à parte (não em `produto`, que tem leitura pública).
+function lerCustoProduto(formData: FormData): { custo: number | null } | { erro: string } | null {
+  const bruto = formData.get('custo_unitario')
+  if (bruto === null) return null
+  const texto = String(bruto).trim().replace(',', '.')
+  if (texto === '') return { custo: null }
+  const custo = Number(texto)
+  if (!Number.isFinite(custo) || custo < 0) return { erro: 'Custo inválido.' }
+  return { custo: Math.round(custo * 100) / 100 }
+}
+
+async function salvarCustoProduto(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  idProduto: string,
+  custo: number | null,
+): Promise<string | undefined> {
+  const { error } = await supabase.rpc('fn_salvar_custo_produto', { p_id_produto: idProduto, p_custo: custo })
+  if (!error) return undefined
+  const faltaMigration = error.code === 'PGRST202' || /Could not find the function|does not exist/i.test(error.message)
+  if (faltaMigration) return custo === null ? undefined : 'Produto salvo, mas para registrar o custo execute a migration 062_produto_cmv.sql.'
+  return `Produto salvo, mas o custo não foi registrado: ${error.message}`
+}
+
 // ============================================================
 // PRODUTO ACTIONS (Lojista) — migration 037
 // ============================================================
@@ -1065,6 +1089,8 @@ export async function criarProdutoAction(formData: FormData) {
   if (!parsed.success) return { error: parsed.error.issues[0].message }
   const erroInteiro = erroQuantidadeInteira(parsed.data.unidade_venda, parsed.data.estoque_atual, parsed.data.estoque_minimo)
   if (erroInteiro) return { error: erroInteiro }
+  const custo = lerCustoProduto(formData)
+  if (custo && 'erro' in custo) return { error: custo.erro }
 
   const { data: novoProduto, error } = await supabase
     .from('produto')
@@ -1081,7 +1107,8 @@ export async function criarProdutoAction(formData: FormData) {
   // resultado do próprio insert, feito pelo client do servidor, é sempre
   // confiável; um SELECT * solto pelo lado do cliente logo em seguida
   // não precisa existir).
-  return { success: true, produto: novoProduto as Record<string, unknown> }
+  const aviso = custo && custo.custo !== null ? await salvarCustoProduto(supabase, novoProduto.id_produto, custo.custo) : undefined
+  return { success: true, produto: { ...novoProduto, custo_unitario: aviso ? null : custo?.custo ?? null } as Record<string, unknown>, aviso }
 }
 
 // Estoque atual fica de fora de propósito — depois de criado, só muda
@@ -1109,6 +1136,8 @@ export async function editarProdutoAction(id_produto: string, formData: FormData
   if (!parsed.success) return { error: parsed.error.issues[0].message }
   const erroInteiro = erroQuantidadeInteira(parsed.data.unidade_venda, parsed.data.estoque_minimo)
   if (erroInteiro) return { error: erroInteiro }
+  const custo = lerCustoProduto(formData)
+  if (custo && 'erro' in custo) return { error: custo.erro }
 
   const { data: atualizado, error } = await supabase
     .from('produto')
@@ -1123,7 +1152,12 @@ export async function editarProdutoAction(id_produto: string, formData: FormData
   revalidatePath('/lojista/produtos')
   // Mesmo motivo do criarProdutoAction: devolve a linha atualizada pra
   // mesclar direto no estado, sem depender de um refetch separado.
-  return { success: true, produto: atualizado as Record<string, unknown> }
+  const aviso = custo ? await salvarCustoProduto(supabase, id_produto, custo.custo) : undefined
+  return {
+    success: true,
+    produto: { ...atualizado, ...(custo && !aviso ? { custo_unitario: custo.custo } : {}) } as Record<string, unknown>,
+    aviso,
+  }
 }
 
 export async function alternarStatusProdutoAction(id_produto: string, ativo: boolean) {

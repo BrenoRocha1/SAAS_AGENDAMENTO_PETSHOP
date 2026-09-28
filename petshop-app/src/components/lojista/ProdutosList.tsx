@@ -47,11 +47,22 @@ interface Produto {
   status: string
   foto_url: string | null
   disponivel_agendamento_online: boolean
+  // Custo por unidade (CMV, migration 062) — vem de produto_custo.
+  custo_unitario?: number | null
 }
 
 interface Props {
   produtos: Produto[]
   categorias: Categoria[]
+  // false = migration 062 ainda não rodou (campo de custo escondido).
+  cmvAtivo?: boolean
+}
+
+// "32,5% (R$ 6,40 por unidade)" — margem sobre o preço de venda.
+function textoMargem(preco: number, custo: number): string | null {
+  if (!(preco > 0) || !Number.isFinite(custo)) return null
+  const lucro = preco - custo
+  return `${((lucro / preco) * 100).toFixed(1).replace('.', ',')}% (R$ ${lucro.toFixed(2).replace('.', ',')} por unidade)`
 }
 
 type FotoPendente = { blob: Blob; extensao: string; preview: string }
@@ -61,7 +72,7 @@ const TIPOS_IMAGEM_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
 const IMAGEM_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB — mesmo limite do servidor
 const MODO_VISUALIZACAO_STORAGE_KEY = 'petshop:produtos:modo-visualizacao'
 
-export default function ProdutosList({ produtos: inicial, categorias: categoriasIniciais }: Props) {
+export default function ProdutosList({ produtos: inicial, categorias: categoriasIniciais, cmvAtivo = false }: Props) {
   const [produtos, setProdutos] = useState<Produto[]>(inicial)
   const [categorias, setCategorias] = useState<Categoria[]>(categoriasIniciais)
   const [busca, setBusca] = useState('')
@@ -84,6 +95,9 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
 
   const [showModal, setShowModal] = useState(false)
   const [editando, setEditando] = useState<Produto | null>(null)
+  // Pra prévia da margem no formulário.
+  const [precoForm, setPrecoForm] = useState('')
+  const [custoForm, setCustoForm] = useState('')
   const [unidadeSelecionada, setUnidadeSelecionada] = useState('unidade')
   const [disponivelOnline, setDisponivelOnline] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -176,6 +190,8 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
 
   function abrirNovo() {
     setEditando(null)
+    setPrecoForm('')
+    setCustoForm('')
     setUnidadeSelecionada('unidade')
     setDisponivelOnline(false)
     setError(null)
@@ -185,6 +201,8 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
 
   function abrirEditar(p: Produto) {
     setEditando(p)
+    setPrecoForm(String(p.preco_venda))
+    setCustoForm(p.custo_unitario != null ? String(p.custo_unitario) : '')
     setUnidadeSelecionada(p.unidade_venda)
     setDisponivelOnline(p.disponivel_agendamento_online)
     setError(null)
@@ -265,11 +283,17 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
       setProdutos(prev => {
         const existe = prev.some(x => x.id_produto === idProduto)
         const atualizados = existe
-          ? prev.map(x => x.id_produto === idProduto ? produtoSalvo : x)
+          ? prev.map(x => x.id_produto === idProduto ? { ...x, ...produtoSalvo } : x)
           : [...prev, produtoSalvo]
         return atualizados.sort((a, b) => a.nome.localeCompare(b.nome))
       })
 
+      // Produto salvo mas o custo não (ex.: migration 062 pendente): avisa
+      // e deixa o formulário aberto.
+      if ('aviso' in result && result.aviso) {
+        setError(result.aviso)
+        return
+      }
       setShowModal(false)
       limparEstadoFoto()
     })
@@ -517,6 +541,11 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                     <td className="text-sm text-muted">{(p.id_categoria && nomeCategoriaPorId.get(p.id_categoria)) ?? 'Sem categoria'}</td>
                     <td className="text-success font-semibold">
                       R$ {Number(p.preco_venda).toFixed(2)} <span className="text-xs text-muted">/ {rotuloUnidade(p.unidade_venda)}</span>
+                      {p.custo_unitario != null && (
+                        <div className="text-xs text-muted" style={{ fontWeight: 400 }}>
+                          custo R$ {Number(p.custo_unitario).toFixed(2)} · margem {textoMargem(Number(p.preco_venda), Number(p.custo_unitario))?.split(' (')[0] ?? '—'}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <div>{rotuloEstoque(p.estoque_atual, p.unidade_venda)}</div>
@@ -674,6 +703,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                       step="0.01"
                       min="0"
                       required
+                      onChange={e => setPrecoForm(e.target.value)}
                     />
                   </div>
                   <CampoQuantidade
@@ -684,6 +714,29 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                     hint='Abaixo disso, o produto aparece como "Baixo" na tela de Estoque. Deixe 0 pra não alertar.'
                   />
                 </div>
+
+                {cmvAtivo && (
+                  <div className="form-group">
+                    <label htmlFor="custo_unitario" className="form-label">Custo por {rotuloUnidade(unidadeSelecionada).toLowerCase()} (R$)</label>
+                    <input
+                      id="custo_unitario"
+                      name="custo_unitario"
+                      type="number"
+                      className="form-input"
+                      defaultValue={editando?.custo_unitario ?? ''}
+                      placeholder="Ex: 12.50"
+                      step="0.01"
+                      min="0"
+                      onChange={e => setCustoForm(e.target.value)}
+                    />
+                    <p className="text-xs text-muted" style={{ margin: 0 }}>
+                      Quanto a loja paga por unidade (CMV) — entra no faturamento líquido do Relatório de Vendas. Só a equipe vê.
+                      {custoForm.trim() !== '' && textoMargem(Number(precoForm), Number(custoForm)) && (
+                        <> Margem: <strong>{textoMargem(Number(precoForm), Number(custoForm))}</strong>.</>
+                      )}
+                    </p>
+                  </div>
+                )}
 
                 {!editando && (
                   <>

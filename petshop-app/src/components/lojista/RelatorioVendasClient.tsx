@@ -26,7 +26,9 @@ import {
   IconUserBadge,
   IconUsers,
   IconRepeat,
+  IconPackage,
 } from '@/components/icons'
+import { rotuloEstoque } from '@/lib/produto'
 
 // ============================================================
 // Tipos — espelham exatamente o retorno das RPCs da migration 016
@@ -71,6 +73,29 @@ export interface LinhaDetalhamento {
 // (sem cancelados) por forma — registrado, recebido (pago) e a receber.
 export interface VendaPorPagamento { forma: string; pedidos: number; total: number; recebido: number; pendente: number }
 
+// fn_relatorio_vendas_produtos (migration 062): itens de atendimentos
+// concluídos no período — bruto, CMV (custo da venda) e líquido.
+export interface VendasProdutos {
+  bruto: number
+  cmv: number
+  liquido: number
+  bruto_com_custo: number
+  bruto_sem_custo: number
+  itens_sem_custo: number
+  pedidos: number
+  produtos: {
+    id_produto: string
+    produto: string
+    unidade_venda: string
+    quantidade: number
+    bruto: number
+    cmv: number
+    liquido: number
+    bruto_com_custo: number
+    sem_custo: number
+  }[]
+}
+
 interface Props {
   preset: PeriodoPreset
   periodo: Periodo
@@ -85,6 +110,8 @@ interface Props {
   porPagamento: VendaPorPagamento[] | null
   // Planos recorrentes (migration 060) — null sem ela.
   relatorioPlanos: RelatorioPlanos | null
+  // Vendas de produtos com CMV (migration 062) — null sem ela.
+  vendasProdutos: VendasProdutos | null
   funcionarios: { id_funcionario: string; nome: string }[]
   servicos: { id_servico: string; nome: string }[]
   filtroFuncionario: string
@@ -115,6 +142,7 @@ export default function RelatorioVendasClient({
   clientesResumo,
   porPagamento,
   relatorioPlanos,
+  vendasProdutos,
   funcionarios,
   servicos,
   filtroFuncionario,
@@ -336,6 +364,16 @@ export default function RelatorioVendasClient({
             <VendasPorPagamento linhas={porPagamento} />
           </div>
 
+          {/* ── Vendas de produtos: bruto, CMV e líquido (migration 062) ── */}
+          {vendasProdutos && (
+            <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
+              <h3 className="relatorio-secao-titulo">
+                <IconPackage style={{ width: 15, height: 15 }} /> Vendas de produtos
+              </h3>
+              <VendasDeProdutos v={vendasProdutos} />
+            </div>
+          )}
+
           {/* ── Planos recorrentes (migration 060) ── */}
           {relatorioPlanos?.tem_planos && (
             <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
@@ -527,6 +565,68 @@ export default function RelatorioVendasClient({
         </>
       )}
     </div>
+  )
+}
+
+// ============================================================
+// Vendas de produtos: faturamento bruto, CMV e faturamento líquido
+// (bruto − CMV), no total e por produto.
+// ============================================================
+function margem(liquidoComCusto: number, brutoComCusto: number): string {
+  return brutoComCusto > 0 ? `${((liquidoComCusto / brutoComCusto) * 100).toFixed(1).replace('.', ',')}%` : '—'
+}
+
+function VendasDeProdutos({ v }: { v: VendasProdutos }) {
+  const bruto = Number(v.bruto)
+  const cmv = Number(v.cmv)
+  const brutoComCusto = Number(v.bruto_com_custo)
+  if (bruto === 0) {
+    return <p className="text-sm text-muted" style={{ margin: 0 }}>Nenhum produto vendido em atendimentos concluídos neste período.</p>
+  }
+  return (
+    <>
+      <div className="relatorio-mini-stats">
+        <div><span>{moeda(bruto)}</span>faturamento bruto</div>
+        <div><span style={{ color: 'var(--danger-400)' }}>{moeda(cmv)}</span>CMV (custo das mercadorias)</div>
+        <div><span className="text-success">{moeda(Number(v.liquido))}</span>faturamento líquido (bruto − CMV)</div>
+        <div><span>{margem(brutoComCusto - cmv, brutoComCusto)}</span>margem</div>
+      </div>
+      <div className="table-container" style={{ marginTop: 'var(--space-4)' }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Produto</th>
+              <th>Qtd.</th>
+              <th>Bruto</th>
+              <th>CMV</th>
+              <th>Líquido</th>
+              <th>Margem</th>
+            </tr>
+          </thead>
+          <tbody>
+            {v.produtos.map(p => (
+              <tr key={p.id_produto}>
+                <td className="font-semibold">{p.produto}</td>
+                <td>{rotuloEstoque(Number(p.quantidade), p.unidade_venda)}</td>
+                <td>{moeda(Number(p.bruto))}</td>
+                <td>
+                  {Number(p.bruto_com_custo) > 0 ? moeda(Number(p.cmv)) : <span className="text-muted">sem custo</span>}
+                  {Number(p.sem_custo) > 0 && Number(p.bruto_com_custo) > 0 && <div className="text-xs text-muted">{p.sem_custo} sem custo</div>}
+                </td>
+                <td className="text-success font-semibold">{moeda(Number(p.liquido))}</td>
+                <td>{margem(Number(p.bruto_com_custo) - Number(p.cmv), Number(p.bruto_com_custo))}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted" style={{ margin: 'var(--space-3) 0 0' }}>
+        Produtos vendidos junto de atendimentos concluídos no período (mesma regra do faturamento). O CMV usa o custo registrado no momento de cada venda.
+        {Number(v.itens_sem_custo) > 0 && (
+          <> <strong>{moeda(Number(v.bruto_sem_custo))}</strong> em {v.itens_sem_custo} venda{Number(v.itens_sem_custo) !== 1 ? 's' : ''} sem custo registrado (feitas antes de cadastrar o custo): entram no bruto e no líquido sem descontar CMV, e ficam fora da margem. Cadastre o custo em Produtos para as próximas vendas.</>
+        )}
+      </p>
+    </>
   )
 }
 

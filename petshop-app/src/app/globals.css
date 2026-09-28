@@ -2099,7 +2099,8 @@ a:hover { color: var(--primary-300); }
 
 .relatorio-mini-stats {
   display: flex;
-  gap: var(--space-5);
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
   margin-bottom: var(--space-4);
   padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--gray-800);
