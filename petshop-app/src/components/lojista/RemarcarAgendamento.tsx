@@ -109,7 +109,7 @@ function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar }: Alv
                 </div>
               )}
               <p className="text-sm text-muted" style={{ marginTop: 0 }}>
-                Hoje: {dataAtual.split('-').reverse().join('/')} às {horaAtual.slice(0, 5)}. Se o cliente marcou mais de um serviço juntos, todos mudam juntos, na mesma ordem.
+                Marcado para {dataAtual.split('-').reverse().join('/')} às {horaAtual.slice(0, 5)}. Se o cliente marcou mais de um serviço juntos, todos mudam juntos, na mesma ordem.
               </p>
               <div className="form-group">
                 <label htmlFor="remarcar-data" className="form-label form-label-required">Nova data</label>
