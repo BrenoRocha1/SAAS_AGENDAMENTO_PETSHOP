@@ -7,6 +7,7 @@ import { ptBR } from 'date-fns/locale'
 import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
 import { classeBadgeStatus, ORDEM_ETAPA, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
+import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
 import { rotuloEstoque } from '@/lib/produto'
 import { formatarReais } from '@/lib/taxidog'
 import type { TransporteVisita } from '@/lib/taxidog-visita'
@@ -202,6 +203,8 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
   // Guarda só o id: o detalhe acompanha os dados novos do servidor
   // (atualização ao vivo, troca de transporte...).
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null)
+  // Remarcar abre fora do detalhe (o item pode sair do dia).
+  const [remarcando, setRemarcando] = useState<AlvoRemarcar | null>(null)
   const selecionado = itens.find(it => it.id_agendamento === selecionadoId) ?? null
   const [modalErro, setModalErro] = useState<string | null>(null)
 
@@ -509,6 +512,12 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                       Iniciar e finalizar a partir do dia do agendamento.
                     </span>
                   )}
+                  {selecionado.status !== 'Em andamento' && (
+                    <BotaoRemarcar onClick={() => {
+                      setRemarcando({ idAgendamento: selecionado.id_agendamento, dataAtual: selecionado.dt_agendamento, horaAtual: selecionado.hr_agendamento })
+                      setSelecionadoId(null)
+                    }} />
+                  )}
                   <BotaoCancelarAgendamento key={selecionado.id_agendamento} disabled={isPending} onConfirmar={cancelarModal} />
                 </div>
               )}
@@ -521,6 +530,8 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
           </div>
         </div>
       )}
+
+      {remarcando && <RemarcarModal {...remarcando} onFechar={() => setRemarcando(null)} />}
     </>
   )
 }

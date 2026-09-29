@@ -40,6 +40,7 @@ import TransporteAgendamento from '@/components/lojista/TransporteAgendamento'
 import PagamentoAgendamento from '@/components/lojista/PagamentoAgendamento'
 import BeneficioAgendamento from '@/components/lojista/planos/BeneficioAgendamento'
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
+import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
 import type { FormaPagamento } from '@/lib/pagamento'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
 
@@ -247,6 +248,8 @@ export default function AgendaCalendar({
   )
   // Guarda só o id: o detalhe acompanha os dados novos do servidor.
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null)
+  // Remarcar abre fora do detalhe (o item pode sair da semana).
+  const [remarcando, setRemarcando] = useState<AlvoRemarcar | null>(null)
   const selecionado = agendamentos.find(a => a.id_agendamento === selecionadoId) ?? null
   const [modalAberto, setModalAberto] = useState(!!clienteFixoInicial || !!funcionarioIdPadraoInicial)
   const [acaoErro, setAcaoErro] = useState<string | null>(null)
@@ -583,6 +586,12 @@ export default function AgendaCalendar({
                       Iniciar e finalizar a partir do dia do agendamento.
                     </span>
                   )}
+                  {selecionado.status !== 'Em andamento' && (
+                    <BotaoRemarcar onClick={() => {
+                      setRemarcando({ idAgendamento: selecionado.id_agendamento, dataAtual: selecionado.dt_agendamento, horaAtual: selecionado.hr_agendamento })
+                      setSelecionadoId(null)
+                    }} />
+                  )}
                   <BotaoCancelarAgendamento
                     key={selecionado.id_agendamento}
                     disabled={isPending}
@@ -615,6 +624,8 @@ export default function AgendaCalendar({
           onCreated={() => router.refresh()}
         />
       )}
+
+      {remarcando && <RemarcarModal {...remarcando} onFechar={() => setRemarcando(null)} />}
     </>
   )
 }

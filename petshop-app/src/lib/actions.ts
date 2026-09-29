@@ -1913,6 +1913,64 @@ export async function atualizarStatusAgendamentoAction(
   return { success: true }
 }
 
+// Remarca o pedido (os serviços marcados juntos) para outra data/horário
+// — regras e efeitos (TaxiDog, plano, registro) em fn_remarcar_agendamento
+// (migration 064). Devolve um link de WhatsApp pra avisar o cliente.
+export async function remarcarAgendamentoAction(
+  idAgendamento: string,
+  data: string,
+  hora: string,
+  motivo: string,
+): Promise<{ error?: string; success?: boolean; avisos?: string[]; whatsapp?: string | null }> {
+  if (!/^[0-9a-f-]{36}$/i.test(idAgendamento)) return { error: 'Agendamento inválido.' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return { error: 'Escolha a nova data.' }
+  if (!/^\d{2}:\d{2}$/.test(hora)) return { error: 'Escolha o novo horário.' }
+  if ((motivo ?? '').length > 300) return { error: 'Motivo muito longo (até 300 letras).' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const { data: res, error } = await supabase.rpc('fn_remarcar_agendamento', {
+    p_id_agendamento: idAgendamento,
+    p_data: data,
+    p_hora: hora,
+    p_motivo: motivo?.trim() || null,
+  })
+  if (error) {
+    if (error.code === 'PGRST202' || /Could not find the function|does not exist/i.test(error.message)) {
+      return { error: 'Para remarcar, execute a migration 064_remarcar_agendamento.sql.' }
+    }
+    return { error: error.message }
+  }
+
+  // Mensagem pronta pro cliente (a loja decide se manda).
+  let whatsapp: string | null = null
+  const { data: ag } = await supabase
+    .from('agendamento')
+    .select('cliente:id_cliente ( nome, telefone ), pet:id_pet ( nome ), lojista:id_lojista ( nome_loja )')
+    .eq('id_agendamento', idAgendamento)
+    .maybeSingle()
+  const info = ag as unknown as {
+    cliente: { nome: string; telefone: string } | null
+    pet: { nome: string } | null
+    lojista: { nome_loja: string } | null
+  } | null
+  const telefone = info?.cliente?.telefone?.replace(/\D/g, '')
+  if (telefone) {
+    const [ano, mes, dia] = data.split('-')
+    const origem = await obterOrigin()
+    const texto = `Olá, ${info?.cliente?.nome?.split(' ')[0] ?? ''}! O agendamento de ${info?.pet?.nome ?? 'seu pet'} na ${info?.lojista?.nome_loja ?? 'loja'} foi remarcado para ${dia}/${mes}/${ano} às ${hora}. Acompanhe por aqui: ${origem}/acompanhar/${idAgendamento}`
+    whatsapp = `https://wa.me/55${telefone}?text=${encodeURIComponent(texto)}`
+  }
+
+  revalidatePath('/lojista/agendamentos')
+  revalidatePath('/lojista/kanban')
+  revalidatePath('/lojista/dashboard')
+  const r = res as { avisos?: string[] } | null
+  return { success: true, avisos: r?.avisos ?? [], whatsapp }
+}
+
 // Atribui (ou remove, se id_funcionario vier null) o profissional
 // responsável por um agendamento. Ver migration 012 — todo agendamento
 // nasce sem funcionário, mesmo os que o cliente cria sozinho; o

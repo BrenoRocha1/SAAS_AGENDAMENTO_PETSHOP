@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
 import { classeBadgeStatus, corSolidaStatus, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
+import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
 import ResumoPlanosCard from '@/components/lojista/planos/ResumoPlanosCard'
 import type { ResumoPlanos } from '@/lib/planos'
 import {
@@ -137,6 +138,8 @@ export default function DashboardClient({
   const [busca, setBusca] = useState('')
   const [modalAberto, setModalAberto] = useState(false)
   const [selecionado, setSelecionado] = useState<Selecionado>(null)
+  // Remarcar abre fora do detalhe (o item pode sair do dia).
+  const [remarcando, setRemarcando] = useState<AlvoRemarcar | null>(null)
   const [agenda, setAgenda] = useState(agendaSelecionada)
   const [pendentes, setPendentes] = useState(pendentesIniciais)
   const [viewMode, setViewMode] = useState<'dia' | 'semana' | 'mes'>('dia')
@@ -521,6 +524,7 @@ export default function DashboardClient({
                 onMudarStatus={mudarStatus}
                 dataAgenda={selectedDate}
                 hojeISO={hojeISO}
+                onRemarcar={alvo => { setRemarcando(alvo); setSelecionado(null) }}
               />
             )}
           </div>
@@ -567,6 +571,8 @@ export default function DashboardClient({
           onCreated={handleCriado}
         />
       )}
+
+      {remarcando && <RemarcarModal {...remarcando} onFechar={() => setRemarcando(null)} />}
     </>
   )
 }
@@ -577,6 +583,7 @@ function DetalheAgendamento({
   onMudarStatus,
   dataAgenda,
   hojeISO,
+  onRemarcar,
 }: {
   selecionado: NonNullable<Selecionado>
   isPending: boolean
@@ -584,6 +591,7 @@ function DetalheAgendamento({
   // Dia da agenda aberta (os itens da agenda são desse dia).
   dataAgenda: string
   hojeISO: string
+  onRemarcar: (alvo: AlvoRemarcar) => void
 }) {
   const isAgenda = selecionado.tipo === 'agenda'
   const item = selecionado.item
@@ -622,6 +630,9 @@ function DetalheAgendamento({
             <span className="text-xs text-muted" style={{ flex: 1, alignSelf: 'center' }}>
               Iniciar e finalizar a partir do dia do agendamento.
             </span>
+          )}
+          {status !== 'Em andamento' && (
+            <BotaoRemarcar onClick={() => onRemarcar({ idAgendamento: id, dataAtual: dataItem, horaAtual: item.hr_agendamento })} />
           )}
           <BotaoCancelarAgendamento key={id} disabled={isPending} onConfirmar={() => onMudarStatus(id, 'Cancelado')} />
         </div>
