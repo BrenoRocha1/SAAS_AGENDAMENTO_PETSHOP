@@ -16,6 +16,7 @@ import {
   IconLogout,
   IconChevronLeft,
   IconChevronRight,
+  IconRepeat,
 } from '@/components/icons'
 
 const navItems = [
@@ -24,6 +25,7 @@ const navItems = [
   { href: '/cliente/novo-agendamento', icon: IconPlus, label: 'Novo Agendamento' },
   { href: '/cliente/petshops', icon: IconStore, label: 'Petshops' },
   { href: '/cliente/pets', icon: IconDog, label: 'Meus Pets' },
+  { href: '/cliente/planos', icon: IconRepeat, label: 'Meus Planos' },
   { href: '/cliente/perfil', icon: IconUser, label: 'Meu Perfil' },
 ]
 

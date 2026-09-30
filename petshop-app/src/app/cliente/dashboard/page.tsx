@@ -3,7 +3,8 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { hojeBrasilISO } from '@/lib/agenda'
-import { IconCalendar, IconDog, IconMoney, IconScissors, IconStore } from '@/components/icons'
+import { IconCalendar, IconDog, IconMoney, IconRepeat, IconScissors, IconStore } from '@/components/icons'
+import { dataBR, type AssinaturaDoCliente } from '@/lib/planos'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import type { Metadata } from 'next'
 
@@ -24,7 +25,7 @@ export default async function ClienteDashboard() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [{ data: cliente }, { data: agendamentosRaw }, { count: totalPets }, { count: totalAgendamentos }, { data: totalGasto }] = await Promise.all([
+  const [{ data: cliente }, { data: agendamentosRaw }, { count: totalPets }, { count: totalAgendamentos }, { data: totalGasto }, { data: planosRaw, error: planosErro }] = await Promise.all([
     supabase.from('cliente').select('nome').eq('id_cliente', user!.id).maybeSingle(),
     supabase
       .from('agendamento')
@@ -44,11 +45,15 @@ export default async function ClienteDashboard() {
     supabase.from('pet').select('*', { count: 'exact', head: true }).eq('id_cliente', user!.id).eq('ativo', true),
     supabase.from('agendamento').select('*', { count: 'exact', head: true }).eq('id_cliente', user!.id),
     supabase.from('agendamento').select('valor').eq('id_cliente', user!.id).eq('status', 'Concluído'),
+    // Planos dos pets (migration 068) — sem ela, o card não aparece.
+    supabase.rpc('fn_meus_planos'),
   ])
 
   const agendamentos = (agendamentosRaw ?? []) as unknown as AgendamentoProximo[]
   const valorTotal = totalGasto?.reduce((acc, a) => acc + (a.valor ?? 0), 0) ?? 0
   const primeiroNome = cliente?.nome?.split(' ')[0] ?? ''
+  const hoje = hojeBrasilISO()
+  const planosAtivos = ((planosErro ? [] : planosRaw ?? []) as AssinaturaDoCliente[]).filter(a => a.status === 'ativa')
 
   return (
     <>
@@ -80,6 +85,42 @@ export default async function ClienteDashboard() {
           <div className="stat-card-label">Total investido</div>
         </div>
       </div>
+
+      {planosAtivos.length > 0 && (
+        <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-4)' }}>
+            <h3 className="flex items-center gap-2"><IconRepeat style={{ width: 18, height: 18 }} /> Meus Planos</h3>
+            <Link href="/cliente/planos" className="btn btn-secondary btn-sm">Ver detalhes</Link>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            {planosAtivos.map(a => {
+              const abertas = a.cobrancas.filter(c => c.status === 'pendente')
+              const vencida = abertas.some(c => c.vencimento < hoje)
+              return (
+                <div key={a.id_assinatura} className="card-elevated" style={{ padding: 'var(--space-3) var(--space-4)' }}>
+                  <div className="flex items-center justify-between gap-2" style={{ flexWrap: 'wrap' }}>
+                    <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{a.plano} · {a.pet ?? 'Pet'}</span>
+                    {abertas.length > 0 && (
+                      <span className={`badge ${vencida ? 'badge-cancelado' : 'badge-pendente'}`}>
+                        {vencida ? 'Cobrança vencida' : 'Cobrança em aberto'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm text-muted" style={{ marginTop: 4 }}>
+                    {a.periodo_atual && a.periodo_atual.beneficios.length > 0
+                      ? a.periodo_atual.beneficios.map(b => {
+                          const restam = Math.max(0, b.quantidade - Number(b.usados))
+                          return `${b.servico}: ${restam} de ${b.quantidade} restante${b.quantidade !== 1 ? 's' : ''}`
+                        }).join(' · ')
+                      : `Começa em ${dataBR(a.data_inicio)}`}
+                    {a.proxima_cobranca ? ` · renova em ${dataBR(a.proxima_cobranca)}` : ''}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-6)' }}>

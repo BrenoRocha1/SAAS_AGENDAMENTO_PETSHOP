@@ -129,6 +129,30 @@ export interface Assinatura {
   historico?: HistoricoPlano[] | null
 }
 
+// fn_meus_planos (migration 068) — o que o cliente vê das assinaturas dele.
+export interface AssinaturaDoCliente {
+  id_assinatura: string
+  plano: string
+  descricao: string | null
+  id_lojista: string
+  loja: string
+  loja_telefone: string | null
+  id_pet: string | null
+  pet: string | null
+  valor: number
+  periodicidade: Periodicidade
+  intervalo_dias: number | null
+  data_inicio: string
+  forma_pagamento: string | null
+  status: 'ativa' | 'cancelada'
+  cancelada_em: string | null
+  periodo_atual: { numero: number; inicio: string; fim: string; beneficios: BeneficioPeriodo[] } | null
+  proxima_cobranca: string | null
+  cobrancas: CobrancaPlano[]
+  utilizacoes: Omit<UtilizacaoPlano, 'funcionario'>[]
+  formas_loja: unknown
+}
+
 export interface CobrancaDaLoja extends CobrancaPlano {
   id_assinatura: string
   plano: string
