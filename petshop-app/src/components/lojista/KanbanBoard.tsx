@@ -9,6 +9,8 @@ import { classeBadgeStatus, ORDEM_ETAPA, PROXIMA_ETAPA, podeAvancarEtapa, rotulo
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
 import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
 import { useArrastarToque } from '@/components/lojista/useArrastarToque'
+import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
+import type { TaxiDogPendente } from '@/lib/actions'
 import { rotuloEstoque } from '@/lib/produto'
 import { formatarReais } from '@/lib/taxidog'
 import { origemTaxiDogDaVisita, type TransporteVisita } from '@/lib/taxidog-visita'
@@ -96,6 +98,9 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
   const [itens, setItens] = useState(itensIniciais)
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+  // Busca do TaxiDog ainda não chegou: a loja confirma antes de iniciar/finalizar.
+  const [confirmarBusca, setConfirmarBusca] = useState<{ item: KanbanItem; novoStatus: 'Em andamento' | 'Concluído'; info: TaxiDogPendente } | null>(null)
   const [filtroFuncionario, setFiltroFuncionario] = useState('')
   const [filtroServico, setFiltroServico] = useState('')
 
@@ -132,25 +137,33 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
   // Otimista: o card troca de coluna na hora, antes da resposta do
   // servidor chegar — o salvamento continua rolando por baixo dos panos
   // (startTransition) e só reverte a troca se o servidor recusar.
-  function moverParaStatus(item: KanbanItem, novoStatus: KanbanItem['status']) {
+  function moverParaStatus(item: KanbanItem, novoStatus: KanbanItem['status'], escolhaTaxiDog?: EscolhaBuscaTaxiDog) {
     if (item.status === novoStatus) return
     if (ORDEM_ETAPA[novoStatus] <= ORDEM_ETAPA[item.status]) {
       setErro('Não é possível voltar para uma etapa anterior. Um agendamento finalizado não pode ser reaberto.')
       return
     }
     setErro(null)
+    setAviso(null)
     const statusAnterior = item.status
     setItens(prev => prev.map(it => it.id_agendamento === item.id_agendamento ? { ...it, status: novoStatus } : it))
     setPendingId(item.id_agendamento)
     startTransition(async () => {
-      const result = await atualizarStatusAgendamentoAction(item.id_agendamento, novoStatus)
+      const result = await atualizarStatusAgendamentoAction(item.id_agendamento, novoStatus, escolhaTaxiDog ? { taxidog: escolhaTaxiDog } : undefined)
       setPendingId(null)
+      if (result?.taxidogPendente && (novoStatus === 'Em andamento' || novoStatus === 'Concluído')) {
+        // Nada mudou no servidor: volta o card e pergunta.
+        setItens(prev => prev.map(it => it.id_agendamento === item.id_agendamento ? { ...it, status: statusAnterior } : it))
+        setConfirmarBusca({ item: { ...item, status: statusAnterior }, novoStatus, info: result.taxidogPendente })
+        return
+      }
       if (result?.error) {
         setErro(result.error)
         // Servidor recusou — volta o card pra coluna original.
         setItens(prev => prev.map(it => it.id_agendamento === item.id_agendamento ? { ...it, status: statusAnterior } : it))
         return
       }
+      if (result?.aviso) setAviso(result.aviso)
       router.refresh()
     })
   }
@@ -331,6 +344,13 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
           )}
         </div>
       </div>
+
+      {aviso && (
+        <div className="alert alert-success" style={{ marginBottom: 'var(--space-4)' }}>
+          <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+          <span>{aviso}</span>
+        </div>
+      )}
 
       {erro && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
@@ -567,6 +587,18 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
       )}
 
       {remarcando && <RemarcarModal {...remarcando} onFechar={() => setRemarcando(null)} />}
+      {confirmarBusca && (
+        <ConfirmarBuscaTaxiDog
+          info={confirmarBusca.info}
+          novoStatus={confirmarBusca.novoStatus}
+          onFechar={() => setConfirmarBusca(null)}
+          onEscolher={escolha => {
+            const c = confirmarBusca
+            setConfirmarBusca(null)
+            moverParaStatus(c.item, c.novoStatus, escolha)
+          }}
+        />
+      )}
     </>
   )
 }

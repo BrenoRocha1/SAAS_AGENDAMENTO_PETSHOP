@@ -40,6 +40,8 @@ import { ORDEM_ETAPA, etapaEncerrada, etapaExigeDia } from '@/lib/status-agendam
 import { hojeBrasilISO } from '@/lib/agenda'
 import { coordenadasParaTaxiDog, lerTaxiDogDoFormulario, mensagemErroTaxiDog, paramsRpcTaxiDog } from '@/lib/taxidog-servidor'
 import { mensagemErroBloqueio } from '@/lib/bloqueios'
+import { alterarTransporteAction } from '@/lib/actions-rotas'
+import { formatarCep as formatarCepTaxiDog } from '@/lib/taxidog'
 import { ehFormaPagamento, mensagemErroPagamento, type FormaPagamento } from '@/lib/pagamento'
 import { erroQuantidadeInteira } from '@/lib/produto'
 import type { ServicoVariacaoData } from '@/lib/validations'
@@ -1865,10 +1867,69 @@ export async function cancelarAgendamentoAction(id_agendamento: string, motivo?:
   return { success: true }
 }
 
+// Busca do TaxiDog da visita (mesmo pet, mesmo dia) que ainda não chegou
+// à loja. null = não há (ou a tabela/permissão não existe — segue normal).
+export interface TaxiDogPendente {
+  pet: string
+  modalidade: 'buscar' | 'buscar_entregar'
+  // Status da corrida: agendada, a_caminho_cliente, no_endereco, pet_embarcado.
+  status: string
+  // Pet já no carro, a caminho da loja: só dá para seguir mesmo assim.
+  emMovimento: boolean
+}
+
+async function buscaPendenteDaVisita(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  idLojista: string,
+  idAgendamento: string,
+): Promise<(TaxiDogPendente & { endereco: Record<string, string> }) | null> {
+  const { data: ag } = await supabase
+    .from('agendamento')
+    .select('id_pet, dt_agendamento, pet:id_pet ( nome )')
+    .eq('id_agendamento', idAgendamento)
+    .maybeSingle()
+  const linha = ag as unknown as { id_pet: string | null; dt_agendamento: string; pet: { nome: string } | null } | null
+  if (!linha?.id_pet) return null
+  const { data: visita } = await supabase
+    .from('agendamento')
+    .select('id_agendamento')
+    .eq('id_lojista', idLojista)
+    .eq('id_pet', linha.id_pet)
+    .eq('dt_agendamento', linha.dt_agendamento)
+  const ids = ((visita ?? []) as { id_agendamento: string }[]).map(v => v.id_agendamento)
+  if (ids.length === 0) return null
+  const { data: corridas, error } = await supabase
+    .from('taxidog_corrida')
+    .select('status, modalidade, cep, logradouro, numero, complemento, bairro, cidade, uf')
+    .in('id_agendamento', ids)
+    .in('modalidade', ['buscar', 'buscar_entregar'])
+    .in('status', ['agendada', 'a_caminho_cliente', 'no_endereco', 'pet_embarcado'])
+    .limit(1)
+  if (error || !corridas || corridas.length === 0) return null
+  const c = corridas[0] as {
+    status: string; modalidade: 'buscar' | 'buscar_entregar'
+    cep: string; logradouro: string; numero: string; complemento: string | null; bairro: string; cidade: string; uf: string
+  }
+  return {
+    pet: linha.pet?.nome ?? 'o pet',
+    modalidade: c.modalidade,
+    status: c.status,
+    emMovimento: c.status === 'pet_embarcado',
+    endereco: {
+      cep: formatarCepTaxiDog(c.cep), logradouro: c.logradouro, numero: c.numero, complemento: c.complemento ?? '',
+      bairro: c.bairro, cidade: c.cidade, uf: c.uf,
+    },
+  }
+}
+
+// opcoes.taxidog: resposta da loja quando a busca do TaxiDog ainda não
+// chegou — 'cliente_trouxe' tira a busca (fn_alterar_transporte_agendamento:
+// taxa sai, TaxiDog é avisado) e segue; 'ignorar' segue sem mexer nele.
 export async function atualizarStatusAgendamentoAction(
   id_agendamento: string,
-  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
-) {
+  status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado',
+  opcoes?: { taxidog?: 'ignorar' | 'cliente_trouxe' },
+): Promise<{ error?: string; success?: boolean; taxidogPendente?: TaxiDogPendente; aviso?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
@@ -1903,6 +1964,26 @@ export async function atualizarStatusAgendamentoAction(
     }
   }
 
+  // Iniciar/finalizar com a busca do TaxiDog ainda a caminho: pergunta
+  // antes (o cliente pode ter trazido o pet por conta própria).
+  let aviso: string | undefined
+  if ((status === 'Em andamento' || status === 'Concluído') && opcoes?.taxidog !== 'ignorar') {
+    const busca = await buscaPendenteDaVisita(supabase, contexto.idLojista, id_agendamento)
+    if (busca) {
+      if (opcoes?.taxidog !== 'cliente_trouxe' || busca.emMovimento) {
+        return { taxidogPendente: { pet: busca.pet, modalidade: busca.modalidade, status: busca.status, emMovimento: busca.emMovimento } }
+      }
+      const r = await alterarTransporteAction(
+        id_agendamento,
+        busca.modalidade === 'buscar' ? null : { modalidade: 'entregar', endereco: busca.endereco },
+      )
+      if (r.error) return { error: r.error }
+      aviso = busca.modalidade === 'buscar'
+        ? 'Busca do TaxiDog cancelada — o cliente trouxe o pet.'
+        : 'Busca do TaxiDog retirada — fica só a entrega.'
+    }
+  }
+
   const updateData: Record<string, string> = { status }
   if (status === 'Cancelado') {
     updateData.cancelado_por = contexto.role === 'funcionario' ? 'funcionario' : 'lojista'
@@ -1917,7 +1998,7 @@ export async function atualizarStatusAgendamentoAction(
   if (error) return { error: devError('Erro ao atualizar status.', error.message) }
 
   revalidatePath('/lojista/agendamentos')
-  return { success: true }
+  return { success: true, aviso }
 }
 
 // Remarca o pedido (os serviços marcados juntos) para outra data/horário

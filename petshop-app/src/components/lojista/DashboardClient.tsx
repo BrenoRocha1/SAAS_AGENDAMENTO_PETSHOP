@@ -8,6 +8,8 @@ import { atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/l
 import { classeBadgeStatus, corSolidaStatus, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
 import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
+import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
+import type { TaxiDogPendente } from '@/lib/actions'
 import ResumoPlanosCard from '@/components/lojista/planos/ResumoPlanosCard'
 import type { ResumoPlanos } from '@/lib/planos'
 import { textoBloqueioNoDia, type BloqueioLoja } from '@/lib/bloqueios'
@@ -148,6 +150,9 @@ export default function DashboardClient({
   const [pendentes, setPendentes] = useState(pendentesIniciais)
   const [viewMode, setViewMode] = useState<'dia' | 'semana' | 'mes'>('dia')
   const [acaoErro, setAcaoErro] = useState<string | null>(null)
+  const [acaoAviso, setAcaoAviso] = useState<string | null>(null)
+  // Busca do TaxiDog ainda não chegou: a loja confirma antes de iniciar/finalizar.
+  const [confirmarBusca, setConfirmarBusca] = useState<{ id: string; novoStatus: 'Em andamento' | 'Concluído'; info: TaxiDogPendente } | null>(null)
 
   // Re-sincroniza quando a navegação de dia troca as props vindas do servidor.
   // Ajuste de estado durante a renderização (em vez de useEffect) — evita o
@@ -239,12 +244,19 @@ export default function DashboardClient({
   }
 
   // ── ações da agenda (aceitar / iniciar / finalizar / cancelar) ────
-  function mudarStatus(id: string, novoStatus: 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado') {
+  function mudarStatus(id: string, novoStatus: 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado', escolhaTaxiDog?: EscolhaBuscaTaxiDog) {
     setAcaoErro(null)
+    setAcaoAviso(null)
     startTransition(async () => {
       const result = novoStatus === 'Cancelado'
         ? await cancelarAgendamentoAction(id)
-        : await atualizarStatusAgendamentoAction(id, novoStatus)
+        : await atualizarStatusAgendamentoAction(id, novoStatus, escolhaTaxiDog ? { taxidog: escolhaTaxiDog } : undefined)
+
+      if (result && 'taxidogPendente' in result && result.taxidogPendente && (novoStatus === 'Em andamento' || novoStatus === 'Concluído')) {
+        setConfirmarBusca({ id, novoStatus, info: result.taxidogPendente })
+        return
+      }
+      if (result && 'aviso' in result && result.aviso) setAcaoAviso(result.aviso)
 
       if (result?.error) {
         setAcaoErro(result.error)
@@ -329,6 +341,13 @@ export default function DashboardClient({
           </button>
         </div>
       </div>
+
+      {acaoAviso && (
+        <div className="alert alert-success" style={{ marginBottom: 'var(--space-4)' }}>
+          <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+          <span>{acaoAviso}</span>
+        </div>
+      )}
 
       {acaoErro && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-6)' }}>
@@ -584,6 +603,18 @@ export default function DashboardClient({
       )}
 
       {remarcando && <RemarcarModal {...remarcando} onFechar={() => setRemarcando(null)} />}
+      {confirmarBusca && (
+        <ConfirmarBuscaTaxiDog
+          info={confirmarBusca.info}
+          novoStatus={confirmarBusca.novoStatus}
+          onFechar={() => setConfirmarBusca(null)}
+          onEscolher={escolha => {
+            const c = confirmarBusca
+            setConfirmarBusca(null)
+            mudarStatus(c.id, c.novoStatus, escolha)
+          }}
+        />
+      )}
     </>
   )
 }

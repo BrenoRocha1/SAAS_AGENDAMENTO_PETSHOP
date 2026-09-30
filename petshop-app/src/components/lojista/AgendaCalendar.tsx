@@ -41,6 +41,8 @@ import PagamentoAgendamento from '@/components/lojista/PagamentoAgendamento'
 import BeneficioAgendamento from '@/components/lojista/planos/BeneficioAgendamento'
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
 import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
+import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
+import type { TaxiDogPendente } from '@/lib/actions'
 import type { FormaPagamento } from '@/lib/pagamento'
 import { bloqueiosDoDia, type BloqueioLoja } from '@/lib/bloqueios'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
@@ -274,6 +276,9 @@ export default function AgendaCalendar({
   const selecionado = agendamentos.find(a => a.id_agendamento === selecionadoId) ?? null
   const [modalAberto, setModalAberto] = useState(!!clienteFixoInicial || !!funcionarioIdPadraoInicial)
   const [acaoErro, setAcaoErro] = useState<string | null>(null)
+  const [acaoAviso, setAcaoAviso] = useState<string | null>(null)
+  // Busca do TaxiDog ainda não chegou: a loja confirma antes de iniciar/finalizar.
+  const [confirmarBusca, setConfirmarBusca] = useState<{ id: string; novoStatus: 'Em andamento' | 'Concluído'; info: TaxiDogPendente } | null>(null)
 
   function irParaSemana(dataRef: Date) {
     const iso = format(startOfWeek(dataRef, { weekStartsOn: 0 }), 'yyyy-MM-dd')
@@ -301,17 +306,33 @@ export default function AgendaCalendar({
 
   const horas = Array.from({ length: horaFimGrade - horaInicioGrade + 1 }, (_, i) => horaInicioGrade + i)
 
-  function mudarStatus(id: string, novoStatus: 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado') {
+  function mudarStatus(id: string, novoStatus: 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado', escolhaTaxiDog?: EscolhaBuscaTaxiDog) {
     const atual = agendamentos.find(a => a.id_agendamento === id)
     if (!atual) return
     const statusAnterior = atual.status
     setAcaoErro(null)
+    setAcaoAviso(null)
     setAgendamentos(prev => prev.map(a => a.id_agendamento === id ? { ...a, status: novoStatus } : a))
     setSelecionadoId(null)
     startTransition(async () => {
-      const result = novoStatus === 'Cancelado'
-        ? await cancelarAgendamentoAction(id)
-        : await atualizarStatusAgendamentoAction(id, novoStatus)
+      if (novoStatus !== 'Cancelado') {
+        const r = await atualizarStatusAgendamentoAction(id, novoStatus, escolhaTaxiDog ? { taxidog: escolhaTaxiDog } : undefined)
+        if (r.taxidogPendente && novoStatus !== 'Confirmado') {
+          // Nada mudou no servidor: volta e pergunta.
+          setAgendamentos(prev => prev.map(a => a.id_agendamento === id ? { ...a, status: statusAnterior } : a))
+          setConfirmarBusca({ id, novoStatus, info: r.taxidogPendente })
+          return
+        }
+        if (r.error) {
+          setAcaoErro(r.error)
+          setAgendamentos(prev => prev.map(a => a.id_agendamento === id ? { ...a, status: statusAnterior } : a))
+          return
+        }
+        if (r.aviso) setAcaoAviso(r.aviso)
+        router.refresh()
+        return
+      }
+      const result = await cancelarAgendamentoAction(id)
       if (result?.error) {
         setAcaoErro(result.error)
         setAgendamentos(prev => prev.map(a => a.id_agendamento === id ? { ...a, status: statusAnterior } : a))
@@ -350,6 +371,13 @@ export default function AgendaCalendar({
           <IconPlus style={{ width: 16, height: 16 }} /> Criar agendamento
         </button>
       </div>
+
+      {acaoAviso && (
+        <div className="alert alert-success" style={{ marginBottom: 'var(--space-4)' }}>
+          <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+          <span>{acaoAviso}</span>
+        </div>
+      )}
 
       {acaoErro && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
@@ -671,6 +699,18 @@ export default function AgendaCalendar({
       )}
 
       {remarcando && <RemarcarModal {...remarcando} onFechar={() => setRemarcando(null)} />}
+      {confirmarBusca && (
+        <ConfirmarBuscaTaxiDog
+          info={confirmarBusca.info}
+          novoStatus={confirmarBusca.novoStatus}
+          onFechar={() => setConfirmarBusca(null)}
+          onEscolher={escolha => {
+            const c = confirmarBusca
+            setConfirmarBusca(null)
+            mudarStatus(c.id, c.novoStatus, escolha)
+          }}
+        />
+      )}
     </>
   )
 }
