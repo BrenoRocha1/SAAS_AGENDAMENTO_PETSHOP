@@ -1232,6 +1232,8 @@ a:hover { color: var(--primary-300); }
 .page-header { margin-bottom: var(--space-8); }
 .page-title { font-size: 1.875rem; margin-bottom: var(--space-1); }
 .page-subtitle { color: var(--gray-500); }
+/* E-mail ou nome muito longo (uma palavra só) quebra em vez de empurrar a página para o lado no celular. */
+.page-title, .page-subtitle { overflow-wrap: anywhere; }
 
 .text-sm   { font-size: 0.875rem; }
 .text-xs   { font-size: 0.75rem; }
