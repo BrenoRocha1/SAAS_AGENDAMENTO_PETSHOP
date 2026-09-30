@@ -12,6 +12,7 @@ import { CLASSE_STATUS_PAGAMENTO, ROTULO_STATUS_PAGAMENTO, ehStatusPagamento, ro
 import { PixDaLoja } from '@/components/cliente/PagamentoEtapa'
 import { IconAlert, IconCalendar, IconCar, IconChevronRight, IconMoney, IconPackage, IconPencil, IconStar, IconStore, IconTrash } from '@/components/icons'
 import AvaliacaoModal, { type AvaliacaoExistente } from './AvaliacaoModal'
+import { EditarModal } from '@/components/EditarAgendamento'
 import { Estrelas } from './Estrelas'
 
 type Status = 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
@@ -133,6 +134,8 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
   const [isPending, startTransition] = useTransition()
   const [avaliando, setAvaliando] = useState<AgendamentoCliente | null>(null)
   const [abertas, setAbertas] = useState<Set<string>>(new Set())
+  // Alterar serviço/pet: só enquanto a loja não aceitou (migration 070).
+  const [editando, setEditando] = useState<string | null>(null)
 
   const { proximas, historico } = useMemo(() => {
     const hoje = hojeBrasilISO()
@@ -190,6 +193,7 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
           const horarioAindaVem = ag.dt_agendamento > hojeBrasilISO()
             || (ag.dt_agendamento === hojeBrasilISO() && ag.hr_agendamento.slice(0, 5) > agoraBrasilHHMM())
           const podeCanc = ['Pendente', 'Confirmado'].includes(ag.status) && horarioAindaVem
+          const podeAlterar = ag.status === 'Pendente' && horarioAindaVem
           const cancelando = cancelId === ag.id_agendamento
           const avaliacao = avaliacoes[ag.id_agendamento]
           return (
@@ -226,6 +230,15 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
                     <IconStar style={{ width: 14, height: 14 }} /> Avaliar atendimento
                   </button>
                 )
+              )}
+
+              {podeAlterar && !cancelando && (
+                <button className="btn btn-ghost btn-sm agc-cancelar" onClick={() => setEditando(ag.id_agendamento)}>
+                  <IconPencil style={{ width: 13, height: 13 }} /> Alterar serviço ou pet
+                </button>
+              )}
+              {ag.status === 'Confirmado' && horarioAindaVem && !cancelando && (
+                <span className="text-xs text-muted">A loja já aceitou — para mudar o serviço ou o pet, fale com a loja.</span>
               )}
 
               {podeCanc && !cancelando && (
@@ -405,6 +418,7 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
           onClose={() => setAvaliando(null)}
         />
       )}
+      {editando && <EditarModal idAgendamento={editando} modo="cliente" onFechar={() => setEditando(null)} />}
     </>
   )
 }

@@ -41,6 +41,7 @@ import PagamentoAgendamento from '@/components/lojista/PagamentoAgendamento'
 import BeneficioAgendamento from '@/components/lojista/planos/BeneficioAgendamento'
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
 import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
+import { BotaoEditar, EditarModal } from '@/components/EditarAgendamento'
 import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
 import type { TaxiDogPendente } from '@/lib/actions'
 import type { FormaPagamento } from '@/lib/pagamento'
@@ -273,6 +274,8 @@ export default function AgendaCalendar({
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null)
   // Remarcar abre fora do detalhe (o item pode sair da semana).
   const [remarcando, setRemarcando] = useState<AlvoRemarcar | null>(null)
+  // Editar (trocar serviço/pet) também abre fora do detalhe.
+  const [editando, setEditando] = useState<string | null>(null)
   const selecionado = agendamentos.find(a => a.id_agendamento === selecionadoId) ?? null
   const [modalAberto, setModalAberto] = useState(!!clienteFixoInicial || !!funcionarioIdPadraoInicial)
   const [acaoErro, setAcaoErro] = useState<string | null>(null)
@@ -665,6 +668,12 @@ export default function AgendaCalendar({
                       setSelecionadoId(null)
                     }} />
                   )}
+                  {selecionado.status !== 'Em andamento' && (
+                    <BotaoEditar onClick={() => {
+                      setEditando(selecionado.id_agendamento)
+                      setSelecionadoId(null)
+                    }} />
+                  )}
                   <BotaoCancelarAgendamento
                     key={selecionado.id_agendamento}
                     disabled={isPending}
@@ -699,6 +708,7 @@ export default function AgendaCalendar({
       )}
 
       {remarcando && <RemarcarModal {...remarcando} onFechar={() => setRemarcando(null)} />}
+      {editando && <EditarModal idAgendamento={editando} modo="loja" onFechar={() => setEditando(null)} />}
       {confirmarBusca && (
         <ConfirmarBuscaTaxiDog
           info={confirmarBusca.info}

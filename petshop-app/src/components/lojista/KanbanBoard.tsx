@@ -8,6 +8,7 @@ import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAg
 import { classeBadgeStatus, ORDEM_ETAPA, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
 import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
+import { BotaoEditar, EditarModal } from '@/components/EditarAgendamento'
 import { useArrastarToque } from '@/components/lojista/useArrastarToque'
 import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
 import type { TaxiDogPendente } from '@/lib/actions'
@@ -247,6 +248,8 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null)
   // Remarcar abre fora do detalhe (o item pode sair do dia).
   const [remarcando, setRemarcando] = useState<AlvoRemarcar | null>(null)
+  // Editar (trocar serviço/pet) também abre fora do detalhe.
+  const [editando, setEditando] = useState<string | null>(null)
   const selecionado = itens.find(it => it.id_agendamento === selecionadoId) ?? null
   const [modalErro, setModalErro] = useState<string | null>(null)
 
@@ -573,6 +576,12 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                       setSelecionadoId(null)
                     }} />
                   )}
+                  {selecionado.status !== 'Em andamento' && (
+                    <BotaoEditar onClick={() => {
+                      setEditando(selecionado.id_agendamento)
+                      setSelecionadoId(null)
+                    }} />
+                  )}
                   <BotaoCancelarAgendamento key={selecionado.id_agendamento} disabled={isPending} onConfirmar={cancelarModal} />
                 </div>
               )}
@@ -587,6 +596,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
       )}
 
       {remarcando && <RemarcarModal {...remarcando} onFechar={() => setRemarcando(null)} />}
+      {editando && <EditarModal idAgendamento={editando} modo="loja" onFechar={() => setEditando(null)} />}
       {confirmarBusca && (
         <ConfirmarBuscaTaxiDog
           info={confirmarBusca.info}

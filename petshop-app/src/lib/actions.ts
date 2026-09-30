@@ -2059,6 +2059,78 @@ export async function remarcarAgendamentoAction(
   return { success: true, avisos: r?.avisos ?? [], whatsapp }
 }
 
+// Troca o serviço e/ou o pet (do mesmo cliente) — regras em
+// fn_editar_agendamento (migration 070): a loja altera Pendente ou Aceito;
+// o cliente, o próprio agendamento só enquanto Pendente. Para a loja,
+// devolve o link de WhatsApp pra avisar o cliente.
+export async function editarAgendamentoAction(
+  idAgendamento: string,
+  dados: { idServico: string | null; idPet: string | null; usarBeneficio: boolean },
+): Promise<{ error?: string; success?: boolean; valorAnterior?: number; valorNovo?: number; avisos?: string[]; whatsapp?: string | null }> {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!uuid.test(idAgendamento)) return { error: 'Agendamento inválido.' }
+  if (dados.idServico && !uuid.test(dados.idServico)) return { error: 'Serviço inválido.' }
+  if (dados.idPet && !uuid.test(dados.idPet)) return { error: 'Pet inválido.' }
+  if (!dados.idServico && !dados.idPet) return { error: 'Escolha outro serviço ou outro pet.' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const { data: res, error } = await supabase.rpc('fn_editar_agendamento', {
+    p_id_agendamento: idAgendamento,
+    p_id_servico: dados.idServico,
+    p_id_pet: dados.idPet,
+    p_usar_beneficio: dados.usarBeneficio,
+  })
+  if (error) {
+    if (error.code === 'PGRST202' || /Could not find the function|does not exist/i.test(error.message)) {
+      return { error: 'Para alterar o agendamento, execute a migration 070_editar_agendamento.sql.' }
+    }
+    const m = error.message.match(/Editar: ([^\n]+)/)
+    if (m) return { error: m[1].charAt(0).toUpperCase() + m[1].slice(1) + '.' }
+    return { error: mensagemErroBloqueio(error.message) ?? devError('Não foi possível alterar o agendamento.', error.message) }
+  }
+  const r = res as { valor_anterior: number; valor_novo: number; avisos?: string[] } | null
+
+  // Loja: mensagem pronta pro cliente (a loja decide se manda).
+  let whatsapp: string | null = null
+  const ehCliente = user.user_metadata?.role === 'cliente'
+  if (!ehCliente) {
+    const { data: ag } = await supabase
+      .from('agendamento')
+      .select('dt_agendamento, hr_agendamento, valor, cliente:id_cliente ( nome, telefone ), pet:id_pet ( nome ), servico:id_servico ( nome ), lojista:id_lojista ( nome_loja )')
+      .eq('id_agendamento', idAgendamento)
+      .maybeSingle()
+    const info = ag as unknown as {
+      dt_agendamento: string; hr_agendamento: string; valor: number
+      cliente: { nome: string; telefone: string } | null
+      pet: { nome: string } | null
+      servico: { nome: string } | null
+      lojista: { nome_loja: string } | null
+    } | null
+    const telefone = info?.cliente?.telefone?.replace(/\D/g, '')
+    if (info && telefone) {
+      const [ano, mes, dia] = info.dt_agendamento.split('-')
+      const origem = await obterOrigin()
+      const texto = `Olá, ${info.cliente?.nome?.split(' ')[0] ?? ''}! O agendamento de ${info.pet?.nome ?? 'seu pet'} na ${info.lojista?.nome_loja ?? 'loja'} em ${dia}/${mes}/${ano} às ${info.hr_agendamento.slice(0, 5)} foi alterado: ${info.servico?.nome ?? 'serviço'}, ${Number(info.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}. Acompanhe por aqui: ${origem}/acompanhar/${idAgendamento}`
+      whatsapp = `https://wa.me/55${telefone}?text=${encodeURIComponent(texto)}`
+    }
+  }
+
+  revalidatePath('/lojista/agendamentos')
+  revalidatePath('/lojista/kanban')
+  revalidatePath('/lojista/dashboard')
+  revalidatePath('/cliente/agendamentos')
+  return {
+    success: true,
+    valorAnterior: Number(r?.valor_anterior ?? 0),
+    valorNovo: Number(r?.valor_novo ?? 0),
+    avisos: r?.avisos ?? [],
+    whatsapp,
+  }
+}
+
 // Atribui (ou remove, se id_funcionario vier null) o profissional
 // responsável por um agendamento. Ver migration 012 — todo agendamento
 // nasce sem funcionário, mesmo os que o cliente cria sozinho; o

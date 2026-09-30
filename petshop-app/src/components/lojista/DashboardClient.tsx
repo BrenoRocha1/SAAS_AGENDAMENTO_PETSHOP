@@ -8,6 +8,7 @@ import { atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/l
 import { classeBadgeStatus, corSolidaStatus, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
 import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
+import { BotaoEditar, EditarModal } from '@/components/EditarAgendamento'
 import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
 import type { TaxiDogPendente } from '@/lib/actions'
 import ResumoPlanosCard from '@/components/lojista/planos/ResumoPlanosCard'
@@ -146,6 +147,8 @@ export default function DashboardClient({
   const [selecionado, setSelecionado] = useState<Selecionado>(null)
   // Remarcar abre fora do detalhe (o item pode sair do dia).
   const [remarcando, setRemarcando] = useState<AlvoRemarcar | null>(null)
+  // Editar (trocar serviço/pet) também abre fora do detalhe.
+  const [editando, setEditando] = useState<string | null>(null)
   const [agenda, setAgenda] = useState(agendaSelecionada)
   const [pendentes, setPendentes] = useState(pendentesIniciais)
   const [viewMode, setViewMode] = useState<'dia' | 'semana' | 'mes'>('dia')
@@ -555,6 +558,7 @@ export default function DashboardClient({
                 dataAgenda={selectedDate}
                 hojeISO={hojeISO}
                 onRemarcar={alvo => { setRemarcando(alvo); setSelecionado(null) }}
+                onEditar={id => { setEditando(id); setSelecionado(null) }}
               />
             )}
           </div>
@@ -603,6 +607,7 @@ export default function DashboardClient({
       )}
 
       {remarcando && <RemarcarModal {...remarcando} onFechar={() => setRemarcando(null)} />}
+      {editando && <EditarModal idAgendamento={editando} modo="loja" onFechar={() => setEditando(null)} />}
       {confirmarBusca && (
         <ConfirmarBuscaTaxiDog
           info={confirmarBusca.info}
@@ -626,6 +631,7 @@ function DetalheAgendamento({
   dataAgenda,
   hojeISO,
   onRemarcar,
+  onEditar,
 }: {
   selecionado: NonNullable<Selecionado>
   isPending: boolean
@@ -634,6 +640,7 @@ function DetalheAgendamento({
   dataAgenda: string
   hojeISO: string
   onRemarcar: (alvo: AlvoRemarcar) => void
+  onEditar: (id: string) => void
 }) {
   const isAgenda = selecionado.tipo === 'agenda'
   const item = selecionado.item
@@ -676,6 +683,7 @@ function DetalheAgendamento({
           {status !== 'Em andamento' && (
             <BotaoRemarcar onClick={() => onRemarcar({ idAgendamento: id, dataAtual: dataItem, horaAtual: item.hr_agendamento })} />
           )}
+          {status !== 'Em andamento' && <BotaoEditar onClick={() => onEditar(id)} />}
           <BotaoCancelarAgendamento key={id} disabled={isPending} onConfirmar={() => onMudarStatus(id, 'Cancelado')} />
         </div>
       )}
