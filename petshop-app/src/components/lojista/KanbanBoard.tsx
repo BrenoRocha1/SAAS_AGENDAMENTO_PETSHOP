@@ -8,6 +8,7 @@ import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAg
 import { classeBadgeStatus, ORDEM_ETAPA, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
 import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
+import { useArrastarToque } from '@/components/lojista/useArrastarToque'
 import { rotuloEstoque } from '@/lib/produto'
 import { formatarReais } from '@/lib/taxidog'
 import type { TransporteVisita } from '@/lib/taxidog-visita'
@@ -80,6 +81,10 @@ const COLUNAS: { status: KanbanItem['status']; titulo: string; borda: string }[]
   { status: 'Em andamento', titulo: 'Em Andamento', borda: 'var(--status-andamento-solid)' },
   { status: 'Concluído', titulo: 'Finalizado', borda: 'var(--status-concluido-solid)' },
 ]
+
+function ehColuna(v: string | null): v is KanbanItem['status'] {
+  return COLUNAS.some(c => c.status === v)
+}
 
 function parseDia(iso: string) {
   return parseISO(`${iso}T12:00:00`)
@@ -155,6 +160,9 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
   const [colunaAlvo, setColunaAlvo] = useState<KanbanItem['status'] | null>(null)
 
   function handleDragStart(e: React.DragEvent, item: KanbanItem) {
+    // No toque quem arrasta é useArrastarToque (abaixo) — não deixa o
+    // arrastar nativo começar junto.
+    if (toque.emAndamento()) { e.preventDefault(); return }
     setDraggingId(item.id_agendamento)
     e.dataTransfer.setData('text/plain', item.id_agendamento)
     e.dataTransfer.effectAllowed = 'move'
@@ -200,6 +208,27 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
   // ainda emitem um clique residual logo após soltar um drag, então essa
   // ref marca "acabei de arrastar" por um instante pra ignorar esse clique.
   const acabouDeArrastarRef = useRef(false)
+
+  // ── Arrastar com o dedo (celular/tablet): segurar o card e arrastar ──
+  // O arrastar nativo acima só funciona com mouse. Mesmas regras: a
+  // coluna só acende se for uma etapa à frente; soltar usa moverParaStatus.
+  const toque = useArrastarToque({
+    aoIniciar: id => { setDraggingId(id); setErro(null) },
+    aoMudarAlvo: (id, alvo) => {
+      const item = itens.find(it => it.id_agendamento === id)
+      setColunaAlvo(item && ehColuna(alvo) && ORDEM_ETAPA[alvo] > ORDEM_ETAPA[item.status] ? alvo : null)
+    },
+    aoSoltar: (id, alvo) => {
+      const item = itens.find(it => it.id_agendamento === id)
+      if (item && ehColuna(alvo)) moverParaStatus(item, alvo)
+    },
+    aoEncerrar: () => {
+      setDraggingId(null)
+      setColunaAlvo(null)
+      acabouDeArrastarRef.current = true
+      setTimeout(() => { acabouDeArrastarRef.current = false }, 0)
+    },
+  })
   // Guarda só o id: o detalhe acompanha os dados novos do servidor
   // (atualização ao vivo, troca de transporte...).
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null)
@@ -310,6 +339,8 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
         </div>
       )}
 
+      <p className="kanban-dica-toque text-xs text-muted">Segure um card e arraste até a etapa seguinte.</p>
+
       {itens.length === 0 ? (
         <div className="empty-state card">
           <IconCalendar style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
@@ -321,7 +352,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
           {COLUNAS.map(coluna => {
             const itensDaColuna = itensFiltrados.filter(it => it.status === coluna.status)
             return (
-              <div key={coluna.status} className="kanban-column">
+              <div key={coluna.status} className="kanban-column" data-alvo-toque={coluna.status}>
                 <div className="kanban-column-header" style={{ borderTopColor: coluna.borda }}>
                   <span>{coluna.titulo}</span>
                   <span className={`badge ${classeBadgeStatus(coluna.status)}`}>{itensDaColuna.length}</span>
@@ -340,12 +371,15 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                   ) : (
                     itensDaColuna.map(item => {
                       const pet = descricaoPet(item)
+                      const podeArrastar = item.status !== 'Concluído' && !(isPending && pendingId === item.id_agendamento)
                       return (
                         <div
                           key={item.id_agendamento}
                           className={`kanban-card ${draggingId === item.id_agendamento ? 'is-dragging' : ''}`}
-                          draggable={item.status !== 'Concluído' && !(isPending && pendingId === item.id_agendamento)}
+                          draggable={podeArrastar}
                           onDragStart={e => handleDragStart(e, item)}
+                          onTouchStart={podeArrastar ? e => toque.iniciar(e, item.id_agendamento) : undefined}
+                          onContextMenu={e => { if (toque.emAndamento()) e.preventDefault() }}
                           onDragEnd={handleDragEnd}
                           onClick={() => handleCardClick(item)}
                           role="button"
@@ -361,7 +395,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                             <div className="pet-avatar">
                               {item.foto_pet ? (
                                 // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
-                                <img src={item.foto_pet} alt={item.nome_pet} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <img src={item.foto_pet} alt={item.nome_pet} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               ) : (
                                 <IconDog style={{ width: 14, height: 14, color: 'var(--gray-500)' }} />
                               )}

@@ -1879,6 +1879,18 @@ a:hover { color: var(--primary-300); }
 .kanban-card:hover { border-color: var(--gray-700); }
 .kanban-card:active { cursor: grabbing; }
 .kanban-card.is-dragging { opacity: 0.4; }
+/* Toque longo no card não abre menu/lupa do sistema nem arrasta a foto. */
+.kanban-card { -webkit-touch-callout: none; }
+.kanban-card img { -webkit-user-drag: none; pointer-events: none; }
+/* Cópia do card que segue o dedo (useArrastarToque). */
+.arrastar-toque-fantasma {
+  position: fixed; left: 0; top: 0; margin: 0; z-index: 1000; pointer-events: none;
+  opacity: 0.95; border-color: var(--primary-500) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+/* Dica só em tela de toque. */
+.kanban-dica-toque { display: none; margin: 0 0 var(--space-3); }
+@media (pointer: coarse) { .kanban-dica-toque { display: block; } }
 
 .kanban-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); }
 .kanban-card-time { font-weight: 700; color: var(--gray-100); font-size: 0.875rem; }
