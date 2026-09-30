@@ -3368,3 +3368,48 @@ export async function editarAvaliacaoAction(id_avaliacao: string, formData: Form
   revalidatePath('/cliente/agendamentos')
   return { success: true }
 }
+
+// ============================================================
+// LGPD — o cliente exclui a própria conta (migration 072)
+// ============================================================
+// O banco (fn_excluir_minha_conta + trigger de exclusão do cliente) cancela
+// o que estava marcado, apaga cadastro, pets e avaliações e limpa o que é
+// pessoal nos registros que ficam com a loja. Aqui: fotos dos pets e o
+// login (auth.users, só com a chave de serviço). A chave é conferida ANTES
+// de apagar qualquer coisa, pra não sobrar login sem cadastro.
+export async function excluirMinhaContaAction(confirmacao: string): Promise<{ error?: string }> {
+  if ((confirmacao ?? '').trim().toUpperCase() !== 'EXCLUIR') {
+    return { error: 'Digite EXCLUIR para confirmar.' }
+  }
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const admin = createAdminClient()
+  if (!admin) return { error: 'A exclusão de conta está indisponível agora. Tente mais tarde ou fale com a loja.' }
+
+  const { error } = await supabase.rpc('fn_excluir_minha_conta')
+  if (error) {
+    if (error.code === 'PGRST202' || /Could not find the function|does not exist/i.test(error.message)) {
+      return { error: 'Para excluir a conta, execute a migration 072_lgpd_excluir_conta.sql.' }
+    }
+    const m = error.message.match(/Excluir: ([^\n]+)/)
+    if (m) return { error: m[1].charAt(0).toUpperCase() + m[1].slice(1) + '.' }
+    return { error: devError('Não foi possível excluir a conta.', error.message) }
+  }
+
+  // Fotos dos pets: a pasta do cliente no Storage.
+  const { data: fotos } = await admin.storage.from(PET_FOTO_BUCKET).list(user.id)
+  if (fotos && fotos.length > 0) {
+    await admin.storage.from(PET_FOTO_BUCKET).remove(fotos.map(f => `${user.id}/${f.name}`))
+  }
+
+  // Login. O cadastro já saiu; se isto falhar, fica registrado no servidor
+  // (o acesso não tem mais dado nenhum e é removido pelo suporte).
+  const { error: erroLogin } = await admin.auth.admin.deleteUser(user.id)
+  if (erroLogin) console.error('[excluirMinhaContaAction] cadastro apagado, login não:', erroLogin.message)
+
+  await supabase.auth.signOut()
+  revalidatePath('/', 'layout')
+  redirect('/login?conta=excluida')
+}

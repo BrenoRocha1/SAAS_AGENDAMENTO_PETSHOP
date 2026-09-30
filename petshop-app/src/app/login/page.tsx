@@ -272,6 +272,8 @@ function LoginFormPane() {
   const [perfil, setPerfil] = useState<Perfil>('cliente')
 
   const redirectTo = searchParams.get('redirectTo')
+  // Vindo de "Excluir minha conta" (LGPD, migration 072).
+  const contaExcluida = searchParams.get('conta') === 'excluida'
   const oauthError = searchParams.get('error')
   const errorDetail = searchParams.get('error_detail')
     ? decodeURIComponent(searchParams.get('error_detail')!)
@@ -340,6 +342,11 @@ function LoginFormPane() {
       {/* Toggle de perfil */}
       <PerfilToggle perfil={perfil} onChange={(p) => { setPerfil(p); setError(null) }} />
 
+      {contaExcluida && !message && (
+        <div className="alert alert-success" role="status" style={{ marginBottom: 'var(--space-4)' }}>
+          <span>Sua conta foi excluída e seus dados pessoais foram apagados.</span>
+        </div>
+      )}
       {message && <ErrorBanner message={message} />}
 
       <form className="login-form" onSubmit={handleSubmit} noValidate>

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import PerfilClienteForm from '@/components/cliente/PerfilClienteForm'
+import ExcluirContaCliente from '@/components/cliente/ExcluirContaCliente'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Meu Perfil' }
@@ -22,6 +23,7 @@ export default async function PerfilClientePage() {
       </div>
 
       {cliente && <PerfilClienteForm cliente={cliente} />}
+      {cliente && <ExcluirContaCliente />}
     </>
   )
 }
