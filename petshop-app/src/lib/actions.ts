@@ -2032,6 +2032,14 @@ export async function remarcarAgendamentoAction(
     return { error: mensagemErroBloqueio(error.message) ?? error.message }
   }
 
+  // Cliente remarcou o próprio (Pendente, migration 071): sem WhatsApp e
+  // sem os avisos da loja (TaxiDog/plano são para a equipe).
+  if (user.user_metadata?.role === 'cliente') {
+    revalidatePath('/cliente/agendamentos')
+    revalidatePath('/lojista/kanban')
+    return { success: true, avisos: [], whatsapp: null }
+  }
+
   // Mensagem pronta pro cliente (a loja decide se manda).
   let whatsapp: string | null = null
   const { data: ag } = await supabase

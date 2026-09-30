@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { remarcarAgendamentoAction } from '@/lib/actions'
 import { hojeBrasilISO } from '@/lib/agenda'
-import { fechadoODiaTodo, textoBloqueioNoDia } from '@/lib/bloqueios'
+import { fechadoODiaTodo, somarDiasISO, textoBloqueioNoDia } from '@/lib/bloqueios'
 import { useBloqueiosDoDia } from './useBloqueiosDoDia'
 import { IconAlert, IconCalendar, IconCheck, IconClose, IconWhatsapp } from '@/components/icons'
 
@@ -28,11 +28,14 @@ export function BotaoRemarcar({ onClick }: { onClick: () => void }) {
 
 // Nova data, horários livres pro pedido inteiro (fn_horarios_remarcar,
 // migration 064) e motivo. No body (portal), por cima de tudo.
-export function RemarcarModal(props: AlvoRemarcar & { onFechar: () => void }) {
+// modo 'cliente': o próprio agendamento enquanto Pendente (migration 071),
+// dentro da janela do agendamento online; sem WhatsApp.
+export function RemarcarModal(props: AlvoRemarcar & { onFechar: () => void; modo?: 'loja' | 'cliente' }) {
   return createPortal(<RemarcarConteudo {...props} />, document.body)
 }
 
-function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar }: AlvoRemarcar & { onFechar: () => void }) {
+function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar, modo = 'loja' }: AlvoRemarcar & { onFechar: () => void; modo?: 'loja' | 'cliente' }) {
+  const cliente = modo === 'cliente'
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
   const hoje = hojeBrasilISO()
@@ -63,10 +66,21 @@ function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar }: Alv
 
   // Loja fechada no dia escolhido (migration 066) — explica a falta de horário.
   const [idLojista, setIdLojista] = useState<string | null>(null)
+  // Cliente: última data que a loja aceita no agendamento online.
+  const [dataMax, setDataMax] = useState<string | undefined>(undefined)
   useEffect(() => {
     supabase.from('agendamento').select('id_lojista').eq('id_agendamento', idAgendamento).maybeSingle()
-      .then(({ data: ag }) => setIdLojista(ag?.id_lojista ?? null))
-  }, [idAgendamento, supabase])
+      .then(({ data: ag }) => {
+        setIdLojista(ag?.id_lojista ?? null)
+        if (!cliente || !ag?.id_lojista) return
+        supabase.from('lojista').select('agendamento_max_valor, agendamento_max_unidade').eq('id_lojista', ag.id_lojista).maybeSingle()
+          .then(({ data: lj }) => {
+            if (!lj?.agendamento_max_valor) return
+            const dias = lj.agendamento_max_unidade === 'dias' ? lj.agendamento_max_valor : Math.ceil(lj.agendamento_max_valor / 24)
+            setDataMax(somarDiasISO(hojeBrasilISO(), dias))
+          })
+      })
+  }, [idAgendamento, supabase, cliente])
   const bloqueiosDia = useBloqueiosDoDia(idLojista, data) ?? []
   const diaFechado = fechadoODiaTodo(bloqueiosDia, data)
 
@@ -101,7 +115,7 @@ function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar }: Alv
             <div className="modal-body">
               <div className="alert alert-success">
                 <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-                <span>Remarcado para {dia}/{mes}/{ano} às {hora}.</span>
+                <span>Remarcado para {dia}/{mes}/{ano} às {hora}.{cliente && ' A loja vê a nova data no seu pedido.'}</span>
               </div>
               {resultado.avisos.map((a, i) => (
                 <div key={i} className="alert alert-info" style={{ marginTop: 'var(--space-2)' }}>
@@ -127,7 +141,10 @@ function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar }: Alv
                 </div>
               )}
               <p className="text-sm text-muted" style={{ marginTop: 0 }}>
-                Marcado para {dataAtual.split('-').reverse().join('/')} às {horaAtual.slice(0, 5)}. Se o cliente marcou mais de um serviço juntos, todos mudam juntos, na mesma ordem.
+                Marcado para {dataAtual.split('-').reverse().join('/')} às {horaAtual.slice(0, 5)}.{' '}
+                {cliente
+                  ? 'Se você marcou mais de um serviço juntos, todos mudam juntos, na mesma ordem.'
+                  : 'Se o cliente marcou mais de um serviço juntos, todos mudam juntos, na mesma ordem.'}
               </p>
               <div className="form-group">
                 <label htmlFor="remarcar-data" className="form-label form-label-required">Nova data</label>
@@ -136,6 +153,7 @@ function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar }: Alv
                   type="date"
                   className="form-input"
                   min={hoje}
+                  max={dataMax}
                   value={data}
                   onChange={e => { setData(e.target.value); setHora('') }}
                 />
@@ -149,7 +167,9 @@ function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar }: Alv
                 ) : diaFechado ? (
                   <p className="text-sm text-warning" style={{ margin: 0 }}>Loja fechada neste dia ({diaFechado.motivo}). Escolha outra data.</p>
                 ) : slots.slots.length === 0 ? (
-                  <p className="text-sm text-muted" style={{ margin: 0 }}>A loja não tem horário nesse dia. Escolha outra data.</p>
+                  <p className="text-sm text-muted" style={{ margin: 0 }}>
+                    {cliente ? 'Sem horário livre nesse dia. Escolha outra data.' : 'A loja não tem horário nesse dia. Escolha outra data.'}
+                  </p>
                 ) : (
                   <>
                   {bloqueiosDia.map(b => (

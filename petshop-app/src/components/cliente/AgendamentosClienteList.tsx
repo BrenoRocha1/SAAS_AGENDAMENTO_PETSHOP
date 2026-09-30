@@ -13,6 +13,7 @@ import { PixDaLoja } from '@/components/cliente/PagamentoEtapa'
 import { IconAlert, IconCalendar, IconCar, IconChevronRight, IconMoney, IconPackage, IconPencil, IconStar, IconStore, IconTrash } from '@/components/icons'
 import AvaliacaoModal, { type AvaliacaoExistente } from './AvaliacaoModal'
 import { EditarModal } from '@/components/EditarAgendamento'
+import { RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
 import { Estrelas } from './Estrelas'
 
 type Status = 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
@@ -136,6 +137,8 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
   const [abertas, setAbertas] = useState<Set<string>>(new Set())
   // Alterar serviço/pet: só enquanto a loja não aceitou (migration 070).
   const [editando, setEditando] = useState<string | null>(null)
+  // Remarcar data/horário: também só enquanto Pendente (migration 071).
+  const [remarcando, setRemarcando] = useState<AlvoRemarcar | null>(null)
 
   const { proximas, historico } = useMemo(() => {
     const hoje = hojeBrasilISO()
@@ -233,12 +236,20 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
               )}
 
               {podeAlterar && !cancelando && (
+                <button
+                  className="btn btn-ghost btn-sm agc-cancelar"
+                  onClick={() => setRemarcando({ idAgendamento: ag.id_agendamento, dataAtual: ag.dt_agendamento, horaAtual: ag.hr_agendamento })}
+                >
+                  <IconCalendar style={{ width: 13, height: 13 }} /> Remarcar data ou horário
+                </button>
+              )}
+              {podeAlterar && !cancelando && (
                 <button className="btn btn-ghost btn-sm agc-cancelar" onClick={() => setEditando(ag.id_agendamento)}>
                   <IconPencil style={{ width: 13, height: 13 }} /> Alterar serviço ou pet
                 </button>
               )}
               {ag.status === 'Confirmado' && horarioAindaVem && !cancelando && (
-                <span className="text-xs text-muted">A loja já aceitou — para mudar o serviço ou o pet, fale com a loja.</span>
+                <span className="text-xs text-muted">A loja já aceitou — para mudar a data, o serviço ou o pet, fale com a loja.</span>
               )}
 
               {podeCanc && !cancelando && (
@@ -419,6 +430,7 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
         />
       )}
       {editando && <EditarModal idAgendamento={editando} modo="cliente" onFechar={() => setEditando(null)} />}
+      {remarcando && <RemarcarModal {...remarcando} modo="cliente" onFechar={() => setRemarcando(null)} />}
     </>
   )
 }
