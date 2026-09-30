@@ -23,12 +23,14 @@ import { IconAlert, IconCar } from '@/components/icons'
 
 const EM_MOVIMENTO = ['pet_embarcado', 'a_caminho_entrega', 'no_endereco_entrega']
 
-export default function TransporteAgendamento({ idAgendamento, idCliente, statusAgendamento, transporte, podeAlterar }: {
+export default function TransporteAgendamento({ idAgendamento, idCliente, statusAgendamento, transporte, podeAlterar, origemVisita = null }: {
   idAgendamento: string
   idCliente: string | null
   statusAgendamento: string
   transporte: TransporteVisita | null
   podeAlterar: boolean
+  // TaxiDog pedido em outro agendamento do pet no dia: "Banho Normal às 10:00".
+  origemVisita?: string | null
 }) {
   const router = useRouter()
   const [editando, setEditando] = useState(false)
@@ -81,6 +83,9 @@ export default function TransporteAgendamento({ idAgendamento, idCliente, status
   }
 
   const encerrado = statusAgendamento === 'Cancelado'
+  // Um TaxiDog por visita (mesmo pet, mesmo dia): aqui ele pode ter sido
+  // pedido em outro agendamento — é o mesmo transporte, e a taxa está lá.
+  const daVisita = !!transporte && transporte.id_agendamento !== idAgendamento
 
   return (
     <div className="transporte-bloco">
@@ -98,10 +103,15 @@ export default function TransporteAgendamento({ idAgendamento, idCliente, status
       {transporte ? (
         <div className="text-sm" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <div className="flex justify-between gap-2">
-            <span>TaxiDog · {ROTULO_MODALIDADE[transporte.modalidade]}</span>
-            <span className="font-semibold text-success">{formatarReais(transporte.valor)}</span>
+            <span>{daVisita ? 'TaxiDog da visita' : 'TaxiDog'} · {ROTULO_MODALIDADE[transporte.modalidade]}</span>
+            <span className={daVisita ? 'text-muted' : 'font-semibold text-success'}>{formatarReais(transporte.valor)}</span>
           </div>
           <span className="text-xs text-muted">{rotuloTransporte(transporte)} · {enderecoEmUmaLinha(transporte.endereco)}</span>
+          {daVisita && (
+            <span className="text-xs" style={{ color: 'var(--info-400)' }}>
+              Pedido no agendamento {origemVisita ? `de ${origemVisita}` : 'de outro serviço do pet neste dia'} — é o mesmo transporte (um TaxiDog por visita), e a taxa está nele.
+            </span>
+          )}
         </div>
       ) : (
         <span className="text-sm text-muted">Sem TaxiDog — o cliente leva e busca o pet.</span>

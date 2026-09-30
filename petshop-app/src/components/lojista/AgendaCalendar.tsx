@@ -35,7 +35,7 @@ import { classeBadgeStatus, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from
 import { hojeBrasilISO } from '@/lib/agenda'
 import NovoAgendamentoModal from './NovoAgendamentoModal'
 import { ROTULO_MODALIDADE, formatarReais, type ModalidadeTaxiDog } from '@/lib/taxidog'
-import type { TransporteVisita } from '@/lib/taxidog-visita'
+import { origemTaxiDogDaVisita, type TransporteVisita } from '@/lib/taxidog-visita'
 import TransporteAgendamento from '@/components/lojista/TransporteAgendamento'
 import PagamentoAgendamento from '@/components/lojista/PagamentoAgendamento'
 import BeneficioAgendamento from '@/components/lojista/planos/BeneficioAgendamento'
@@ -209,13 +209,18 @@ const ROTULO_ORIGEM: Record<'loja' | 'online', string> = {
 }
 
 // Ícones do bloco da agenda: de onde veio o pedido e se tem TaxiDog.
-function IconesAgendamento({ origem, taxidog }: { origem: 'loja' | 'online' | null; taxidog: ModalidadeTaxiDog | null }) {
+// TaxiDog pedido em outro agendamento do pet no dia: carro apagado.
+function IconesAgendamento({ origem, taxidog, taxidogDeOutro }: {
+  origem: 'loja' | 'online' | null
+  taxidog: ModalidadeTaxiDog | null
+  taxidogDeOutro: boolean
+}) {
   if (!origem && !taxidog) return null
   return (
     <span className="cal-event-icones" aria-hidden="true">
       {origem === 'loja' && <IconStore />}
       {origem === 'online' && <IconLink />}
-      {taxidog && <IconCar />}
+      {taxidog && <IconCar className={taxidogDeOutro ? 'is-da-visita' : undefined} />}
     </span>
   )
 }
@@ -393,6 +398,7 @@ export default function AgendaCalendar({
             <div className="cal-legenda-item"><IconStore style={{ width: 14, height: 14 }} /> Lançado pela loja</div>
             <div className="cal-legenda-item"><IconLink style={{ width: 14, height: 14 }} /> Agendamento online</div>
             <div className="cal-legenda-item"><IconCar style={{ width: 14, height: 14 }} /> Com TaxiDog</div>
+            <div className="cal-legenda-item"><IconCar className="is-da-visita" style={{ width: 14, height: 14 }} /> TaxiDog pedido em outro serviço do pet no dia</div>
           </div>
 
           {funcionarios.length > 0 && (
@@ -491,6 +497,7 @@ export default function AgendaCalendar({
                     })}
                     {posicionados.map(ev => {
                       const cor = corDoFuncionario(ev.id_funcionario, funcionarios)
+                      const visita = origemTaxiDogDaVisita(ev.id_agendamento, ev.taxidog, agendamentos)
                       const largura = 100 / ev.totalLanes
                       return (
                         <button
@@ -510,12 +517,16 @@ export default function AgendaCalendar({
                           title={[
                             `${ev.hr_agendamento.slice(0, 5)} · ${ev.nome_pet} · ${ev.nome_servico}`,
                             ev.origem ? ROTULO_ORIGEM[ev.origem] : null,
-                            ev.taxidog ? `TaxiDog: ${ROTULO_MODALIDADE[ev.taxidog.modalidade]}` : null,
+                            ev.taxidog
+                              ? visita.deOutro
+                                ? `TaxiDog da visita (pedido no agendamento ${visita.descricao ? `de ${visita.descricao}` : 'de outro serviço do pet'})`
+                                : `TaxiDog: ${ROTULO_MODALIDADE[ev.taxidog.modalidade]}`
+                              : null,
                           ].filter(Boolean).join(' · ')}
                         >
                           <div className="cal-event-time">
                             {ev.hr_agendamento.slice(0, 5)}
-                            <IconesAgendamento origem={ev.origem} taxidog={ev.taxidog?.modalidade ?? null} />
+                            <IconesAgendamento origem={ev.origem} taxidog={ev.taxidog?.modalidade ?? null} taxidogDeOutro={visita.deOutro} />
                           </div>
                           <div className="cal-event-title">{ev.nome_pet} · {ev.nome_servico}</div>
                         </button>
@@ -562,6 +573,7 @@ export default function AgendaCalendar({
                   statusAgendamento={selecionado.status}
                   transporte={selecionado.taxidog}
                   podeAlterar
+                  origemVisita={origemTaxiDogDaVisita(selecionado.id_agendamento, selecionado.taxidog, agendamentos).descricao}
                 />
               )}
               <BeneficioAgendamento idAgendamento={selecionado.id_agendamento} status={selecionado.status} />

@@ -1775,6 +1775,8 @@ a:hover { color: var(--primary-300); }
 /* Ícones de origem/TaxiDog no bloco da agenda (fundo colorido, texto branco). */
 .cal-event-icones { display: inline-flex; gap: 3px; margin-left: auto; }
 .cal-event-icones svg { width: 11px; height: 11px; }
+/* TaxiDog pedido em outro agendamento do pet no dia (um TaxiDog por visita). */
+svg.is-da-visita { opacity: 0.45; }
 .cal-legenda { margin-bottom: var(--space-4); }
 .cal-legenda-item { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) 0; font-size: 0.8125rem; color: var(--gray-300); }
 .cal-legenda-item svg { color: var(--gray-500); flex-shrink: 0; }

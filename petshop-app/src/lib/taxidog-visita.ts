@@ -31,6 +31,19 @@ export interface TransporteVisita {
 
 export const chaveVisita = (idPet: string, data: string) => `${idPet}|${data}`
 
+// O TaxiDog vale para a visita, mas foi pedido em UM agendamento (onde está
+// a taxa). Nos outros agendamentos do pet no dia a tela diz de onde ele vem:
+// "Banho Normal às 10:00". null = é deste agendamento (ou não há TaxiDog).
+export function origemTaxiDogDaVisita(
+  idAgendamento: string,
+  transporte: TransporteVisita | null,
+  daTela: { id_agendamento: string; hr_agendamento: string; nome_servico: string }[],
+): { deOutro: boolean; descricao: string | null } {
+  if (!transporte || transporte.id_agendamento === idAgendamento) return { deOutro: false, descricao: null }
+  const dono = daTela.find(a => a.id_agendamento === transporte.id_agendamento)
+  return { deOutro: true, descricao: dono ? `${dono.nome_servico} às ${dono.hr_agendamento.slice(0, 5)}` : null }
+}
+
 type AgendamentoVisita = { id_agendamento: string; id_pet: string; dt_agendamento: string }
 
 // Devolve a função que acha o transporte de um agendamento.

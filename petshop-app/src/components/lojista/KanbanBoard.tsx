@@ -11,7 +11,7 @@ import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lo
 import { useArrastarToque } from '@/components/lojista/useArrastarToque'
 import { rotuloEstoque } from '@/lib/produto'
 import { formatarReais } from '@/lib/taxidog'
-import type { TransporteVisita } from '@/lib/taxidog-visita'
+import { origemTaxiDogDaVisita, type TransporteVisita } from '@/lib/taxidog-visita'
 import TransporteAgendamento from '@/components/lojista/TransporteAgendamento'
 import PagamentoAgendamento from '@/components/lojista/PagamentoAgendamento'
 import BeneficioAgendamento from '@/components/lojista/planos/BeneficioAgendamento'
@@ -479,6 +479,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                   statusAgendamento={selecionado.status}
                   transporte={selecionado.taxidog}
                   podeAlterar
+                  origemVisita={origemTaxiDogDaVisita(selecionado.id_agendamento, selecionado.taxidog, itens).descricao}
                 />
               )}
               <BeneficioAgendamento idAgendamento={selecionado.id_agendamento} status={selecionado.status} />
