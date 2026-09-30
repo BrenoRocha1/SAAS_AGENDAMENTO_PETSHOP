@@ -9,6 +9,7 @@ import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/Dashboar
 import { IconCalendar } from '@/components/icons'
 import { carregarTransportePorVisita } from '@/lib/taxidog-visita'
 import { carregarPagamentos } from '@/lib/pagamento-servidor'
+import { idsAlteradosPeloCliente } from '@/lib/alteracoes-servidor'
 import { normalizarBloqueios } from '@/lib/bloqueios'
 
 export const metadata: Metadata = { title: 'Agendamentos' }
@@ -135,6 +136,8 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
   const origemPorAgendamento = new Map(
     ((origensRaw ?? []) as { id_agendamento: string; origem: 'loja' | 'online' | null }[]).map(o => [o.id_agendamento, o.origem])
   )
+  // Pedido mexido pelo cliente (serviço, pet ou data — migrations 070/071).
+  const alteradosPeloCliente = await idsAlteradosPeloCliente(supabase, linhasAgenda)
   const agendamentos: AgendamentoCalendario[] = linhasAgenda.map(a => ({
     id_agendamento: a.id_agendamento,
     dt_agendamento: a.dt_agendamento,
@@ -153,6 +156,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     taxidog: transporteDe(a),
     forma_pagamento: pagamentos.porAgendamento.get(a.id_agendamento)?.forma ?? null,
     status_pagamento: pagamentos.porAgendamento.get(a.id_agendamento)?.status ?? null,
+    alterado_cliente: alteradosPeloCliente.has(a.id_agendamento),
   }))
 
   const funcionarios: FuncionarioFiltro[] = (funcionariosRaw ?? []) as FuncionarioFiltro[]

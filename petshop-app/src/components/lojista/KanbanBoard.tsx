@@ -10,6 +10,7 @@ import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendame
 import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
 import { BotaoEditar, EditarModal } from '@/components/EditarAgendamento'
 import { useArrastarToque } from '@/components/lojista/useArrastarToque'
+import HistoricoAlteracoes from '@/components/lojista/HistoricoAlteracoes'
 import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
 import type { TaxiDogPendente } from '@/lib/actions'
 import { rotuloEstoque } from '@/lib/produto'
@@ -61,6 +62,8 @@ export interface KanbanItem {
   // Pagamento do pedido (migration 057) — null em agendamento antigo.
   forma_pagamento: string | null
   status_pagamento: string | null
+  // O cliente trocou serviço/pet ou remarcou (migrations 070/071).
+  alterado_cliente: boolean
 }
 
 interface Props {
@@ -431,6 +434,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
 
                           <div className="kanban-card-line">{item.nome_cliente}</div>
                           <div className="kanban-card-line text-muted">{item.nome_servico}</div>
+                          {item.alterado_cliente && item.status === 'Pendente' && <span className="tag-alterado-cliente">Alterado pelo cliente</span>}
 
                           <div className="kanban-card-prof">
                             <IconUserBadge style={{ width: 13, height: 13 }} />
@@ -513,6 +517,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
                 formasAceitas={formasPagamento}
                 podeAlterar
               />
+              <HistoricoAlteracoes key={`${selecionado.id_agendamento}:${selecionado.dt_agendamento}:${selecionado.hr_agendamento}:${selecionado.nome_servico}:${selecionado.nome_pet}`} idAgendamento={selecionado.id_agendamento} />
               <div className="dash-detail-row"><span>Data</span><span>{format(parseDia(selecionado.dt_agendamento), 'dd/MM/yyyy')}</span></div>
               <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>
               <div className="dash-detail-row">

@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import { format } from 'date-fns'
 import { agoraBrasil } from '@/lib/agenda'
 import { normalizarBloqueios } from '@/lib/bloqueios'
+import { idsAlteradosPeloCliente } from '@/lib/alteracoes-servidor'
 import DashboardClient, { type AgendaItem, type ClienteComPets, type PendenteItem, type ServicoAtivo } from '@/components/lojista/DashboardClient'
 
 export const metadata: Metadata = { title: 'Dashboard — Lojista' }
@@ -59,7 +60,7 @@ export default async function LojistaDashboard({ searchParams }: Props) {
     supabase
       .from('agendamento')
       .select(`
-        id_agendamento, dt_agendamento, hr_agendamento, valor,
+        id_agendamento, dt_agendamento, hr_agendamento, valor, id_cliente,
         pet:id_pet ( nome, raca ),
         servico:id_servico ( nome ),
         cliente:id_cliente ( nome )
@@ -122,7 +123,10 @@ export default async function LojistaDashboard({ searchParams }: Props) {
   const proximoLivre = livres.find(s => s.hr_slot > horaAtualStr) ?? null
 
   // ── Fila de espera: agendamentos Pendente (qualquer data futura) ──
-  const pendentes = ((pendentesRaw ?? []) as unknown as PendenteItem[])
+  const pendentesBase = ((pendentesRaw ?? []) as unknown as (PendenteItem & { id_cliente: string | null })[])
+  // Pedido mexido pelo cliente antes de a loja aceitar (migrations 070/071).
+  const alteradosPeloCliente = await idsAlteradosPeloCliente(supabase, pendentesBase)
+  const pendentes: PendenteItem[] = pendentesBase.map(p => ({ ...p, alterado_cliente: alteradosPeloCliente.has(p.id_agendamento) }))
 
   // ── Clientes vinculados + seus pets (base para o modal "Novo Agendamento") ──
   // Todo cliente em cliente_lojista entra na lista, mesmo sem pet ainda

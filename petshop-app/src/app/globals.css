@@ -3831,6 +3831,20 @@ div.plano-assinatura:not(.card) { padding: var(--space-3); border: 1px solid var
 .plano-historico li { display: flex; flex-direction: column; gap: 2px; font-size: 0.875rem; color: var(--gray-300); padding-bottom: var(--space-2); border-bottom: 1px solid var(--gray-800); }
 .plano-historico li:last-child { border-bottom: none; }
 
+/* Pedido mexido pelo cliente (serviço, pet ou data) — Gestor e fila do Dashboard. */
+.tag-alterado-cliente {
+  display: inline-block; margin-top: 4px; padding: 1px 8px; border-radius: 999px;
+  font-size: 0.6875rem; font-weight: 700; color: var(--warning-400);
+  background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3);
+}
+/* Bloco Alterações do detalhe do agendamento (loja). */
+.historico-alteracoes {
+  display: flex; flex-direction: column; gap: var(--space-1);
+  padding: var(--space-3) 0; border-bottom: 1px solid var(--gray-800);
+}
+.historico-alteracoes ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.historico-alteracoes li { font-size: 0.8125rem; color: var(--gray-300); }
+
 .plano-resumo-numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); }
 .plano-resumo-numeros > div, .plano-resumo-numeros > a { display: flex; flex-direction: column; font-size: 0.8125rem; color: var(--gray-400); padding: var(--space-3); border-radius: var(--radius-md); background: var(--gray-850); text-decoration: none; }
 .plano-resumo-numeros span { font-size: 1.125rem; font-weight: 700; color: var(--gray-100); }

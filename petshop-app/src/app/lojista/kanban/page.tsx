@@ -6,6 +6,7 @@ import KanbanBoard, { type KanbanItem } from '@/components/lojista/KanbanBoard'
 import TaxiDogConteudo from '@/components/lojista/TaxiDogConteudo'
 import { carregarTransportePorVisita } from '@/lib/taxidog-visita'
 import { carregarPagamentos } from '@/lib/pagamento-servidor'
+import { idsAlteradosPeloCliente } from '@/lib/alteracoes-servidor'
 import { IconAlert, IconCar, IconChartBar, IconKanban, IconRoute } from '@/components/icons'
 import Link from 'next/link'
 
@@ -214,6 +215,11 @@ export default async function KanbanPage({ searchParams }: Props) {
   )
   // Forma e status do pagamento (migration 057) — tolerante também.
   const pagamentos = await carregarPagamentos(supabase, lojistaId, idsDoDia)
+  // Pedido mexido pelo cliente (serviço, pet ou data — migrations 070/071).
+  const alteradosPeloCliente = await idsAlteradosPeloCliente(
+    supabase,
+    ((agendaRaw ?? []) as unknown as { id_agendamento: string; id_cliente: string | null }[]),
+  )
 
   const itens: KanbanItem[] = ((agendaRaw ?? []) as unknown as Array<{
     id_agendamento: string
@@ -252,6 +258,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     taxidog: transporteDe(a),
     forma_pagamento: pagamentos.porAgendamento.get(a.id_agendamento)?.forma ?? null,
     status_pagamento: pagamentos.porAgendamento.get(a.id_agendamento)?.status ?? null,
+    alterado_cliente: alteradosPeloCliente.has(a.id_agendamento),
   }))
 
   return (

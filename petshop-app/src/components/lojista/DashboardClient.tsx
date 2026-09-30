@@ -10,6 +10,7 @@ import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendame
 import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
 import { BotaoEditar, EditarModal } from '@/components/EditarAgendamento'
 import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
+import HistoricoAlteracoes from '@/components/lojista/HistoricoAlteracoes'
 import type { TaxiDogPendente } from '@/lib/actions'
 import ResumoPlanosCard from '@/components/lojista/planos/ResumoPlanosCard'
 import type { ResumoPlanos } from '@/lib/planos'
@@ -67,6 +68,8 @@ export interface PendenteItem {
   pet: { nome: string; raca: string } | null
   servico: { nome: string } | null
   cliente: { nome: string } | null
+  // O cliente trocou serviço/pet ou remarcou (migrations 070/071).
+  alterado_cliente?: boolean
 }
 
 export interface ClienteComPets {
@@ -585,6 +588,7 @@ export default function DashboardClient({
                   <div className="queue-body">
                     <div className="queue-name">{p.pet?.nome ?? 'Pet'} · {p.servico?.nome ?? 'Serviço'}</div>
                     <div className="queue-sub">{p.cliente?.nome}</div>
+                    {p.alterado_cliente && <span className="tag-alterado-cliente">Alterado pelo cliente</span>}
                   </div>
                   <span className="queue-time">{p.hr_agendamento.slice(0, 5)}</span>
                 </div>
@@ -663,6 +667,7 @@ function DetalheAgendamento({
       <div className="dash-detail-row"><span>Horário</span><span>{hora}</span></div>
       <div className="dash-detail-row"><span>Valor</span><span>R$ {valor.toFixed(2)}</span></div>
       <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(status)}`}>{rotuloStatus(status)}</span></span></div>
+      <HistoricoAlteracoes key={`${id}:${dataItem}:${hora}:${servico}:${pet}`} idAgendamento={id} />
 
       {(status === 'Pendente' || status === 'Confirmado' || status === 'Em andamento') && (
         <div className="dash-detail-actions">
