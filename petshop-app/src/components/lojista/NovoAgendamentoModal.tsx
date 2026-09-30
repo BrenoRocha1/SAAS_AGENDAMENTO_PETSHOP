@@ -118,6 +118,9 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
 
   const [slots, setSlots] = useState<Slot[]>([])
   const [slotsLoadedKey, setSlotsLoadedKey] = useState<string | null>(null)
+  // Recarrega os horários depois de uma recusa (ex.: o horário foi
+  // ocupado ou fechado enquanto o modal estava aberto).
+  const [recargaSlots, setRecargaSlots] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
@@ -245,12 +248,15 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
       })
       .then(({ data: rows }) => {
         if (cancelado) return
-        setSlots(removerHorariosPassados((rows as Slot[]) ?? [], data))
+        const lista = removerHorariosPassados((rows as Slot[]) ?? [], data)
+        setSlots(lista)
         setSlotsLoadedKey(key)
+        // O horário escolhido deixou de estar livre: desmarca.
+        setHora(h => lista.some(s => s.disponivel && s.hr_slot.slice(0, 5) === h) ? h : '')
       })
 
     return () => { cancelado = true }
-  }, [data, servicoId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, servicoId, recargaSlots]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSubmit() {
     if (!clienteId || !petId || !servicoId || !data || !hora) return
@@ -275,6 +281,7 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
       const result = await criarAgendamentoLojistaAction(formData)
       if (result?.error) {
         setError(result.error)
+        setRecargaSlots(n => n + 1)
         return
       }
       // Profissional é opcional e não faz parte da criação em si — se foi

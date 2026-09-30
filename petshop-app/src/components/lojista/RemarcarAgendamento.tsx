@@ -43,15 +43,21 @@ function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar }: Alv
   const [erro, setErro] = useState<string | null>(null)
   const [resultado, setResultado] = useState<{ avisos: string[]; whatsapp: string | null } | null>(null)
   const [isPending, startTransition] = useTransition()
+  // Recarrega os horários depois de uma recusa (horário ocupado ou
+  // fechado enquanto o modal estava aberto).
+  const [recarga, setRecarga] = useState(0)
 
   useEffect(() => {
     if (!data) return
     let cancelado = false
     supabase.rpc('fn_horarios_remarcar', { p_id_agendamento: idAgendamento, p_data: data }).then(({ data: rows, error }) => {
-      if (!cancelado) setSlotsCarregados({ data, slots: (rows ?? []) as Slot[], erro: !!error })
+      if (cancelado) return
+      const lista = (rows ?? []) as Slot[]
+      setSlotsCarregados({ data, slots: lista, erro: !!error })
+      setHora(h => lista.some(s => s.disponivel && s.hr_slot.slice(0, 5) === h) ? h : '')
     })
     return () => { cancelado = true }
-  }, [data, idAgendamento, supabase])
+  }, [data, idAgendamento, supabase, recarga])
 
   const slots = slotsCarregados?.data === data ? slotsCarregados : null
 
@@ -70,6 +76,7 @@ function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar }: Alv
       const r = await remarcarAgendamentoAction(idAgendamento, data, hora, motivo)
       if (r.error) {
         setErro(r.error)
+        setRecarga(n => n + 1)
         return
       }
       setResultado({ avisos: r.avisos ?? [], whatsapp: r.whatsapp ?? null })

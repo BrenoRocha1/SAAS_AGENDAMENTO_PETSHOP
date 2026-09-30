@@ -88,6 +88,8 @@ const DIAS_LABEL: Record<string, string> = {
   Segunda: 'Seg', Terça: 'Ter', Quarta: 'Qua',
   Quinta: 'Qui', Sexta: 'Sex', Sábado: 'Sáb', Domingo: 'Dom',
 }
+// Ordem da semana (o banco devolve os dias em ordem qualquer).
+const ORDEM_DIAS = Object.keys(DIAS_LABEL)
 
 export default async function VitrineLojaPage({ params }: Props) {
   const { slug } = await params
@@ -307,7 +309,7 @@ export default async function VitrineLojaPage({ params }: Props) {
               Horários de funcionamento
             </h2>
             <div className="vitrine-horarios-grid">
-              {(horarios ?? []).filter(h => h.ativo).map(h => (
+              {(horarios ?? []).filter(h => h.ativo).sort((a, b) => ORDEM_DIAS.indexOf(a.dia_semana) - ORDEM_DIAS.indexOf(b.dia_semana)).map(h => (
                 <div
                   key={h.dia_semana}
                   className={`vitrine-horario-row${h.dia_semana === diaSemana ? ' vitrine-horario-hoje' : ''}`}
