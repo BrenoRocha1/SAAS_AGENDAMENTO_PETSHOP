@@ -3391,7 +3391,7 @@ export async function excluirMinhaContaAction(confirmacao: string): Promise<{ er
   const { error } = await supabase.rpc('fn_excluir_minha_conta')
   if (error) {
     if (error.code === 'PGRST202' || /Could not find the function|does not exist/i.test(error.message)) {
-      return { error: 'Para excluir a conta, execute a migration 072_lgpd_excluir_conta.sql.' }
+      return { error: devError('Para excluir a conta, execute a migration 072_lgpd_excluir_conta.sql.', error.message) }
     }
     const m = error.message.match(/Excluir: ([^\n]+)/)
     if (m) return { error: m[1].charAt(0).toUpperCase() + m[1].slice(1) + '.' }
