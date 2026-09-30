@@ -95,14 +95,39 @@ export async function assinarPlanoAction(
   return { success: true }
 }
 
-export async function cancelarAssinaturaAction(idAssinatura: string, motivo: string): Promise<Resultado> {
+export interface ResumoCancelamento {
+  cobrancas_canceladas: number
+  valor_cancelado: number
+  agendamentos_devolvidos: number
+}
+
+// Cancelar resolve o que ficou em aberto (migration 069): cobranças em
+// aberto (cancelar junto ou manter) e agendamentos ainda por fazer que
+// usam o plano (voltam ao preço normal).
+export async function cancelarAssinaturaAction(
+  idAssinatura: string,
+  motivo: string,
+  opcoes: { cancelarCobrancas: boolean; devolverAgendamentos: boolean },
+): Promise<Resultado & { resumo?: ResumoCancelamento }> {
   if (!UUID_RE.test(idAssinatura)) return { error: 'Assinatura inválida.' }
   if ((motivo ?? '').length > 300) return { error: 'Motivo muito longo (até 300 letras).' }
   const supabase = await createClient()
-  const { error } = await supabase.rpc('fn_cancelar_assinatura', { p_id_assinatura: idAssinatura, p_motivo: motivo?.trim() || null })
-  if (error) return { error: mensagemErroPlano(error.message, 'Não foi possível cancelar a assinatura.') }
+  const { data, error } = await supabase.rpc('fn_cancelar_assinatura', {
+    p_id_assinatura: idAssinatura,
+    p_motivo: motivo?.trim() || null,
+    p_cancelar_cobrancas: opcoes.cancelarCobrancas,
+    p_devolver_agendamentos: opcoes.devolverAgendamentos,
+  })
+  if (error) {
+    if (error.code === 'PGRST202' || /Could not find the function/i.test(error.message)) {
+      return { error: 'Para cancelar, execute a migration 069_cancelar_assinatura.sql.' }
+    }
+    return { error: mensagemErroPlano(error.message, 'Não foi possível cancelar a assinatura.') }
+  }
   revalidarPlanos()
-  return { success: true }
+  revalidatePath('/lojista/agendamentos')
+  revalidatePath('/lojista/kanban')
+  return { success: true, resumo: data as ResumoCancelamento }
 }
 
 export async function atualizarCobrancaPlanoAction(

@@ -3804,6 +3804,9 @@ div.plano-assinatura:not(.card) { padding: var(--space-3); border: 1px solid var
 .plano-cobranca-pag { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .plano-cobranca-pag .form-select { width: auto; min-width: 130px; padding-top: 4px; padding-bottom: 4px; }
 .plano-cancelar { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md); background: var(--gray-850); }
+.plano-cancelar-bloco { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-3); border: 1px solid var(--gray-800); border-radius: var(--radius-md); }
+.plano-cancelar-opcao { display: flex; align-items: flex-start; gap: var(--space-2); font-size: 0.875rem; color: var(--gray-300); cursor: pointer; }
+.plano-cancelar-opcao input { margin-top: 3px; accent-color: var(--primary-500); flex-shrink: 0; }
 .plano-lista-detalhe { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .plano-lista-detalhe li { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-2) 0; border-bottom: 1px solid var(--gray-800); }
 .plano-lista-detalhe li:last-child { border-bottom: none; }

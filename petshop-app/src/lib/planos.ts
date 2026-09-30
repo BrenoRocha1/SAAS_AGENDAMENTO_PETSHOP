@@ -99,6 +99,8 @@ export interface UtilizacaoPlano {
   estornada_em: string | null
   motivo_estorno: string | null
   registrado_em: string
+  // Status do agendamento (migration 069) — saber se o uso ainda vai acontecer.
+  status_agendamento?: string | null
 }
 
 export interface HistoricoPlano { tipo: string; descricao: string; em: string }

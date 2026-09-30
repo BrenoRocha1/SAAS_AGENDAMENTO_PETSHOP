@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { cancelarAssinaturaAction } from '@/lib/actions-planos'
+import { cancelarAssinaturaAction, type ResumoCancelamento } from '@/lib/actions-planos'
 import { ROTULO_FORMA_PAGAMENTO, ehFormaPagamento, type FormaPagamento } from '@/lib/pagamento'
 import { dataBR, rotuloPeriodicidade, sufixoPeriodo, type Assinatura, type Plano } from '@/lib/planos'
 import { formatarReais } from '@/lib/taxidog'
@@ -63,24 +63,39 @@ export default function PlanosDoCliente({ assinaturas, planos, pets, hojeISO, fo
 
 function AssinaturaDetalhe({ a, hojeISO, formasAceitas }: { a: Assinatura; hojeISO: string; formasAceitas: FormaPagamento[] }) {
   const router = useRouter()
-  const [aberta, setAberta] = useState<'cobrancas' | 'usos' | 'historico' | null>(a.cobrancas_vencidas > 0 ? 'cobrancas' : null)
+  const ativa = a.status === 'ativa'
+  // Plano cancelado com cobrança em aberto já abre as cobranças (a loja resolve ali).
+  const [aberta, setAberta] = useState<'cobrancas' | 'usos' | 'historico' | null>(
+    a.cobrancas_vencidas > 0 || (!ativa && a.cobrancas_em_aberto > 0) ? 'cobrancas' : null
+  )
   const [cancelando, setCancelando] = useState(false)
   const [motivo, setMotivo] = useState('')
+  // O que fazer com o que ficou em aberto (migration 069).
+  const [destinoCobrancas, setDestinoCobrancas] = useState<'manter' | 'cancelar' | null>(null)
+  const [devolverAgendamentos, setDevolverAgendamentos] = useState(true)
+  const [resumo, setResumo] = useState<ResumoCancelamento | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const ativa = a.status === 'ativa'
 
   function cancelar() {
     setErro(null)
     startTransition(async () => {
-      const r = await cancelarAssinaturaAction(a.id_assinatura, motivo)
+      const r = await cancelarAssinaturaAction(a.id_assinatura, motivo, {
+        cancelarCobrancas: destinoCobrancas === 'cancelar',
+        devolverAgendamentos: futuros.length > 0 && devolverAgendamentos,
+      })
       if (r.error) setErro(r.error)
-      else { setCancelando(false); router.refresh() }
+      else { setCancelando(false); setResumo(r.resumo ?? null); router.refresh() }
     })
   }
 
   const usos = a.utilizacoes ?? []
   const cobrancas = a.cobrancas ?? []
+  const abertas = cobrancas.filter(c => c.status === 'pendente')
+  const totalAberto = abertas.reduce((s, c) => s + Number(c.valor), 0)
+  // Agendamentos ainda por fazer que usam o plano.
+  const futuros = usos.filter(u => !u.estornada_em && (u.status_agendamento === 'Pendente' || u.status_agendamento === 'Confirmado'))
+  const podeConfirmar = abertas.length === 0 || destinoCobrancas !== null
   const historico = a.historico ?? []
 
   return (
@@ -132,14 +147,72 @@ function AssinaturaDetalhe({ a, hojeISO, formasAceitas }: { a: Assinatura; hojeI
       {cancelando && (
         <div className="plano-cancelar">
           <p className="text-sm" style={{ margin: 0 }}>
-            Cancelar a assinatura? Não serão geradas novas cobranças nem novos períodos. Cobranças e usos já registrados continuam no histórico.
+            Cancelar a assinatura? Não serão gerados novos períodos nem cobranças. O que já foi registrado continua no histórico.
           </p>
+
+          {abertas.length > 0 && (
+            <div className="plano-cancelar-bloco">
+              <div className="text-sm font-semibold">
+                {abertas.length === 1 ? '1 cobrança em aberto' : `${abertas.length} cobranças em aberto`} · {formatarReais(totalAberto)}
+              </div>
+              <ul className="text-xs text-muted" style={{ margin: 0, paddingLeft: 'var(--space-4)' }}>
+                {abertas.map(c => (
+                  <li key={c.id_cobranca}>
+                    {formatarReais(c.valor)} · {c.vencimento < hojeISO ? 'venceu' : 'vence'} {dataBR(c.vencimento)} (período {c.numero}: {dataBR(c.periodo_inicio)} a {dataBR(c.periodo_fim)})
+                  </li>
+                ))}
+              </ul>
+              <label className="plano-cancelar-opcao">
+                <input type="radio" name={`cob-${a.id_assinatura}`} checked={destinoCobrancas === 'manter'} onChange={() => setDestinoCobrancas('manter')} />
+                <span><strong>Manter em aberto</strong> — o cliente ainda vai pagar (ex.: já usou os serviços do período)</span>
+              </label>
+              <label className="plano-cancelar-opcao">
+                <input type="radio" name={`cob-${a.id_assinatura}`} checked={destinoCobrancas === 'cancelar'} onChange={() => setDestinoCobrancas('cancelar')} />
+                <span><strong>Cancelar junto</strong> — o cliente não deve mais nada deste plano</span>
+              </label>
+            </div>
+          )}
+
+          {futuros.length > 0 && (
+            <div className="plano-cancelar-bloco">
+              <label className="plano-cancelar-opcao">
+                <input type="checkbox" checked={devolverAgendamentos} onChange={e => setDevolverAgendamentos(e.target.checked)} />
+                <span>
+                  <strong>Voltar ao preço normal</strong>{' '}
+                  {futuros.length === 1 ? 'o agendamento marcado que usa o plano:' : `os ${futuros.length} agendamentos marcados que usam o plano:`}
+                </span>
+              </label>
+              <ul className="text-xs text-muted" style={{ margin: 0, paddingLeft: 'var(--space-6)' }}>
+                {futuros.map((u, i) => (
+                  <li key={i}>{u.servico}{u.data ? ` · ${dataBR(u.data)}` : ''}{u.hora ? ` às ${u.hora.slice(0, 5)}` : ''}</li>
+                ))}
+              </ul>
+              {!devolverAgendamentos && (
+                <span className="text-xs text-muted">Desmarcado: esses atendimentos continuam cobertos pelo plano.</span>
+              )}
+            </div>
+          )}
+
           <input className="form-input" placeholder="Motivo (opcional)" maxLength={300} value={motivo} onChange={e => setMotivo(e.target.value)} />
           {erro && <span className="text-xs" style={{ color: 'var(--status-cancelado-fg)' }}>{erro}</span>}
+          {!podeConfirmar && <span className="text-xs text-muted">Escolha o que fazer com as cobranças em aberto.</span>}
           <div className="flex gap-2">
-            <button type="button" className="btn btn-danger btn-sm" onClick={cancelar} disabled={isPending}>{isPending ? 'Cancelando...' : 'Sim, cancelar'}</button>
+            <button type="button" className="btn btn-danger btn-sm" onClick={cancelar} disabled={isPending || !podeConfirmar}>{isPending ? 'Cancelando...' : 'Sim, cancelar'}</button>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCancelando(false)} disabled={isPending}>Voltar</button>
           </div>
+        </div>
+      )}
+
+      {resumo && (resumo.cobrancas_canceladas > 0 || resumo.agendamentos_devolvidos > 0) && (
+        <div className="text-xs" style={{ color: 'var(--success-400)' }}>
+          {resumo.cobrancas_canceladas > 0 && <>Cobranças canceladas: {resumo.cobrancas_canceladas} ({formatarReais(Number(resumo.valor_cancelado))}). </>}
+          {resumo.agendamentos_devolvidos > 0 && <>Agendamentos de volta ao preço normal: {resumo.agendamentos_devolvidos}.</>}
+        </div>
+      )}
+
+      {!ativa && a.cobrancas_em_aberto > 0 && (
+        <div className="text-xs" style={{ color: 'var(--warning-400)' }}>
+          Plano cancelado com {a.cobrancas_em_aberto === 1 ? '1 cobrança em aberto' : `${a.cobrancas_em_aberto} cobranças em aberto`}: registre o pagamento ou mude para Cancelado em Cobranças.
         </div>
       )}
 
