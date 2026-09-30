@@ -7,21 +7,25 @@ import {
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { IconChevronLeft, IconChevronRight } from '@/components/icons'
+import { dataBR, descreverBloqueio, fechadoODiaTodo, type BloqueioLoja } from '@/lib/bloqueios'
 
 const NOMES_DIA_POR_INDICE = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'] as const
 
 // Calendário de verdade (mês em grade) em vez de tira horizontal com
 // scroll — usado tanto no Agendamento Online (público) quanto no Novo
 // Agendamento do painel do cliente. Dias fechados e fora da janela de
-// antecedência (min/máx configurada pela loja) já vêm desabilitados.
+// antecedência (min/máx configurada pela loja) já vêm desabilitados, e
+// também os dias que a loja fechou (feriado, folga — migration 066); os
+// fechamentos do mês aparecem embaixo, com o motivo.
 export default function SeletorDeData({
-  diasAbertos, minInstante, maxInstante, dataSelecionada, onSelecionar,
+  diasAbertos, minInstante, maxInstante, dataSelecionada, onSelecionar, bloqueios = [],
 }: {
   diasAbertos: Set<string>
   minInstante: Date
   maxInstante: Date
   dataSelecionada: string
   onSelecionar: (iso: string) => void
+  bloqueios?: BloqueioLoja[]
 }) {
   const [mesAtual, setMesAtual] = useState(() => startOfMonth(dataSelecionada ? new Date(`${dataSelecionada}T12:00:00`) : new Date()))
 
@@ -33,6 +37,14 @@ export default function SeletorDeData({
 
   const podeVoltar = !isBefore(endOfMonth(subMonths(mesAtual, 1)), minDia)
   const podeAvancar = !isAfter(startOfMonth(addMonths(mesAtual, 1)), maxDia)
+
+  // Fechamentos que tocam o mês mostrado e ainda estão na janela.
+  const inicioMesISO = format(startOfMonth(mesAtual), 'yyyy-MM-dd')
+  const fimMesISO = format(endOfMonth(mesAtual), 'yyyy-MM-dd')
+  const minISO = format(minDia, 'yyyy-MM-dd')
+  const fechamentosDoMes = bloqueios.filter(b =>
+    b.dt_fim >= inicioMesISO && b.dt_inicio <= fimMesISO && b.dt_fim >= minISO
+  )
 
   return (
     <div>
@@ -57,7 +69,8 @@ export default function SeletorDeData({
         {dias.map(d => {
           const iso = format(d, 'yyyy-MM-dd')
           const foraDoMes = !isSameMonth(d, mesAtual)
-          const fechado = !diasAbertos.has(NOMES_DIA_POR_INDICE[getDay(d)])
+          const bloqueio = fechadoODiaTodo(bloqueios, iso)
+          const fechado = !diasAbertos.has(NOMES_DIA_POR_INDICE[getDay(d)]) || !!bloqueio
           const foraDaJanela = isBefore(startOfDay(d), minDia) || isAfter(startOfDay(d), maxDia)
           const desabilitado = fechado || foraDaJanela || foraDoMes
 
@@ -70,14 +83,28 @@ export default function SeletorDeData({
               disabled={desabilitado}
               onClick={() => onSelecionar(iso)}
               className={`agenonline-day ${iso === dataSelecionada ? 'selected' : ''}`}
-              style={{ opacity: desabilitado ? 0.35 : 1, cursor: desabilitado ? 'not-allowed' : 'pointer' }}
-              title={fechado ? 'Fechado' : undefined}
+              style={{
+                opacity: desabilitado ? 0.35 : 1,
+                cursor: desabilitado ? 'not-allowed' : 'pointer',
+                textDecoration: bloqueio && !foraDaJanela ? 'line-through' : undefined,
+              }}
+              title={bloqueio ? `Fechado: ${bloqueio.motivo}` : fechado ? 'Fechado' : undefined}
             >
               {format(d, 'd')}
             </button>
           )
         })}
       </div>
+
+      {fechamentosDoMes.length > 0 && (
+        <ul className="text-xs text-muted" style={{ listStyle: 'none', margin: 'var(--space-3) 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {fechamentosDoMes.map(b => (
+            <li key={b.id_bloqueio}>
+              <strong>Fechado</strong> {b.hr_inicio ? descreverBloqueio(b) : b.dt_inicio === b.dt_fim ? dataBR(b.dt_inicio) : `de ${dataBR(b.dt_inicio)} a ${dataBR(b.dt_fim)}`} · {b.motivo}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

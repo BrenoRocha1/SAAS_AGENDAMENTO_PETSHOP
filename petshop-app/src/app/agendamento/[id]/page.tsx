@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
-import { diaSemanaBrasil, agoraBrasilHHMM } from '@/lib/agenda'
+import { diaSemanaBrasil, agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
+import { fechadoODiaTodo, normalizarBloqueios } from '@/lib/bloqueios'
 import AgendamentoOnlineWizard from '@/components/cliente/AgendamentoOnlineWizard'
 import { normalizarFormasLoja } from '@/lib/pagamento'
 import { IconAlert, IconPaw } from '@/components/icons'
@@ -171,12 +172,16 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   // tolerante: sem a migration, o endereço aparece como antes.
   // Formas de pagamento aceitas (migration 057) — sem a migration, vale o
   // padrão (dinheiro e cartões); o agendamento em si avisa da migration.
-  const [{ data: taxidogRaw }, { data: estimadoRow }, { data: enderecoRow }, { data: formasRaw }] = await Promise.all([
+  // Dias fechados (migration 066) — sem ela, vem vazio e o calendário
+  // segue só com os dias da semana.
+  const [{ data: taxidogRaw }, { data: estimadoRow }, { data: enderecoRow }, { data: formasRaw }, { data: bloqueiosRaw }] = await Promise.all([
     supabase.rpc('fn_taxidog_publico', { p_id_lojista: lojista.id_lojista }),
     supabase.from('lojista').select('precos_estimados').eq('id_lojista', lojista.id_lojista).maybeSingle(),
     supabase.from('lojista').select('numero, complemento, bairro').eq('id_lojista', lojista.id_lojista).maybeSingle(),
     supabase.rpc('fn_formas_pagamento_loja', { p_id_lojista: lojista.id_lojista }),
+    supabase.rpc('fn_bloqueios_loja', { p_id_lojista: lojista.id_lojista, p_de: hojeBrasilISO(), p_ate: `${Number(hojeBrasilISO().slice(0, 4)) + 1}-12-31` }),
   ])
+  const bloqueios = normalizarBloqueios(bloqueiosRaw)
   const taxidogDisponivel = !!(taxidogRaw as { disponivel: boolean }[] | null)?.[0]?.disponivel
   const precosEstimados = !!estimadoRow?.precos_estimados
 
@@ -205,6 +210,8 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
     if (agora < horarioHoje.hr_inicio.slice(0, 5)) statusHoje = `Abre às ${horarioHoje.hr_inicio.slice(0, 5)}`
     else if (agora < horarioHoje.hr_fim.slice(0, 5)) statusHoje = `Aberto até ${horarioHoje.hr_fim.slice(0, 5)}`
   }
+  const fechadoHoje = fechadoODiaTodo(bloqueios, hojeBrasilISO())
+  if (fechadoHoje) statusHoje = `Fechado hoje · ${fechadoHoje.motivo}`
 
   return (
     <div className="agenonline-shell lojista-shell">
@@ -226,6 +233,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
             statusHoje,
           }}
           horarios={horarios ?? []}
+          bloqueios={bloqueios}
           janela={janela}
           servicos={servicos ?? []}
           produtos={produtos ?? []}

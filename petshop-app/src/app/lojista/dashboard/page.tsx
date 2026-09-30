@@ -4,6 +4,7 @@ import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 import { format } from 'date-fns'
 import { agoraBrasil } from '@/lib/agenda'
+import { normalizarBloqueios } from '@/lib/bloqueios'
 import DashboardClient, { type AgendaItem, type ClienteComPets, type PendenteItem, type ServicoAtivo } from '@/components/lojista/DashboardClient'
 
 export const metadata: Metadata = { title: 'Dashboard — Lojista' }
@@ -101,6 +102,9 @@ export default async function LojistaDashboard({ searchParams }: Props) {
   const { data: resumoPlanosRaw, error: resumoPlanosErro } = await supabase.rpc('fn_resumo_planos', { p_id_lojista: lojistaId })
   const resumoPlanos = resumoPlanosErro ? null : (resumoPlanosRaw as ResumoPlanos | null)
 
+  // Dia escolhido fechado (migration 066) — sem ela, vem vazio.
+  const { data: bloqueiosRaw } = await supabase.rpc('fn_bloqueios_loja', { p_id_lojista: lojistaId, p_de: selectedDate, p_ate: selectedDate })
+
   const listaHoje = (agendaHoje ?? []) as AgendaItem[]
   const listaSelecionada = selectedDate === hojeISO ? listaHoje : ((agendaSelecionada ?? []) as AgendaItem[])
 
@@ -155,6 +159,7 @@ export default async function LojistaDashboard({ searchParams }: Props) {
       hojeISO={hojeISO}
       selectedDate={selectedDate}
       resumoPlanos={resumoPlanos}
+      bloqueiosDoDia={normalizarBloqueios(bloqueiosRaw)}
       stats={{
         agendamentosHoje: m.hoje ?? listaHoje.length,
         faturamentoHoje,

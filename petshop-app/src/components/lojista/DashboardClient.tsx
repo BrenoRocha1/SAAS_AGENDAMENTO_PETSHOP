@@ -10,6 +10,7 @@ import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendame
 import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
 import ResumoPlanosCard from '@/components/lojista/planos/ResumoPlanosCard'
 import type { ResumoPlanos } from '@/lib/planos'
+import { textoBloqueioNoDia, type BloqueioLoja } from '@/lib/bloqueios'
 import {
   format,
   parseISO,
@@ -102,6 +103,8 @@ interface Props {
   funcionarios: { id_funcionario: string; nome: string }[]
   // Planos recorrentes (migration 060) — null sem a migration.
   resumoPlanos: ResumoPlanos | null
+  // Fechamentos do dia escolhido (feriado, folga — migration 066).
+  bloqueiosDoDia: BloqueioLoja[]
 }
 
 type Selecionado =
@@ -130,6 +133,7 @@ export default function DashboardClient({
   servicos,
   funcionarios,
   resumoPlanos,
+  bloqueiosDoDia,
 }: Props) {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
@@ -445,6 +449,13 @@ export default function DashboardClient({
               ))}
             </div>
           </div>
+
+          {viewMode === 'dia' && bloqueiosDoDia.map(b => (
+            <div key={b.id_bloqueio} className="alert alert-warning" style={{ marginBottom: 'var(--space-3)' }}>
+              <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+              <span>{textoBloqueioNoDia(b)}. <Link href="/lojista/horarios" style={{ color: 'inherit', textDecoration: 'underline' }}>Dias fechados</Link></span>
+            </div>
+          ))}
 
           {viewMode === 'dia' ? (
             agendaFiltrada.length === 0 ? (

@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { criarAgendamentoAction } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
-import { removerHorariosPassados } from '@/lib/agenda'
+import { hojeBrasilISO, removerHorariosPassados } from '@/lib/agenda'
+import { normalizarBloqueios, type BloqueioLoja } from '@/lib/bloqueios'
 import { rotuloUnidade } from '@/lib/produto'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
@@ -160,6 +161,8 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const [produtosDisponiveis, setProdutosDisponiveis] = useState<Produto[]>([])
   const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, string>>({})
   const [horarios, setHorarios] = useState<Horario[]>([])
+  // Dias que a loja fechou (feriado, folga — migration 066).
+  const [bloqueios, setBloqueios] = useState<BloqueioLoja[]>([])
   const [janela, setJanela] = useState<Janela>(JANELA_PADRAO)
   const [data, setData] = useState('')
   // Horários da data+serviço escolhidos. Guarda a chave pra distinguir
@@ -225,6 +228,11 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       .select('dia_semana, ativo')
       .eq('id_lojista', lojistaId)
       .then(({ data }) => setHorarios(data ?? []))
+    // Até o fim do ano que vem (o banco limita a ~400 dias).
+    const hoje = hojeBrasilISO()
+    supabase
+      .rpc('fn_bloqueios_loja', { p_id_lojista: lojistaId, p_de: hoje, p_ate: `${Number(hoje.slice(0, 4)) + 1}-12-31` })
+      .then(({ data }) => setBloqueios(normalizarBloqueios(data)))
     supabase
       .from('lojista')
       .select('agendamento_min_valor, agendamento_min_unidade, agendamento_max_valor, agendamento_max_unidade')
@@ -552,6 +560,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
               maxInstante={maxInstante}
               dataSelecionada={data}
               onSelecionar={setData}
+              bloqueios={bloqueios}
             />
           </div>
 

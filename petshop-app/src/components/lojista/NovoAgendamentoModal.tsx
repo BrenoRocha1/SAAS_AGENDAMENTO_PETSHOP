@@ -16,6 +16,8 @@ import {
   type EstadoTransporte,
 } from '@/components/cliente/TaxiDogEtapa'
 import { removerHorariosPassados } from '@/lib/agenda'
+import { fechadoODiaTodo, textoBloqueioNoDia } from '@/lib/bloqueios'
+import { useBloqueiosDoDia } from './useBloqueiosDoDia'
 import type { PlanoDoPet } from '@/lib/planos'
 import { format } from 'date-fns'
 import {
@@ -223,6 +225,11 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
   }
 
   const loadingSlots = !!(data && servicoSel) && slotsLoadedKey !== slotsKeyAtual
+
+  // Loja fechada no dia (feriado, folga — migration 066): explica por
+  // que não há horário ou por que parte dos horários está bloqueada.
+  const bloqueiosDia = useBloqueiosDoDia(lojistaId, data) ?? []
+  const diaFechado = fechadoODiaTodo(bloqueiosDia, data)
 
   // Carregar horários disponíveis quando data + serviço estão definidos
   useEffect(() => {
@@ -610,9 +617,15 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                     <label className="form-label form-label-required">Horário</label>
                     {loadingSlots ? (
                       <p className="text-sm text-muted">Carregando horários...</p>
+                    ) : diaFechado ? (
+                      <p className="text-sm text-warning">Loja fechada neste dia ({diaFechado.motivo}). Escolha outra data.</p>
                     ) : slots.length === 0 ? (
                       <p className="text-sm text-muted">Sem horário de funcionamento cadastrado para este dia.</p>
                     ) : (
+                      <>
+                      {bloqueiosDia.map(b => (
+                        <p key={b.id_bloqueio} className="text-xs text-warning" style={{ margin: '0 0 var(--space-2)' }}>{textoBloqueioNoDia(b)}</p>
+                      ))}
                       <div className="slots-grid">
                         {slots.map(s => {
                           // hr_slot vem do Postgres como "HH:MM:SS" (tipo TIME) —
@@ -632,6 +645,7 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                           )
                         })}
                       </div>
+                      </>
                     )}
                   </div>
                 </div>

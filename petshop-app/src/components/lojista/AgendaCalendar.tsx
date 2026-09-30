@@ -42,6 +42,7 @@ import BeneficioAgendamento from '@/components/lojista/planos/BeneficioAgendamen
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
 import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
 import type { FormaPagamento } from '@/lib/pagamento'
+import { bloqueiosDoDia, type BloqueioLoja } from '@/lib/bloqueios'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
 
 export interface AgendamentoCalendario {
@@ -98,6 +99,8 @@ interface Props {
   taxidogAtivo: boolean
   // Formas que a loja aceita (seletor do bloco Pagamento).
   formasPagamento: FormaPagamento[]
+  // Dias/horários fechados da semana (feriado, folga — migration 066).
+  bloqueios: BloqueioLoja[]
 }
 
 const CORES = ['#4f46e5', '#0891b2', '#db2777', '#d97706', '#16a34a', '#7c3aed', '#2563eb']
@@ -188,6 +191,18 @@ function posicionarDia(eventos: AgendamentoCalendario[], horaInicioGrade: number
   return resultado
 }
 
+// Etiqueta no cabeçalho do dia: "Fechado" (dia inteiro) ou o horário fechado.
+function RotuloFechado({ bloqueios }: { bloqueios: BloqueioLoja[] }) {
+  if (bloqueios.length === 0) return null
+  const diaTodo = bloqueios.find(b => !b.hr_inicio)
+  const texto = diaTodo ? 'Fechado' : bloqueios.map(b => `${b.hr_inicio}–${b.hr_fim}`).join(', ')
+  return (
+    <div className="cal-week-head-fechado" title={bloqueios.map(b => b.motivo).join(' · ')}>
+      {diaTodo ? texto : `Fecha ${texto}`}
+    </div>
+  )
+}
+
 const ROTULO_ORIGEM: Record<'loja' | 'online', string> = {
   loja: 'Lançado pela loja',
   online: 'Agendamento online',
@@ -219,6 +234,7 @@ export default function AgendaCalendar({
   horaFimGrade,
   taxidogAtivo,
   formasPagamento,
+  bloqueios,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -430,6 +446,7 @@ export default function AgendaCalendar({
                 <div key={dia.toISOString()} className={`cal-week-head-cell ${isToday(dia) ? 'is-today' : ''}`}>
                   <div className="cal-week-head-dow">{format(dia, 'EEE', { locale: ptBR })}</div>
                   <div className="cal-week-head-num">{format(dia, 'd')}</div>
+                  <RotuloFechado bloqueios={bloqueiosDoDia(bloqueios, format(dia, 'yyyy-MM-dd'))} />
                 </div>
               ))}
             </div>
@@ -456,6 +473,22 @@ export default function AgendaCalendar({
                     {horas.map(h => (
                       <div key={h} className="cal-hour-line" style={{ top: (h - horaInicioGrade) * ALTURA_HORA }} />
                     ))}
+                    {bloqueiosDoDia(bloqueios, diaISO).map(b => {
+                      // Faixa do horário fechado (dia inteiro = coluna toda).
+                      const ini = b.hr_inicio ? Math.max(minutosDoDia(b.hr_inicio), horaInicioGrade * 60) : horaInicioGrade * 60
+                      const fim = b.hr_fim ? Math.min(minutosDoDia(b.hr_fim), horaFimGrade * 60) : horaFimGrade * 60
+                      if (fim <= ini) return null
+                      return (
+                        <div
+                          key={b.id_bloqueio}
+                          className="cal-bloqueio"
+                          style={{ top: ((ini - horaInicioGrade * 60) / 60) * ALTURA_HORA, height: ((fim - ini) / 60) * ALTURA_HORA }}
+                          title={`Loja fechada: ${b.motivo}`}
+                        >
+                          <span className="cal-bloqueio-rotulo">{b.motivo}</span>
+                        </div>
+                      )
+                    })}
                     {posicionados.map(ev => {
                       const cor = corDoFuncionario(ev.id_funcionario, funcionarios)
                       const largura = 100 / ev.totalLanes

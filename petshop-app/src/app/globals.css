@@ -1755,6 +1755,20 @@ a:hover { color: var(--primary-300); }
   font-size: 0.6875rem; line-height: 1.25; color: white; transition: filter var(--transition-fast);
 }
 .cal-event:hover { filter: brightness(1.08); }
+/* Horário fechado (feriado, folga — migration 066): faixa hachurada por baixo dos eventos. */
+.cal-bloqueio {
+  position: absolute; left: 0; right: 0; pointer-events: none; overflow: hidden;
+  background: repeating-linear-gradient(135deg, rgba(245,158,11,0.12) 0 6px, transparent 6px 12px);
+  border-top: 1px dashed rgba(245,158,11,0.45); border-bottom: 1px dashed rgba(245,158,11,0.45);
+}
+.cal-bloqueio-rotulo {
+  display: block; padding: 4px 6px; font-size: 0.6875rem; font-weight: 600; color: var(--warning-400);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cal-week-head-fechado {
+  margin-top: 2px; font-size: 0.625rem; font-weight: 700; color: var(--warning-400);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .cal-event-time { font-weight: 700; opacity: 0.9; display: flex; align-items: center; gap: 4px; }
 /* Ícones de origem/TaxiDog no bloco da agenda (fundo colorido, texto branco). */
 .cal-event-icones { display: inline-flex; gap: 3px; margin-left: auto; }

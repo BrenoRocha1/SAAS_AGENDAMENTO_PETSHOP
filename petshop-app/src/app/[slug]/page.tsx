@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { diaSemanaBrasil, agoraBrasilHHMM } from '@/lib/agenda'
+import { diaSemanaBrasil, agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
+import { descreverBloqueio, fechadoODiaTodo, normalizarBloqueios, somarDiasISO } from '@/lib/bloqueios'
 import {
   IconPaw,
   IconMapPin,
@@ -125,6 +126,7 @@ export default async function VitrineLojaPage({ params }: Props) {
     { data: horarios },
     { data: resumoRaw },
     { data: avaliacoesRaw },
+    { data: bloqueiosRaw },
   ] = await Promise.all([
     supabase
       .from('servico')
@@ -150,6 +152,8 @@ export default async function VitrineLojaPage({ params }: Props) {
       .eq('id_lojista', lj.id_lojista),
     supabase.rpc('fn_avaliacoes_resumo_publico', { p_id_lojista: lj.id_lojista }),
     supabase.rpc('fn_avaliacoes_publicas', { p_id_lojista: lj.id_lojista, p_limit: 6 }),
+    // Dias fechados dos próximos 60 dias (migration 066) — sem ela, vem vazio.
+    supabase.rpc('fn_bloqueios_loja', { p_id_lojista: lj.id_lojista, p_de: hojeBrasilISO(), p_ate: somarDiasISO(hojeBrasilISO(), 60) }),
   ])
 
   const servicos = (servicosRaw ?? []) as {
@@ -186,6 +190,12 @@ export default async function VitrineLojaPage({ params }: Props) {
       statusHoje = `Aberto até ${horarioHoje.hr_fim.slice(0, 5)}`
       statusClass = 'badge-success'
     }
+  }
+  const bloqueios = normalizarBloqueios(bloqueiosRaw)
+  const fechadoHoje = fechadoODiaTodo(bloqueios, hojeBrasilISO())
+  if (fechadoHoje) {
+    statusHoje = `Fechado hoje · ${fechadoHoje.motivo}`
+    statusClass = 'badge-danger'
   }
 
   const linkAgendar = `/agendamento/${lj.slug ?? lj.id_lojista}`
@@ -312,6 +322,16 @@ export default async function VitrineLojaPage({ params }: Props) {
                 </div>
               ))}
             </div>
+            {bloqueios.length > 0 && (
+              <div style={{ marginTop: 'var(--space-4)' }}>
+                <div className="font-semibold" style={{ marginBottom: 'var(--space-2)' }}>Dias fechados</div>
+                <ul className="text-sm text-muted" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {bloqueios.slice(0, 6).map(b => (
+                    <li key={b.id_bloqueio}>{descreverBloqueio(b)} · {b.motivo}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </section>
         )}
 

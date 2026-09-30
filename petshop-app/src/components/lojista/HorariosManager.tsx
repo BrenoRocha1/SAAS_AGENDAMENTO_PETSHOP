@@ -16,10 +16,11 @@ interface Horario {
 }
 
 interface Props {
+  lojistaId: string
   horarios: Horario[]
 }
 
-export default function HorariosManager({ horarios: inicial }: Props) {
+export default function HorariosManager({ lojistaId, horarios: inicial }: Props) {
   const supabase = createClient()
   const [horarios, setHorarios] = useState<Horario[]>(inicial)
   const [editDia, setEditDia] = useState<string | null>(null)
@@ -40,7 +41,10 @@ export default function HorariosManager({ horarios: inicial }: Props) {
   }
 
   async function recarregar() {
-    const { data } = await supabase.from('horario').select('*').order('dia_semana')
+    // Só os da loja: a policy deixa qualquer um ver horários ativos de
+    // todas as lojas (página pública), e sem o filtro o dia podia mostrar
+    // o horário de outra loja.
+    const { data } = await supabase.from('horario').select('*').eq('id_lojista', lojistaId).order('dia_semana')
     setHorarios(data ?? [])
   }
 

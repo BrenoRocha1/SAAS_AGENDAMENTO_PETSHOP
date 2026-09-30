@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { remarcarAgendamentoAction } from '@/lib/actions'
 import { hojeBrasilISO } from '@/lib/agenda'
+import { fechadoODiaTodo, textoBloqueioNoDia } from '@/lib/bloqueios'
+import { useBloqueiosDoDia } from './useBloqueiosDoDia'
 import { IconAlert, IconCalendar, IconCheck, IconClose, IconWhatsapp } from '@/components/icons'
 
 type Slot = { hr_slot: string; disponivel: boolean }
@@ -52,6 +54,15 @@ function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar }: Alv
   }, [data, idAgendamento, supabase])
 
   const slots = slotsCarregados?.data === data ? slotsCarregados : null
+
+  // Loja fechada no dia escolhido (migration 066) — explica a falta de horário.
+  const [idLojista, setIdLojista] = useState<string | null>(null)
+  useEffect(() => {
+    supabase.from('agendamento').select('id_lojista').eq('id_agendamento', idAgendamento).maybeSingle()
+      .then(({ data: ag }) => setIdLojista(ag?.id_lojista ?? null))
+  }, [idAgendamento, supabase])
+  const bloqueiosDia = useBloqueiosDoDia(idLojista, data) ?? []
+  const diaFechado = fechadoODiaTodo(bloqueiosDia, data)
 
   function confirmar() {
     setErro(null)
@@ -128,9 +139,15 @@ function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar }: Alv
                   <p className="text-sm text-muted" style={{ margin: 0 }}>Carregando horários...</p>
                 ) : slots.erro ? (
                   <p className="text-sm text-muted" style={{ margin: 0 }}>Para remarcar, execute a migration 064_remarcar_agendamento.sql.</p>
+                ) : diaFechado ? (
+                  <p className="text-sm text-warning" style={{ margin: 0 }}>Loja fechada neste dia ({diaFechado.motivo}). Escolha outra data.</p>
                 ) : slots.slots.length === 0 ? (
                   <p className="text-sm text-muted" style={{ margin: 0 }}>A loja não tem horário nesse dia. Escolha outra data.</p>
                 ) : (
+                  <>
+                  {bloqueiosDia.map(b => (
+                    <p key={b.id_bloqueio} className="text-xs text-warning" style={{ margin: '0 0 var(--space-2)' }}>{textoBloqueioNoDia(b)}</p>
+                  ))}
                   <div className="slots-grid">
                     {slots.slots.map(s => {
                       const h = s.hr_slot.slice(0, 5)
@@ -147,6 +164,7 @@ function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar }: Alv
                       )
                     })}
                   </div>
+                  </>
                 )}
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>

@@ -10,6 +10,7 @@ import { formatarCpf, formatarEnderecoLoja, formatarTelefone } from '@/lib/forma
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
+import type { BloqueioLoja } from '@/lib/bloqueios'
 import ConfirmacaoAgendamento from './ConfirmacaoAgendamento'
 import PagamentoEtapa, { PixDaLoja } from './PagamentoEtapa'
 import { ROTULO_FORMA_PAGAMENTO, type FormaPagamento, type FormasLoja } from '@/lib/pagamento'
@@ -102,6 +103,8 @@ interface AvaliacoesPublicas {
 interface Props {
   lojista: Lojista
   horarios: Horario[]
+  // Dias que a loja fechou (feriado, folga — migration 066).
+  bloqueios: BloqueioLoja[]
   janela: Janela
   servicos: Servico[]
   produtos: Produto[]
@@ -162,7 +165,7 @@ function ProgressoEtapas({ etapas, atual }: { etapas: Step[]; atual: Step }) {
 }
 
 export default function AgendamentoOnlineWizard({
-  lojista, horarios, janela, servicos, produtos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
+  lojista, horarios, bloqueios, janela, servicos, produtos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
   taxidogDisponivel, precosEstimados, formasPagamento,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
@@ -616,6 +619,7 @@ export default function AgendamentoOnlineWizard({
               maxInstante={maxInstante}
               dataSelecionada={data}
               onSelecionar={setData}
+              bloqueios={bloqueios}
             />
           </div>
 

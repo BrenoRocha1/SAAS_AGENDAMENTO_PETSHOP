@@ -39,6 +39,7 @@ import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } fr
 import { ORDEM_ETAPA, etapaEncerrada, etapaExigeDia } from '@/lib/status-agendamento'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { coordenadasParaTaxiDog, lerTaxiDogDoFormulario, mensagemErroTaxiDog, paramsRpcTaxiDog } from '@/lib/taxidog-servidor'
+import { mensagemErroBloqueio } from '@/lib/bloqueios'
 import { ehFormaPagamento, mensagemErroPagamento, type FormaPagamento } from '@/lib/pagamento'
 import { erroQuantidadeInteira } from '@/lib/produto'
 import type { ServicoVariacaoData } from '@/lib/validations'
@@ -1632,6 +1633,8 @@ export async function criarAgendamentoAction(formData: FormData) {
     if (erroPagamento) return { error: erroPagamento }
     const erroTaxiDog = mensagemErroTaxiDog(error.message)
     if (erroTaxiDog) return { error: erroTaxiDog }
+    const erroBloqueio = mensagemErroBloqueio(error.message)
+    if (erroBloqueio) return { error: erroBloqueio }
     if (error.message.includes('Horário não disponível')) {
       return { error: 'Horário não disponível. Escolha outro horário.' }
     }
@@ -1726,6 +1729,8 @@ export async function criarAgendamentoOnlineAction(
     if (erroPagamento) return { error: erroPagamento }
     const erroTaxiDog = mensagemErroTaxiDog(error.message)
     if (erroTaxiDog) return { error: erroTaxiDog }
+    const erroBloqueio = mensagemErroBloqueio(error.message)
+    if (erroBloqueio) return { error: erroBloqueio }
     if (error.message.includes('Horário não disponível')) {
       return { error: 'Horário não disponível. Escolha outro horário.' }
     }
@@ -1812,6 +1817,8 @@ export async function criarAgendamentoLojistaAction(
     if (erroPagamento) return { error: erroPagamento }
     const erroTaxiDog = mensagemErroTaxiDog(error.message)
     if (erroTaxiDog) return { error: erroTaxiDog }
+    const erroBloqueio = mensagemErroBloqueio(error.message)
+    if (erroBloqueio) return { error: erroBloqueio }
     if (taxidog.dados && (error.code === 'PGRST202' || error.message.includes('Could not find'))) {
       return { error: 'Para agendar com TaxiDog pela loja, execute a migration 047_taxidog_agendamento_loja_e_escolha.sql.' }
     }
@@ -1941,7 +1948,7 @@ export async function remarcarAgendamentoAction(
     if (error.code === 'PGRST202' || /Could not find the function|does not exist/i.test(error.message)) {
       return { error: 'Para remarcar, execute a migration 064_remarcar_agendamento.sql.' }
     }
-    return { error: error.message }
+    return { error: mensagemErroBloqueio(error.message) ?? error.message }
   }
 
   // Mensagem pronta pro cliente (a loja decide se manda).
