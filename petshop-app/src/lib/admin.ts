@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 
 export interface PlatformAdmin {
   id: string
@@ -18,7 +19,7 @@ export interface PlatformAdmin {
  */
 export async function getPlatformAdmin(): Promise<PlatformAdmin | null> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
   if (!user) return null
 
   const { data } = await supabase

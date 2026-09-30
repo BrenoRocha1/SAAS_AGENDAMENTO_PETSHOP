@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import { redirect } from 'next/navigation'
 import ClienteSidebar from '@/components/layout/ClienteSidebar'
 import type { Metadata } from 'next'
@@ -11,7 +12,7 @@ export default async function ClienteLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
 
   if (!user) redirect('/login')
 

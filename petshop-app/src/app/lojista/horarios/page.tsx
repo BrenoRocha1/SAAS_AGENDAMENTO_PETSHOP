@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import { hojeBrasilISO } from '@/lib/agenda'
 import HorariosManager from '@/components/lojista/HorariosManager'
@@ -9,7 +10,7 @@ export const metadata: Metadata = { title: 'Horários de Funcionamento' }
 
 export default async function HorariosPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
   // Dono ou administrador da equipe (acesso total) — o id é o da loja.
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
   if (!contexto) return null

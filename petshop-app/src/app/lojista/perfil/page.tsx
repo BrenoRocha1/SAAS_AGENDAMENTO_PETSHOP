@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import Link from 'next/link'
 import PerfilLojistaForm from '@/components/lojista/PerfilLojistaForm'
@@ -10,7 +11,7 @@ export const metadata: Metadata = { title: 'Perfil da Loja' }
 
 export default async function PerfilLojistaPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
   // Dono ou administrador da equipe (acesso total) — o id é o da loja.
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
   if (!contexto) return null

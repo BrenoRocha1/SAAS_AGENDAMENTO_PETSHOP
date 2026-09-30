@@ -25,13 +25,6 @@ export interface ContextoLojista {
   podeTaxidog: boolean
 }
 
-// Consulta à parte e tolerante: sem a migration 042 a coluna não existe,
-// e isso não pode derrubar o contexto (e com ele o login) de ninguém.
-async function lerPodeTaxidog(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
-  const { data, error } = await supabase.from('funcionario').select('pode_taxidog').eq('id_funcionario', userId).maybeSingle()
-  return !error && !!data?.pode_taxidog
-}
-
 export async function obterContextoLojista(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
@@ -51,12 +44,20 @@ export async function obterContextoLojista(
   }
 
   if (role === 'funcionario') {
-    const { data } = await supabase
+    // Uma consulta só, já com pode_taxidog (migration 042); se a coluna
+    // ainda não existir, cai na consulta sem ela.
+    const colunas = 'id_lojista, pode_gerenciar_agenda, pode_gerenciar_servicos, pode_gerenciar_produtos, pode_gerenciar_clientes_pets, acesso_total'
+    const comTaxidog = await supabase
       .from('funcionario')
-      .select('id_lojista, pode_gerenciar_agenda, pode_gerenciar_servicos, pode_gerenciar_produtos, pode_gerenciar_clientes_pets, acesso_total')
+      .select(`${colunas}, pode_taxidog`)
       .eq('id_funcionario', userId)
       .eq('ativo', true)
       .maybeSingle()
+    let data: (Omit<NonNullable<typeof comTaxidog.data>, 'pode_taxidog'> & { pode_taxidog?: boolean }) | null = comTaxidog.data
+    if (comTaxidog.error) {
+      const semTaxidog = await supabase.from('funcionario').select(colunas).eq('id_funcionario', userId).eq('ativo', true).maybeSingle()
+      data = semTaxidog.data
+    }
 
     if (!data) return null
 
@@ -68,7 +69,7 @@ export async function obterContextoLojista(
       podeGerenciarProdutos: data.pode_gerenciar_produtos || data.acesso_total,
       podeGerenciarClientesPets: data.pode_gerenciar_clientes_pets || data.acesso_total,
       acessoTotal: data.acesso_total,
-      podeTaxidog: await lerPodeTaxidog(supabase, userId),
+      podeTaxidog: !!data.pode_taxidog,
     }
   }
 

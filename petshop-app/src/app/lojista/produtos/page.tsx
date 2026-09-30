@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import ProdutosList from '@/components/lojista/ProdutosList'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import { IconPackage } from '@/components/icons'
@@ -8,7 +9,7 @@ export const metadata: Metadata = { title: 'Produtos' }
 
 export default async function ProdutosPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
 
   if (!contexto) return null

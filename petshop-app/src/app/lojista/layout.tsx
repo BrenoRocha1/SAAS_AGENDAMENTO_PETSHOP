@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import { redirect } from 'next/navigation'
 import LojistaSidebar from '@/components/layout/LojistaSidebar'
 import NotificacaoNovoAgendamento from '@/components/lojista/NotificacaoNovoAgendamento'
@@ -15,7 +16,7 @@ export default async function LojistaLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
 
   if (!user) redirect('/login')
 
@@ -56,11 +57,26 @@ export default async function LojistaLayout({
   // "quebrada" por causa de uma migration pendente, só assume o padrão.
   let somAtivo = true
   let somTipo = 'sino'
-  const { data: lojista, error: lojistaError } = await supabase
-    .from('lojista')
-    .select('nome_loja, kanban_ativo, som_novo_agendamento_ativo, som_novo_agendamento_tipo')
-    .eq('id_lojista', contexto.idLojista)
-    .single()
+  // As três consultas do menu saem juntas (antes, uma esperava a outra).
+  const [{ data: lojista, error: lojistaError }, { data: taxidogCfg }, { data: funcionario }] = await Promise.all([
+    supabase
+      .from('lojista')
+      .select('nome_loja, kanban_ativo, som_novo_agendamento_ativo, som_novo_agendamento_tipo')
+      .eq('id_lojista', contexto.idLojista)
+      .single(),
+    // TaxiDog ligado? (migration 042) — tolerante: sem a tabela, o item
+    // "TaxiDog" simplesmente não aparece no menu.
+    supabase
+      .from('taxidog_config')
+      .select('ativo')
+      .eq('id_lojista', contexto.idLojista)
+      .maybeSingle(),
+    // Nome próprio do funcionário, pro rodapé da sidebar mostrar quem está
+    // logado (não o nome da loja, que já aparece separado).
+    contexto.role === 'funcionario'
+      ? supabase.from('funcionario').select('nome').eq('id_funcionario', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
 
   if (lojistaError) {
     const { data: fallback } = await supabase
@@ -75,27 +91,10 @@ export default async function LojistaLayout({
     somAtivo = lojista?.som_novo_agendamento_ativo ?? true
     somTipo = lojista?.som_novo_agendamento_tipo ?? 'sino'
   }
-
-  // TaxiDog ligado? (migration 042) — tolerante: sem a tabela, o item
-  // "TaxiDog" simplesmente não aparece no menu.
-  const { data: taxidogCfg } = await supabase
-    .from('taxidog_config')
-    .select('ativo')
-    .eq('id_lojista', contexto.idLojista)
-    .maybeSingle()
   const taxidogAtivo = !!taxidogCfg?.ativo
-
-  // Nome próprio do funcionário, pro rodapé da sidebar mostrar quem está
-  // logado (não o nome da loja, que já aparece separado).
-  let nomeUsuario = nomeLoja
-  if (contexto.role === 'funcionario') {
-    const { data: funcionario } = await supabase
-      .from('funcionario')
-      .select('nome')
-      .eq('id_funcionario', user.id)
-      .maybeSingle()
-    nomeUsuario = funcionario?.nome ?? 'Funcionário'
-  }
+  const nomeUsuario = contexto.role === 'funcionario'
+    ? ((funcionario as { nome: string } | null)?.nome ?? 'Funcionário')
+    : nomeLoja
 
   return (
     <div className="app-layout lojista-shell">

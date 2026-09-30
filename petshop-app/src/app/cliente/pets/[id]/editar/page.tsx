@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import { redirect } from 'next/navigation'
 import EditarPetForm from '@/components/cliente/EditarPetForm'
 import PetFotoUpload from '@/components/cliente/PetFotoUpload'
@@ -13,7 +14,7 @@ export default async function EditarPetPage({
 }) {
   const { id } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
 
   const { data: pet } = await supabase
     .from('pet')

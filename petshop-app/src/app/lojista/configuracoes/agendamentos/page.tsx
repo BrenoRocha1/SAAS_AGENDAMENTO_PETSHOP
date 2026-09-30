@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -13,7 +14,7 @@ export const metadata: Metadata = { title: 'Configurações de Agendamentos — 
 
 export default async function ConfiguracoesAgendamentosPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
   // Dono ou administrador da equipe (acesso total) — o id é o da loja.
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
   if (!contexto) return null

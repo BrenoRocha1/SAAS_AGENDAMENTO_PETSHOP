@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import type { ResumoPlanos } from '@/lib/planos'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
@@ -21,7 +22,7 @@ function toISODate(d: Date) {
 export default async function LojistaDashboard({ searchParams }: Props) {
   const params = await searchParams
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
   // Dono ou administrador da equipe (acesso total) — o id é o da loja.
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
   if (!contexto) return null
@@ -49,6 +50,8 @@ export default async function LojistaDashboard({ searchParams }: Props) {
     { data: petsVisiveis },
     { data: servicosRaw },
     { data: funcionariosRaw },
+    { data: resumoPlanosRaw, error: resumoPlanosErro },
+    { data: bloqueiosRaw },
   ] = await Promise.all([
     supabase.from('lojista').select('nome_loja, slug').eq('id_lojista', lojistaId).single(),
     supabase.rpc('fn_metricas_lojista', { p_id_lojista: lojistaId }),
@@ -95,16 +98,16 @@ export default async function LojistaDashboard({ searchParams }: Props) {
       .eq('id_lojista', lojistaId)
       .eq('ativo', true)
       .order('created_at'),
+    // Planos recorrentes (migration 060): tolerante — sem ela, o card some.
+    supabase.rpc('fn_resumo_planos', { p_id_lojista: lojistaId }),
+    // Dia escolhido fechado (migration 066) — sem ela, vem vazio.
+    supabase.rpc('fn_bloqueios_loja', { p_id_lojista: lojistaId, p_de: selectedDate, p_ate: selectedDate }),
   ])
 
   const m = (metricas as Record<string, number>) ?? {}
 
-  // Planos recorrentes (migration 060): tolerante — sem ela, o card some.
-  const { data: resumoPlanosRaw, error: resumoPlanosErro } = await supabase.rpc('fn_resumo_planos', { p_id_lojista: lojistaId })
   const resumoPlanos = resumoPlanosErro ? null : (resumoPlanosRaw as ResumoPlanos | null)
 
-  // Dia escolhido fechado (migration 066) — sem ela, vem vazio.
-  const { data: bloqueiosRaw } = await supabase.rpc('fn_bloqueios_loja', { p_id_lojista: lojistaId, p_de: selectedDate, p_ate: selectedDate })
 
   const listaHoje = (agendaHoje ?? []) as AgendaItem[]
   const listaSelecionada = selectedDate === hojeISO ? listaHoje : ((agendaSelecionada ?? []) as AgendaItem[])

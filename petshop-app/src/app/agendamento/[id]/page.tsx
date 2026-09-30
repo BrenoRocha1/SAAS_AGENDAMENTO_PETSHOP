@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import type { Metadata } from 'next'
 import { diaSemanaBrasil, agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
 import { fechadoODiaTodo, normalizarBloqueios } from '@/lib/bloqueios'
@@ -38,7 +39,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   const { id } = await params
   const { servicos: servicosParam } = await searchParams
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
 
   // Público de propósito — a policy "lojista: acesso publico as lojas
   // ativas" (migration 023) é o que permite essa consulta funcionar sem

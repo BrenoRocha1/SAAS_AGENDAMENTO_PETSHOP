@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 import { IconAlert } from '@/components/icons'
@@ -43,7 +44,7 @@ interface Props {
 export default async function RelatoriosVendasPage({ searchParams }: Props) {
   const params = await searchParams
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
   // Dono ou administrador da equipe (acesso total) — o id é o da loja.
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
   if (!contexto) return null

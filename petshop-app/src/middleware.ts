@@ -37,8 +37,14 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // CRÍTICO: getUser() valida o JWT no servidor (não apenas local)
-  const { data: { user } } = await supabase.auth.getUser()
+  // getClaims() renova a sessão se o token venceu e confere a assinatura do
+  // JWT com as chaves públicas do projeto (ES256) — sem ir ao Supabase Auth
+  // em toda requisição, como o getUser() fazia (~45 ms cada, medido).
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const claims = claimsData?.claims
+  const user = claims?.sub
+    ? { id: claims.sub, user_metadata: (claims.user_metadata ?? {}) as { role?: string } }
+    : null
   const { pathname } = request.nextUrl
 
   // /agendamento/[id] é público de propósito — qualquer pessoa com o link

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -23,7 +24,7 @@ interface AgendamentoProximo {
 
 export default async function ClienteDashboard() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
 
   const [{ data: cliente }, { data: agendamentosRaw }, { count: totalPets }, { count: totalAgendamentos }, { data: totalGasto }, { data: planosRaw, error: planosErro }] = await Promise.all([
     supabase.from('cliente').select('nome').eq('id_cliente', user!.id).maybeSingle(),

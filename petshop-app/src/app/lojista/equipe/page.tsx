@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import { obterContextoLojista, ehResponsavelPelaConta } from '@/lib/lojista-context'
 import FuncionariosList from '@/components/lojista/FuncionariosList'
 import type { Metadata } from 'next'
@@ -8,7 +9,7 @@ export const metadata: Metadata = { title: 'Equipe — Lojista' }
 export default async function EquipePage({ searchParams }: { searchParams: Promise<{ editar?: string }> }) {
   const { editar } = await searchParams
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
 
   if (!contexto) return null

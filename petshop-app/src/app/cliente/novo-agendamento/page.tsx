@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import NovoAgendamentoWizard from '@/components/cliente/NovoAgendamentoWizard'
 import type { Metadata } from 'next'
 
@@ -6,7 +7,7 @@ export const metadata: Metadata = { title: 'Novo Agendamento' }
 
 export default async function NovoAgendamentoPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
 
   const [{ data: pets }, { data: vinculos }] = await Promise.all([
     supabase

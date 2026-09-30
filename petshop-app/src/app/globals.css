@@ -1338,6 +1338,17 @@ a:hover { color: var(--primary-300); }
 /* ============================================================
    ANIMAÇÕES
    ============================================================ */
+/* Esqueleto de carregamento (loading.tsx dos painéis). */
+.carregando-pagina { display: flex; flex-direction: column; gap: var(--space-3); animation: fadeIn 0.2s ease; }
+.carregando-pagina-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-4); margin-top: var(--space-4); }
+.esqueleto { border-radius: var(--radius-md); background: var(--gray-850); animation: esqueleto-pulso 1.2s ease-in-out infinite; }
+.esqueleto-titulo { height: 30px; width: min(320px, 70%); }
+.esqueleto-subtitulo { height: 16px; width: min(460px, 90%); }
+.esqueleto-card { height: 96px; }
+.esqueleto-bloco { height: 280px; margin-top: var(--space-2); }
+@keyframes esqueleto-pulso { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .esqueleto { animation: none; } }
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }

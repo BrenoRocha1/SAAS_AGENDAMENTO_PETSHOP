@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import Link from 'next/link'
 import { differenceInYears } from 'date-fns'
 import PetCard from '@/components/cliente/PetCard'
@@ -20,7 +21,7 @@ interface PetRow {
 
 export default async function PetsPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
 
   const { data: pets } = await supabase
     .from('pet')

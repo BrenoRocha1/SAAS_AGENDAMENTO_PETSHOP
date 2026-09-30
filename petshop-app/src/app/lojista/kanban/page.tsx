@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import type { Metadata } from 'next'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { obterContextoLojista } from '@/lib/lojista-context'
@@ -21,7 +22,7 @@ interface Props {
 export default async function KanbanPage({ searchParams }: Props) {
   const params = await searchParams
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
 
   if (!contexto) return null
@@ -46,11 +47,11 @@ export default async function KanbanPage({ searchParams }: Props) {
   // Gate: só mostra o board se o lojista tiver o Kanban ativado (migration
   // 013). Se a coluna ainda não existir no banco, trata como "ativado por
   // padrão" (mesmo fallback do layout/sidebar) em vez de quebrar a página.
-  const { data: lojistaRow, error: lojistaErro } = await supabase
-    .from('lojista')
-    .select('kanban_ativo')
-    .eq('id_lojista', lojistaId)
-    .single()
+  // (junto com a config do TaxiDog, usada logo abaixo — antes, em fila)
+  const [{ data: lojistaRow, error: lojistaErro }, { data: taxidogCfg, error: taxidogCfgErro }] = await Promise.all([
+    supabase.from('lojista').select('kanban_ativo').eq('id_lojista', lojistaId).single(),
+    supabase.from('taxidog_config').select('ativo').eq('id_lojista', lojistaId).maybeSingle(),
+  ])
 
   const kanbanAtivo = lojistaErro ? true : (lojistaRow?.kanban_ativo ?? true)
 
@@ -78,11 +79,6 @@ export default async function KanbanPage({ searchParams }: Props) {
 
   // O botão "Visualizar TaxiDog" só aparece com o TaxiDog ativado (e sem a
   // migration 042 a tabela nem existe — aí some também).
-  const { data: taxidogCfg, error: taxidogCfgErro } = await supabase
-    .from('taxidog_config')
-    .select('ativo')
-    .eq('id_lojista', lojistaId)
-    .maybeSingle()
   const mostraTaxiDog = visaoTaxiDog || (!taxidogCfgErro && !!taxidogCfg?.ativo)
 
   const cabecalho = (
@@ -182,19 +178,41 @@ export default async function KanbanPage({ searchParams }: Props) {
   // cuidado do cliente/agendamentos/page.tsx: relação nova, cache de
   // schema do PostgREST pode não ter atualizado logo após a migration.
   const idsDoDia = (agendaRaw ?? []).map(a => a.id_agendamento)
-  const { data: itensProdutoRaw } = idsDoDia.length > 0
-    ? await supabase
-        .from('agendamento_produto')
-        .select('id_agendamento, id_produto, quantidade, preco_unitario')
-        .in('id_agendamento', idsDoDia)
-    : { data: [] as { id_agendamento: string; id_produto: string; quantidade: number; preco_unitario: number }[] }
 
-  const idsProdutos = [...new Set((itensProdutoRaw ?? []).map(i => i.id_produto))]
-  const { data: produtosInfoRaw } = idsProdutos.length > 0
-    ? await supabase.from('produto').select('id_produto, nome, unidade_venda').in('id_produto', idsProdutos)
-    : { data: [] as { id_produto: string; nome: string; unidade_venda: string }[] }
+  // Produtos do dia: itens e depois os nomes (dependem um do outro).
+  async function carregarProdutos() {
+    const { data: itensProdutoRaw } = idsDoDia.length > 0
+      ? await supabase
+          .from('agendamento_produto')
+          .select('id_agendamento, id_produto, quantidade, preco_unitario')
+          .in('id_agendamento', idsDoDia)
+      : { data: [] as { id_agendamento: string; id_produto: string; quantidade: number; preco_unitario: number }[] }
+    const idsProdutos = [...new Set((itensProdutoRaw ?? []).map(i => i.id_produto))]
+    const { data: produtosInfoRaw } = idsProdutos.length > 0
+      ? await supabase.from('produto').select('id_produto, nome, unidade_venda').in('id_produto', idsProdutos)
+      : { data: [] as { id_produto: string; nome: string; unidade_venda: string }[] }
+    return { itensProdutoRaw, produtosInfoRaw }
+  }
+
+  // Tudo o que depende só dos agendamentos do dia sai junto (antes, uma
+  // consulta esperava a outra). Todas tolerantes a migration pendente.
+  const [{ itensProdutoRaw, produtosInfoRaw }, transporteDe, pagamentos, alteradosPeloCliente] = await Promise.all([
+    carregarProdutos(),
+    // TaxiDog de cada visita (mesmo pet, mesmo dia).
+    carregarTransportePorVisita(
+      supabase,
+      ((agendaRaw ?? []) as unknown as { id_agendamento: string; id_pet: string; dt_agendamento: string }[]),
+    ),
+    // Forma e status do pagamento (migration 057).
+    carregarPagamentos(supabase, lojistaId, idsDoDia),
+    // Pedido mexido pelo cliente (serviço, pet ou data — migrations 070/071).
+    idsAlteradosPeloCliente(
+      supabase,
+      ((agendaRaw ?? []) as unknown as { id_agendamento: string; id_cliente: string | null }[]),
+    ),
+  ])
+
   const infoPorProduto = new Map((produtosInfoRaw ?? []).map(p => [p.id_produto, p]))
-
   const produtosPorAgendamento: Record<string, { nome: string; unidade_venda: string; quantidade: number; preco_unitario: number }[]> = {}
   for (const item of itensProdutoRaw ?? []) {
     const info = infoPorProduto.get(item.id_produto)
@@ -206,20 +224,6 @@ export default async function KanbanPage({ searchParams }: Props) {
       preco_unitario: Number(item.preco_unitario),
     })
   }
-
-  // TaxiDog de cada visita (mesmo pet, mesmo dia) — tolerante: sem as
-  // migrations do TaxiDog o Kanban segue igual.
-  const transporteDe = await carregarTransportePorVisita(
-    supabase,
-    ((agendaRaw ?? []) as unknown as { id_agendamento: string; id_pet: string; dt_agendamento: string }[]),
-  )
-  // Forma e status do pagamento (migration 057) — tolerante também.
-  const pagamentos = await carregarPagamentos(supabase, lojistaId, idsDoDia)
-  // Pedido mexido pelo cliente (serviço, pet ou data — migrations 070/071).
-  const alteradosPeloCliente = await idsAlteradosPeloCliente(
-    supabase,
-    ((agendaRaw ?? []) as unknown as { id_agendamento: string; id_cliente: string | null }[]),
-  )
 
   const itens: KanbanItem[] = ((agendaRaw ?? []) as unknown as Array<{
     id_agendamento: string

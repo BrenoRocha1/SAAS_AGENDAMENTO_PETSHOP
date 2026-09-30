@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { formasAtivas, normalizarFormasLoja } from '@/lib/pagamento'
@@ -23,7 +24,7 @@ const FILTROS = ['pendentes', 'vencidas', 'pagas', 'canceladas', 'todas']
 export default async function PlanosPage({ searchParams }: { searchParams: Promise<{ aba?: string; filtro?: string }> }) {
   const params = await searchParams
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
   if (!contexto) return null
   // Planos e cobranças são financeiros: dono ou administrador.

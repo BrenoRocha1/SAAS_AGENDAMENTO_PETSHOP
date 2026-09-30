@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { format, startOfWeek, addDays } from 'date-fns'
@@ -21,7 +22,7 @@ interface Props {
 export default async function AgendamentosLojistaPage({ searchParams }: Props) {
   const params = await searchParams
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await obterUsuario()
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
 
   if (!contexto) return null
@@ -123,7 +124,8 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
   // Ícones da agenda — consultas tolerantes: sem a migration 049 (origem)
   // ou as do TaxiDog elas só voltam vazias e o ícone some.
   // Dias fechados da semana (migration 066) — sem ela, vem vazio.
-  const [{ data: origensRaw }, transporteDe, { data: taxidogCfg }, pagamentos, { data: bloqueiosRaw }] = await Promise.all([
+  // Pedido mexido pelo cliente (serviço, pet ou data — migrations 070/071).
+  const [{ data: origensRaw }, transporteDe, { data: taxidogCfg }, pagamentos, { data: bloqueiosRaw }, alteradosPeloCliente] = await Promise.all([
     idsDaSemana.length > 0
       ? supabase.from('agendamento').select('id_agendamento, origem').in('id_agendamento', idsDaSemana)
       : Promise.resolve({ data: [] }),
@@ -132,12 +134,11 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
     // Forma e status do pagamento (migration 057).
     carregarPagamentos(supabase, lojistaId, idsDaSemana),
     supabase.rpc('fn_bloqueios_loja', { p_id_lojista: lojistaId, p_de: inicioSemanaISO, p_ate: fimSemanaISO }),
+    idsAlteradosPeloCliente(supabase, linhasAgenda),
   ])
   const origemPorAgendamento = new Map(
     ((origensRaw ?? []) as { id_agendamento: string; origem: 'loja' | 'online' | null }[]).map(o => [o.id_agendamento, o.origem])
   )
-  // Pedido mexido pelo cliente (serviço, pet ou data — migrations 070/071).
-  const alteradosPeloCliente = await idsAlteradosPeloCliente(supabase, linhasAgenda)
   const agendamentos: AgendamentoCalendario[] = linhasAgenda.map(a => ({
     id_agendamento: a.id_agendamento,
     dt_agendamento: a.dt_agendamento,
