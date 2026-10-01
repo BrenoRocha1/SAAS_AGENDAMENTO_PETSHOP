@@ -127,7 +127,7 @@ export default function BarraLateral({
                     key={item.href}
                     href={item.href}
                     active={item.ativo}
-                    icon={<Icon style={{ width: 18, height: 18 }} />}
+                    icon={<Icon style={{ width: 20, height: 20 }} />}
                   >
                     {item.label}
                   </SidebarItem>
@@ -148,7 +148,7 @@ export default function BarraLateral({
             </div>
             <SidebarItem
               id={idBotaoSair}
-              icon={<IconLogout style={{ width: 18, height: 18 }} />}
+              icon={<IconLogout style={{ width: 20, height: 20 }} />}
               onClick={sair}
               disabled={saindo}
             >

@@ -231,6 +231,21 @@ a:hover { color: var(--primary-300); }
    Os espaços deixam avatar e ícones no mesmo eixo, aberta ou recolhida. */
 .app-sidebar [data-slot="sidebar-footer"] { flex-direction: column; align-items: stretch; gap: 2px; padding: var(--space-2); }
 
+/* Itens maiores que os do componente (que vem com 13.5px e 34px de altura),
+   mas sem o menu precisar rolar: a lista ocupa a altura que sobra entre o
+   topo e o rodapé, e os itens encolhem por igual quando a tela é baixa —
+   de 44px até o mínimo de 28px. Só abaixo disso (celular deitado) rola. */
+.app-sidebar [data-slot="sidebar-item"] { font-size: 0.9375rem; padding-block: 0; }
+.app-sidebar [data-slot="sidebar-nav"] { display: flex; flex-direction: column; }
+.app-sidebar [data-slot="sidebar-section"] { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+.app-sidebar [data-slot="sidebar-section"] > div:first-child:not(:last-child) { flex-shrink: 0; }
+.app-sidebar [data-slot="sidebar-section"] > div:last-child { flex: 1 1 0; min-height: 0; gap: 2px; }
+.app-sidebar [data-slot="sidebar-nav"] [data-slot="sidebar-item"] { flex: 0 1 44px; min-height: 28px; }
+.app-sidebar [data-slot="sidebar-footer"] [data-slot="sidebar-item"] { height: 40px; flex-shrink: 0; }
+@media (max-height: 600px) {
+  .app-sidebar [data-slot="sidebar-item"] { font-size: 0.875rem; }
+}
+
 .app-main {
   margin-left: var(--sidebar-width);
   flex: 1;
@@ -299,20 +314,21 @@ a:hover { color: var(--primary-300); }
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px var(--space-2);
+  /* 6px + avatar de 32px: o centro cai no mesmo eixo dos ícones do menu. */
+  padding: 6px;
   min-width: 0;
 }
 
 .sidebar-avatar {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-full);
   background: linear-gradient(135deg, var(--primary-400), var(--primary-700));
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: white;
   flex-shrink: 0;
 }
