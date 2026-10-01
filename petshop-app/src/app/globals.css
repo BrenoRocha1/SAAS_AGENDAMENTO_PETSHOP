@@ -210,8 +210,13 @@ a:hover { color: var(--primary-300); }
   flex-direction: column;
   z-index: 50;
   overflow-y: auto;
+  /* Rola quando o menu não cabe na altura da tela, mas sem a barra de
+     rolagem do navegador aparecendo (roda do mouse e toque continuam). */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   transition: width var(--transition-normal);
 }
+.app-sidebar::-webkit-scrollbar { display: none; }
 
 /* Botão que recolhe/expande a sidebar — fica dentro da linha da logo,
    nunca sobrepondo nada (recolhida, é o único filho ali, centralizado). */
