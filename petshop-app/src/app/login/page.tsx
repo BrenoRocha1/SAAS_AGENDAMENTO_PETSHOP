@@ -447,6 +447,11 @@ function LoginFormPane() {
             </>
           )}
         </div>
+        
+        <div className="login-register-hint" style={{ marginTop: '0.5rem' }}>
+          <span>Trabalha em um petshop?{' '}</span>
+          <Link href="/login/funcionario">Entrar com código rápido</Link>
+        </div>
       </div>
     </div>
   )
