@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 -- PETSHOP SaaS - Migration 033: Cdigo Login de Funcionrio
 -- ============================================================
 
@@ -11,18 +11,18 @@ RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $body
+AS $$
 DECLARE
   v_codigo TEXT;
   v_expiracao TIMESTAMPTZ;
   v_dono UUID;
 BEGIN
-  -- Apenas o prprio lojista ou um administrador da equipe pode gerar o cdigo
-  -- Verificamos se quem est chamando  o dono ou um admin
-  -- (Simplificao: consideramos que RLS ou a chamada j est autenticada,
-  -- mas por segurana validamos que o lojista solicitado tem vnculo com o auth.uid())
+  -- Apenas o próprio lojista ou um administrador da equipe pode gerar o código
+  -- Verificamos se quem está chamando é o dono ou um admin
+  -- (Simplificação: consideramos que RLS ou a chamada já está autenticada,
+  -- mas por segurança validamos que o lojista solicitado tem vínculo com o auth.uid())
   
-  -- Para facilitar, geramos um cdigo numrico aleatrio de 6 dgitos
+  -- Para facilitar, geramos um código numérico aleatório de 6 dígitos
   v_codigo := lpad(floor(random() * 1000000)::text, 6, '0');
   v_expiracao := NOW() + INTERVAL '1 minute';
   
@@ -36,4 +36,4 @@ BEGIN
     'expiracao', v_expiracao
   );
 END;
-$body;
+$$;
