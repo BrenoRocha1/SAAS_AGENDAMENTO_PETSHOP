@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { obterUsuario } from '@/lib/supabase/usuario'
 import { obterContextoLojista, ehResponsavelPelaConta } from '@/lib/lojista-context'
 import FuncionariosList from '@/components/lojista/FuncionariosList'
+import GeradorCodigoLogin from '@/components/lojista/GeradorCodigoLogin'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Equipe — Lojista' }
@@ -35,6 +36,8 @@ export default async function EquipePage({ searchParams }: { searchParams: Promi
           <p className="page-subtitle">Gerencie quem tem acesso ao painel do seu petshop</p>
         </div>
       </div>
+
+      <GeradorCodigoLogin />
 
       <FuncionariosList
         funcionarios={funcionarios ?? []}

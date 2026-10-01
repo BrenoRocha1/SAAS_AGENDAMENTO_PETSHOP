@@ -3370,6 +3370,7 @@ export async function editarAvaliacaoAction(id_avaliacao: string, formData: Form
 }
 
 // ============================================================
+// ============================================================
 // LGPD — o cliente exclui a própria conta (migration 072)
 // ============================================================
 // O banco (fn_excluir_minha_conta + trigger de exclusão do cliente) cancela
@@ -3412,4 +3413,95 @@ export async function excluirMinhaContaAction(confirmacao: string): Promise<{ er
   await supabase.auth.signOut()
   revalidatePath('/', 'layout')
   redirect('/login?conta=excluida')
+}
+
+// ============================================================
+// LOGIN DE FUNCIONRIO VIA CDIGO (MIGRATION 033)
+// ============================================================
+
+export async function gerarCodigoLoginFuncionarioAction() {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'No autenticado' }
+
+    const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+    if (!contexto || !ehResponsavelPelaConta(contexto)) {
+      return { error: 'Apenas o lojista titular pode gerar o cdigo de login.' }
+    }
+
+    const { data, error } = await supabase.rpc('fn_gerar_codigo_login_funcionario', {
+      p_id_lojista: contexto.idLojista
+    })
+
+    if (error) {
+      return { error: devError('Erro ao gerar cdigo.', error.message) }
+    }
+
+    return { success: true, ...data }
+  } catch (error: any) {
+    return { error: 'Erro de conexo ao gerar cdigo' }
+  }
+}
+
+export async function loginFuncionarioCodigoAction(email: string, codigo: string) {
+  try {
+    const rl = await checkRateLimit('loginFuncionario', 10, 5)
+    if (!rl.success) {
+      return { error: "Muitas tentativas. Tente novamente em " + rl.retryAfter + "s." }
+    }
+
+    const adminClient = createAdminClient()
+    if (!adminClient) return { error: 'Erro de servidor' }
+
+    // 1. Achar o funcionrio
+    const { data: func } = await adminClient
+      .from('funcionario')
+      .select('id_funcionario, id_lojista')
+      .eq('email', email)
+      .eq('ativo', true)
+      .maybeSingle()
+
+    if (!func) return { error: 'Funcionrio no encontrado ou inativo.' }
+
+    // 2. Validar o cdigo do lojista
+    const { data: lojista } = await adminClient
+      .from('lojista')
+      .select('codigo_login_funcionario, codigo_login_expiracao')
+      .eq('id_lojista', func.id_lojista)
+      .maybeSingle()
+
+    if (!lojista || !lojista.codigo_login_funcionario || lojista.codigo_login_funcionario !== codigo) {
+      return { error: 'Cdigo invlido.' }
+    }
+
+    if (new Date(lojista.codigo_login_expiracao).getTime() < Date.now()) {
+      return { error: 'Cdigo expirado. Pea ao lojista um novo cdigo.' }
+    }
+
+    // 3. Resetar senha do funcionrio
+    const randomPassword = require('crypto').randomBytes(24).toString('hex') + 'A1!'
+    const { error: updateError } = await adminClient.auth.admin.updateUserById(func.id_funcionario, {
+      password: randomPassword
+    })
+
+    if (updateError) {
+      return { error: 'Erro ao autenticar.' }
+    }
+
+    // 4. Logar
+    const supabase = await createClient()
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password: randomPassword
+    })
+
+    if (loginError) {
+      return { error: 'Erro ao iniciar sesso.' }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    return { error: 'Erro interno.' }
+  }
 }
