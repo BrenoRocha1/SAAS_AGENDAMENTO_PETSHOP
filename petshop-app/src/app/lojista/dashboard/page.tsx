@@ -45,7 +45,7 @@ export default async function LojistaDashboard({ searchParams }: Props) {
     { data: agendaHoje },
     { data: agendaSelecionada },
     { data: slotsHoje },
-    { data: pendentesRaw },
+    { data: pendentesBase, alterados: alteradosPeloCliente },
     { data: vinculos },
     { data: petsVisiveis },
     { data: servicosRaw },
@@ -60,19 +60,26 @@ export default async function LojistaDashboard({ searchParams }: Props) {
       ? Promise.resolve({ data: null })
       : supabase.rpc('fn_agenda_dia', { p_id_lojista: lojistaId, p_data: selectedDate }),
     supabase.rpc('fn_horarios_disponiveis', { p_id_lojista: lojistaId, p_data: hojeISO, p_duracao: 30 }),
-    supabase
-      .from('agendamento')
-      .select(`
-        id_agendamento, dt_agendamento, hr_agendamento, valor, id_cliente,
-        pet:id_pet ( nome, raca ),
-        servico:id_servico ( nome ),
-        cliente:id_cliente ( nome )
-      `)
-      .eq('id_lojista', lojistaId)
-      .eq('status', 'Pendente')
-      .order('dt_agendamento', { ascending: true })
-      .order('hr_agendamento', { ascending: true })
-      .limit(12),
+    // Fila de espera + quais desses o cliente alterou (migrations 070/071):
+    // a segunda consulta depende da primeira, mas as duas correm junto
+    // com o resto desta leva.
+    (async () => {
+      const { data } = await supabase
+        .from('agendamento')
+        .select(`
+          id_agendamento, dt_agendamento, hr_agendamento, valor, id_cliente,
+          pet:id_pet ( nome, raca ),
+          servico:id_servico ( nome ),
+          cliente:id_cliente ( nome )
+        `)
+        .eq('id_lojista', lojistaId)
+        .eq('status', 'Pendente')
+        .order('dt_agendamento', { ascending: true })
+        .order('hr_agendamento', { ascending: true })
+        .limit(12)
+      const base = ((data ?? []) as unknown as (PendenteItem & { id_cliente: string | null })[])
+      return { data: base, alterados: await idsAlteradosPeloCliente(supabase, base) }
+    })(),
     // Todo cliente "conhecido" pelo lojista (migration 014) — inclui
     // quem já agendou E quem foi cadastrado direto pelo botão "Novo
     // Cliente" em /lojista/clientes, mesmo sem nenhum agendamento ainda.
@@ -126,9 +133,6 @@ export default async function LojistaDashboard({ searchParams }: Props) {
   const proximoLivre = livres.find(s => s.hr_slot > horaAtualStr) ?? null
 
   // ── Fila de espera: agendamentos Pendente (qualquer data futura) ──
-  const pendentesBase = ((pendentesRaw ?? []) as unknown as (PendenteItem & { id_cliente: string | null })[])
-  // Pedido mexido pelo cliente antes de a loja aceitar (migrations 070/071).
-  const alteradosPeloCliente = await idsAlteradosPeloCliente(supabase, pendentesBase)
   const pendentes: PendenteItem[] = pendentesBase.map(p => ({ ...p, alterado_cliente: alteradosPeloCliente.has(p.id_agendamento) }))
 
   // ── Clientes vinculados + seus pets (base para o modal "Novo Agendamento") ──

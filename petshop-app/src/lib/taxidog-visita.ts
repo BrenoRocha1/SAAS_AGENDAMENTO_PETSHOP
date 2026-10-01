@@ -57,25 +57,45 @@ export async function carregarTransportePorVisita(
     porAgendamento.get(a.id_agendamento) ?? resultado.get(chaveVisita(a.id_pet, a.dt_agendamento)) ?? null
   if (agendamentos.length === 0) return transporteDe
 
-  const { data: corridas } = await supabase
-    .from('taxidog_corrida')
-    .select('id_corrida, id_agendamento, modalidade, status, valor, cep, logradouro, numero, complemento, bairro, cidade, uf, id_funcionario, created_at')
-    .in('id_agendamento', agendamentos.map(a => a.id_agendamento))
-    .neq('status', 'cancelada')
-    .order('created_at')
-  const linhas = (corridas ?? []) as Array<{
+  type Corrida = {
     id_corrida: string; id_agendamento: string; modalidade: ModalidadeTaxiDog; status: string; valor: number | string
     cep: string; logradouro: string; numero: string; complemento: string | null; bairro: string; cidade: string; uf: string
     id_funcionario: string | null
-  }>
-  if (linhas.length === 0) return transporteDe
+    itens?: { feito: boolean }[] | null
+  }
+  const COLUNAS = 'id_corrida, id_agendamento, modalidade, status, valor, cep, logradouro, numero, complemento, bairro, cidade, uf, id_funcionario, created_at'
+  const ids = agendamentos.map(a => a.id_agendamento)
 
-  const { data: itens } = await supabase
-    .from('taxidog_parada_item')
-    .select('id_corrida')
-    .eq('feito', false)
-    .in('id_corrida', linhas.map(c => c.id_corrida))
-  const naRota = new Set(((itens ?? []) as { id_corrida: string }[]).map(i => i.id_corrida))
+  // Uma ida só: as corridas já com os passos de rota (migration 052). Se
+  // essa relação não existir no banco, cai nas duas consultas de antes.
+  let linhas: Corrida[]
+  let naRota: Set<string>
+  const junto = await supabase
+    .from('taxidog_corrida')
+    .select(`${COLUNAS}, itens:taxidog_parada_item ( feito )`)
+    .in('id_agendamento', ids)
+    .neq('status', 'cancelada')
+    .order('created_at')
+  if (!junto.error) {
+    linhas = (junto.data ?? []) as unknown as Corrida[]
+    naRota = new Set(linhas.filter(c => (c.itens ?? []).some(i => !i.feito)).map(c => c.id_corrida))
+    if (linhas.length === 0) return transporteDe
+  } else {
+    const { data: corridas } = await supabase
+      .from('taxidog_corrida')
+      .select(COLUNAS)
+      .in('id_agendamento', ids)
+      .neq('status', 'cancelada')
+      .order('created_at')
+    linhas = (corridas ?? []) as unknown as Corrida[]
+    if (linhas.length === 0) return transporteDe
+    const { data: itens } = await supabase
+      .from('taxidog_parada_item')
+      .select('id_corrida')
+      .eq('feito', false)
+      .in('id_corrida', linhas.map(c => c.id_corrida))
+    naRota = new Set(((itens ?? []) as { id_corrida: string }[]).map(i => i.id_corrida))
+  }
 
   const agPorId = new Map(agendamentos.map(a => [a.id_agendamento, a]))
   const aberta = (s: string) => s !== 'concluida'

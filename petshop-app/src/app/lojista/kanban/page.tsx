@@ -47,6 +47,40 @@ export default async function KanbanPage({ searchParams }: Props) {
   // Gate: só mostra o board se o lojista tiver o Kanban ativado (migration
   // 013). Se a coluna ainda não existir no banco, trata como "ativado por
   // padrão" (mesmo fallback do layout/sidebar) em vez de quebrar a página.
+  const hojeISO = hojeBrasilISO()
+  const selectedDate = params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO
+  const visaoTaxiDog = params.visao === 'taxidog'
+
+  // Os dados do board já saem agora, junto com as configurações abaixo
+  // (antes esperavam por elas). Só são lidos mais embaixo.
+  const dadosDoBoard = Promise.all([
+    supabase
+      .from('agendamento')
+      .select(`
+        id_agendamento, dt_agendamento, hr_agendamento, status, valor, id_funcionario, id_servico, obs, id_pet, id_cliente,
+        pet:id_pet ( nome, raca, especie, porte, foto_url ),
+        servico:id_servico ( nome ),
+        cliente:id_cliente ( nome ),
+        funcionario:id_funcionario ( nome )
+      `)
+      .eq('id_lojista', lojistaId)
+      .eq('dt_agendamento', selectedDate)
+      .neq('status', 'Cancelado')
+      .order('hr_agendamento'),
+    supabase
+      .from('funcionario')
+      .select('id_funcionario, nome')
+      .eq('id_lojista', lojistaId)
+      .eq('ativo', true)
+      .order('created_at'),
+    supabase
+      .from('servico')
+      .select('id_servico, nome')
+      .eq('id_lojista', lojistaId)
+      .eq('status', 'Ativo')
+      .order('nome'),
+  ])
+
   // (junto com a config do TaxiDog, usada logo abaixo — antes, em fila)
   const [{ data: lojistaRow, error: lojistaErro }, { data: taxidogCfg, error: taxidogCfgErro }] = await Promise.all([
     supabase.from('lojista').select('kanban_ativo').eq('id_lojista', lojistaId).single(),
@@ -72,10 +106,6 @@ export default async function KanbanPage({ searchParams }: Props) {
       </>
     )
   }
-
-  const hojeISO = hojeBrasilISO()
-  const selectedDate = params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO
-  const visaoTaxiDog = params.visao === 'taxidog'
 
   // O botão "Visualizar TaxiDog" só aparece com o TaxiDog ativado (e sem a
   // migration 042 a tabela nem existe — aí some também).
@@ -127,33 +157,7 @@ export default async function KanbanPage({ searchParams }: Props) {
     { data: agendaRaw, error: agendaErro },
     { data: funcionariosRaw },
     { data: servicosRaw },
-  ] = await Promise.all([
-    supabase
-      .from('agendamento')
-      .select(`
-        id_agendamento, dt_agendamento, hr_agendamento, status, valor, id_funcionario, id_servico, obs, id_pet, id_cliente,
-        pet:id_pet ( nome, raca, especie, porte, foto_url ),
-        servico:id_servico ( nome ),
-        cliente:id_cliente ( nome ),
-        funcionario:id_funcionario ( nome )
-      `)
-      .eq('id_lojista', lojistaId)
-      .eq('dt_agendamento', selectedDate)
-      .neq('status', 'Cancelado')
-      .order('hr_agendamento'),
-    supabase
-      .from('funcionario')
-      .select('id_funcionario, nome')
-      .eq('id_lojista', lojistaId)
-      .eq('ativo', true)
-      .order('created_at'),
-    supabase
-      .from('servico')
-      .select('id_servico, nome')
-      .eq('id_lojista', lojistaId)
-      .eq('status', 'Ativo')
-      .order('nome'),
-  ])
+  ] = await dadosDoBoard
 
   if (agendaErro) {
     return (

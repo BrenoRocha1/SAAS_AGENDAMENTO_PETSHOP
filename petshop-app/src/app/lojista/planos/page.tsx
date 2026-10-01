@@ -41,6 +41,25 @@ export default async function PlanosPage({ searchParams }: { searchParams: Promi
   const filtro = FILTROS.includes(params.filtro ?? '') ? params.filtro! : 'pendentes'
   const hojeISO = hojeBrasilISO()
 
+  // Os dados da aba saem junto com a lista de planos (antes, em fila). O
+  // .then() é o que dispara a consulta — o builder do Supabase só envia
+  // quando alguém espera por ele.
+  const pServicos = aba === 'planos'
+    ? supabase.from('servico').select('id_servico, nome, preco, status').eq('id_lojista', contexto.idLojista).order('nome').then(r => r)
+    : null
+  const pAssinaturas = aba === 'assinaturas'
+    ? supabase.rpc('fn_assinaturas_da_loja', { p_id_cliente: null, p_detalhes: false }).then(r => r)
+    : null
+  const pCobrancas = aba === 'cobrancas'
+    ? Promise.all([
+        supabase.rpc('fn_cobrancas_planos', { p_filtro: filtro, p_data_ini: null, p_data_fim: null }),
+        supabase.rpc('fn_formas_pagamento_loja', { p_id_lojista: contexto.idLojista }),
+      ])
+    : null
+  const pHistorico = aba === 'historico'
+    ? supabase.rpc('fn_historico_planos', { p_limite: 150 }).then(r => r)
+    : null
+
   const planosRes = await supabase.rpc('fn_planos_da_loja')
   const faltaMigration = !!planosRes.error
   const planos = (planosRes.data ?? []) as Plano[]
@@ -48,22 +67,15 @@ export default async function PlanosPage({ searchParams }: { searchParams: Promi
   let conteudo: React.ReactNode = null
   if (!faltaMigration) {
     if (aba === 'planos') {
-      const { data: servicosRaw } = await supabase
-        .from('servico')
-        .select('id_servico, nome, preco, status')
-        .eq('id_lojista', contexto.idLojista)
-        .order('nome')
+      const { data: servicosRaw } = await pServicos!
       const servicos: ServicoOpcao[] = ((servicosRaw ?? []) as { id_servico: string; nome: string; preco: number; status: string }[])
         .map(s => ({ id_servico: s.id_servico, nome: s.nome, preco: Number(s.preco), ativo: s.status === 'Ativo' }))
       conteudo = <PlanosLista planos={planos} servicos={servicos} />
     } else if (aba === 'assinaturas') {
-      const { data } = await supabase.rpc('fn_assinaturas_da_loja', { p_id_cliente: null, p_detalhes: false })
+      const { data } = await pAssinaturas!
       conteudo = <AssinaturasLista assinaturas={(data ?? []) as Assinatura[]} />
     } else if (aba === 'cobrancas') {
-      const [{ data }, { data: formasRaw }] = await Promise.all([
-        supabase.rpc('fn_cobrancas_planos', { p_filtro: filtro, p_data_ini: null, p_data_fim: null }),
-        supabase.rpc('fn_formas_pagamento_loja', { p_id_lojista: contexto.idLojista }),
-      ])
+      const [{ data }, { data: formasRaw }] = await pCobrancas!
       conteudo = (
         <CobrancasLista
           cobrancas={(data ?? []) as CobrancaDaLoja[]}
@@ -73,7 +85,7 @@ export default async function PlanosPage({ searchParams }: { searchParams: Promi
         />
       )
     } else {
-      const { data } = await supabase.rpc('fn_historico_planos', { p_limite: 150 })
+      const { data } = await pHistorico!
       conteudo = <HistoricoPlanosLista itens={(data ?? []) as HistoricoPlano[]} />
     }
   }
