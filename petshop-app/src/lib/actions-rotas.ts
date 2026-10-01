@@ -11,20 +11,17 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { obterContextoLojista } from '@/lib/lojista-context'
-import { formatarEnderecoLoja } from '@/lib/format'
 import { taxiDogAgendamentoSchema } from '@/lib/validations'
 import { coordenadasParaTaxiDog, mensagemErroTaxiDog } from '@/lib/taxidog-servidor'
-import { calcularTrajeto, chamadasNecessarias, googleMapsConfigurado, limiteMensalGoogle, type PontoRota } from '@/lib/rotas-mapa'
+import { carregarRota, recalcularRota } from '@/lib/rotas-calculo'
 import {
   montarPlanoInicial,
   normalizarPlano,
-  normalizarRota,
   normalizarTrecho,
   horarioReferencia,
   inserirPorHorario,
   planoDaRota,
   planoParaBanco,
-  type ItemParada,
   type ParadaPlano,
   type Rota,
   type Trecho,
@@ -51,70 +48,6 @@ function revalidar() {
   revalidatePath('/lojista/taxidog')
   revalidatePath('/lojista/taxidog/rotas')
   revalidatePath('/lojista/agendamentos')
-}
-
-async function carregarRota(supabase: Supabase, idRota: string): Promise<Rota | null> {
-  const { data } = await supabase.rpc('fn_listar_rotas', { p_data_ini: '2000-01-01', p_data_fim: '2000-01-01', p_id_rota: idRota })
-  const linha = (data as Record<string, unknown>[] | null)?.[0]
-  return linha ? normalizarRota(linha) : null
-}
-
-// ── Distância e tempo (Google Maps) ─────────────────────────
-async function pontoDaLoja(supabase: Supabase, idLojista: string): Promise<PontoRota | null> {
-  const completa = await supabase
-    .from('lojista')
-    .select('endereco, numero, complemento, bairro, cidade, estado, cep')
-    .eq('id_lojista', idLojista)
-    .maybeSingle()
-  const loja = completa.error
-    ? (await supabase.from('lojista').select('endereco, cidade, estado, cep').eq('id_lojista', idLojista).maybeSingle()).data
-    : completa.data
-  if (!loja?.cidade) return null
-  const texto = [formatarEnderecoLoja(loja).replace(/ · /g, ', '), loja.cep, 'Brasil'].filter(Boolean).join(', ')
-  return { endereco: texto }
-}
-
-function pontoDoCliente(i: ItemParada): PontoRota {
-  if (i.lat != null && i.lng != null) return { lat: i.lat, lng: i.lng }
-  return { endereco: `${i.logradouro}, ${i.numero} - ${i.bairro}, ${i.cidade} - ${i.uf}, ${i.cep}, Brasil` }
-}
-
-// Calcula de novo se a rota mudou desde o último cálculo. Sem chave do
-// Google, não faz nada (a tela avisa). Devolve o motivo quando não deu.
-async function recalcular(supabase: Supabase, idRota: string, idLojista: string): Promise<string | null> {
-  if (!googleMapsConfigurado()) return null
-  const rota = await carregarRota(supabase, idRota)
-  if (!rota || rota.calculo_versao === rota.versao || rota.paradas.length === 0) return null
-  const loja = await pontoDaLoja(supabase, idLojista)
-  if (!loja) return 'Cadastre o endereço da loja para calcular a distância.'
-  const pontos: PontoRota[] = [
-    loja,
-    ...rota.paradas.map(p => (p.local === 'loja' || !p.itens[0] ? loja : pontoDoCliente(p.itens[0]))),
-  ]
-  // Conta as chamadas do mês antes de chamar o Google (migration 055).
-  const { data: liberado, error: erroLimite } = await supabase.rpc('fn_reservar_chamadas_google', {
-    p_quantidade: chamadasNecessarias(pontos),
-    p_limite: limiteMensalGoogle(),
-  })
-  if (erroLimite) {
-    return erroLimite.code === 'PGRST202' || erroLimite.message.includes('Could not find the function')
-      ? 'Execute a migration 055_google_maps_limite.sql para liberar o cálculo de distância.'
-      : 'Não foi possível calcular a distância agora.'
-  }
-  if (!liberado) return 'O limite grátis do Google Maps deste mês acabou — a distância volta no mês que vem.'
-
-  const r = await calcularTrajeto(pontos)
-  if (!r.ok) {
-    if (r.motivo === 'falha') console.error('[rotas] Google Maps:', r.detalhe)
-    return 'O Google Maps não conseguiu calcular esta rota agora.'
-  }
-  await supabase.rpc('fn_salvar_calculo_rota', {
-    p_id_rota: idRota,
-    p_versao: rota.versao,
-    p_distancia_m: Math.round(r.distanciaM),
-    p_duracao_s: Math.round(r.duracaoS),
-  })
-  return null
 }
 
 async function contextoGestor(supabase: Supabase) {
@@ -286,7 +219,7 @@ export async function recalcularRotaAction(idRota: string): Promise<Resultado> {
   if (!user) return { error: 'Não autenticado' }
   const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
   if (!contexto) return { error: 'Acesso não autorizado' }
-  const falha = await recalcular(supabase, idRota, contexto.idLojista)
+  const falha = await recalcularRota(supabase, idRota, contexto.idLojista)
   return falha ? { error: falha } : { success: true }
 }
 
