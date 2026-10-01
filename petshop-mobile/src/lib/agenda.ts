@@ -19,15 +19,17 @@ export function agoraBrasil(): Date {
 
   const valor = (tipo: string) => Number(partes.find(p => p.type === tipo)?.value ?? 0)
 
+  // Montado no fuso LOCAL do aparelho (não em UTC): date-fns e getHours()
+  // leem os campos locais. Com Date.UTC, num celular em Brasília a hora
+  // saía 3 h atrasada e, entre 0h e 3h, "hoje" virava ontem — mesma
+  // correção que o painel web já tem.
   return new Date(
-    Date.UTC(
-      valor('year'),
-      valor('month') - 1,
-      valor('day'),
-      valor('hour') % 24,
-      valor('minute'),
-      valor('second')
-    )
+    valor('year'),
+    valor('month') - 1,
+    valor('day'),
+    valor('hour') % 24, // alguns motores ICU retornam "24" pra meia-noite
+    valor('minute'),
+    valor('second')
   )
 }
 
@@ -53,4 +55,48 @@ export function saudacao(): string {
   if (hora < 12) return 'Bom dia'
   if (hora < 18) return 'Boa tarde'
   return 'Boa noite'
+}
+
+/** Soma (ou subtrai) dias numa data 'yyyy-MM-dd', sem passar por fuso. */
+export function somarDiasISO(dataISO: string, dias: number): string {
+  const [ano, mes, dia] = dataISO.split('-').map(Number)
+  const d = new Date(Date.UTC(ano, mes - 1, dia + dias))
+  return d.toISOString().slice(0, 10)
+}
+
+/** '2026-10-01' -> '01/10/2026'. */
+export function dataBR(dataISO: string): string {
+  const [ano, mes, dia] = dataISO.split('-')
+  return `${dia}/${mes}/${ano}`
+}
+
+const DIAS_CURTOS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
+const DIAS_LONGOS = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+
+function partesDaData(dataISO: string) {
+  const [ano, mes, dia] = dataISO.split('-').map(Number)
+  const semana = new Date(Date.UTC(ano, mes - 1, dia)).getUTCDay()
+  return { ano, mes, dia, semana }
+}
+
+/** 'seg' — dia da semana curto de uma data 'yyyy-MM-dd'. */
+export function diaSemanaCurto(dataISO: string): string {
+  return DIAS_CURTOS[partesDaData(dataISO).semana]
+}
+
+/** "Quinta-feira, 1 de outubro" — de uma data 'yyyy-MM-dd' qualquer. */
+export function dataExtensaISO(dataISO: string): string {
+  const { dia, mes, semana } = partesDaData(dataISO)
+  return `${DIAS_LONGOS[semana]}, ${dia} de ${MESES[mes - 1]}`
+}
+
+/**
+ * Tira os horários que já passaram — só muda algo quando a data é hoje.
+ * Mesma regra do painel web (removerHorariosPassados).
+ */
+export function removerHorariosPassados<T extends { hr_slot: string }>(slots: T[], dataISO: string): T[] {
+  if (dataISO !== hojeBrasilISO()) return slots
+  const agora = agoraBrasilHHMM()
+  return slots.filter(s => s.hr_slot.slice(0, 5) > agora)
 }

@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/lib/supabase'
+import { assinarComSessao } from '@/lib/realtime'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { normalizarCorrida, trechoAtual } from '@/lib/taxidog'
 import { useAuth } from './AuthContext'
@@ -194,11 +195,11 @@ export function TaxiDogProvider({ children }: { children: ReactNode }) {
           avisoCorrida(nova.id_corrida, 'pronta')
         }
       })
-      .subscribe()
+    const desfazer = assinarComSessao(canal)
 
     return () => {
       cancelado = true
-      supabase.removeChannel(canal)
+      desfazer()
     }
   }, [ativo, userId, idLojista, avisar, avisoCorrida, recente])
 

@@ -7,6 +7,8 @@ import { DetailHeader } from '@/components/DetailHeader'
 import { Avatar } from '@/components/Avatar'
 import { Card } from '@/components/Card'
 import { EmptyState } from '@/components/EmptyState'
+import { Botao } from '@/components/Botao'
+import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { formatarTelefone } from '@/lib/format'
 import { colors, spacing, typography } from '@/theme/theme'
@@ -29,6 +31,7 @@ interface PetResumo {
 export default function ClienteDetalheScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
+  const { contexto } = useAuth()
   const [cliente, setCliente] = useState<ClienteDetalhe | null>(null)
   const [pets, setPets] = useState<PetResumo[]>([])
   const [loading, setLoading] = useState(true)
@@ -107,6 +110,15 @@ export default function ClienteDetalheScreen() {
           <Text style={styles.acaoTexto}>WhatsApp</Text>
         </Pressable>
       </View>
+
+      {contexto?.podeGerenciarAgenda && (
+        <Botao
+          rotulo="Novo agendamento"
+          icone="calendar-outline"
+          style={{ marginBottom: spacing.lg }}
+          onPress={() => router.push({ pathname: '/agendamentos/novo', params: { cliente: cliente.id_cliente } })}
+        />
+      )}
 
       <Card style={styles.infoCard}>
         <InfoRow icon="call-outline" label="Telefone" valor={formatarTelefone(cliente.telefone)} />

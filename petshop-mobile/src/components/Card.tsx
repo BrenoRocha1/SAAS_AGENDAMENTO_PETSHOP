@@ -1,10 +1,10 @@
 import { ReactNode } from 'react'
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native'
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 import { colors, radius, shadow, spacing } from '@/theme/theme'
 
 interface Props {
   children: ReactNode
-  style?: ViewStyle
+  style?: StyleProp<ViewStyle>
   onPress?: () => void
 }
 

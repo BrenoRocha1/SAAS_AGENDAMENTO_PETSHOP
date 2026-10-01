@@ -1,5 +1,6 @@
 import 'react-native-url-polyfill/auto'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { AppState } from 'react-native'
 import { createClient } from '@supabase/supabase-js'
 
 // Mesmo projeto Supabase do dashboard web (petshop-app) — mesmo backend,
@@ -21,4 +22,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+})
+
+// Renovação do token só com o app aberto na frente (recomendação do
+// Supabase pra React Native): em segundo plano os timers param, e ao
+// voltar a sessão é conferida e renovada na hora.
+AppState.addEventListener('change', estado => {
+  if (estado === 'active') supabase.auth.startAutoRefresh()
+  else supabase.auth.stopAutoRefresh()
 })

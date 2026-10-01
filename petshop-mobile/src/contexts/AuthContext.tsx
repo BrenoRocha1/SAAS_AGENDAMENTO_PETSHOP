@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as Linking from 'expo-linking'
+import * as WebBrowser from 'expo-web-browser'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { obterContextoLojista, type ContextoLojista } from '@/lib/lojistaContext'
@@ -27,6 +29,9 @@ interface AuthState {
   temAcessoLoja: boolean
   setModo: (modo: ModoApp) => void
   signIn: (email: string, senha: string) => Promise<{ error: string | null }>
+  // Login com Google (a mesma conta do painel web). `error: null` também
+  // quando a pessoa só fechou a janela do Google.
+  signInWithGoogle: () => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -52,6 +57,27 @@ async function resolverRole(user: User): Promise<Exclude<Role, null>> {
   return 'cliente'
 }
 
+// O Google devolve a sessão no endereço de retorno: no fragmento
+// (#access_token=…&refresh_token=…) ou, no fluxo com código, em ?code=….
+function parametrosDoRetorno(url: string): Record<string, string> {
+  const [antes, fragmento] = url.split('#')
+  const saida: Record<string, string> = {}
+  for (const parte of [antes.split('?')[1], fragmento]) {
+    if (!parte) continue
+    for (const par of parte.split('&')) {
+      const i = par.indexOf('=')
+      const chave = i < 0 ? par : par.slice(0, i)
+      if (!chave) continue
+      try {
+        saida[decodeURIComponent(chave)] = decodeURIComponent((i < 0 ? '' : par.slice(i + 1)).replace(/\+/g, ' '))
+      } catch {
+        // par mal formado: ignora
+      }
+    }
+  }
+  return saida
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [session, setSession] = useState<Session | null>(null)
@@ -60,51 +86,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [funcionarioInativo, setFuncionarioInativo] = useState(false)
   const [modoPreferido, setModoPreferido] = useState<ModoApp | null>(null)
 
+  // O papel só é publicado junto com o contexto: enquanto `role` é null
+  // (logo depois do login), as telas mostram "carregando" em vez de
+  // piscar um aviso de acesso negado.
   async function carregarContexto(user: User) {
     const resolvedRole = await resolverRole(user)
-    setRole(resolvedRole)
 
     if (resolvedRole === 'cliente') {
       setContexto(null)
       setFuncionarioInativo(false)
+      setRole('cliente')
       return
     }
 
     const ctx = await obterContextoLojista(supabase, user.id, resolvedRole)
-    if (!ctx && resolvedRole === 'funcionario') {
-      // Existe na auth mas não achou linha ativa em `funcionario` —
-      // conta desativada (mesma checagem do loginAction web).
-      setFuncionarioInativo(true)
-    } else {
-      setFuncionarioInativo(false)
-    }
+    // Existe na auth mas não achou linha ativa em `funcionario` — conta
+    // desativada (mesma checagem do loginAction web).
+    setFuncionarioInativo(!ctx && resolvedRole === 'funcionario')
     setContexto(ctx)
+    setRole(resolvedRole)
   }
 
   useEffect(() => {
     let ativo = true
+
+    async function aplicar(sessao: Session | null) {
+      if (!ativo) return
+      setSession(sessao)
+      if (sessao?.user) {
+        await carregarContexto(sessao.user)
+      } else {
+        setRole(null)
+        setContexto(null)
+        setFuncionarioInativo(false)
+      }
+    }
 
     // A preferência de área é lida antes de liberar a tela, pra não abrir
     // numa área e pular pra outra logo em seguida.
     Promise.all([supabase.auth.getSession(), AsyncStorage.getItem(CHAVE_MODO).catch(() => null)]).then(async ([{ data }, salvo]) => {
       if (!ativo) return
       if (salvo === 'loja' || salvo === 'taxidog') setModoPreferido(salvo)
-      setSession(data.session)
-      if (data.session?.user) await carregarContexto(data.session.user)
-      setLoading(false)
+      await aplicar(data.session)
+      if (ativo) setLoading(false)
     })
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, novaSession) => {
-      if (!ativo) return
-      setSession(novaSession)
-      if (novaSession?.user) {
-        await carregarContexto(novaSession.user)
-      } else {
-        setRole(null)
-        setContexto(null)
-        setFuncionarioInativo(false)
-      }
-      setLoading(false)
+    const { data: listener } = supabase.auth.onAuthStateChange((evento, novaSession) => {
+      // A sessão guardada no aparelho já foi carregada logo acima.
+      if (evento === 'INITIAL_SESSION') return
+      // Nada de consultar o Supabase AQUI DENTRO: este aviso chega com a
+      // trava da sessão ainda presa (na renovação do token, por exemplo), e
+      // uma consulta ficaria esperando a própria trava — o app inteiro
+      // pararia de responder. Por isso o trabalho vai pro próximo ciclo.
+      setTimeout(() => { aplicar(novaSession) }, 0)
     })
 
     return () => {
@@ -118,6 +152,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
     if (error) return { error: 'E-mail ou senha incorretos.' }
     return { error: null }
+  }
+
+  async function signInWithGoogle() {
+    // saip://auth no app instalado; exp://…/--/auth no Expo Go. Os dois
+    // precisam estar liberados em Authentication > URL Configuration >
+    // Redirect URLs do Supabase (ver README).
+    const retorno = Linking.createURL('auth')
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: retorno, skipBrowserRedirect: true },
+    })
+    if (error || !data?.url) return { error: 'Não foi possível abrir o login do Google.' }
+
+    let resultado: WebBrowser.WebBrowserAuthSessionResult
+    try {
+      resultado = await WebBrowser.openAuthSessionAsync(data.url, retorno)
+    } catch {
+      return { error: 'Não foi possível abrir o navegador para o login do Google.' }
+    }
+    // Fechou a janela sem concluir: não é erro.
+    if (resultado.type !== 'success') return { error: null }
+
+    const p = parametrosDoRetorno(resultado.url)
+    if (p.error || p.error_description) return { error: 'O Google não concluiu o login. Tente de novo.' }
+    if (p.code) {
+      const { error: erroTroca } = await supabase.auth.exchangeCodeForSession(p.code)
+      return { error: erroTroca ? 'Não foi possível concluir o login com o Google.' : null }
+    }
+    if (p.access_token && p.refresh_token) {
+      const { error: erroSessao } = await supabase.auth.setSession({ access_token: p.access_token, refresh_token: p.refresh_token })
+      return { error: erroSessao ? 'Não foi possível concluir o login com o Google.' : null }
+    }
+    return { error: 'O login com o Google voltou sem os dados da sessão.' }
   }
 
   async function signOut() {
@@ -150,6 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       temAcessoLoja,
       setModo,
       signIn,
+      signInWithGoogle,
       signOut,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setModo/signIn/signOut só usam setters e o client estável

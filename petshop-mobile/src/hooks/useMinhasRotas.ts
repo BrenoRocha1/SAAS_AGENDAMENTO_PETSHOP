@@ -3,6 +3,7 @@ import { useFocusEffect } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { formatarEnderecoLoja } from '@/lib/format'
 import { normalizarRota, type Rota } from '@/lib/taxidog-rotas'
+import { pedirCalculoDaRota } from '@/lib/rotas-distancia'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTaxiDogTempoReal } from '@/contexts/TaxiDogContext'
 
@@ -68,6 +69,21 @@ export function useRota(idRota: string) {
   useEffect(() => {
     if (versao > 0) carregar()
   }, [versao, carregar])
+
+  // Distância e tempo: pede o cálculo ao painel web quando a rota mudou
+  // desde o último (mesma regra e mesma espera do useRecalculoRotas do
+  // web — a rota "sossega" antes de gastar uma chamada do Google). O
+  // resultado volta pelo Realtime e recarrega a tela.
+  const precisaCalcular = !!rota && rota.status !== 'cancelada' && rota.status !== 'concluida'
+    && rota.paradas.length > 0 && rota.calculo_versao !== rota.versao
+  const versaoDaRota = rota?.versao
+  useEffect(() => {
+    if (!precisaCalcular || versaoDaRota == null) return
+    const timer = setTimeout(() => {
+      pedirCalculoDaRota(idRota, versaoDaRota).then(carregar)
+    }, 4000)
+    return () => clearTimeout(timer)
+  }, [precisaCalcular, versaoDaRota, idRota, carregar])
 
   return { rota, loading, erro, recarregar: carregar }
 }

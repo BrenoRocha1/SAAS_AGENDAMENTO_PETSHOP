@@ -30,3 +30,37 @@ export function coresStatus(status: string) {
 export function ehEtapaAtiva(status: string): boolean {
   return status === 'Pendente' || status === 'Confirmado' || status === 'Em andamento'
 }
+
+// A etapa seguinte de cada uma, e o verbo do botão que leva até ela.
+// `null` = fim da linha (Finalizado e Cancelado não avançam).
+export const PROXIMA_ETAPA: Record<StatusAgendamento, { status: StatusAgendamento; acao: string } | null> = {
+  Pendente: { status: 'Confirmado', acao: 'Aceitar' },
+  Confirmado: { status: 'Em andamento', acao: 'Iniciar atendimento' },
+  'Em andamento': { status: 'Concluído', acao: 'Finalizar' },
+  'Concluído': null,
+  Cancelado: null,
+}
+
+// Iniciar e finalizar só a partir do dia do agendamento — um atendimento
+// de data futura ainda não aconteceu (aceitar vale a qualquer momento).
+export function etapaExigeDia(status: string): boolean {
+  return status === 'Em andamento' || status === 'Concluído'
+}
+
+export function podeAvancarEtapa(statusAtual: string, dtAgendamento: string, hojeISO: string): boolean {
+  const proxima = PROXIMA_ETAPA[statusAtual as StatusAgendamento]
+  return !!proxima && (!etapaExigeDia(proxima.status) || dtAgendamento <= hojeISO)
+}
+
+// Posição de cada etapa na linha do tempo — impede voltar uma etapa.
+export const ORDEM_ETAPA: Record<'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído', number> = {
+  Pendente: 1,
+  Confirmado: 2,
+  'Em andamento': 3,
+  'Concluído': 4,
+}
+
+// Finalizado ou cancelado: o status não muda mais.
+export function etapaEncerrada(status: string): boolean {
+  return status === 'Concluído' || status === 'Cancelado'
+}

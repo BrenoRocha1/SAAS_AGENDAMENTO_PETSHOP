@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { assinarComSessao } from '@/lib/realtime'
 import { hojeBrasilISO } from '@/lib/agenda'
 import type { Agendamento } from '@/types/database'
 
@@ -8,7 +9,9 @@ import type { Agendamento } from '@/types/database'
 // é uma relação antiga e estável, não uma tabela nova recém-migrada, por
 // isso o embed aqui é seguro (ver nota sobre cache de schema do PostgREST
 // no repositório do dashboard web).
-export function useAgendamentosHoje(idLojista: string | undefined) {
+//
+// `dataISO` é o dia mostrado ('yyyy-MM-dd'); sem ele, hoje (fuso da loja).
+export function useAgendamentosDoDia(idLojista: string | undefined, dataISO?: string) {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
@@ -26,16 +29,16 @@ export function useAgendamentosHoje(idLojista: string | undefined) {
         funcionario:id_funcionario ( nome )
       `)
       .eq('id_lojista', idLojista)
-      .eq('dt_agendamento', hojeBrasilISO())
+      .eq('dt_agendamento', dataISO ?? hojeBrasilISO())
       .order('hr_agendamento')
 
     if (error) {
-      setErro('Não foi possível carregar os agendamentos de hoje.')
+      setErro('Não foi possível carregar os agendamentos.')
     } else {
       setAgendamentos((data ?? []) as unknown as Agendamento[])
     }
     setLoading(false)
-  }, [idLojista])
+  }, [idLojista, dataISO])
 
   useEffect(() => {
     setLoading(true)
@@ -49,13 +52,14 @@ export function useAgendamentosHoje(idLojista: string | undefined) {
   useEffect(() => {
     if (!idLojista) return
     const canal = supabase
-      .channel(`agenda-hoje-${idLojista}-${idCanal}`)
+      .channel(`agenda-${idLojista}-${idCanal}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamento', filter: `id_lojista=eq.${idLojista}` }, () => carregar())
-      .subscribe()
-    return () => {
-      supabase.removeChannel(canal)
-    }
+    return assinarComSessao(canal)
   }, [idLojista, idCanal, carregar])
 
   return { agendamentos, loading, erro, recarregar: carregar }
+}
+
+export function useAgendamentosHoje(idLojista: string | undefined) {
+  return useAgendamentosDoDia(idLojista)
 }

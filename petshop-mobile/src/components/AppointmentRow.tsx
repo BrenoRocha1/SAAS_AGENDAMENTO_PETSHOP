@@ -7,10 +7,11 @@ import type { Agendamento } from '@/types/database'
 
 // Linha de agendamento — horário em destaque à esquerda, dados do
 // atendimento no meio, status à direita. Usada tanto no resumo da tela
-// Início quanto na lista completa de Agendamentos.
-export function AppointmentRow({ item }: { item: Agendamento }) {
+// Início quanto na lista completa de Agendamentos. Com `onPress`, abre o
+// agendamento (aceitar, iniciar, remarcar…).
+export function AppointmentRow({ item, onPress }: { item: Agendamento; onPress?: () => void }) {
   return (
-    <Card style={styles.card}>
+    <Card style={styles.card} onPress={onPress}>
       <View style={styles.horaCol}>
         <Text style={styles.hora}>{item.hr_agendamento.slice(0, 5)}</Text>
       </View>

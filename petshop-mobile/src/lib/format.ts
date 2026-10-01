@@ -32,3 +32,19 @@ export function formatarEnderecoLoja(l: {
   const cidade = [l.cidade?.trim(), l.estado?.trim()].filter(Boolean).join(' - ')
   return [rua, l.complemento?.trim(), l.bairro?.trim(), cidade].filter(Boolean).join(' · ')
 }
+
+// "R$ 1.234,50" — montado à mão (sem Intl) pra sair igual em qualquer
+// aparelho, mesmo padrão de formatarReais do TaxiDog.
+export function formatarMoeda(valor: number | string | null | undefined): string {
+  const n = Number(valor ?? 0)
+  const [inteiro, centavos] = Math.abs(n).toFixed(2).split('.')
+  const comPontos = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return `${n < 0 ? '-' : ''}R$ ${comPontos},${centavos}`
+}
+
+// Só os dígitos, com o 55 na frente — formato do wa.me.
+export function linkWhatsApp(telefone: string | null | undefined, texto?: string): string | null {
+  const d = (telefone ?? '').replace(/\D/g, '')
+  if (d.length < 10) return null
+  return `https://wa.me/55${d}${texto ? `?text=${encodeURIComponent(texto)}` : ''}`
+}

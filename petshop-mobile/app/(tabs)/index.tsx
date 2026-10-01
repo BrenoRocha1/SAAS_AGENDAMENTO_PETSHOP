@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { useRouter } from 'expo-router'
+import { useCallback, useMemo } from 'react'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { ScreenContainer } from '@/components/ScreenContainer'
@@ -21,6 +21,9 @@ export default function InicioScreen() {
   const { contexto } = useAuth()
   const router = useRouter()
   const { agendamentos, loading, erro, recarregar } = useAgendamentosHoje(contexto?.idLojista)
+
+  // Voltando de um agendamento alterado, o resumo já aparece atualizado.
+  useFocusEffect(useCallback(() => { recarregar() }, [recarregar]))
 
   const resumo = useMemo(() => {
     const agora = agoraBrasilHHMM()
@@ -75,11 +78,16 @@ export default function InicioScreen() {
             ) : (
               <View style={{ gap: spacing.md }}>
                 {resumo.proximos.map(item => (
-                  <AppointmentRow key={item.id_agendamento} item={item} />
+                  <AppointmentRow key={item.id_agendamento} item={item} onPress={() => router.push(`/agendamentos/${item.id_agendamento}`)} />
                 ))}
               </View>
             )}
           </View>
+
+          <Pressable style={[styles.ctaTodos, styles.ctaNovo]} onPress={() => router.push('/agendamentos/novo')} accessibilityRole="button">
+            <Ionicons name="add" size={18} color={colors.white} />
+            <Text style={[styles.ctaTexto, { color: colors.white }]}>Novo agendamento</Text>
+          </Pressable>
 
           <Pressable style={styles.ctaTodos} onPress={() => router.push('/agendamentos')}>
             <Ionicons name="list-outline" size={18} color={colors.primary600} />
@@ -108,5 +116,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: spacing.md,
   },
+  ctaNovo: { backgroundColor: colors.primary600, marginBottom: spacing.md },
   ctaTexto: { ...typography.label.md, color: colors.primary600 },
 })

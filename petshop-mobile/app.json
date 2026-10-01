@@ -8,9 +8,14 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.saip.petshop.equipe",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.saip.petshop.equipe",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
