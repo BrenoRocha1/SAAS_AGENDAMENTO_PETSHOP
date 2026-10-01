@@ -1,0 +1,162 @@
+'use client'
+
+import { useEffect, useState, useTransition, type ComponentType, type SVGProps } from 'react'
+import { logoutAction } from '@/lib/actions'
+import { BarraMenuMobile, useMenuMobile } from '@/components/layout/MenuMobile'
+import { IconLogout } from '@/components/icons'
+import {
+  Sidebar,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarItem,
+  SidebarNav,
+  SidebarSection,
+  SidebarToggle,
+} from '@/components/ui/sidebar'
+
+type Icone = ComponentType<SVGProps<SVGSVGElement>>
+
+export interface ItemBarraLateral {
+  href: string
+  label: string
+  icon: Icone
+  ativo: boolean
+}
+
+interface Props {
+  // Rótulo acima dos itens ("Gestão", "Menu"...).
+  secao: string
+  itens: ItemBarraLateral[]
+  iconeMarca: Icone
+  // Texto depois de "SAIP" na marca (ex.: "Admin").
+  sufixoMarca?: string
+  tituloMobile?: string
+  usuario: { nome: string; papel: string; iniciais: string; dica: string }
+  // Chave do localStorage que lembra se o menu ficou recolhido.
+  chaveColapso: string
+  idBotaoSair?: string
+}
+
+const LARGURA = 260
+const LARGURA_RECOLHIDA = 60
+
+// Casca comum aos menus da loja, do cliente e do admin: barra do celular,
+// recolher/expandir lembrado no navegador e o rodapé com o usuário e o
+// "Sair". O visual é o do componente em src/components/ui/sidebar.tsx.
+export default function BarraLateral({
+  secao,
+  itens,
+  iconeMarca: IconeMarca,
+  sufixoMarca,
+  tituloMobile,
+  usuario,
+  chaveColapso,
+  idBotaoSair,
+}: Props) {
+  const [saindo, startTransition] = useTransition()
+  const [colapsada, setColapsada] = useState(false)
+  const menu = useMenuMobile()
+  // Aberta no celular, sempre expandida (recolher é coisa do desktop).
+  const recolhida = colapsada && !menu.aberto
+
+  // Lembrar a preferência entre sessões (só neste navegador). Só dá pra ler
+  // localStorage depois de montar no cliente — ler durante a renderização
+  // daria hydration mismatch (o server sempre renderiza "expandida").
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- leitura de localStorage é só possível pós-montagem; não é "espelhar prop", é sincronizar com um sistema externo
+      setColapsada(localStorage.getItem(chaveColapso) === '1')
+    } catch {
+      // localStorage indisponível (aba privada etc.) — segue expandida
+    }
+  }, [chaveColapso])
+
+  // A barra é position:fixed e .app-main tem margin-left casado com
+  // --sidebar-width; ajustando essa variável no root, os dois seguem
+  // juntos sem precisar levantar estado pra fora deste componente.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--sidebar-width', `${colapsada ? LARGURA_RECOLHIDA : LARGURA}px`)
+    return () => { document.documentElement.style.removeProperty('--sidebar-width') }
+  }, [colapsada])
+
+  function aoMudarColapso(nova: boolean) {
+    setColapsada(nova)
+    try { localStorage.setItem(chaveColapso, nova ? '1' : '0') } catch { /* ignora */ }
+  }
+
+  function sair() {
+    startTransition(() => logoutAction())
+  }
+
+  return (
+    <>
+      <BarraMenuMobile aberto={menu.aberto} onAbrir={menu.abrir} onFechar={menu.fechar} titulo={tituloMobile} />
+      <aside className={`app-sidebar ${menu.aberto ? 'open' : ''}`}>
+        <Sidebar
+          variant="collapsible"
+          collapsed={recolhida}
+          onCollapsedChange={aoMudarColapso}
+          width={LARGURA}
+          collapsedWidth={LARGURA_RECOLHIDA}
+          aria-label="Menu principal"
+        >
+          {/* Recolhida, a marca inteira vira o botão de expandir. */}
+          <SidebarHeader
+            aria-label={recolhida ? 'Expandir menu' : undefined}
+            title={recolhida ? 'Expandir menu' : undefined}
+          >
+            <div className="sidebar-marca">
+              <div className="sidebar-logo-icon">
+                <IconeMarca style={{ width: 16, height: 16 }} />
+              </div>
+              {!recolhida && (
+                <span className="sidebar-logo-text">
+                  SA<span>IP</span>{sufixoMarca ? ` ${sufixoMarca}` : ''}
+                </span>
+              )}
+            </div>
+            <SidebarToggle style={{ marginLeft: 'auto' }} aria-label="Recolher menu" title="Recolher menu" />
+          </SidebarHeader>
+
+          <SidebarNav>
+            <SidebarSection label={secao}>
+              {itens.map(item => {
+                const Icon = item.icon
+                return (
+                  <SidebarItem
+                    key={item.href}
+                    href={item.href}
+                    active={item.ativo}
+                    icon={<Icon style={{ width: 18, height: 18 }} />}
+                  >
+                    {item.label}
+                  </SidebarItem>
+                )
+              })}
+            </SidebarSection>
+          </SidebarNav>
+
+          <SidebarFooter>
+            <div className="sidebar-user" title={usuario.dica}>
+              <div className="sidebar-avatar">{usuario.iniciais}</div>
+              {!recolhida && (
+                <div className="sidebar-user-info">
+                  <div className="sidebar-user-name">{usuario.nome}</div>
+                  <div className="sidebar-user-role">{usuario.papel}</div>
+                </div>
+              )}
+            </div>
+            <SidebarItem
+              id={idBotaoSair}
+              icon={<IconLogout style={{ width: 18, height: 18 }} />}
+              onClick={sair}
+              disabled={saindo}
+            >
+              {saindo ? 'Saindo...' : 'Sair'}
+            </SidebarItem>
+          </SidebarFooter>
+        </Sidebar>
+      </aside>
+    </>
+  )
+}

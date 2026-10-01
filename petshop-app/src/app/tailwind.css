@@ -1,0 +1,32 @@
+/* ============================================================
+   Tailwind — só para os componentes de src/components/ui
+   (componentes prontos no padrão shadcn / 21st.dev).
+
+   O resto do sistema continua no design system do globals.css. Por isso:
+   - sem o "preflight" (reset global do Tailwind), que mudaria o visual
+     de todas as telas;
+   - classes geradas só a partir de src/components/ui (source(none) +
+     @source) — pra usar Tailwind em outra pasta, acrescente um @source;
+   - utilitários fora de @layer: o reset `* { margin: 0; padding: 0 }` do
+     globals.css não está em layer e ganharia de qualquer regra em layer.
+
+   Este arquivo é importado ANTES do globals.css (src/app/layout.tsx):
+   onde um nome de classe existir nos dois, vale o do globals.css.
+   ============================================================ */
+@import "tailwindcss/theme.css" layer(theme);
+@tailwind utilities source(none);
+@source "../components/ui";
+
+/* Tokens que os componentes shadcn esperam, apontando para a paleta SAIP. */
+:root {
+  --background: var(--gray-950);
+  --foreground: var(--gray-100);
+  --card: var(--gray-900);
+  --card-foreground: var(--gray-100);
+  --muted: var(--gray-850);
+  --muted-foreground: var(--gray-400);
+  --border: var(--gray-800);
+  --primary: var(--primary-600);
+  --primary-foreground: #ffffff;
+  --ring: var(--primary-400);
+}

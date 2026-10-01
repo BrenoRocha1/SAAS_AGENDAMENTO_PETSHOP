@@ -1,4 +1,7 @@
 import type { Metadata } from 'next'
+// Tailwind (só dos componentes em src/components/ui) vem antes do
+// globals.css de propósito — ver o cabeçalho de tailwind.css.
+import './tailwind.css'
 import './globals.css'
 
 export const metadata: Metadata = {

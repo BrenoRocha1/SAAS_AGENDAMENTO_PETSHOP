@@ -198,52 +198,38 @@ a:hover { color: var(--primary-300); }
   min-height: 100vh;
 }
 
+/* Casca fixa do menu. O menu em si é o <Sidebar> de
+   src/components/ui/sidebar.tsx (classes Tailwind — ver tailwind.css), que
+   traz a própria largura e anima sozinho ao recolher; aqui ficam só a
+   posição e as cores da SAIP que ele lê por variável. */
 .app-sidebar {
-  width: var(--sidebar-width);
   height: 100vh;
+  height: 100dvh;
   position: fixed;
   left: 0;
   top: 0;
-  background: var(--gray-900);
-  border-right: 1px solid var(--gray-800);
-  display: flex;
-  flex-direction: column;
   z-index: 50;
-  overflow-y: auto;
-  /* Rola quando o menu não cabe na altura da tela, mas sem a barra de
-     rolagem do navegador aparecendo (roda do mouse e toque continuam). */
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  transition: width var(--transition-normal);
+  --background: var(--gray-900);
+  --primitive-surface-selected: var(--primary-soft-bg);
 }
-.app-sidebar::-webkit-scrollbar { display: none; }
 
-/* Botão que recolhe/expande a sidebar — fica dentro da linha da logo,
-   nunca sobrepondo nada (recolhida, é o único filho ali, centralizado). */
-.sidebar-collapse-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--gray-800);
-  border: 1px solid var(--gray-700);
-  color: var(--gray-300);
-  cursor: pointer;
-  flex-shrink: 0;
-  margin-left: auto;
-  transition: all var(--transition-fast);
-}
-.sidebar-collapse-btn:hover { background: var(--gray-700); color: var(--gray-100); border-color: var(--gray-600); }
+/* Item da tela atual em índigo (o componente usa --foreground no texto e
+   no ícone do item ativo). */
+.app-sidebar [data-slot="sidebar-item"][data-active="true"] { --foreground: var(--primary-300); }
 
-/* Recolhida: só ícones, centralizados, sem textos */
-.app-sidebar.is-collapsed .sidebar-logo { justify-content: center; padding: var(--space-5) 0; }
-.app-sidebar.is-collapsed .sidebar-collapse-btn { margin-left: 0; }
-.app-sidebar.is-collapsed .sidebar-nav { align-items: center; padding: var(--space-4) var(--space-2); }
-.app-sidebar.is-collapsed .sidebar-link { justify-content: center; width: 44px; padding: var(--space-3) 0; }
-.app-sidebar.is-collapsed .sidebar-footer { padding: var(--space-4) var(--space-2); }
-.app-sidebar.is-collapsed .sidebar-user { justify-content: center; padding: var(--space-2) 0; }
-.app-sidebar.is-collapsed .btn-full { width: 44px; padding-left: 0; padding-right: 0; margin: var(--space-2) auto 0; }
+/* Rola quando o menu não cabe na altura da tela, mas sem a barra de
+   rolagem do navegador aparecendo (roda do mouse e toque continuam). */
+.app-sidebar [data-slot="sidebar-nav"] { scrollbar-width: none; -ms-overflow-style: none; }
+.app-sidebar [data-slot="sidebar-nav"]::-webkit-scrollbar { display: none; }
+
+/* O Tailwind entra sem o reset global dele, então o <button> viria com a
+   cara padrão do navegador. :where() mantém a especificidade baixa pra
+   as classes do componente continuarem mandando. */
+:where(.app-sidebar) button { background: none; border: 0; font: inherit; color: inherit; cursor: pointer; }
+
+/* Rodapé: usuário em cima, "Sair" embaixo (o componente põe lado a lado).
+   Os espaços deixam avatar e ícones no mesmo eixo, aberta ou recolhida. */
+.app-sidebar [data-slot="sidebar-footer"] { flex-direction: column; align-items: stretch; gap: 2px; padding: var(--space-2); }
 
 .app-main {
   margin-left: var(--sidebar-width);
@@ -254,8 +240,10 @@ a:hover { color: var(--primary-300); }
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  transition: margin-left var(--transition-normal);
+  /* Mesma curva e duração da largura do <Sidebar>, pra andarem juntos. */
+  transition: margin-left 240ms cubic-bezier(0.23, 1, 0.32, 1);
 }
+@media (prefers-reduced-motion: reduce) { .app-main { transition: none; } }
 
 .app-topbar {
   height: var(--topbar-height);
@@ -281,23 +269,17 @@ a:hover { color: var(--primary-300); }
 /* ============================================================
    SIDEBAR
    ============================================================ */
-.sidebar-logo {
-  padding: var(--space-6);
-  border-bottom: 1px solid var(--gray-800);
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
+.sidebar-marca { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 
 .sidebar-logo-icon {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
+  flex-shrink: 0;
   box-shadow: var(--shadow-glow-sm);
 }
 
@@ -313,82 +295,24 @@ a:hover { color: var(--primary-300); }
   color: var(--primary-400);
 }
 
-.sidebar-nav {
-  flex: 1;
-  padding: var(--space-4) var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.sidebar-section-label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--gray-500);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: var(--space-3) var(--space-3) var(--space-1);
-  margin-top: var(--space-2);
-}
-
-.sidebar-link {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-3);
-  border-radius: var(--radius-md);
-  color: var(--gray-400);
-  font-size: 0.9375rem;
-  font-weight: 500;
-  transition: all var(--transition-fast);
-  cursor: pointer;
-  border: 1px solid transparent;
-  text-decoration: none;
-}
-
-.sidebar-link:hover {
-  background: var(--gray-800);
-  color: var(--gray-100);
-  border-color: var(--gray-700);
-}
-
-.sidebar-link.active {
-  background: linear-gradient(135deg, var(--sidebar-active-a), var(--sidebar-active-b));
-  color: var(--primary-300);
-  border-color: var(--sidebar-active-border);
-  box-shadow: var(--shadow-glow-sm);
-}
-
-.sidebar-link-icon {
-  font-size: 1.125rem;
-  width: 20px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
-.sidebar-footer {
-  padding: var(--space-4);
-  border-top: 1px solid var(--gray-800);
-}
-
 .sidebar-user {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2);
-  border-radius: var(--radius-md);
+  gap: 10px;
+  padding: 6px var(--space-2);
+  min-width: 0;
 }
 
 .sidebar-avatar {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--radius-full);
   background: linear-gradient(135deg, var(--primary-400), var(--primary-700));
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   color: white;
   flex-shrink: 0;
 }
@@ -2272,6 +2196,7 @@ svg.is-da-visita { opacity: 0.45; }
 @media (max-width: 1024px) {
   .app-sidebar { transform: translateX(-100%); transition: transform var(--transition-normal); }
   .app-sidebar.open { transform: translateX(0); }
+  .app-sidebar [data-slot="sidebar-toggle"] { display: none; }
   .menu-mobile-barra { display: flex; }
   .menu-mobile-fundo { display: block; }
   .app-main { padding-top: var(--menu-mobile-altura); }
