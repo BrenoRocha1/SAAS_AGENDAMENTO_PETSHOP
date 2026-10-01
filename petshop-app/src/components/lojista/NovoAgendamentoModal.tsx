@@ -118,6 +118,8 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
 
   const [slots, setSlots] = useState<Slot[]>([])
   const [slotsLoadedKey, setSlotsLoadedKey] = useState<string | null>(null)
+  // A consulta dos horários falhou — não confundir com "dia sem expediente".
+  const [slotsErro, setSlotsErro] = useState(false)
   // Recarrega os horários depois de uma recusa (ex.: o horário foi
   // ocupado ou fechado enquanto o modal estava aberto).
   const [recargaSlots, setRecargaSlots] = useState(0)
@@ -246,9 +248,10 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
         p_data: data,
         p_duracao: servicoSel.duracao,
       })
-      .then(({ data: rows }) => {
+      .then(({ data: rows, error }) => {
         if (cancelado) return
         const lista = removerHorariosPassados((rows as Slot[]) ?? [], data)
+        setSlotsErro(!!error)
         setSlots(lista)
         setSlotsLoadedKey(key)
         // O horário escolhido deixou de estar livre: desmarca.
@@ -626,6 +629,8 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                       <p className="text-sm text-muted">Carregando horários...</p>
                     ) : diaFechado ? (
                       <p className="text-sm text-warning">Loja fechada neste dia ({diaFechado.motivo}). Escolha outra data.</p>
+                    ) : slotsErro ? (
+                      <p className="text-sm text-warning">Não foi possível carregar os horários. Troque a data e volte, ou tente de novo em instantes.</p>
                     ) : slots.length === 0 ? (
                       <p className="text-sm text-muted">Sem horário de funcionamento cadastrado para este dia.</p>
                     ) : (
