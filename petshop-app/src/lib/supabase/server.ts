@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { clienteDoApp, tokenDoApp } from '@/lib/supabase/sessao-do-app'
 
 // Ver src/lib/supabase/client.ts — mesmo motivo, mesmo valor. Precisa
 // estar nos dois (browser e servidor) porque cada um pode ser quem
@@ -7,9 +8,7 @@ import { cookies } from 'next/headers'
 // refresh automático de token pode acontecer em qualquer um dos dois).
 const COOKIE_OPTIONS = { maxAge: 60 * 60 * 24 * 100 }
 
-export async function createClient() {
-  const cookieStore = await cookies()
-
+function clienteDeCookies(cookieStore: Awaited<ReturnType<typeof cookies>>) {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -40,4 +39,13 @@ export async function createClient() {
       },
     }
   )
+}
+
+export async function createClient() {
+  // Chamada vinda do app mobile (/api/app/acao): quem se identifica é o
+  // token do app, não o cookie — ver lib/supabase/sessao-do-app.ts.
+  const token = tokenDoApp()
+  if (token) return clienteDoApp(token) as unknown as ReturnType<typeof clienteDeCookies>
+
+  return clienteDeCookies(await cookies())
 }
