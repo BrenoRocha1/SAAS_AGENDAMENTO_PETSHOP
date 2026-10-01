@@ -4,6 +4,10 @@ export default function MaisLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
+      <Stack.Screen name="servicos" />
+      <Stack.Screen name="planos" />
+      <Stack.Screen name="pagamentos" />
+      <Stack.Screen name="taxidog-config" />
       <Stack.Screen name="funcionarios" />
       <Stack.Screen name="produtos" />
       <Stack.Screen name="relatorios" />

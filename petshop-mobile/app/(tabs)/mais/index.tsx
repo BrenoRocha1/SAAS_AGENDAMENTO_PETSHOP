@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router'
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { Card } from '@/components/Card'
 import { Avatar } from '@/components/Avatar'
 import { useAuth } from '@/contexts/AuthContext'
 import { colors, radius, spacing, typography } from '@/theme/theme'
+import { dialogo } from '@/lib/dialogo'
 
 interface ItemMenu {
   icone: keyof typeof Ionicons.glyphMap
@@ -14,11 +15,13 @@ interface ItemMenu {
 }
 
 const ITENS: ItemMenu[] = [
+  { icone: 'cut-outline', label: 'Serviços', rota: '/mais/servicos' },
+  { icone: 'ribbon-outline', label: 'Planos', rota: '/mais/planos' },
   { icone: 'people-circle-outline', label: 'Funcionários', rota: '/mais/funcionarios' },
   { icone: 'cube-outline', label: 'Produtos', rota: '/mais/produtos' },
   { icone: 'bar-chart-outline', label: 'Relatórios', rota: '/mais/relatorios' },
   { icone: 'settings-outline', label: 'Configurações', rota: '/mais/configuracoes' },
-  { icone: 'storefront-outline', label: 'Perfil da loja', rota: '/mais/perfil-loja' },
+  { icone: 'storefront-outline', label: 'Dados da loja', rota: '/mais/perfil-loja' },
 ]
 
 export default function MaisScreen() {
@@ -26,7 +29,7 @@ export default function MaisScreen() {
   const router = useRouter()
 
   function confirmarSaida() {
-    Alert.alert('Sair da conta', 'Você precisará entrar de novo para acessar o painel.', [
+    dialogo('Sair da conta', 'Você precisará entrar de novo para acessar o painel.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Sair', style: 'destructive', onPress: signOut },
     ])

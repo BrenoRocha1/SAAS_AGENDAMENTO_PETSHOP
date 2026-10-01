@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useRouter } from 'expo-router'
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { SearchField } from '@/components/SearchField'
 import { ClienteRow } from '@/components/ClienteRow'
@@ -8,7 +9,8 @@ import { EmptyState } from '@/components/EmptyState'
 import { SemPermissao } from '@/components/SemPermissao'
 import { useAuth } from '@/contexts/AuthContext'
 import { useClientesLojista } from '@/hooks/useClientesLojista'
-import { colors, spacing, typography } from '@/theme/theme'
+import { acoesDisponiveis } from '@/lib/acoes'
+import { colors, radius, spacing, typography } from '@/theme/theme'
 
 export default function ClientesScreen() {
   const { contexto } = useAuth()
@@ -33,7 +35,20 @@ export default function ClientesScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Clientes</Text>
+        <View style={styles.tituloLinha}>
+          <Text style={styles.title}>Clientes</Text>
+          {contexto.acessoTotal && acoesDisponiveis() && (
+            <Pressable
+              onPress={() => router.push('/clientes/novo')}
+              accessibilityRole="button"
+              accessibilityLabel="Novo cliente"
+              style={({ pressed }) => [styles.novo, pressed && { opacity: 0.8 }]}
+            >
+              <Ionicons name="add" size={18} color={colors.white} />
+              <Text style={styles.novoTexto}>Novo</Text>
+            </Pressable>
+          )}
+        </View>
         <SearchField value={busca} onChangeText={setBusca} placeholder="Buscar por nome ou telefone..." />
       </View>
 
@@ -70,5 +85,16 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.md, gap: spacing.md },
   title: { ...typography.heading.xl, color: colors.text },
+  tituloLinha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+  novo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary600,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    minHeight: 40,
+  },
+  novoTexto: { ...typography.label.md, color: colors.white },
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing['3xl'], flexGrow: 1 },
 })

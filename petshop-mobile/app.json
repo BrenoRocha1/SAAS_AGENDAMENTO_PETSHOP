@@ -29,7 +29,15 @@
     },
     "plugins": [
       "expo-router",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O SAIP usa suas fotos para você escolher a foto do pet e a logo da loja.",
+          "cameraPermission": "O SAIP usa a câmera para você tirar a foto do pet.",
+          "microphonePermission": false
+        }
+      ]
     ]
   }
 }

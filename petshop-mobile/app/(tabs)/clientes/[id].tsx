@@ -8,8 +8,13 @@ import { Avatar } from '@/components/Avatar'
 import { Card } from '@/components/Card'
 import { EmptyState } from '@/components/EmptyState'
 import { Botao } from '@/components/Botao'
+import { Aviso } from '@/components/Aviso'
+import { Campo } from '@/components/Campo'
+import { Folha } from '@/components/Folha'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { acoesDisponiveis, chamarAcao, form } from '@/lib/acoes'
+import { mascaraTelefone, soDigitos } from '@/lib/mascaras'
 import { formatarTelefone } from '@/lib/format'
 import { colors, spacing, typography } from '@/theme/theme'
 
@@ -36,6 +41,12 @@ export default function ClienteDetalheScreen() {
   const [pets, setPets] = useState<PetResumo[]>([])
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  // Editar nome/telefone (fn_editar_cliente_lojista, migration 019).
+  const [painel, setPainel] = useState(false)
+  const [nome, setNome] = useState('')
+  const [telefone, setTelefone] = useState('')
+  const [erroPainel, setErroPainel] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
 
   useFocusEffect(
     useCallback(() => {
@@ -88,6 +99,29 @@ export default function ClienteDetalheScreen() {
     )
   }
 
+  const c = cliente
+  const comSite = acoesDisponiveis()
+
+  function abrirEdicao() {
+    setNome(c.nome)
+    setTelefone(mascaraTelefone(c.telefone))
+    setErroPainel(null)
+    setPainel(true)
+  }
+
+  async function salvarEdicao() {
+    if (nome.trim().length < 2) return setErroPainel('Informe o nome.')
+    const tel = soDigitos(telefone)
+    if (tel.length < 10) return setErroPainel('Informe o telefone com DDD.')
+    setErroPainel(null)
+    setSalvando(true)
+    const r = await chamarAcao('editarClienteLojistaAction', c.id_cliente, form({ nome: nome.trim(), telefone: tel }))
+    setSalvando(false)
+    if (r.error) return setErroPainel(r.error)
+    setCliente({ ...c, nome: nome.trim(), telefone: tel })
+    setPainel(false)
+  }
+
   return (
     <ScreenContainer>
       <DetailHeader title={cliente.nome} />
@@ -125,7 +159,22 @@ export default function ClienteDetalheScreen() {
         <InfoRow icon="mail-outline" label="E-mail" valor={cliente.email} />
       </Card>
 
-      <Text style={styles.secaoTitulo}>Pets ({pets.length})</Text>
+      {comSite && contexto?.acessoTotal && (
+        <Botao rotulo="Editar nome e telefone" icone="create-outline" variante="secundario" style={{ marginBottom: spacing.lg }} onPress={abrirEdicao} />
+      )}
+
+      <View style={styles.secaoLinha}>
+        <Text style={[styles.secaoTitulo, { marginBottom: 0 }]}>Pets ({pets.length})</Text>
+        {comSite && contexto?.podeGerenciarAgenda && (
+          <Botao
+            rotulo="Novo pet"
+            icone="add"
+            variante="secundario"
+            compacto
+            onPress={() => router.push({ pathname: '/pets/novo', params: { cliente: c.id_cliente } })}
+          />
+        )}
+      </View>
       {pets.length === 0 ? (
         <EmptyState icon="paw-outline" title="Nenhum pet cadastrado" />
       ) : (
@@ -142,6 +191,14 @@ export default function ClienteDetalheScreen() {
           ))}
         </View>
       )}
+
+      <Folha visivel={painel} titulo="Editar cliente" onFechar={() => setPainel(false)} ocupado={salvando}>
+        {erroPainel && <Aviso tipo="erro" texto={erroPainel} />}
+        <Campo rotulo="Nome" value={nome} onChangeText={setNome} maxLength={120} autoCapitalize="words" />
+        <Campo rotulo="Telefone" value={telefone} onChangeText={t => setTelefone(mascaraTelefone(t))} keyboardType="phone-pad" maxLength={15} />
+        <Text style={styles.petRaca}>O e-mail é o login do cliente e o CPF é documento — nenhum dos dois muda por aqui.</Text>
+        <Botao rotulo="Salvar" onPress={salvarEdicao} carregando={salvando} />
+      </Folha>
     </ScreenContainer>
   )
 }
@@ -179,6 +236,7 @@ const styles = StyleSheet.create({
   infoLabel: { ...typography.body.sm, color: colors.textMuted, width: 70 },
   infoValor: { ...typography.body.lg, color: colors.text, flex: 1 },
   secaoTitulo: { ...typography.heading.sm, color: colors.text, marginBottom: spacing.md },
+  secaoLinha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
   petCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   petNome: { ...typography.body.lg, fontWeight: '700', color: colors.text },
   petRaca: { ...typography.body.sm, color: colors.textMuted },

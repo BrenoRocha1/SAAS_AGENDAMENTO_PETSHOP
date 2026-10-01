@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
-import { useFocusEffect } from 'expo-router'
-import { Alert, Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native'
+import { useFocusEffect, useRouter } from 'expo-router'
+import { Linking, Pressable, Share, StyleSheet, Switch, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
@@ -10,11 +10,16 @@ import { Aviso } from '@/components/Aviso'
 import { Botao } from '@/components/Botao'
 import { Campo } from '@/components/Campo'
 import { Folha } from '@/components/Folha'
+import { LinhaSwitch } from '@/components/LinhaSwitch'
+import { Segmentos } from '@/components/Opcao'
 import { SeletorDia } from '@/components/SeletorDia'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { acoesDisponiveis, chamarAcao, form } from '@/lib/acoes'
 import { dataBR, dataExtensaISO, hojeBrasilISO } from '@/lib/agenda'
+import { dialogo } from '@/lib/dialogo'
 import { faltaMigration, mensagemDoBanco } from '@/lib/erros'
+import { horaValida, mascaraHora, soDigitos } from '@/lib/mascaras'
 import { urlDoSite } from '@/lib/site'
 import { colors, spacing, typography } from '@/theme/theme'
 
@@ -37,6 +42,9 @@ interface Bloqueio {
   agendamentos: { id_agendamento: string }[]
 }
 
+type Unidade = 'horas' | 'dias'
+interface Janela { minValor: string; minUnidade: Unidade; maxValor: string; maxUnidade: Unidade }
+
 const ORDEM_DIAS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
 
 function periodoDoBloqueio(b: Bloqueio): string {
@@ -44,49 +52,68 @@ function periodoDoBloqueio(b: Bloqueio): string {
   return b.hr_inicio && b.hr_fim ? `${dias}, das ${b.hr_inicio} às ${b.hr_fim}` : `${dias} — dia inteiro`
 }
 
-// O que a loja mais mexe no dia a dia, pelo celular: ligar/desligar o
-// agendamento online, os dias da semana em que abre e os dias fechados
-// (feriado, folga). O resto (pagamentos, TaxiDog, link, sons, janela de
-// antecedência) continua no painel web.
+// Configurações da loja pelo celular: agendamento online (liga/desliga,
+// link, antecedência), horários de funcionamento e dias fechados. Formas
+// de pagamento e TaxiDog têm tela própria. Gravar passa pelas mesmas
+// actions do painel web — é lá que o administrador (funcionário com
+// acesso total) tem permissão de escrita; sem o site configurado, só o
+// dono da conta consegue mudar os interruptores (RLS).
 export default function ConfiguracoesScreen() {
   const { contexto } = useAuth()
+  const router = useRouter()
   const idLojista = contexto?.idLojista
   const pode = !!contexto?.acessoTotal
-  // A RLS só deixa o dono da conta gravar em `lojista` e `horario` (o
-  // administrador grava pelo painel web). Fechar dias vai por função do
-  // banco, que aceita os dois.
   const ehDono = contexto?.role === 'lojista'
+  const comSite = acoesDisponiveis()
+  const podeGravar = comSite || ehDono
   const hoje = hojeBrasilISO()
 
   const [online, setOnline] = useState<boolean | null>(null)
+  const [slug, setSlug] = useState<string | null>(null)
+  const [janela, setJanela] = useState<Janela | null>(null)
   const [horarios, setHorarios] = useState<Horario[]>([])
   const [bloqueios, setBloqueios] = useState<Bloqueio[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState<string | null>(null)
 
-  // Painel "fechar um dia".
-  const [painel, setPainel] = useState(false)
+  // Painéis (um por vez).
+  const [painel, setPainel] = useState<'bloqueio' | 'horario' | 'link' | 'janela' | null>(null)
+  const [erroPainel, setErroPainel] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
+  // Fechar um dia
   const [dtInicio, setDtInicio] = useState(hoje)
   const [dtFim, setDtFim] = useState(hoje)
   const [variosDias, setVariosDias] = useState(false)
+  const [soHoras, setSoHoras] = useState(false)
+  const [hrIni, setHrIni] = useState('')
+  const [hrFim, setHrFim] = useState('')
   const [motivo, setMotivo] = useState('')
-  const [erroPainel, setErroPainel] = useState<string | null>(null)
-  const [salvando, setSalvando] = useState(false)
+  // Horário de um dia
+  const [dia, setDia] = useState('')
+  const [abre, setAbre] = useState('')
+  const [fecha, setFecha] = useState('')
+  // Link e antecedência
+  const [slugNovo, setSlugNovo] = useState('')
+  const [janelaNova, setJanelaNova] = useState<Janela>({ minValor: '0', minUnidade: 'horas', maxValor: '30', maxUnidade: 'dias' })
 
   const carregar = useCallback(async () => {
     if (!idLojista || !pode) return
-    const [loja, hrs, blq] = await Promise.all([
+    // Cada grupo de colunas é de uma migration diferente: consultas
+    // separadas e tolerantes, como no painel web.
+    const [loja, slugRow, janelaRow, hrs, blq] = await Promise.all([
       supabase.from('lojista').select('aceita_agendamento_online').eq('id_lojista', idLojista).maybeSingle(),
+      supabase.from('lojista').select('slug').eq('id_lojista', idLojista).maybeSingle(),
+      supabase.from('lojista').select('agendamento_min_valor, agendamento_min_unidade, agendamento_max_valor, agendamento_max_unidade').eq('id_lojista', idLojista).maybeSingle(),
       supabase.from('horario').select('id_horario, dia_semana, hr_inicio, hr_fim, ativo').eq('id_lojista', idLojista),
       supabase.rpc('fn_bloqueios_da_loja', { p_id_lojista: idLojista }),
     ])
-    // Sem a migration 020 a coluna não existe: o interruptor some.
     setOnline(loja.error ? null : ((loja.data as { aceita_agendamento_online: boolean } | null)?.aceita_agendamento_online ?? null))
-    setHorarios(
-      ((hrs.data ?? []) as Horario[]).sort((a, b) => ORDEM_DIAS.indexOf(a.dia_semana) - ORDEM_DIAS.indexOf(b.dia_semana)),
-    )
-    // Sem a migration 066: a seção avisa.
+    setSlug(slugRow.error ? null : ((slugRow.data as { slug: string | null } | null)?.slug ?? null))
+    const j = janelaRow.error ? null : (janelaRow.data as { agendamento_min_valor: number; agendamento_min_unidade: Unidade; agendamento_max_valor: number; agendamento_max_unidade: Unidade } | null)
+    setJanela(j ? { minValor: String(j.agendamento_min_valor), minUnidade: j.agendamento_min_unidade, maxValor: String(j.agendamento_max_valor), maxUnidade: j.agendamento_max_unidade } : null)
+    setHorarios(((hrs.data ?? []) as Horario[]).sort((a, b) => ORDEM_DIAS.indexOf(a.dia_semana) - ORDEM_DIAS.indexOf(b.dia_semana)))
     setBloqueios(blq.error ? null : ((blq.data ?? []) as Bloqueio[]))
     setErro(hrs.error ? 'Não foi possível carregar os horários.' : null)
     setLoading(false)
@@ -103,20 +130,21 @@ export default function ConfiguracoesScreen() {
     )
   }
 
+  const link = urlDoSite(`/agendamento/${slug ?? idLojista ?? ''}`)
+
   async function alternarOnline(ativo: boolean) {
     if (!idLojista) return
     setErro(null)
     setOcupado('online')
-    const { data, error } = await supabase
-      .from('lojista')
-      .update({ aceita_agendamento_online: ativo })
-      .eq('id_lojista', idLojista)
-      .select('id_lojista')
-    setOcupado(null)
-    if (error || !data || data.length === 0) {
-      setErro('Não foi possível mudar o agendamento online.')
-      return
+    let falha: string | undefined
+    if (comSite) {
+      falha = (await chamarAcao('alternarAgendamentoOnlineAction', ativo)).error
+    } else {
+      const { data, error } = await supabase.from('lojista').update({ aceita_agendamento_online: ativo }).eq('id_lojista', idLojista).select('id_lojista')
+      if (error || !data || data.length === 0) falha = 'Não foi possível mudar o agendamento online.'
     }
+    setOcupado(null)
+    if (falha) return setErro(falha)
     setOnline(ativo)
   }
 
@@ -124,40 +152,58 @@ export default function ConfiguracoesScreen() {
     if (!idLojista) return
     setErro(null)
     setOcupado(h.id_horario)
-    const { data, error } = await supabase
-      .from('horario')
-      .update({ ativo })
-      .eq('id_horario', h.id_horario)
-      .eq('id_lojista', idLojista)
-      .select('id_horario')
-    setOcupado(null)
-    if (error || !data || data.length === 0) {
-      setErro('Não foi possível mudar esse dia.')
-      return
+    let falha: string | undefined
+    if (comSite) {
+      falha = (await chamarAcao('toggleHorarioAction', h.id_horario, ativo)).error
+    } else {
+      const { data, error } = await supabase.from('horario').update({ ativo }).eq('id_horario', h.id_horario).eq('id_lojista', idLojista).select('id_horario')
+      if (error || !data || data.length === 0) falha = 'Não foi possível mudar esse dia.'
     }
+    setOcupado(null)
+    if (falha) return setErro(falha)
     setHorarios(lista => lista.map(x => (x.id_horario === h.id_horario ? { ...x, ativo } : x)))
   }
 
-  function abrirPainel() {
+  function abrirHorario(diaSemana: string, h?: Horario) {
+    setDia(diaSemana)
+    setAbre(h ? h.hr_inicio.slice(0, 5) : '08:00')
+    setFecha(h ? h.hr_fim.slice(0, 5) : '18:00')
+    setErroPainel(null)
+    setPainel('horario')
+  }
+
+  async function salvarHorario() {
+    if (!horaValida(abre) || !horaValida(fecha)) return setErroPainel('Informe os horários no formato 08:00.')
+    if (fecha <= abre) return setErroPainel('O horário de fechar precisa ser depois do de abrir.')
+    setErroPainel(null)
+    setSalvando(true)
+    const r = await chamarAcao('salvarHorarioAction', form({ dia_semana: dia, hr_inicio: abre, hr_fim: fecha }))
+    setSalvando(false)
+    if (r.error) return setErroPainel(r.error)
+    setPainel(null)
+    carregar()
+  }
+
+  function abrirBloqueio() {
     setDtInicio(hoje)
     setDtFim(hoje)
     setVariosDias(false)
+    setSoHoras(false)
+    setHrIni('')
+    setHrFim('')
     setMotivo('')
     setErroPainel(null)
-    setPainel(true)
+    setPainel('bloqueio')
   }
 
   async function fecharPeriodo() {
     if (!idLojista) return
     const texto = motivo.trim()
-    if (!texto) {
-      setErroPainel('Informe o motivo (ex.: Feriado de Natal).')
-      return
-    }
-    const fim = variosDias ? dtFim : dtInicio
-    if (fim < dtInicio) {
-      setErroPainel('A data final vem antes da inicial.')
-      return
+    if (!texto) return setErroPainel('Informe o motivo (ex.: Feriado de Natal).')
+    const fim = variosDias ? (dtFim < dtInicio ? dtInicio : dtFim) : dtInicio
+    if (soHoras) {
+      if (!horaValida(hrIni) || !horaValida(hrFim)) return setErroPainel('Informe o horário de início e de fim (ex.: 12:00).')
+      if (hrFim <= hrIni) return setErroPainel('O horário final precisa ser depois do inicial.')
     }
     setErroPainel(null)
     setSalvando(true)
@@ -165,21 +211,20 @@ export default function ConfiguracoesScreen() {
       p_id_lojista: idLojista,
       p_dt_inicio: dtInicio,
       p_dt_fim: fim,
-      p_hr_inicio: null,
-      p_hr_fim: null,
+      p_hr_inicio: soHoras ? hrIni : null,
+      p_hr_fim: soHoras ? hrFim : null,
       p_motivo: texto,
     })
     setSalvando(false)
     if (error) {
-      setErroPainel(faltaMigration(error) ? 'Fechar dias ainda não foi ativado no sistema da loja.' : mensagemDoBanco(error, 'Não foi possível fechar esse período.'))
-      return
+      return setErroPainel(faltaMigration(error) ? 'Fechar dias ainda não foi ativado no sistema da loja.' : mensagemDoBanco(error, 'Não foi possível fechar esse período.'))
     }
-    setPainel(false)
+    setPainel(null)
     carregar()
   }
 
   function pedirReabrir(b: Bloqueio) {
-    Alert.alert('Reabrir', `${periodoDoBloqueio(b)} (${b.motivo}) volta a aceitar agendamentos. Continuar?`, [
+    dialogo('Reabrir', `${periodoDoBloqueio(b)} (${b.motivo}) volta a aceitar agendamentos. Continuar?`, [
       { text: 'Voltar', style: 'cancel' },
       {
         text: 'Reabrir',
@@ -195,65 +240,133 @@ export default function ConfiguracoesScreen() {
     ])
   }
 
-  const painelWeb = urlDoSite('/lojista/configuracoes')
+  async function salvarSlug() {
+    const valor = slugNovo.trim().toLowerCase()
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(valor) || valor.length < 3) {
+      return setErroPainel('Use só letras minúsculas, números e hífen (mínimo 3 letras) — sem espaços nem acentos.')
+    }
+    setErroPainel(null)
+    setSalvando(true)
+    const r = await chamarAcao('atualizarSlugLojistaAction', form({ slug: valor }))
+    setSalvando(false)
+    if (r.error) return setErroPainel(r.error)
+    setSlug(valor)
+    setPainel(null)
+    setInfo('Link de agendamento atualizado.')
+  }
+
+  async function salvarJanela() {
+    const min = Number(soDigitos(janelaNova.minValor) || '0')
+    const max = Number(soDigitos(janelaNova.maxValor) || '0')
+    if (max < 1) return setErroPainel('O prazo máximo precisa ser pelo menos 1.')
+    setErroPainel(null)
+    setSalvando(true)
+    const r = await chamarAcao('atualizarJanelaAgendamentoAction', form({ minValor: min, minUnidade: janelaNova.minUnidade, maxValor: max, maxUnidade: janelaNova.maxUnidade }))
+    setSalvando(false)
+    if (r.error) return setErroPainel(r.error)
+    setPainel(null)
+    setInfo('Antecedência do agendamento online atualizada.')
+    carregar()
+  }
+
+  const semHorario = ORDEM_DIAS.filter(d => !horarios.some(h => h.dia_semana === d))
+  const UNIDADES: { valor: Unidade; rotulo: string }[] = [{ valor: 'horas', rotulo: 'horas' }, { valor: 'dias', rotulo: 'dias' }]
 
   return (
     <ScreenContainer refreshing={loading} onRefresh={carregar}>
       <DetailHeader title="Configurações" />
 
-      {erro && <Aviso tipo="erro" texto={erro} style={{ marginBottom: spacing.md }} />}
-      {!ehDono && (
-        <Aviso
-          tipo="info"
-          style={{ marginBottom: spacing.md }}
-          texto="Pelo app, só o responsável pela conta muda o agendamento online e os dias da semana. Fechar dias você também pode."
-        />
+      {erro && <Aviso tipo="erro" texto={erro} style={styles.aviso} />}
+      {info && <Aviso tipo="sucesso" texto={info} style={styles.aviso} />}
+      {!podeGravar && (
+        <Aviso tipo="info" style={styles.aviso} texto="Sem o endereço do site configurado no app, só o responsável pela conta muda estas opções. Fechar dias você também pode." />
       )}
 
-      {online !== null && (
-        <Card style={styles.linhaSwitch}>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={styles.titulo}>Agendamento online</Text>
-            <Text style={styles.sub}>
-              {online ? 'Clientes podem agendar pelo site.' : 'Desligado — só a loja cria agendamentos.'}
-            </Text>
-          </View>
-          <Switch
-            value={online}
-            disabled={!ehDono || ocupado === 'online'}
-            onValueChange={alternarOnline}
-            trackColor={{ true: colors.primary500, false: colors.borderStrong }}
-            thumbColor={colors.white}
-            accessibilityLabel="Agendamento online"
-          />
-        </Card>
-      )}
-
-      <Text style={styles.secao}>Dias de funcionamento</Text>
-      {horarios.length === 0 && !loading ? (
-        <Aviso tipo="alerta" texto="Nenhum horário de funcionamento cadastrado — configure em Horários no painel web." />
-      ) : (
-        <Card style={{ gap: spacing.md }}>
-          {horarios.map(h => (
-            <View key={h.id_horario} style={styles.linhaSwitch}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={[styles.titulo, !h.ativo && styles.apagado]}>{h.dia_semana}</Text>
-                <Text style={styles.sub}>{h.ativo ? `${h.hr_inicio.slice(0, 5)} às ${h.hr_fim.slice(0, 5)}` : 'Fechado'}</Text>
-              </View>
-              <Switch
-                value={h.ativo}
-                disabled={!ehDono || ocupado === h.id_horario}
-                onValueChange={v => alternarHorario(h, v)}
-                trackColor={{ true: colors.primary500, false: colors.borderStrong }}
-                thumbColor={colors.white}
-                accessibilityLabel={`${h.dia_semana} aberto`}
-              />
+      {/* Agendamento online */}
+      <Text style={styles.secaoPrimeira}>Agendamento online</Text>
+      <Card style={{ gap: spacing.md }}>
+        {online !== null && (
+          <View style={styles.linha}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.titulo}>Aceitar agendamento pelo site</Text>
+              <Text style={styles.sub}>{online ? 'Clientes podem agendar sozinhos.' : 'Desligado — só a loja cria agendamentos.'}</Text>
             </View>
-          ))}
-          <Text style={styles.sub}>Para mudar os horários de abrir e fechar, use Horários no painel web.</Text>
-        </Card>
-      )}
+            <Switch
+              value={online}
+              disabled={!podeGravar || ocupado === 'online'}
+              onValueChange={alternarOnline}
+              trackColor={{ true: colors.primary500, false: colors.borderStrong }}
+              thumbColor={colors.white}
+              accessibilityLabel="Aceitar agendamento pelo site"
+            />
+          </View>
+        )}
+        {link && (
+          <View style={{ gap: spacing.sm }}>
+            <Text style={styles.sub}>Link para divulgar:</Text>
+            <Text style={styles.link} selectable>{link}</Text>
+            <View style={styles.duas}>
+              <Botao rotulo="Compartilhar" icone="share-social-outline" variante="secundario" compacto style={{ flex: 1 }} onPress={() => Share.share({ message: link })} />
+              {comSite && (
+                <Botao rotulo="Mudar o link" icone="create-outline" variante="secundario" compacto style={{ flex: 1 }} onPress={() => { setSlugNovo(slug ?? ''); setErroPainel(null); setPainel('link') }} />
+              )}
+            </View>
+          </View>
+        )}
+        {janela && (
+          <View style={styles.linha}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.titulo}>Antecedência</Text>
+              <Text style={styles.sub}>
+                De {janela.minValor} {janela.minUnidade} até {janela.maxValor} {janela.maxUnidade} antes do horário.
+              </Text>
+            </View>
+            {comSite && <Botao rotulo="Mudar" variante="secundario" compacto onPress={() => { setJanelaNova(janela); setErroPainel(null); setPainel('janela') }} />}
+          </View>
+        )}
+      </Card>
 
+      {/* Horários */}
+      <Text style={styles.secao}>Horário de funcionamento</Text>
+      <Card style={{ gap: spacing.md }}>
+        {horarios.map(h => (
+          <View key={h.id_horario} style={styles.linha}>
+            <Pressable
+              style={{ flex: 1, gap: 2 }}
+              disabled={!comSite}
+              onPress={() => abrirHorario(h.dia_semana, h)}
+              accessibilityRole="button"
+              accessibilityLabel={`Mudar horário de ${h.dia_semana}`}
+            >
+              <Text style={[styles.titulo, !h.ativo && styles.apagado]}>{h.dia_semana}</Text>
+              <Text style={styles.sub}>
+                {h.ativo ? `${h.hr_inicio.slice(0, 5)} às ${h.hr_fim.slice(0, 5)}` : 'Fechado'}
+                {comSite ? ' · tocar para mudar' : ''}
+              </Text>
+            </Pressable>
+            <Switch
+              value={h.ativo}
+              disabled={!podeGravar || ocupado === h.id_horario}
+              onValueChange={v => alternarHorario(h, v)}
+              trackColor={{ true: colors.primary500, false: colors.borderStrong }}
+              thumbColor={colors.white}
+              accessibilityLabel={`${h.dia_semana} aberto`}
+            />
+          </View>
+        ))}
+        {comSite && semHorario.map(d => (
+          <View key={d} style={styles.linha}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[styles.titulo, styles.apagado]}>{d}</Text>
+              <Text style={styles.sub}>Sem horário definido</Text>
+            </View>
+            <Botao rotulo="Definir" variante="secundario" compacto onPress={() => abrirHorario(d)} />
+          </View>
+        ))}
+        {horarios.length === 0 && !comSite && !loading && <Text style={styles.sub}>Nenhum horário de funcionamento cadastrado.</Text>}
+      </Card>
+
+      {/* Dias fechados */}
       <Text style={styles.secao}>Dias fechados</Text>
       {bloqueios === null ? (
         <Aviso tipo="alerta" texto="Fechar dias (feriado, folga) ainda não foi ativado no sistema da loja." />
@@ -261,7 +374,7 @@ export default function ConfiguracoesScreen() {
         <View style={{ gap: spacing.md }}>
           {bloqueios.length === 0 && <Text style={styles.sub}>Nenhum dia fechado daqui pra frente.</Text>}
           {bloqueios.map(b => (
-            <Card key={b.id_bloqueio} style={styles.linhaSwitch}>
+            <Card key={b.id_bloqueio} style={styles.linha}>
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={styles.titulo}>{b.motivo}</Text>
                 <Text style={styles.sub}>{periodoDoBloqueio(b)}</Text>
@@ -283,65 +396,142 @@ export default function ConfiguracoesScreen() {
               </Pressable>
             </Card>
           ))}
-          <Botao rotulo="Fechar um dia" icone="add" variante="secundario" onPress={abrirPainel} />
+          <Botao rotulo="Fechar um dia ou horário" icone="add" variante="secundario" onPress={abrirBloqueio} />
         </View>
       )}
 
-      <Aviso
-        tipo="info"
-        style={{ marginTop: spacing.xl }}
-        texto="Formas de pagamento, TaxiDog, link de agendamento, antecedência e sons ficam no painel web."
-      />
-      {painelWeb && (
-        <Botao rotulo="Abrir o painel web" icone="open-outline" variante="secundario" style={{ marginTop: spacing.md }} onPress={() => Linking.openURL(painelWeb)} />
+      {/* Outras telas */}
+      <Text style={styles.secao}>Mais configurações</Text>
+      <View style={styles.menu}>
+        <ItemMenu icone="card-outline" rotulo="Formas de pagamento" onPress={() => router.push('/mais/pagamentos')} />
+        <ItemMenu icone="car-outline" rotulo="TaxiDog" onPress={() => router.push('/mais/taxidog-config')} />
+        <ItemMenu icone="storefront-outline" rotulo="Dados da loja" onPress={() => router.push('/mais/perfil-loja')} ultimo />
+      </View>
+      {urlDoSite('/lojista/configuracoes') && (
+        <Botao
+          rotulo="Abrir o painel web"
+          icone="open-outline"
+          variante="secundario"
+          style={{ marginTop: spacing.md }}
+          onPress={() => Linking.openURL(urlDoSite('/lojista/configuracoes')!)}
+        />
       )}
 
-      <Folha visivel={painel} titulo="Fechar um dia" onFechar={() => setPainel(false)} ocupado={salvando}>
+      {/* Horário de um dia */}
+      <Folha visivel={painel === 'horario'} titulo={`Horário — ${dia}`} onFechar={() => setPainel(null)} ocupado={salvando}>
+        {erroPainel && <Aviso tipo="erro" texto={erroPainel} />}
+        <View style={styles.duas}>
+          <View style={{ flex: 1 }}>
+            <Campo rotulo="Abre às" value={abre} onChangeText={t => setAbre(mascaraHora(t))} keyboardType="number-pad" placeholder="08:00" maxLength={5} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Campo rotulo="Fecha às" value={fecha} onChangeText={t => setFecha(mascaraHora(t))} keyboardType="number-pad" placeholder="18:00" maxLength={5} />
+          </View>
+        </View>
+        <Botao rotulo="Salvar horário" onPress={salvarHorario} carregando={salvando} />
+      </Folha>
+
+      {/* Fechar um dia */}
+      <Folha visivel={painel === 'bloqueio'} titulo="Fechar um dia ou horário" onFechar={() => setPainel(null)} ocupado={salvando}>
         {erroPainel && <Aviso tipo="erro" texto={erroPainel} />}
         <Campo rotulo="Motivo" value={motivo} onChangeText={setMotivo} placeholder="Ex.: Feriado de Natal" maxLength={80} />
 
-        <Text style={styles.rotulo}>{variosDias ? 'Primeiro dia fechado' : 'Dia fechado'}</Text>
-        <SeletorDia
-          inicio={hoje}
-          dias={180}
-          valor={dtInicio}
-          onChange={d => { setDtInicio(d); if (dtFim < d) setDtFim(d) }}
-        />
+        <Text style={styles.rotulo}>{variosDias ? 'Primeiro dia' : 'Dia'}</Text>
+        <SeletorDia inicio={hoje} dias={180} valor={dtInicio} onChange={d => { setDtInicio(d); if (dtFim < d) setDtFim(d) }} />
         <Text style={styles.sub}>{dataExtensaISO(dtInicio)}</Text>
 
-        <View style={styles.linhaSwitch}>
-          <Text style={[styles.titulo, { flex: 1 }]}>Fechar vários dias seguidos</Text>
-          <Switch
-            value={variosDias}
-            onValueChange={v => { setVariosDias(v); if (v && dtFim < dtInicio) setDtFim(dtInicio) }}
-            trackColor={{ true: colors.primary500, false: colors.borderStrong }}
-            thumbColor={colors.white}
-          />
-        </View>
+        <LinhaSwitch titulo="Vários dias seguidos" valor={variosDias} onChange={v => { setVariosDias(v); if (v && dtFim < dtInicio) setDtFim(dtInicio) }} />
         {variosDias && (
           <>
-            <Text style={styles.rotulo}>Último dia fechado</Text>
+            <Text style={styles.rotulo}>Último dia</Text>
             <SeletorDia inicio={dtInicio} dias={90} valor={dtFim < dtInicio ? dtInicio : dtFim} onChange={setDtFim} />
             <Text style={styles.sub}>{dataExtensaISO(dtFim < dtInicio ? dtInicio : dtFim)}</Text>
           </>
         )}
 
-        <Text style={styles.sub}>
-          O dia inteiro fica sem horário para agendar. Para fechar só algumas horas, use Horários no painel web.
-        </Text>
+        <LinhaSwitch titulo="Só algumas horas" detalhe="Desligado, fecha o dia inteiro." valor={soHoras} onChange={setSoHoras} />
+        {soHoras && (
+          <View style={styles.duas}>
+            <View style={{ flex: 1 }}>
+              <Campo rotulo="Das" value={hrIni} onChangeText={t => setHrIni(mascaraHora(t))} keyboardType="number-pad" placeholder="12:00" maxLength={5} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Campo rotulo="Até" value={hrFim} onChangeText={t => setHrFim(mascaraHora(t))} keyboardType="number-pad" placeholder="14:00" maxLength={5} />
+            </View>
+          </View>
+        )}
         <Botao rotulo="Fechar" onPress={fecharPeriodo} carregando={salvando} />
+      </Folha>
+
+      {/* Link */}
+      <Folha visivel={painel === 'link'} titulo="Link de agendamento" onFechar={() => setPainel(null)} ocupado={salvando}>
+        {erroPainel && <Aviso tipo="erro" texto={erroPainel} />}
+        <Campo
+          rotulo="Nome no link"
+          value={slugNovo}
+          onChangeText={t => setSlugNovo(t.toLowerCase())}
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder="meu-petshop"
+          maxLength={60}
+          ajuda={`Fica assim: ${urlDoSite(`/agendamento/${slugNovo.trim() || 'meu-petshop'}`) ?? ''}`}
+        />
+        <Text style={styles.sub}>Quem já tem o link antigo salvo precisa receber o novo.</Text>
+        <Botao rotulo="Salvar link" onPress={salvarSlug} carregando={salvando} />
+      </Folha>
+
+      {/* Antecedência */}
+      <Folha visivel={painel === 'janela'} titulo="Antecedência do agendamento online" onFechar={() => setPainel(null)} ocupado={salvando}>
+        {erroPainel && <Aviso tipo="erro" texto={erroPainel} />}
+        <Text style={styles.sub}>Vale só para o que o cliente agenda sozinho. A loja agenda para qualquer dia.</Text>
+        <Campo
+          rotulo="Mínimo antes do horário"
+          value={janelaNova.minValor}
+          onChangeText={t => setJanelaNova(j => ({ ...j, minValor: soDigitos(t) }))}
+          keyboardType="number-pad"
+          maxLength={3}
+        />
+        <Segmentos valor={janelaNova.minUnidade} onChange={v => setJanelaNova(j => ({ ...j, minUnidade: v }))} opcoes={UNIDADES} />
+        <Campo
+          rotulo="Máximo antes do horário"
+          value={janelaNova.maxValor}
+          onChangeText={t => setJanelaNova(j => ({ ...j, maxValor: soDigitos(t) }))}
+          keyboardType="number-pad"
+          maxLength={3}
+        />
+        <Segmentos valor={janelaNova.maxUnidade} onChange={v => setJanelaNova(j => ({ ...j, maxUnidade: v }))} opcoes={UNIDADES} />
+        <Botao rotulo="Salvar" onPress={salvarJanela} carregando={salvando} />
       </Folha>
     </ScreenContainer>
   )
 }
 
+function ItemMenu({ icone, rotulo, onPress, ultimo }: { icone: keyof typeof Ionicons.glyphMap; rotulo: string; onPress: () => void; ultimo?: boolean }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.item, !ultimo && styles.itemBorda, pressed && styles.itemPressionado]}>
+      <Ionicons name={icone} size={19} color={colors.primary600} />
+      <Text style={styles.itemRotulo}>{rotulo}</Text>
+      <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+    </Pressable>
+  )
+}
+
 const styles = StyleSheet.create({
+  aviso: { marginBottom: spacing.md },
+  secaoPrimeira: { ...typography.heading.sm, color: colors.text, marginBottom: spacing.md },
   secao: { ...typography.heading.sm, color: colors.text, marginTop: spacing.xl, marginBottom: spacing.md },
-  linhaSwitch: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  linha: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  duas: { flexDirection: 'row', gap: spacing.md },
   titulo: { ...typography.body.lg, fontWeight: '600', color: colors.text },
   apagado: { color: colors.textMuted },
   sub: { ...typography.body.md, color: colors.textMuted },
+  link: { ...typography.body.md, color: colors.primary700 },
   rotulo: { ...typography.label.md, color: colors.textDim },
   alerta: { ...typography.body.sm, color: colors.warningFg, marginTop: 2 },
   lixeira: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  menu: { backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
+  item: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, minHeight: 54 },
+  itemBorda: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  itemPressionado: { backgroundColor: colors.surfaceMuted },
+  itemRotulo: { flex: 1, ...typography.body.lg, fontWeight: '600', color: colors.text },
 })

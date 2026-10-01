@@ -1,16 +1,17 @@
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { Card } from '@/components/Card'
 import { Avatar } from '@/components/Avatar'
 import { useAuth } from '@/contexts/AuthContext'
 import { colors, radius, spacing, typography } from '@/theme/theme'
+import { dialogo } from '@/lib/dialogo'
 
 export default function MaisTaxiDogScreen() {
   const { contexto, temAcessoLoja, setModo, signOut } = useAuth()
 
   function confirmarSaida() {
-    Alert.alert('Sair da conta', 'Você precisará entrar de novo e deixará de receber avisos de corridas e rotas.', [
+    dialogo('Sair da conta', 'Você precisará entrar de novo e deixará de receber avisos de corridas e rotas.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Sair', style: 'destructive', onPress: signOut },
     ])

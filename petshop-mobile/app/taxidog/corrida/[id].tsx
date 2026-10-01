@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
-import { ActivityIndicator, Alert, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { format, parseISO } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
@@ -26,6 +26,7 @@ import {
   type Corrida,
 } from '@/lib/taxidog'
 import { colors, radius, spacing, typography } from '@/theme/theme'
+import { dialogo } from '@/lib/dialogo'
 
 // Etapas finais pedem confirmação — evita um toque errado com o celular
 // na mão, andando.
@@ -90,7 +91,7 @@ export default function CorridaDetalheScreen() {
       avancar(novoStatus)
       return
     }
-    Alert.alert('Confirmar', pergunta, [
+    dialogo('Confirmar', pergunta, [
       { text: 'Voltar', style: 'cancel' },
       { text: 'Confirmar', onPress: () => avancar(novoStatus) },
     ])

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
-import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
@@ -39,6 +39,7 @@ import {
 import { PROXIMA_ETAPA, etapaEncerrada, etapaExigeDia, type StatusAgendamento } from '@/lib/statusAgendamento'
 import { ROTULO_MODALIDADE, rotuloStatusCorrida } from '@/lib/taxidog'
 import { colors, radius, spacing, typography } from '@/theme/theme'
+import { dialogo } from '@/lib/dialogo'
 
 const QUEM_CANCELOU: Record<string, string> = {
   cliente: 'pelo cliente',
@@ -136,7 +137,7 @@ export default function AgendamentoDetalheScreen() {
   // avisa (não bloqueia) — o cliente pode ter trazido o pet.
   function perguntarTaxiDog(status: StatusAgendamento, p: TaxiDogPendente) {
     if (p.emMovimento) {
-      Alert.alert(
+      dialogo(
         'TaxiDog a caminho',
         `${p.pet} já está no carro do TaxiDog, a caminho da loja. Quer seguir mesmo assim?`,
         [
@@ -146,7 +147,7 @@ export default function AgendamentoDetalheScreen() {
       )
       return
     }
-    Alert.alert(
+    dialogo(
       'Busca do TaxiDog pendente',
       `O TaxiDog ainda não buscou ${p.pet}. O cliente trouxe o pet?`,
       [
@@ -160,7 +161,7 @@ export default function AgendamentoDetalheScreen() {
   function pedirAvanco() {
     if (!proxima) return
     if (proxima.status === 'Concluído') {
-      Alert.alert('Finalizar atendimento', `Confirma que o atendimento de ${a.pet?.nome ?? 'este pet'} terminou?`, [
+      dialogo('Finalizar atendimento', `Confirma que o atendimento de ${a.pet?.nome ?? 'este pet'} terminou?`, [
         { text: 'Voltar', style: 'cancel' },
         { text: 'Finalizar', onPress: () => avancar('Concluído') },
       ])

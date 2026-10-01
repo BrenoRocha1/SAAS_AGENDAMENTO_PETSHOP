@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLocalSearchParams } from 'expo-router'
-import { ActivityIndicator, Alert, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { format } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
@@ -29,6 +29,7 @@ import {
   type Parada,
 } from '@/lib/taxidog-rotas'
 import { colors, radius, spacing, typography } from '@/theme/theme'
+import { dialogo } from '@/lib/dialogo'
 
 // Tela da rota do TaxiDog: resumo + INICIAR ROTA; depois de sair, só a
 // PRÓXIMA PARADA em destaque — Abrir no Google Maps → Cheguei → confirmar
@@ -45,7 +46,7 @@ export default function RotaScreen() {
   const [verFeitas, setVerFeitas] = useState(false)
 
   function confirmarCancelamento(idRota: string) {
-    Alert.alert('Cancelar rota', 'As corridas voltam para a lista e podem entrar em outra rota. Continuar?', [
+    dialogo('Cancelar rota', 'As corridas voltam para a lista e podem entrar em outra rota. Continuar?', [
       { text: 'Voltar', style: 'cancel' },
       {
         text: 'Cancelar rota',
@@ -315,7 +316,7 @@ function ProximaParada({ parada: p, numero, total, enderecoLoja, enviando, onChe
       return
     }
     const nomes = desmarcados.map(i => i.pet_nome).join(', ')
-    Alert.alert('Confirmar', `${nomes} vai sair desta rota e volta para a loja reorganizar. Continuar?`, [
+    dialogo('Confirmar', `${nomes} vai sair desta rota e volta para a loja reorganizar. Continuar?`, [
       { text: 'Voltar', style: 'cancel' },
       { text: 'Confirmar', onPress: () => onConfirmar(aFazer.filter(i => marcados.has(i.id_item) || !acaoOpcional(i.acao)).map(i => i.id_item)) },
     ])

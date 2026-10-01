@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@expo/metro-runtime": "~57.0.16",
     "@expo/vector-icons": "^15.1.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "^2.116.0",
@@ -10,6 +11,7 @@
     "expo": "~57.0.26",
     "expo-constants": "~57.0.19",
     "expo-font": "~57.0.4",
+    "expo-image-picker": "~57.0.20",
     "expo-linking": "~57.0.11",
     "expo-router": "~57.0.24",
     "expo-splash-screen": "~57.0.9",
@@ -21,7 +23,8 @@
     "react-native-gesture-handler": "~2.32.0",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
-    "react-native-url-polyfill": "^4.0.0"
+    "react-native-url-polyfill": "^4.0.0",
+    "react-native-web": "^0.21.2"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",

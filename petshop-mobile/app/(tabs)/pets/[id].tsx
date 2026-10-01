@@ -9,6 +9,11 @@ import { DetailHeader } from '@/components/DetailHeader'
 import { Avatar } from '@/components/Avatar'
 import { Card } from '@/components/Card'
 import { EmptyState } from '@/components/EmptyState'
+import { Botao } from '@/components/Botao'
+import { TrocarFoto, acoesFotoPet } from '@/components/TrocarFoto'
+import { PlanosDoPet } from '@/components/PlanosDoPet'
+import { useAuth } from '@/contexts/AuthContext'
+import { acoesDisponiveis } from '@/lib/acoes'
 import { supabase } from '@/lib/supabase'
 import { colors, spacing, typography } from '@/theme/theme'
 
@@ -29,6 +34,7 @@ interface PetDetalhe {
 export default function PetDetalheScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
+  const { contexto } = useAuth()
   const [pet, setPet] = useState<PetDetalhe | null>(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
@@ -83,13 +89,28 @@ export default function PetDetalheScreen() {
   }
 
   const nascimento = safeFormatDate(pet.dt_nasc)
+  const comSite = acoesDisponiveis()
+  // A foto do pet, pela loja, só o responsável pela conta troca (mesma
+  // regra da action do painel web).
+  const podeTrocarFoto = comSite && contexto?.role === 'lojista'
+  const fotoPet = acoesFotoPet(pet.id_pet)
 
   return (
     <ScreenContainer>
       <DetailHeader title={pet.nome} />
 
       <View style={styles.perfil}>
-        <Avatar nome={pet.nome} fotoUrl={pet.foto_url} size={72} />
+        {podeTrocarFoto ? (
+          <TrocarFoto
+            nome={pet.nome}
+            fotoUrl={pet.foto_url}
+            enviar={fotoPet.enviar}
+            remover={fotoPet.remover}
+            onMudou={url => setPet({ ...pet, foto_url: url })}
+          />
+        ) : (
+          <Avatar nome={pet.nome} fotoUrl={pet.foto_url} size={72} />
+        )}
         <Text style={styles.nome}>{pet.nome}</Text>
         <Text style={styles.subtitulo}>
           {[pet.especie, pet.raca].filter(Boolean).join(' • ')}
@@ -108,6 +129,20 @@ export default function PetDetalheScreen() {
           <Text style={styles.obsLabel}>Observações</Text>
           <Text style={styles.obsTexto}>{pet.obs}</Text>
         </Card>
+      )}
+
+      {comSite && contexto?.acessoTotal && (
+        <Botao
+          rotulo="Editar dados do pet"
+          icone="create-outline"
+          variante="secundario"
+          style={{ marginBottom: spacing.lg }}
+          onPress={() => router.push({ pathname: '/pets/editar', params: { id: pet.id_pet } })}
+        />
+      )}
+
+      {contexto && (contexto.podeGerenciarAgenda || contexto.acessoTotal) && (
+        <PlanosDoPet idPet={pet.id_pet} idLojista={contexto.idLojista} podeVincular={contexto.acessoTotal} />
       )}
 
       {pet.cliente && (
