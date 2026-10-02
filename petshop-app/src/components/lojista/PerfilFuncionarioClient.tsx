@@ -9,6 +9,7 @@ import { toggleFuncionarioAction } from '@/lib/actions'
 import { formatarTelefone } from '@/lib/format'
 import { PRESETS, variacaoPercentual, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
+import CodigoAcessoFuncionarioModal from '@/components/lojista/CodigoAcessoFuncionarioModal'
 import {
   IconAlert,
   IconCalendar,
@@ -16,6 +17,7 @@ import {
   IconClock,
   IconDog,
   IconInbox,
+  IconLock,
   IconMoney,
   IconPencil,
   IconScissors,
@@ -61,6 +63,8 @@ interface Props {
   periodo: Periodo
   agendamentos: AgendamentoFuncionario[]
   agendamentosAnterior: AgendamentoFuncionario[]
+  // Só o titular da loja gera código de acesso rápido (migration 077).
+  podeGerarCodigo?: boolean
 }
 
 const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
@@ -79,11 +83,12 @@ function parseDia(iso: string) {
   return parseISO(`${iso}T12:00:00`)
 }
 
-export default function PerfilFuncionarioClient({ funcionario, preset, periodo, agendamentos, agendamentosAnterior }: Props) {
+export default function PerfilFuncionarioClient({ funcionario, preset, periodo, agendamentos, agendamentosAnterior, podeGerarCodigo = false }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [isPendingToggle, startToggleTransition] = useTransition()
   const [toggleErro, setToggleErro] = useState<string | null>(null)
+  const [codigoAberto, setCodigoAberto] = useState(false)
 
   const [customIni, setCustomIni] = useState(periodo.ini)
   const [customFim, setCustomFim] = useState(periodo.fim)
@@ -171,6 +176,11 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
           >
             <IconCalendar style={{ width: 14, height: 14 }} /> Novo Agendamento
           </Link>
+          {podeGerarCodigo && funcionario.ativo && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setCodigoAberto(true)}>
+              <IconLock style={{ width: 14, height: 14 }} /> Código de acesso
+            </button>
+          )}
           <button
             className={`btn btn-sm ${funcionario.ativo ? 'btn-danger' : 'btn-secondary'}`}
             onClick={handleToggle}
@@ -189,6 +199,14 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
           <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
           <span>{toggleErro}</span>
         </div>
+      )}
+
+      {codigoAberto && (
+        <CodigoAcessoFuncionarioModal
+          idFuncionario={funcionario.id_funcionario}
+          nome={funcionario.nome}
+          onClose={() => setCodigoAberto(false)}
+        />
       )}
 
       {/* ── Filtro de período ── */}

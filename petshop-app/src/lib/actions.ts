@@ -3439,10 +3439,14 @@ export async function excluirMinhaContaAction(confirmacao: string): Promise<{ er
 }
 
 // ============================================================
-// LOGIN DE FUNCIONRIO VIA CDIGO (MIGRATION 033)
+// CÓDIGO DE ACESSO RÁPIDO POR FUNCIONÁRIO (MIGRATION 077)
+// O titular gera, na tela do funcionário, um código de 6 dígitos que
+// vale 1 minuto e é de uso único; o funcionário entra só com o código.
 // ============================================================
 
-export async function gerarCodigoLoginFuncionarioAction() {
+export async function gerarCodigoAcessoFuncionarioAction(
+  idFuncionario: string
+): Promise<{ error?: string; codigo?: string; expiracao?: string }> {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -3450,81 +3454,77 @@ export async function gerarCodigoLoginFuncionarioAction() {
 
     const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
     if (!contexto || !ehResponsavelPelaConta(contexto)) {
-      return { error: 'Apenas o lojista titular pode gerar o código de login.' }
+      return { error: 'Apenas o lojista titular pode gerar o código de acesso.' }
     }
 
-    const { data, error } = await supabase.rpc('fn_gerar_codigo_login_funcionario', {
-      p_id_lojista: contexto.idLojista
+    // A função confere no banco que o funcionário é desta loja e está ativo.
+    const { data, error } = await supabase.rpc('fn_gerar_codigo_acesso_funcionario', {
+      p_id_funcionario: idFuncionario,
     })
-
     if (error) {
-      return { error: devError('Erro ao gerar código.', error.message) }
+      return { error: devError('Não foi possível gerar o código.', error.message) }
     }
 
-    return { success: true, ...data }
-  } catch (error: any) {
+    const { codigo, expiracao } = data as { codigo: string; expiracao: string }
+    return { codigo, expiracao }
+  } catch {
     return { error: 'Erro de conexão ao gerar código' }
   }
 }
 
-export async function loginFuncionarioCodigoAction(email: string, codigo: string) {
+export async function loginFuncionarioCodigoAction(codigo: string) {
   try {
     const rl = await checkRateLimit('loginFuncionario', 10, 5)
     if (!rl.success) {
       return { error: "Muitas tentativas. Tente novamente em " + rl.retryAfter + "s." }
     }
 
+    const codigoLimpo = (codigo ?? '').replace(/\D/g, '')
+    if (codigoLimpo.length !== 6) return { error: 'Digite os 6 números do código.' }
+
     const adminClient = createAdminClient()
     if (!adminClient) return { error: 'Erro de servidor' }
 
-    // 1. Achar o funcionário
+    // 1. Achar o funcionário pelo código e já apagar o código (uso único).
+    // É um UPDATE só, então o mesmo código não serve pra dois logins.
     const { data: func } = await adminClient
       .from('funcionario')
-      .select('id_funcionario, id_lojista')
-      .eq('email', email)
+      .update({ codigo_login: null, codigo_login_expiracao: null })
+      .eq('codigo_login', codigoLimpo)
       .eq('ativo', true)
+      .gt('codigo_login_expiracao', new Date().toISOString())
+      .select('id_funcionario')
       .maybeSingle()
 
-    if (!func) return { error: 'Funcionário não encontrado ou inativo.' }
-
-    // 2. Validar o código do lojista
-    const { data: lojista } = await adminClient
-      .from('lojista')
-      .select('codigo_login_funcionario, codigo_login_expiracao')
-      .eq('id_lojista', func.id_lojista)
-      .maybeSingle()
-
-    if (!lojista || !lojista.codigo_login_funcionario || lojista.codigo_login_funcionario !== codigo) {
-      return { error: 'Código inválido.' }
+    if (!func) {
+      return { error: 'Código inválido ou expirado. Peça um novo ao responsável da loja.' }
     }
 
-    if (new Date(lojista.codigo_login_expiracao).getTime() < Date.now()) {
-      return { error: 'Código expirado. Peça ao lojista um novo código.' }
-    }
+    // 2. Entrar sem mexer na senha do funcionário: um link de acesso gerado
+    // aqui no servidor (nenhum e-mail é enviado) e trocado na hora pela
+    // sessão, que fica gravada nos cookies.
+    const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(func.id_funcionario)
+    if (!authUser?.email) return { error: 'Erro ao autenticar.' }
 
-    // 3. Resetar senha do funcionário
-    const randomPassword = require('crypto').randomBytes(24).toString('hex') + 'A1!'
-    const { error: updateError } = await adminClient.auth.admin.updateUserById(func.id_funcionario, {
-      password: randomPassword
+    const { data: link, error: linkError } = await adminClient.auth.admin.generateLink({
+      type: 'magiclink',
+      email: authUser.email,
     })
-
-    if (updateError) {
+    if (linkError || !link.properties?.hashed_token) {
       return { error: 'Erro ao autenticar.' }
     }
 
-    // 4. Logar
     const supabase = await createClient()
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email,
-      password: randomPassword
+    const { error: loginError } = await supabase.auth.verifyOtp({
+      token_hash: link.properties.hashed_token,
+      type: 'magiclink',
     })
-
     if (loginError) {
       return { error: 'Erro ao iniciar sessão.' }
     }
 
     return { success: true }
-  } catch (error: any) {
+  } catch {
     return { error: 'Erro interno.' }
   }
 }

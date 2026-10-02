@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { IconAlert, IconChevronLeft, IconUserBadge } from '@/components/icons'
 import { calcularPeriodo, calcularPeriodoAnterior, type PeriodoPreset } from '@/lib/relatorios'
-import { obterContextoLojista } from '@/lib/lojista-context'
+import { obterContextoLojista, ehResponsavelPelaConta } from '@/lib/lojista-context'
 import PerfilFuncionarioClient, {
   type AgendamentoFuncionario,
   type FuncionarioInfo,
@@ -157,6 +157,7 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
         periodo={periodo}
         agendamentos={agendamentos}
         agendamentosAnterior={agendamentosAnterior}
+        podeGerarCodigo={ehResponsavelPelaConta(contexto)}
       />
     </>
   )

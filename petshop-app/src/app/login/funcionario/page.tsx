@@ -21,16 +21,15 @@ export default function LoginFuncionarioPage() {
 
   function handleLogin(formData: FormData) {
     setError(null)
-    const email = formData.get('email') as string
-    const codigo = formData.get('codigo') as string
+    const codigo = (formData.get('codigo') as string)?.replace(/\D/g, '') ?? ''
 
-    if (!email || !codigo) {
-      setError('Preencha todos os campos.')
+    if (codigo.length !== 6) {
+      setError('Digite os 6 números do código.')
       return
     }
 
     startTransition(async () => {
-      const res = await loginFuncionarioCodigoAction(email, codigo)
+      const res = await loginFuncionarioCodigoAction(codigo)
       if (res?.error) {
         setError(res.error)
       } else {
@@ -64,15 +63,10 @@ export default function LoginFuncionarioPage() {
 
         <form action={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           <div className="form-group">
-            <label htmlFor="email" className="form-label">E-mail</label>
-            <input type="email" id="email" name="email" className="form-input" required placeholder="seu@email.com" />
-          </div>
-          
-          <div className="form-group">
             <label htmlFor="codigo" className="form-label">Código de Acesso</label>
-            <input type="text" id="codigo" name="codigo" className="form-input" required placeholder="000000" maxLength={6} style={{ letterSpacing: '0.25em', fontSize: '1.25rem', textAlign: 'center' }} />
+            <input type="text" id="codigo" name="codigo" className="form-input" required placeholder="000000" maxLength={6} inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" autoFocus style={{ letterSpacing: '0.25em', fontSize: '1.25rem', textAlign: 'center' }} />
             <p className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>
-              Peça o código de 6 dígitos para o administrador da loja.
+              Peça ao responsável da loja o seu código de 6 dígitos. Ele vale 1 minuto e já identifica você — não precisa de e-mail nem senha.
             </p>
           </div>
 
