@@ -107,33 +107,46 @@ export async function GET(request: Request) {
     return NextResponse.redirect(url.toString())
   }
 
+  // Se a consulta falhar (ex.: service role key inválida), não dá pra
+  // concluir que o usuário é novo — mandar pro "completar cadastro" faria
+  // um lojista já cadastrado se cadastrar de novo como cliente.
+  const erroPerfil = (detalhe: string) => {
+    console.error('[auth/callback] erro ao buscar perfil:', detalhe)
+    const url = new URL(`${origin}/login`)
+    url.searchParams.set('error', 'perfil')
+    return NextResponse.redirect(url.toString())
+  }
+
   // Verificar lojista
-  const { data: lojista } = await adminClient
+  const { data: lojista, error: erroLojista } = await adminClient
     .from('lojista')
     .select('id_lojista')
     .eq('id_lojista', user.id)
     .maybeSingle()
+  if (erroLojista) return erroPerfil(erroLojista.message)
   if (lojista) {
     return NextResponse.redirect(`${origin}/lojista/dashboard`)
   }
 
   // Verificar funcionário
-  const { data: funcionario } = await adminClient
+  const { data: funcionario, error: erroFuncionario } = await adminClient
     .from('funcionario')
     .select('id_funcionario')
     .eq('id_funcionario', user.id)
     .eq('ativo', true)
     .maybeSingle()
+  if (erroFuncionario) return erroPerfil(erroFuncionario.message)
   if (funcionario) {
     return NextResponse.redirect(`${origin}/lojista/agendamentos`)
   }
 
   // Verificar cliente
-  const { data: cliente } = await adminClient
+  const { data: cliente, error: erroCliente } = await adminClient
     .from('cliente')
     .select('id_cliente')
     .eq('id_cliente', user.id)
     .maybeSingle()
+  if (erroCliente) return erroPerfil(erroCliente.message)
   if (cliente) {
     return NextResponse.redirect(`${origin}/cliente/dashboard`)
   }

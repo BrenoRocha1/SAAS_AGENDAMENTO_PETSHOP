@@ -285,6 +285,7 @@ function LoginFormPane() {
     session_exchange: 'Falha ao processar autenticação com o Google.',
     no_user: 'Usuário não encontrado após autenticação.',
     no_admin_key: 'Erro de configuração do servidor (service role key ausente).',
+    perfil: 'Não foi possível verificar sua conta agora. Tente novamente em instantes.',
     callback: 'Erro no retorno do login. Tente novamente.',
   }
 
