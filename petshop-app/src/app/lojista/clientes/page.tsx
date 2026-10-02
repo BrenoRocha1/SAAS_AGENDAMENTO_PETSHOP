@@ -104,7 +104,7 @@ export default async function ClientesLojistaPage({ searchParams }: Props) {
 
   return (
     <>
-      <div className="page-header">
+      <div className="page-header so-desktop">
         <h1 className="page-title">Clientes</h1>
         <p className="page-subtitle">Clientes do seu petshop</p>
       </div>

@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
-import { formatarTelefone } from '@/lib/format'
+import { formatarTelefone, iniciais } from '@/lib/format'
 import PetFormModal, { type ClienteBasico, type PetParaEditar } from './PetFormModal'
 import {
   IconAlert,
@@ -12,9 +12,11 @@ import {
   IconChevronRight,
   IconDog,
   IconEye,
+  IconPaw,
   IconPencil,
   IconPlus,
   IconSearch,
+  IconUser,
 } from '@/components/icons'
 
 export interface PetLinha extends PetParaEditar {
@@ -121,6 +123,66 @@ export default function PetsList({
 
   return (
     <div style={{ opacity: isPending ? 0.6 : 1, transition: 'opacity 150ms' }}>
+      {/* Celular (até 768px): a mesma tela Pets do app. */}
+      <div className="so-celular tela-app">
+        <div className="tela-app-titulo">
+          <h1>Pets</h1>
+        </div>
+        <div className="tela-app-busca">
+          <IconSearch />
+          <input
+            placeholder="Buscar pet, raça ou tutor..."
+            value={buscaInput}
+            onChange={e => setBuscaInput(e.target.value)}
+          />
+        </div>
+
+        {pets.length === 0 ? (
+          <div className="dash-app-vazio">
+            <span className="dash-app-vazio-icone"><IconPaw style={{ width: 26, height: 26 }} /></span>
+            <strong>{busca ? 'Nenhum pet encontrado' : 'Nenhum pet cadastrado'}</strong>
+            <span>{busca ? 'Tente outro nome, raça ou tutor.' : 'Os pets da sua loja aparecem aqui.'}</span>
+          </div>
+        ) : (
+          <div className="dash-app-lista">
+            {pets.map(p => (
+              <button
+                type="button"
+                key={p.id_pet}
+                className="dash-app-linha"
+                onClick={() => router.push(`/lojista/pets/${p.id_pet}`)}
+              >
+                <span className="tela-app-avatar" style={p.foto_url ? { backgroundImage: `url(${p.foto_url})` } : undefined}>
+                  {!p.foto_url && iniciais(p.nome)}
+                </span>
+                <span className="dash-app-linha-info">
+                  <span className="dash-app-linha-pet">{p.nome}</span>
+                  <span className="dash-app-linha-sub">{[p.raca, p.porte].filter(Boolean).join(' • ') || (p.especie ?? 'Pet')}</span>
+                  <span className="dash-app-linha-meta">
+                    <IconUser style={{ width: 12, height: 12 }} /> {p.nome_cliente}
+                  </span>
+                </span>
+                <IconPaw className="tela-app-seta" style={{ width: 16, height: 16 }} />
+                <IconChevronRight className="tela-app-seta" style={{ width: 18, height: 18 }} />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {totalPaginas > 1 && (
+          <div className="tela-app-paginas">
+            <button type="button" onClick={() => navegar({ pagina: pagina - 1 > 1 ? String(pagina - 1) : undefined })} disabled={pagina <= 1 || isPending}>
+              <IconChevronLeft style={{ width: 14, height: 14 }} /> Anterior
+            </button>
+            <span>{pagina} de {totalPaginas}</span>
+            <button type="button" onClick={() => navegar({ pagina: String(pagina + 1) })} disabled={pagina >= totalPaginas || isPending}>
+              Próxima <IconChevronRight style={{ width: 14, height: 14 }} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="so-desktop">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
         <div className="dash-search" style={{ maxWidth: 360 }}>
           <IconSearch />
@@ -235,6 +297,7 @@ export default function PetsList({
           </div>
         </>
       )}
+      </div>
 
       {clientes.length === 0 && (
         <div className="alert alert-warning" style={{ marginTop: 'var(--space-5)' }}>

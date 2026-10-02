@@ -175,7 +175,7 @@ export default async function PetsLojistaPage({ searchParams }: Props) {
 
   return (
     <>
-      <div className="page-header">
+      <div className="page-header so-desktop">
         <h1 className="page-title">Pets</h1>
         <p className="page-subtitle">Gerencie os pets cadastrados na sua loja.</p>
       </div>

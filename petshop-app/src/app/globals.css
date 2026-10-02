@@ -2411,6 +2411,57 @@ a.dash-app-linha { text-decoration: none; }
   /* O conteúdo termina acima da barra (ela ocupa 44 + 16 + 8 + 12 = 80px). */
   .lojista-shell .app-content, .cliente-shell .app-content { padding-bottom: 104px; }
 }
+
+/* ============================================================
+   TELAS DAS ABAS NO CELULAR — iguais às do app (Agendamentos, Clientes,
+   Pets). .so-celular aparece até 768px; .so-desktop some.
+   ============================================================ */
+.so-celular { display: none; }
+.tela-app-titulo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 40px; margin-bottom: var(--space-3); }
+.tela-app-titulo h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.3px; line-height: 1.2; color: var(--gray-100); }
+.tela-app-novo {
+  display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+  min-height: 40px; padding: 0 var(--space-3); border: 0; border-radius: 999px;
+  background: var(--primary-600); font: inherit; font-size: 0.8125rem; font-weight: 600; color: #fff; cursor: pointer;
+}
+.tela-app-novo:active { opacity: 0.8; }
+.tela-app-dia {
+  display: flex; align-items: center; padding: var(--space-2) var(--space-1); margin-bottom: var(--space-4);
+  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px;
+}
+.tela-app-dia > button { width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; border: 0; background: none; color: var(--gray-100); cursor: pointer; }
+.tela-app-dia > div { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.tela-app-dia strong { display: inline-block; font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
+.tela-app-dia strong::first-letter { text-transform: uppercase; }
+.tela-app-dia span { font-size: 0.78rem; color: var(--gray-400); }
+.tela-app-dia div button { border: 0; background: none; padding: 0; font: inherit; font-size: 0.78rem; font-weight: 600; color: var(--primary-600); cursor: pointer; }
+.tela-app-busca {
+  display: flex; align-items: center; gap: var(--space-2); height: 44px; padding: 0 var(--space-3); margin-bottom: var(--space-4);
+  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 10px; color: var(--gray-600);
+}
+.tela-app-busca svg { width: 18px; height: 18px; flex-shrink: 0; }
+.tela-app-busca input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; font: inherit; font-size: 1rem; color: var(--gray-100); }
+.tela-app-busca input::placeholder { color: var(--gray-600); }
+.tela-app-avatar {
+  width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%;
+  background: var(--primary-600) center / cover no-repeat; font-size: 16px; font-weight: 700; color: #fff;
+}
+.tela-app-chip {
+  display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 4px var(--space-2);
+  border-radius: 999px; background: var(--gray-850); font-size: 0.78rem; font-weight: 600; color: var(--gray-300);
+}
+.tela-app-seta { flex-shrink: 0; color: var(--gray-600); }
+.tela-app-paginas { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-4); font-size: 0.8125rem; color: var(--gray-400); }
+.tela-app-paginas button {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 var(--space-3);
+  border: 1px solid var(--gray-800); border-radius: 999px; background: var(--gray-900);
+  font: inherit; font-weight: 600; color: var(--gray-100); cursor: pointer;
+}
+.tela-app-paginas button:disabled { opacity: 0.4; cursor: default; }
+@media (max-width: 768px) {
+  .so-desktop { display: none !important; }
+  .so-celular { display: block; }
+}
 .menu-mobile-fundo { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: 49; }
 
 /* ============================================================

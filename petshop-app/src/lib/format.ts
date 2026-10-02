@@ -30,3 +30,14 @@ export function formatarEnderecoLoja(l: {
   const cidade = [l.cidade?.trim(), l.estado?.trim()].filter(Boolean).join(' - ')
   return [rua, l.complemento?.trim(), l.bairro?.trim(), cidade].filter(Boolean).join(' · ')
 }
+
+// "Pedro Henrique Toledo" → "PH" (avatar sem foto, igual ao app).
+export function iniciais(nome: string | null | undefined): string {
+  return (nome ?? '')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(p => p[0] ?? '')
+    .join('')
+    .toUpperCase()
+}

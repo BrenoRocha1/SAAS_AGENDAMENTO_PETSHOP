@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { formatarTelefone } from '@/lib/format'
+import { formatarTelefone, iniciais } from '@/lib/format'
 import ClienteFormModal, { type ClienteParaEditar } from './ClienteFormModal'
 import {
   IconChevronLeft,
   IconChevronRight,
+  IconPaw,
   IconPencil,
   IconPlus,
   IconSearch,
@@ -92,6 +93,66 @@ export default function ClientesList({ clientes, total, pagina, pageSize, busca,
 
   return (
     <div style={{ opacity: isPending ? 0.6 : 1, transition: 'opacity 150ms' }}>
+      {/* Celular (até 768px): a mesma tela Clientes do app. */}
+      <div className="so-celular tela-app">
+        <div className="tela-app-titulo">
+          <h1>Clientes</h1>
+          {podeEditar && (
+            <button type="button" className="tela-app-novo" onClick={abrirNovo}>
+              <IconPlus style={{ width: 18, height: 18 }} /> Novo
+            </button>
+          )}
+        </div>
+        <div className="tela-app-busca">
+          <IconSearch />
+          <input
+            placeholder="Buscar por nome ou telefone..."
+            value={buscaInput}
+            onChange={e => setBuscaInput(e.target.value)}
+          />
+        </div>
+
+        {clientes.length === 0 ? (
+          <div className="dash-app-vazio">
+            <span className="dash-app-vazio-icone"><IconUsers style={{ width: 26, height: 26 }} /></span>
+            <strong>{busca ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}</strong>
+            <span>{busca ? 'Tente outro nome ou telefone.' : 'Os clientes da sua loja aparecem aqui.'}</span>
+          </div>
+        ) : (
+          <div className="dash-app-lista">
+            {clientes.map(c => (
+              <button
+                type="button"
+                key={c.id_cliente}
+                className="dash-app-linha"
+                onClick={() => router.push(`/lojista/clientes/${c.id_cliente}`)}
+              >
+                <span className="tela-app-avatar">{iniciais(c.nome)}</span>
+                <span className="dash-app-linha-info">
+                  <span className="dash-app-linha-pet">{c.nome}</span>
+                  <span className="dash-app-linha-sub">{formatarTelefone(c.telefone)}</span>
+                </span>
+                <span className="tela-app-chip"><IconPaw style={{ width: 13, height: 13 }} /> {c.qtdPets}</span>
+                <IconChevronRight className="tela-app-seta" style={{ width: 18, height: 18 }} />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {totalPaginas > 1 && (
+          <div className="tela-app-paginas">
+            <button type="button" onClick={() => navegar({ pagina: pagina - 1 > 1 ? String(pagina - 1) : undefined })} disabled={pagina <= 1 || isPending}>
+              <IconChevronLeft style={{ width: 14, height: 14 }} /> Anterior
+            </button>
+            <span>{pagina} de {totalPaginas}</span>
+            <button type="button" onClick={() => navegar({ pagina: String(pagina + 1) })} disabled={pagina >= totalPaginas || isPending}>
+              Próxima <IconChevronRight style={{ width: 14, height: 14 }} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="so-desktop">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
         <div className="dash-search" style={{ maxWidth: 360 }}>
           <IconSearch />
@@ -222,6 +283,7 @@ export default function ClientesList({ clientes, total, pagina, pageSize, busca,
           </div>
         </>
       )}
+      </div>
 
       {showModal && (
         <ClienteFormModal cliente={clienteEditando} onClose={fecharModal} onSaved={handleSalvo} />

@@ -29,6 +29,9 @@ import {
   IconStore,
   IconLink,
   IconCar,
+  IconCalendar,
+  IconScissors,
+  IconUser,
 } from '@/components/icons'
 import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
 import { classeBadgeStatus, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
@@ -46,7 +49,7 @@ import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lo
 import HistoricoAlteracoes from '@/components/lojista/HistoricoAlteracoes'
 import type { TaxiDogPendente } from '@/lib/actions'
 import type { FormaPagamento } from '@/lib/pagamento'
-import { bloqueiosDoDia, type BloqueioLoja } from '@/lib/bloqueios'
+import { bloqueiosDoDia, somarDiasISO, type BloqueioLoja } from '@/lib/bloqueios'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
 
 export interface AgendamentoCalendario {
@@ -291,6 +294,19 @@ export default function AgendaCalendar({
     router.push(`/lojista/agendamentos?semana=${iso}`)
   }
 
+  // ── Celular: mesma tela Agendamentos do app (um dia por vez) ──
+  const hojeISO = hojeBrasilISO()
+  const fimSemanaISO = format(addDays(inicioSemanaObj, 6), 'yyyy-MM-dd')
+  const [diaCelular, setDiaCelular] = useState(() => (hojeISO >= inicioSemana && hojeISO <= fimSemanaISO ? hojeISO : inicioSemana))
+  // Saindo da semana carregada, busca a semana do dia novo.
+  function irParaDiaCelular(iso: string) {
+    setDiaCelular(iso)
+    if (iso < inicioSemana || iso > fimSemanaISO) irParaSemana(parseDia(iso))
+  }
+  const agendaDoDiaCelular = agendamentos
+    .filter(a => a.dt_agendamento === diaCelular)
+    .sort((a, b) => a.hr_agendamento.localeCompare(b.hr_agendamento))
+
   function toggleProfissional(id: string) {
     setFiltroProfissionais(prev => {
       const novo = new Set(prev)
@@ -368,7 +384,7 @@ export default function AgendaCalendar({
 
   return (
     <>
-      <div className="page-header flex items-center justify-between" style={{ flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+      <div className="page-header flex items-center justify-between so-desktop" style={{ flexWrap: 'wrap', gap: 'var(--space-3)' }}>
         <div>
           <h1 className="page-title">Agendamentos</h1>
           <p className="page-subtitle">Agenda semanal do seu petshop</p>
@@ -392,7 +408,68 @@ export default function AgendaCalendar({
         </div>
       )}
 
-      <div className="cal-shell">
+      {/* Celular (até 768px): a mesma tela Agendamentos do app — a lista de
+          um dia, com as setas pra trocar. Tocar abre o detalhe de sempre. */}
+      <div className="so-celular tela-app">
+        <div className="tela-app-titulo">
+          <h1>Agendamentos</h1>
+          <button type="button" className="tela-app-novo" onClick={() => setModalAberto(true)}>
+            <IconPlus style={{ width: 18, height: 18 }} /> Novo
+          </button>
+        </div>
+
+        <div className="tela-app-dia">
+          <button type="button" onClick={() => irParaDiaCelular(somarDiasISO(diaCelular, -1))} aria-label="Dia anterior">
+            <IconChevronLeft style={{ width: 20, height: 20 }} />
+          </button>
+          <div>
+            <strong>{format(parseDia(diaCelular), "EEEE, d 'de' MMMM", { locale: ptBR })}</strong>
+            {diaCelular === hojeISO
+              ? <span>Hoje</span>
+              : <button type="button" onClick={() => irParaDiaCelular(hojeISO)}>Voltar para hoje</button>}
+          </div>
+          <button type="button" onClick={() => irParaDiaCelular(somarDiasISO(diaCelular, 1))} aria-label="Próximo dia">
+            <IconChevronRight style={{ width: 20, height: 20 }} />
+          </button>
+        </div>
+
+        {agendaDoDiaCelular.length === 0 ? (
+          <div className="dash-app-vazio">
+            <span className="dash-app-vazio-icone"><IconCalendar style={{ width: 26, height: 26 }} /></span>
+            <strong>{diaCelular === hojeISO ? 'Nenhum agendamento hoje' : 'Nenhum agendamento neste dia'}</strong>
+            <span>Os agendamentos do dia aparecem aqui, organizados por horário.</span>
+          </div>
+        ) : (
+          <div className="dash-app-lista">
+            {agendaDoDiaCelular.map(ev => (
+              <button
+                type="button"
+                key={ev.id_agendamento}
+                className="dash-app-linha"
+                onClick={() => setSelecionadoId(ev.id_agendamento)}
+              >
+                <span className="dash-app-linha-hora">{ev.hr_agendamento.slice(0, 5)}</span>
+                <span className="dash-app-linha-divisor" />
+                <span className="dash-app-linha-info">
+                  <span className="dash-app-linha-pet">{ev.nome_pet}</span>
+                  <span className="dash-app-linha-sub">{ev.nome_cliente}</span>
+                  <span className="dash-app-linha-meta">
+                    <IconScissors style={{ width: 13, height: 13 }} /> {ev.nome_servico}
+                  </span>
+                  {ev.nome_funcionario && (
+                    <span className="dash-app-linha-meta">
+                      <IconUser style={{ width: 13, height: 13 }} /> {ev.nome_funcionario}
+                    </span>
+                  )}
+                </span>
+                <span className={`badge ${classeBadgeStatus(ev.status)}`}>{rotuloStatus(ev.status)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="cal-shell so-desktop">
         {/* Barra lateral: mini calendário + filtro de profissionais */}
         <div className="cal-side">
           <div className="cal-mini">
