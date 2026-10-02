@@ -8,6 +8,7 @@ import { alternarPrecosEstimadosAction } from '@/lib/actions-taxidog'
 import ConfigToggleCard from '@/components/lojista/ConfigToggleCard'
 import LinkAgendamentoOnline from '@/components/lojista/LinkAgendamentoOnline'
 import JanelaAgendamentoForm from '@/components/lojista/JanelaAgendamentoForm'
+import SimultaneosForm from '@/components/lojista/SimultaneosForm'
 import { IconAlert, IconCalendar, IconChevronLeft, IconKanban, IconMoney } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'Configurações de Agendamentos — Lojista' }
@@ -55,6 +56,13 @@ export default async function ConfiguracoesAgendamentosPage() {
     .eq('id_lojista', lojistaId)
     .maybeSingle()
 
+  // Agendamentos simultâneos (migration 076) — tolerante como as de cima.
+  const { data: simultaneosRow, error: simultaneosError } = await supabase
+    .from('lojista')
+    .select('agendamentos_simultaneos')
+    .eq('id_lojista', lojistaId)
+    .maybeSingle()
+
   return (
     <>
       <Link href="/lojista/configuracoes" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
@@ -63,7 +71,7 @@ export default async function ConfiguracoesAgendamentosPage() {
 
       <div className="page-header">
         <h1 className="page-title">Configurações de Agendamentos</h1>
-        <p className="page-subtitle">Controle o Kanban e o agendamento feito pelos próprios clientes.</p>
+        <p className="page-subtitle">Controle o Kanban, quantos agendamentos a loja aceita ao mesmo tempo e o agendamento feito pelos próprios clientes.</p>
       </div>
 
       {error || !lojista ? (
@@ -86,6 +94,20 @@ export default async function ConfiguracoesAgendamentosPage() {
               ativoInicial={lojista.kanban_ativo}
               action={alternarKanbanAction}
             />
+          </div>
+
+          <div id="simultaneos">
+            {simultaneosError ? (
+              <div className="alert alert-warning">
+                <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+                <span>
+                  Ainda não dá pra escolher quantos agendamentos a loja aceita ao mesmo tempo — execute a migration 076_agendamentos_simultaneos.sql.
+                  {process.env.NODE_ENV !== 'production' && ` [DEV: ${simultaneosError.message}]`}
+                </span>
+              </div>
+            ) : (
+              <SimultaneosForm atual={Number(simultaneosRow?.agendamentos_simultaneos ?? 1)} />
+            )}
           </div>
 
           <div id="online">

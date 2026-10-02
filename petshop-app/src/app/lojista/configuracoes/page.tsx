@@ -91,7 +91,7 @@ export default async function ConfiguracoesPage() {
           href: '/lojista/configuracoes/agendamentos',
           icon: <IconCalendar style={{ width: 18, height: 18 }} />,
           titulo: 'Configurações de Agendamentos',
-          descricao: 'Kanban de atendimento (Pendentes / Em Andamento / Finalizado) e agendamento feito pelos próprios clientes',
+          descricao: 'Kanban de atendimento, quantos agendamentos a loja aceita ao mesmo tempo e agendamento feito pelos próprios clientes',
           status: [
             { texto: `Kanban ${kanbanAtivo ? 'Ativado' : 'Desativado'}`, ativo: kanbanAtivo },
             { texto: `Online ${agendamentoOnlineAtivo ? 'Ativado' : 'Desativado'}`, ativo: agendamentoOnlineAtivo },
