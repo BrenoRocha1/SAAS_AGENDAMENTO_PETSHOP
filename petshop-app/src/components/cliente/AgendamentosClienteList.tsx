@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
+import Link from 'next/link'
 import { differenceInHours, format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cancelarAgendamentoAction } from '@/lib/actions'
@@ -10,7 +11,7 @@ import { rotuloEstoque } from '@/lib/produto'
 import { ROTULO_MODALIDADE, formatarReais, rotuloStatusCorrida, type ModalidadeTaxiDog } from '@/lib/taxidog'
 import { CLASSE_STATUS_PAGAMENTO, ROTULO_STATUS_PAGAMENTO, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
 import { PixDaLoja } from '@/components/cliente/PagamentoEtapa'
-import { IconAlert, IconCalendar, IconCar, IconChevronRight, IconMoney, IconPackage, IconPencil, IconStar, IconStore, IconTrash } from '@/components/icons'
+import { IconAlert, IconCalendar, IconCar, IconChevronRight, IconMoney, IconPackage, IconPencil, IconPlus, IconStar, IconStore, IconTrash, IconWhatsapp } from '@/components/icons'
 import AvaliacaoModal, { type AvaliacaoExistente } from './AvaliacaoModal'
 import { EditarModal } from '@/components/EditarAgendamento'
 import { RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
@@ -130,6 +131,12 @@ function montarVisitas(agendamentos: AgendamentoCliente[], taxidog: Props['taxid
 
 const primeiraHora = (v: Visita) => (v.itens.find(i => i.status !== 'Cancelado') ?? v.itens[0]).hr_agendamento
 
+// Conversa com a loja no WhatsApp (só o link — quem manda é o cliente).
+function whatsDaLoja(v: Visita): string | null {
+  const telefone = (v.itens[0].lojista?.telefone ?? '').replace(/\D/g, '')
+  return telefone ? `https://wa.me/55${telefone}` : null
+}
+
 export default function AgendamentosClienteList({ agendamentos, avaliacoes, produtosComprados, taxidog, pagamentos, noPlano = {} }: Props) {
   const [cancelId, setCancelId] = useState<string | null>(null)
   const [motivo, setMotivo] = useState('')
@@ -176,13 +183,35 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
     })
   }
 
+  // Celular (até 768px): o mesmo cabeçalho da tela Agendamentos do app.
+  const cabecalhoCelular = (
+    <div className="so-celular">
+      <div className="tela-app-titulo">
+        <h1>Agendamentos</h1>
+        <Link href="/cliente/novo-agendamento" className="tela-app-novo">
+          <IconPlus style={{ width: 18, height: 18 }} /> Novo
+        </Link>
+      </div>
+    </div>
+  )
+
   if (!agendamentos.length) {
     return (
-      <div className="empty-state card">
-        <IconCalendar style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
-        <div className="empty-state-title">Nenhum agendamento encontrado</div>
-        <p>Você ainda não realizou nenhum agendamento</p>
-      </div>
+      <>
+        {cabecalhoCelular}
+        <div className="empty-state card so-desktop">
+          <IconCalendar style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+          <div className="empty-state-title">Nenhum agendamento encontrado</div>
+          <p>Você ainda não realizou nenhum agendamento</p>
+        </div>
+        <div className="so-celular">
+          <div className="dash-app-vazio">
+            <span className="dash-app-vazio-icone"><IconCalendar style={{ width: 26, height: 26 }} /></span>
+            <strong>Nenhum agendamento ainda</strong>
+            <span>Toque em Novo para marcar o primeiro serviço do seu pet.</span>
+          </div>
+        </div>
+      </>
     )
   }
 
@@ -235,31 +264,32 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
                     )}
                   </div>
                 ) : (
-                  <button className="btn btn-primary btn-sm" onClick={() => setAvaliando(ag)}>
+                  <button className="btn btn-primary btn-sm agc-avaliar" onClick={() => setAvaliando(ag)}>
                     <IconStar style={{ width: 14, height: 14 }} /> Avaliar atendimento
                   </button>
                 )
               )}
 
+              {/* No celular os dois ficam lado a lado, como no app. */}
               {podeAlterar && !cancelando && (
-                <button
-                  className="btn btn-ghost btn-sm agc-cancelar"
-                  onClick={() => setRemarcando({ idAgendamento: ag.id_agendamento, dataAtual: ag.dt_agendamento, horaAtual: ag.hr_agendamento })}
-                >
-                  <IconCalendar style={{ width: 13, height: 13 }} /> Remarcar data ou horário
-                </button>
-              )}
-              {podeAlterar && !cancelando && (
-                <button className="btn btn-ghost btn-sm agc-cancelar" onClick={() => setEditando(ag.id_agendamento)}>
-                  <IconPencil style={{ width: 13, height: 13 }} /> Alterar serviço ou pet
-                </button>
+                <div className="agc-duas">
+                  <button
+                    className="btn btn-ghost btn-sm agc-cancelar agc-acao"
+                    onClick={() => setRemarcando({ idAgendamento: ag.id_agendamento, dataAtual: ag.dt_agendamento, horaAtual: ag.hr_agendamento })}
+                  >
+                    <IconCalendar style={{ width: 13, height: 13 }} /> Remarcar<span className="so-desktop">&nbsp;data ou horário</span>
+                  </button>
+                  <button className="btn btn-ghost btn-sm agc-cancelar agc-acao" onClick={() => setEditando(ag.id_agendamento)}>
+                    <IconPencil style={{ width: 13, height: 13 }} /> Alterar<span className="so-desktop">&nbsp;serviço ou pet</span>
+                  </button>
+                </div>
               )}
               {ag.status === 'Confirmado' && horarioAindaVem && !cancelando && (
                 <span className="text-xs text-muted">A loja já aceitou — para mudar a data, o serviço ou o pet, fale com a loja.</span>
               )}
 
               {podeCanc && !cancelando && (
-                <button className="btn btn-ghost btn-sm agc-cancelar" onClick={() => { setCancelId(ag.id_agendamento); setMotivo('') }}>
+                <button className="btn btn-ghost btn-sm agc-cancelar agc-acao is-perigo" onClick={() => { setCancelId(ag.id_agendamento); setMotivo('') }}>
                   <IconTrash style={{ width: 13, height: 13 }} /> {v.itens.length > 1 ? 'Cancelar este serviço' : 'Cancelar agendamento'}
                 </button>
               )}
@@ -341,6 +371,15 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
       {v.itens.some(i => i.obs) && (
         <div className="agc-obs">{v.itens.map(i => i.obs).filter(Boolean).join(' · ')}</div>
       )}
+
+      {/* Celular: atalho pra conversa com a loja, como no app. */}
+      {whatsDaLoja(v) && (
+        <div className="so-celular">
+          <a href={whatsDaLoja(v)!} target="_blank" rel="noopener noreferrer" className="btn agc-acao">
+            <IconWhatsapp style={{ width: 15, height: 15 }} /> Falar com a loja
+          </a>
+        </div>
+      )}
     </div>
   )
 
@@ -361,6 +400,7 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
             <div className="agc-servicos-titulo">{v.itens.map(i => i.servico?.nome ?? 'Serviço').join(' + ')}</div>
             <div className="text-sm text-muted">
               {v.itens[0].pet?.nome ?? 'Pet'} · {primeiraHora(v).slice(0, 5)}
+              <span className="so-celular-inline"> · {loja}</span>
             </div>
             <div className="agc-meta">
               <span className="flex items-center gap-1"><IconStore style={{ width: 12, height: 12 }} /> {loja}</span>
@@ -373,12 +413,12 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
                   <IconCar style={{ width: 11, height: 11, marginRight: 3, verticalAlign: -1 }} />TaxiDog
                 </span>
               )}
-              {novo && <span className="badge badge-aceito" style={{ textTransform: 'none', letterSpacing: 0 }}>Novo</span>}
+              {novo && <span className="badge badge-aceito so-desktop" style={{ textTransform: 'none', letterSpacing: 0 }}>Novo</span>}
             </div>
           </div>
           <div className="agc-valor">
             <span className="font-semibold text-success">{formatarReais(v.valor)}</span>
-            {v.taxidog && v.taxidog.status !== 'cancelada' && <span className="text-xs text-muted">inclui TaxiDog</span>}
+            {v.taxidog && v.taxidog.status !== 'cancelada' && <span className="text-xs text-muted so-desktop">inclui TaxiDog</span>}
             {!emDestaque && (
               <IconChevronRight className="agc-seta" style={{ width: 16, height: 16, transform: aberta ? 'rotate(90deg)' : 'none' }} />
             )}
@@ -391,6 +431,8 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
 
   return (
     <>
+      {cabecalhoCelular}
+
       {error && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
           <IconAlert style={{ width: 16, height: 16 }} /><span>{error}</span>
@@ -404,7 +446,7 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
         </div>
       )}
 
-      <div className="flex gap-2" style={{ marginBottom: 'var(--space-4)' }}>
+      <div className="flex gap-2 agc-abas" style={{ marginBottom: 'var(--space-4)' }}>
         <button className={`btn btn-sm ${aba === 'proximos' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setAba('proximos')}>
           Próximos ({proximas.length})
         </button>

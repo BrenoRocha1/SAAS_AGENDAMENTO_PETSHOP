@@ -127,7 +127,7 @@ export default async function AgendamentosPage() {
 
   return (
     <>
-      <div className="page-header">
+      <div className="page-header so-desktop">
         <h1 className="page-title">Meus Agendamentos</h1>
         <p className="page-subtitle">Seus próximos horários e o histórico de atendimentos</p>
       </div>

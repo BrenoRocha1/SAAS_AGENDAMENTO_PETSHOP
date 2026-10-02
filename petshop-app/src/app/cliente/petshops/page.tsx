@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
+import { obterUsuario } from '@/lib/supabase/usuario'
 import Link from 'next/link'
+import PetshopsCelular, { type LojaCelular } from '@/components/cliente/PetshopsCelular'
 import type { Metadata } from 'next'
 import { diaSemanaBrasil, agoraBrasilHHMM } from '@/lib/agenda'
 import {
@@ -50,12 +52,14 @@ function calcStatusHoje(horarios: HorarioPorLoja[], idLojista: string) {
 
 export default async function MarketplacePage() {
   const supabase = await createClient()
+  const user = await obterUsuario()
 
   // Busca todos os petshops ativos com agendamento online habilitado
   // A policy "lojista: clientes podem ver lojas ativas" (migration 002) cobre usuários autenticados
   const [
     { data: lojistasRaw },
     { data: horariosRaw },
+    { data: vinculosRaw },
   ] = await Promise.all([
     supabase
       .from('lojista')
@@ -66,6 +70,8 @@ export default async function MarketplacePage() {
     supabase
       .from('horario')
       .select('id_lojista, dia_semana, hr_inicio, hr_fim, ativo'),
+    // Lojas em que o cliente já agendou (sobem na lista do celular).
+    supabase.from('cliente_lojista').select('id_lojista').eq('id_cliente', user!.id),
   ])
 
   const lojistas = (lojistasRaw ?? []) as Lojista[]
@@ -79,8 +85,28 @@ export default async function MarketplacePage() {
     return { lj, status, linkVitrine, linkAgendar }
   })
 
+  // Celular: os mesmos dados no formato da tela Petshops do app.
+  const minhas = new Set(((vinculosRaw ?? []) as { id_lojista: string }[]).map(v => v.id_lojista))
+  const lojasCelular: LojaCelular[] = cards.map(({ lj, status, linkAgendar }) => {
+    const telefone = (lj.telefone ?? '').replace(/\D/g, '')
+    return {
+      id: lj.id_lojista,
+      nome: lj.nome_loja,
+      logoUrl: lj.logo_url,
+      local: [lj.cidade, lj.estado].filter(Boolean).join(', '),
+      descricao: lj.descricao,
+      status: { rotulo: status.label, aberto: status.label === 'Aberto' },
+      minha: minhas.has(lj.id_lojista),
+      linkAgendar,
+      whatsapp: telefone ? `https://wa.me/55${telefone}` : null,
+    }
+  })
+
   return (
     <>
+      <PetshopsCelular lojas={lojasCelular} />
+
+      <div className="so-desktop">
       <div className="page-header">
         <div className="flex items-center gap-3">
           <div className="stat-card-icon tone-primary" style={{ width: 44, height: 44, borderRadius: 'var(--radius-md)' }}>
@@ -212,6 +238,7 @@ export default async function MarketplacePage() {
         <p className="text-sm text-muted">
           Se o seu petshop te enviou um link direto (ex: <code>saip.com/petshop-do-pedro</code>), acesse diretamente pelo link para agendar.
         </p>
+      </div>
       </div>
     </>
   )

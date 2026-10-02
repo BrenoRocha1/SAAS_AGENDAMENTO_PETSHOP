@@ -2458,9 +2458,76 @@ a.dash-app-linha { text-decoration: none; }
   font: inherit; font-weight: 600; color: var(--gray-100); cursor: pointer;
 }
 .tela-app-paginas button:disabled { opacity: 0.4; cursor: default; }
+.so-celular-inline { display: none; }
+a.tela-app-novo, a.tela-app-novo:hover { color: #fff; text-decoration: none; }
+.tela-app-h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.3px; line-height: 1.2; color: var(--gray-100); }
+.tela-app-avatar.is-48 { width: 48px; height: 48px; font-size: 17px; }
+.tela-app-avatar.is-52 { width: 52px; height: 52px; font-size: 19px; }
+.dash-app-linha-sub.is-media { font-size: 0.875rem; }
+/* Cartão de loja (tela Petshops do cliente). */
+.tela-app-loja {
+  display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4);
+  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px;
+}
+.tela-app-loja-topo { display: flex; align-items: center; gap: var(--space-3); }
+.tela-app-loja-topo > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tela-app-loja-topo strong { font-size: 1rem; font-weight: 700; color: var(--gray-100); overflow-wrap: anywhere; }
+.tela-app-loja-topo div span, .tela-app-loja-desc { font-size: 0.875rem; color: var(--gray-400); }
+.tela-app-loja-desc { margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.tela-app-selos { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.tela-app-selo { padding: 4px var(--space-2); border-radius: 999px; background: var(--gray-850); font-size: 11px; font-weight: 700; color: var(--gray-300); }
+.tela-app-selo.is-aberto { background: var(--success-900); color: var(--success-400); }
+.tela-app-selo.is-minha { background: var(--primary-50); color: var(--primary-700); }
+.tela-app-acoes { display: flex; gap: var(--space-3); }
+/* Botão compacto do app (Botao compacto): 42px, raio 10. */
+.tela-app-botao, .tela-app-botao:hover {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: 42px; padding: 0 var(--space-3); border: 1px solid var(--gray-700); border-radius: 10px;
+  background: var(--gray-900); font-size: 0.8125rem; font-weight: 600; color: var(--gray-100); text-decoration: none;
+}
+.tela-app-botao.is-primario, .tela-app-botao.is-primario:hover { background: var(--primary-600); border-color: var(--primary-600); color: #fff; }
+/* "Remarcar" + "Alterar": no computador seguem um embaixo do outro. */
+.agc-duas { display: contents; }
+
 @media (max-width: 768px) {
   .so-desktop { display: none !important; }
   .so-celular { display: block; }
+  .so-celular-inline { display: inline; }
+
+  /* Meus Agendamentos (cliente) com a cara dos cartões do app. */
+  .agc-secao-titulo { font-size: 0.9375rem; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--gray-100); margin-bottom: var(--space-3); }
+  .agc-card { border-radius: 14px; }
+  .agc-card-destaque { border-color: var(--primary-200); box-shadow: none; }
+  .agc-resumo { align-items: center; gap: var(--space-3); padding: var(--space-4); }
+  .agc-data, .agc-card-cancelada .agc-data { width: 46px; padding: 0; background: none; color: inherit; line-height: 1.25; }
+  .agc-data-dia { font-size: 1.375rem; font-weight: 700; color: var(--gray-100); }
+  .agc-data-mes { font-size: 11px; letter-spacing: 0.4px; color: var(--gray-400); }
+  .agc-data-semana { font-size: 0.78rem; text-transform: none; opacity: 1; color: var(--gray-600); }
+  .agc-servicos-titulo, .agc-card-destaque .agc-servicos-titulo { font-size: 1rem; }
+  .agc-meta { display: none; }
+  .agc-valor .text-success { font-size: 0.8125rem; }
+  .agc-seta { transform: rotate(90deg) !important; }
+  .agc-resumo[aria-expanded="true"] .agc-seta { transform: rotate(-90deg) !important; }
+  .agc-detalhes { padding: var(--space-3) var(--space-4) var(--space-4); gap: var(--space-3); }
+  .agc-servico { align-items: stretch; }
+  .agc-duas { display: flex; gap: var(--space-3); }
+  .agc-duas > * { flex: 1; }
+  .agc-detalhes .btn.agc-acao, .agc-detalhes .btn.agc-avaliar {
+    display: flex; align-items: center; justify-content: center; width: 100%;
+    min-height: 42px; padding: 0 var(--space-3); border: 1px solid var(--gray-700); border-radius: 10px;
+    background: var(--gray-900); box-shadow: none; font-size: 0.8125rem; font-weight: 600; color: var(--gray-100); text-decoration: none;
+  }
+  .agc-detalhes .btn.agc-avaliar { background: var(--primary-600); border-color: var(--primary-600); color: #fff; }
+  .agc-detalhes .btn.agc-acao.is-perigo { border-color: #fecaca; color: var(--danger-400); }
+  .agc-bloco { padding: var(--space-3); border-radius: 10px; background: var(--gray-850); }
+  .agc-bloco-titulo { font-size: 11px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--gray-300); }
+  .agc-bloco-titulo svg { display: none; }
+  .agc-abas { flex-wrap: wrap; }
+  .agc-abas .btn {
+    min-height: 38px; padding: 0 var(--space-3); border: 1px solid var(--gray-800); border-radius: 999px;
+    background: var(--gray-900); box-shadow: none; font-size: 0.8125rem; font-weight: 600; color: var(--gray-300);
+  }
+  .agc-abas .btn.btn-primary { background: var(--primary-600); border-color: var(--primary-600); color: #fff; }
 }
 .menu-mobile-fundo { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: 49; }
 
