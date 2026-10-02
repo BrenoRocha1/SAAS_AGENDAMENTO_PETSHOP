@@ -387,8 +387,8 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
 
       {/* Escolher Petshop */}
       {step === 'loja' && (
-        <div className="card">
-          <h3 style={{ marginBottom: 'var(--space-6)' }}>Escolha o Petshop</h3>
+        <div className="card wizard-etapa">
+          <h3 className="so-desktop" style={{ marginBottom: 'var(--space-6)' }}>Escolha o Petshop</h3>
           {lojistas.length === 0 ? (
             <div className="empty-state">
               <IconStore style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
@@ -405,6 +405,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
                 <div
                   key={l.id_lojista}
                   onClick={() => escolherLojista(l.id_lojista)}
+                  className={`opcao-app ${lojistaId === l.id_lojista ? 'is-selecionada' : ''}`}
                   style={{
                     padding: 'var(--space-4)',
                     borderRadius: 'var(--radius-md)',
@@ -457,8 +458,8 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
 
       {/* Pet e Serviço */}
       {step === 'petservico' && (
-        <div className="card">
-          <h3 style={{ marginBottom: 'var(--space-6)' }}>Selecione o Pet e Serviço</h3>
+        <div className="card wizard-etapa">
+          <h3 className="so-desktop" style={{ marginBottom: 'var(--space-6)' }}>Selecione o Pet e Serviço</h3>
 
           <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
             <label className="form-label form-label-required">Qual pet?</label>
@@ -473,6 +474,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
                   <div
                     key={p.id_pet}
                     onClick={() => setPetId(p.id_pet)}
+                    className={`opcao-app ${petId === p.id_pet ? 'is-selecionada' : ''}`}
                     style={{
                       padding: 'var(--space-3) var(--space-4)',
                       borderRadius: 'var(--radius-md)',
@@ -506,6 +508,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
                   <div
                     key={s.id_servico}
                     onClick={() => setServicoId(s.id_servico)}
+                    className={`opcao-app ${servicoId === s.id_servico ? 'is-selecionada' : ''}`}
                     style={{
                       padding: 'var(--space-3) var(--space-4)',
                       borderRadius: 'var(--radius-md)',
@@ -581,8 +584,8 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
 
       {/* Data e Hora */}
       {step === 'datahora' && (
-        <div className="card">
-          <h3 style={{ marginBottom: 'var(--space-6)' }}>Escolha a Data e Horário</h3>
+        <div className="card wizard-etapa">
+          <h3 className="so-desktop" style={{ marginBottom: 'var(--space-6)' }}>Escolha a Data e Horário</h3>
 
           <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
             <label className="form-label form-label-required">Data</label>
@@ -645,8 +648,8 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
 
       {/* Confirmação */}
       {step === 'confirmar' && (
-        <div className="card">
-          <h3 style={{ marginBottom: 'var(--space-6)' }}>Confirmar Agendamento</h3>
+        <div className="card wizard-etapa">
+          <h3 className="so-desktop" style={{ marginBottom: 'var(--space-6)' }}>Confirmar Agendamento</h3>
 
           <PlanoNoPedido
             cobertura={cobertura}

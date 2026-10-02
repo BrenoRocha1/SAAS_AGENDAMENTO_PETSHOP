@@ -149,7 +149,7 @@ export default async function PerfilClientePage({ params }: Props) {
   if (!cliente) {
     return (
       <>
-        <Link href="/lojista/clientes" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
+        <Link href="/lojista/clientes" className="btn btn-ghost btn-sm so-desktop" style={{ marginBottom: 'var(--space-4)' }}>
           <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Clientes
         </Link>
         <div className="empty-state card">
@@ -249,7 +249,7 @@ export default async function PerfilClientePage({ params }: Props) {
 
   return (
     <>
-      <Link href="/lojista/clientes" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
+      <Link href="/lojista/clientes" className="btn btn-ghost btn-sm so-desktop" style={{ marginBottom: 'var(--space-4)' }}>
         <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Clientes
       </Link>
 

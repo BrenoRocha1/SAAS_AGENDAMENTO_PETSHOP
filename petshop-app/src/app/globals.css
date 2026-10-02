@@ -2280,6 +2280,10 @@ svg.is-da-visita { opacity: 0.45; }
 }
 .menu-mobile-titulo { font-family: var(--font-heading); font-size: 1.125rem; font-weight: 800; letter-spacing: -0.02em; color: var(--gray-100); }
 .menu-mobile-titulo span { color: var(--primary-600); }
+.menu-mobile-raiz { display: flex; align-items: center; gap: var(--space-3); }
+/* Cabeçalho das telas de dentro (o DetailHeader do app) — só no celular. */
+.menu-mobile-interna { display: none; }
+.menu-mobile-interna-titulo { flex: 1; min-width: 0; font-size: 1.125rem; font-weight: 700; color: var(--gray-100); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ============================================================
    DASHBOARD NO CELULAR — a mesma tela Início do app
@@ -4135,3 +4139,95 @@ div.plano-assinatura:not(.card) { padding: var(--space-3); border: 1px solid var
 
 .plano-aviso-agendamento { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); margin-bottom: var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--primary-500); background: var(--gray-850); }
 .plano-aviso-agendamento.is-esgotado { border-color: var(--gray-700); }
+
+/* ============================================================
+   PELE DO APP NO CELULAR (até 768px) — as telas de dentro da loja e do
+   cliente usam as mesmas peças do app: cabeçalho com seta e nome da tela,
+   cartões, botões, campos, avisos e painéis que sobem de baixo.
+   Medidas de petshop-mobile/src/components (Card, Botao, Campo, Aviso,
+   Folha, DetailHeader).
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Cabeçalho: seta de voltar + nome da tela no lugar do menu. */
+  .menu-mobile-barra.is-interna { padding: 0 var(--space-3); background: var(--gray-950); border-bottom-color: transparent; }
+  .menu-mobile-barra.is-interna .menu-mobile-raiz { display: none; }
+  .menu-mobile-barra.is-interna .menu-mobile-interna { display: flex; flex: 1; min-width: 0; align-items: center; gap: var(--space-1); }
+  .menu-mobile-barra.is-interna .menu-mobile-botao { width: 36px; }
+  /* O título grande e o subtítulo da página ficam só no computador. */
+  .app-layout:has(.menu-mobile-barra.is-interna) .app-content .page-title,
+  .app-layout:has(.menu-mobile-barra.is-interna) .app-content .page-subtitle { display: none; }
+  .app-layout:has(.menu-mobile-barra.is-interna) .app-content .page-header { margin-bottom: var(--space-3); }
+  .app-layout:has(.menu-mobile-barra.is-interna) .app-content { padding-top: var(--space-2); }
+
+  /* Cartão (Card): raio 14, 16 de respiro. */
+  .lojista-shell .card:not(.agc-card), .cliente-shell .card:not(.agc-card) { padding: var(--space-4); border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .lojista-shell .card-elevated, .cliente-shell .card-elevated { border-radius: 10px; box-shadow: none; }
+
+  /* Botão (Botao): raio 10, 46 de altura; o pequeno é o "compacto" (42). */
+  .lojista-shell .btn, .cliente-shell .btn, .modal .btn { min-height: 46px; border-radius: 10px; }
+  .lojista-shell .btn-sm, .cliente-shell .btn-sm, .modal .btn-sm { min-height: 42px; padding: 0 var(--space-3); }
+  .lojista-shell .btn-lg, .cliente-shell .btn-lg { min-height: 50px; }
+
+  /* Campo: 48 de altura, fundo branco, raio 10; rótulo pequeno em cima. */
+  .lojista-shell .form-input, .lojista-shell .form-select, .lojista-shell .form-textarea,
+  .cliente-shell .form-input, .cliente-shell .form-select, .cliente-shell .form-textarea,
+  .modal .form-input, .modal .form-select, .modal .form-textarea {
+    min-height: 48px; padding: var(--space-3); border-color: var(--gray-800); border-radius: 10px;
+    background-color: var(--gray-900); font-size: 1rem;
+  }
+  .lojista-shell .form-textarea, .cliente-shell .form-textarea, .modal .form-textarea { min-height: 84px; }
+  .lojista-shell .form-label, .cliente-shell .form-label, .modal .form-label { font-size: 0.8125rem; color: var(--gray-300); }
+  .lojista-shell .form-group, .cliente-shell .form-group, .modal .form-group { gap: var(--space-1); }
+  .lojista-shell .form-grid-2, .lojista-shell .form-grid-3, .cliente-shell .form-grid-2, .cliente-shell .form-grid-3,
+  .modal .form-grid-2, .modal .form-grid-3 { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+
+  /* Aviso: faixa sem borda. */
+  .lojista-shell .alert, .cliente-shell .alert, .modal .alert { gap: var(--space-2); padding: var(--space-3); border: 0; border-radius: 10px; font-size: 0.875rem; font-weight: 400; }
+
+  /* Janela = painel que sobe de baixo (Folha). */
+  .modal-overlay { align-items: flex-end; padding: 0; background: rgba(17,24,39,0.45); backdrop-filter: none; }
+  .modal {
+    max-width: none !important; max-height: 88vh; max-height: 88dvh;
+    border: 0; border-radius: 20px 20px 0 0; background: var(--gray-950);
+    padding-bottom: env(safe-area-inset-bottom); animation: subirFolha 240ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .modal-header { padding: var(--space-4) var(--space-4) var(--space-3); border-bottom: 0; }
+  .modal-title { font-family: var(--font-body); font-size: 1.125rem; }
+  .modal-close { background: none; border: 0; color: var(--gray-400); }
+  .modal-body { padding: 0 var(--space-4) var(--space-3); gap: var(--space-3); }
+  .modal-footer { flex-direction: column-reverse; align-items: stretch; gap: var(--space-2); padding: var(--space-2) var(--space-4) var(--space-4); border-top: 0; }
+  .modal-footer .btn { width: 100%; }
+
+  /* Tabela vira lista de cartões (no app não existe tabela). */
+  .lojista-shell .table-container, .cliente-shell .table-container { border: 0; border-radius: 0; background: none; overflow: visible; }
+  .lojista-shell .table thead, .cliente-shell .table thead { display: none; }
+  .lojista-shell .table, .lojista-shell .table tbody, .cliente-shell .table, .cliente-shell .table tbody { display: block; width: 100%; }
+  .lojista-shell .table tbody tr, .cliente-shell .table tbody tr {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--space-3);
+    padding: var(--space-4); margin-bottom: var(--space-3);
+    background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px;
+  }
+  .lojista-shell .table td, .cliente-shell .table td { display: block; min-width: 0; padding: 0; border: 0; }
+  .lojista-shell .table td:first-child, .cliente-shell .table td:first-child { flex: 1 1 100%; }
+}
+@keyframes subirFolha { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+/* Novo agendamento do cliente no celular: cada etapa direto na tela e as
+   escolhas no formato da "Opcao" do app (bolinha, borda índigo na marcada). */
+@media (max-width: 768px) {
+  .wizard-etapa.card { padding: 0 !important; border: 0; background: none; box-shadow: none !important; }
+  .opcao-app {
+    position: relative; display: flex !important; align-items: center; gap: var(--space-3);
+    min-height: 52px; padding: var(--space-3) var(--space-3) var(--space-3) 44px !important;
+    border-radius: 10px !important; border-color: var(--gray-800) !important; background: var(--gray-900) !important;
+  }
+  .opcao-app.is-selecionada { border-color: var(--primary-600) !important; background: var(--primary-50) !important; }
+  .opcao-app::before {
+    content: ''; position: absolute; left: 14px; top: 50%; width: 18px; height: 18px; margin-top: -9px;
+    box-sizing: border-box; border: 2px solid var(--gray-600); border-radius: 50%;
+  }
+  .opcao-app.is-selecionada::before { border-color: var(--primary-600); background: radial-gradient(circle, var(--primary-600) 0 42%, transparent 48%); }
+  .opcao-app svg { display: none; }
+  .opcao-app > .flex { flex: 1; min-width: 0; }
+  .opcao-app > .flex > div:first-child { display: none; }
+}

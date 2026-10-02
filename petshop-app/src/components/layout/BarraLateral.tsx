@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useTransition, type ComponentType, type SVGProps } from 'react'
 import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
 import { logoutAction } from '@/lib/actions'
-import { BarraMenuMobile, useMenuMobile } from '@/components/layout/MenuMobile'
+import { BarraMenuMobile, useMenuMobile, useTituloInterno } from '@/components/layout/MenuMobile'
 import { IconLogout } from '@/components/icons'
 import {
   Sidebar,
@@ -93,9 +94,26 @@ export default function BarraLateral({
     startTransition(() => logoutAction())
   }
 
+  // Celular: fora das abas, a barra do topo vira o cabeçalho do app (seta
+  // de voltar + nome da tela), como nas telas de dentro de lá.
+  const pathname = usePathname()
+  const router = useRouter()
+  const tituloInterno = useTituloInterno()
+  const telaInterna = !!abas && abas.length > 1 && !abas.some(a => a.href === pathname)
+  function voltar() {
+    if (window.history.length > 1) router.back()
+    else router.push(pathname.split('/').slice(0, -1).join('/') || '/')
+  }
+
   return (
     <>
-      <BarraMenuMobile aberto={menu.aberto} onAbrir={menu.abrir} onFechar={menu.fechar} titulo={tituloMobile} />
+      <BarraMenuMobile
+        aberto={menu.aberto}
+        onAbrir={menu.abrir}
+        onFechar={menu.fechar}
+        titulo={tituloMobile}
+        interna={telaInterna ? { titulo: tituloInterno, onVoltar: voltar } : null}
+      />
       <aside className={`app-sidebar ${menu.aberto ? 'open' : ''}`}>
         <Sidebar
           variant="collapsible"

@@ -76,7 +76,7 @@ export default async function AvaliacoesPage({ searchParams }: Props) {
   if (erro) {
     return (
       <>
-        <Link href="/lojista/configuracoes" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
+        <Link href="/lojista/configuracoes" className="btn btn-ghost btn-sm so-desktop" style={{ marginBottom: 'var(--space-4)' }}>
           <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Configurações
         </Link>
         <div className="page-header">

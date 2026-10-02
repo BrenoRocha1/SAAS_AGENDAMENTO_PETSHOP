@@ -86,7 +86,7 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
   if (!funcionarioRow) {
     return (
       <>
-        <Link href="/lojista/equipe" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
+        <Link href="/lojista/equipe" className="btn btn-ghost btn-sm so-desktop" style={{ marginBottom: 'var(--space-4)' }}>
           <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Equipe
         </Link>
         <div className="empty-state card">
@@ -111,7 +111,7 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
   if (agendaErro) {
     return (
       <>
-        <Link href="/lojista/equipe" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
+        <Link href="/lojista/equipe" className="btn btn-ghost btn-sm so-desktop" style={{ marginBottom: 'var(--space-4)' }}>
           <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Equipe
         </Link>
         <div className="page-header">
@@ -147,7 +147,7 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
 
   return (
     <>
-      <Link href="/lojista/equipe" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
+      <Link href="/lojista/equipe" className="btn btn-ghost btn-sm so-desktop" style={{ marginBottom: 'var(--space-4)' }}>
         <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Equipe
       </Link>
 

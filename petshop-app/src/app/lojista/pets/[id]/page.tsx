@@ -65,7 +65,7 @@ export default async function DetalhePetPage({ params }: Props) {
   if (!pet) {
     return (
       <>
-        <Link href="/lojista/pets" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
+        <Link href="/lojista/pets" className="btn btn-ghost btn-sm so-desktop" style={{ marginBottom: 'var(--space-4)' }}>
           <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Pets
         </Link>
         <div className="empty-state card">
@@ -107,7 +107,7 @@ export default async function DetalhePetPage({ params }: Props) {
 
   return (
     <>
-      <Link href="/lojista/pets" className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)' }}>
+      <Link href="/lojista/pets" className="btn btn-ghost btn-sm so-desktop" style={{ marginBottom: 'var(--space-4)' }}>
         <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Pets
       </Link>
 
