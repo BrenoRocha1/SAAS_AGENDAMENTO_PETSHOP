@@ -1,11 +1,19 @@
-# SAIP Mobile — app da equipe do petshop
+# SAIP Mobile — app do petshop (equipe, TaxiDog e cliente)
 
-App React Native (Expo) para a **equipe da loja** operar o dia a dia pelo
-celular. É uma aplicação separada do dashboard web (`../petshop-app`),
-mas do **mesmo sistema**: mesmo Supabase, mesmo banco, mesma
-autenticação, mesmas permissões de equipe e mesmos status de
-agendamento. Nenhuma tabela, enum ou fluxo paralelo é criado aqui — as
-ações chamam as mesmas funções do banco que o painel web chama.
+App React Native (Expo) com três áreas, escolhidas pela conta que entra:
+a **loja** (dono e funcionários), o **TaxiDog** e o **cliente**. É uma
+aplicação separada do site (`../petshop-app`), mas do **mesmo sistema**:
+mesmo Supabase, mesmo banco, mesma autenticação, mesmas permissões e
+mesmos status de agendamento. Nenhuma tabela, enum ou fluxo paralelo é
+criado aqui.
+
+O que é leitura ou tem função própria no banco, o app faz direto no
+Supabase. O que só existe no servidor do site (convite por e-mail,
+gravações feitas como administrador, envio de foto, cotação do TaxiDog,
+criar agendamento do cliente, criar e excluir conta) o app pede ao site:
+`POST /api/app/acao` roda a mesma Server Action do painel, identificando
+a pessoa pelo token da sessão (`src/lib/acoes.ts`). A regra continua num
+lugar só.
 
 ## Rodando
 
@@ -17,7 +25,8 @@ npx expo start
 ```
 
 Abra no **Expo Go** (celular) lendo o QR code, ou pressione `a` / `i`
-para emulador Android/iOS.
+para emulador Android/iOS. Também roda no navegador:
+`npx expo start --web` (abre em `http://localhost:8081`).
 
 Variáveis do `.env`:
 
@@ -25,12 +34,16 @@ Variáveis do `.env`:
 | ------------------------------- | ------------------------------- | ----------- |
 | `EXPO_PUBLIC_SUPABASE_URL`      | `NEXT_PUBLIC_SUPABASE_URL`      | sim         |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | sim         |
-| `EXPO_PUBLIC_SITE_URL`          | endereço do site no ar          | não         |
+| `EXPO_PUBLIC_SITE_URL`          | endereço do site no ar          | na prática, sim |
 
 `EXPO_PUBLIC_SITE_URL` (ex.: `https://meu-petshop.vercel.app`, sem barra
-no final) liga o que depende do site: o link "Esqueci minha senha", o
-link de acompanhamento nas mensagens de WhatsApp e a distância/tempo das
-rotas do TaxiDog. Sem ela o resto do app funciona igual.
+no final) liga tudo o que passa pelo site: os cadastros e configurações
+da loja, o agendamento e o cadastro do cliente, fotos, a cotação e as
+rotas do TaxiDog, "Esqueci minha senha" e o link de acompanhamento nas
+mensagens de WhatsApp. Sem ela o app abre e mostra os dados, mas essas
+telas ficam só para leitura, com um aviso. No celular precisa ser um
+endereço que o aparelho alcance (o site publicado, ou o IP do computador
+na rede — `localhost` só serve para o app rodando no navegador).
 
 A `SUPABASE_SERVICE_ROLE_KEY` e a `GOOGLE_MAPS_API_KEY` **não existem
 aqui** e nunca devem existir: são chaves de servidor, e tudo no app roda
@@ -42,9 +55,17 @@ Login com a mesma conta do painel web (`supabase.auth`), por **e-mail e
 senha** ou **Google**. O papel é resolvido igual ao `loginAction` do web
 (metadata → tabelas):
 
-- **lojista** / **funcionário ativo** → entra no app;
-- **cliente** (ou conta sem loja) → vê um aviso de que o app é da equipe;
+- **lojista** / **funcionário ativo** → área da loja (ou do TaxiDog);
+- **cliente** → área do cliente;
+- conta nova vinda do Google, ainda sem cadastro → completa CPF e
+  telefone e vira cliente;
 - **funcionário desativado** → vê um aviso e só pode sair.
+
+Quem ainda não tem conta cria a de **cliente** pela tela de login
+("Criar conta de cliente"). A conta da loja é criada pelo site.
+
+"Sair" encerra só a sessão deste aparelho (o site continua logado, e
+sair do site não derruba o app).
 
 As permissões de equipe (`pode_gerenciar_agenda`,
 `pode_gerenciar_clientes_pets`, …) são lidas da tabela `funcionario` e
@@ -71,12 +92,12 @@ chega por e-mail é o do painel web).
 | Início          | Resumo do dia, próximos agendamentos, atalho para novo agendamento                          |
 | Agendamentos    | Agenda por dia (setas para outros dias) e **Novo** agendamento                              |
 | Agendamento     | Aceitar / iniciar / finalizar, remarcar, alterar serviço ou pet, cancelar, pagamento, profissional, ligar / WhatsApp |
-| Clientes / Pets | Busca e ficha (leitura); "Novo agendamento" a partir do cliente                             |
+| Clientes / Pets | Busca, ficha, cadastro e edição; "Novo agendamento" a partir do cliente                     |
 | Mais → Funcionários  | Equipe e permissões; o dono ativa/desativa o acesso                                    |
 | Mais → Produtos      | Catálogo e estoque; entrada/saída de estoque; ativar/desativar                         |
 | Mais → Relatórios    | Faturamento do período, ticket médio, por serviço, profissional e forma de pagamento   |
 | Mais → Configurações | Agendamento online, dias de funcionamento, dias fechados (feriado, folga)              |
-| Mais → Perfil da loja | Dados da loja (leitura)                                                               |
+| Mais → Perfil da loja | Dados e logo da loja                                                                  |
 
 Regras que valem igual ao painel web (estão no banco, não no app):
 
@@ -94,9 +115,28 @@ Alguns botões só aparecem para o **dono da conta** (ativar funcionário,
 agendamento online, dias da semana): a RLS só deixa o dono gravar nessas
 tabelas — no site, o administrador grava pelo servidor.
 
-Continuam só no painel web: cadastro de cliente, pet, serviço, produto e
-funcionário; planos; TaxiDog e produtos dentro de um novo agendamento;
-formas de pagamento, link de agendamento e demais configurações.
+Pelo menu da loja também se cadastra e edita cliente, pet, serviço,
+produto e funcionário, planos, formas de pagamento, dados da loja e a
+configuração do TaxiDog — todos pela ponte com o site.
+
+Continuam só no site: TaxiDog dentro do novo agendamento feito pela loja
+e a troca de transporte de um agendamento; o painel de corridas da loja
+(atribuir corrida, aprovar rota); as avaliações recebidas.
+
+## Área do cliente
+
+| Tela         | O que faz                                                                                  |
+| ------------ | ------------------------------------------------------------------------------------------ |
+| Início       | Resumo da conta, planos ativos e próximos agendamentos                                     |
+| Agendamentos | Próximos e histórico; remarcar e alterar (enquanto Pendente), cancelar, Pix da loja, avaliar |
+| Novo agendamento | Loja → pet e serviço → transporte (levar ou TaxiDog) → pagamento → data e horário → confirmar, com produtos e saldo do plano |
+| Pets         | Lista, cadastro, edição, foto e remover da lista                                           |
+| Petshops     | Lojas com agendamento online, aberto/fechado agora, WhatsApp                               |
+| Menu         | Meus planos (saldo, cobranças, usos), meu perfil, excluir a conta, sair                    |
+
+O agendamento é criado pela mesma action do site
+(`criarAgendamentoAction`): preço, conflito de horário, plano e TaxiDog
+são conferidos no servidor, não no app.
 
 ## TaxiDog
 
@@ -149,19 +189,22 @@ loja; depois de publicado, ele não muda mais.
 app/                      rotas (expo-router, file-based)
   _layout.tsx             providers + gate de autenticação
   login.tsx               e-mail/senha, Google, esqueci minha senha
+  cadastro.tsx            criar conta de cliente
   auth.tsx                retorno do login com Google
-  (tabs)/                 área da equipe (5 abas)
+  cliente/                área do cliente (início, agendamentos, pets, petshops, menu)
+  (tabs)/                 área da equipe
     index.tsx             Início
     agendamentos/         lista por dia, [id], novo, remarcar, editar
     clientes/             lista + detalhe
     pets/                 lista + detalhe
-    mais/                 menu, funcionários, produtos, relatórios, configurações, perfil
+    mais/                 serviços, produtos, funcionários, planos, relatórios, configurações, pagamentos, loja
   taxidog/                área do TaxiDog (corridas e rotas)
 src/
+  telas/                  telas usadas por mais de uma área (remarcar, alterar agendamento)
   components/             UI compartilhada (Card, Botao, Folha, SeletorDia, …)
   contexts/               AuthContext (sessão, papel, permissões), TaxiDogContext
   hooks/                  consultas ao Supabase por tela
-  lib/                    supabase, agendamentos (ações), status, datas, formatação
+  lib/                    supabase, acoes (ponte com o site), agendamentos, status, datas, formatação
   theme/                  tokens espelhados do globals.css do web
   types/                  tipos das tabelas existentes
 ```
@@ -172,5 +215,4 @@ src/
   EAS (`projectId`), de um build instalável — o Expo Go do Android não
   recebe push remoto — e de um envio pelo servidor. Hoje os avisos são
   só com o app aberto.
-- **Área do cliente**: o app é da equipe; o cliente usa o site.
 - Fontes da marca (Inter / Plus Jakarta Sans — hoje usa a do sistema).

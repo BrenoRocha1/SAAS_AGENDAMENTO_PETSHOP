@@ -1,3 +1,4 @@
+import { isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { SITE_URL } from '@/lib/site'
 
@@ -30,23 +31,49 @@ export const acoesDisponiveis = (): boolean => !!SITE_URL
 
 export const MSG_SEM_SITE = 'Esta função precisa do endereço do site configurado no app (EXPO_PUBLIC_SITE_URL).'
 
-export async function chamarAcao<T = Record<string, never>>(acao: string, ...args: unknown[]): Promise<ResultadoAcao<T>> {
-  if (!SITE_URL) return { error: MSG_SEM_SITE } as ResultadoAcao<T>
+const MSG_SESSAO = 'Sua sessão expirou. Entre de novo.'
 
-  const { data } = await supabase.auth.getSession()
-  const token = data.session?.access_token
-  if (!token) return { error: 'Sua sessão expirou. Entre de novo.' } as ResultadoAcao<T>
-
-  let resposta: Response
+async function enviar(token: string, acao: string, args: unknown[]): Promise<Response | null> {
   try {
-    resposta = await fetch(`${SITE_URL}/api/app/acao`, {
+    return await fetch(`${SITE_URL}/api/app/acao`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ acao, args }),
     })
   } catch {
-    return { error: 'Sem conexão com o site da loja. Confira a internet e tente de novo.' } as ResultadoAcao<T>
+    return null
   }
+}
+
+export async function chamarAcao<T = Record<string, never>>(acao: string, ...args: unknown[]): Promise<ResultadoAcao<T>> {
+  if (!SITE_URL) return { error: MSG_SEM_SITE } as ResultadoAcao<T>
+
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) return { error: MSG_SESSAO } as ResultadoAcao<T>
+
+  let resposta = await enviar(token, acao, args)
+
+  // 401 = o site não aceitou a sessão. Pode ser só o token vencido (o app
+  // ficou em segundo plano): renova e tenta de novo, uma vez. Se nem
+  // renovar dá, a sessão foi encerrada no servidor — o banco ainda aceita
+  // o token até vencer, então sem isto a pessoa ficaria num app "meio
+  // logado". Sai deste aparelho e o app volta para o login.
+  if (resposta?.status === 401) {
+    const { data: nova, error } = await supabase.auth.refreshSession()
+    const novoToken = nova.session?.access_token
+    if (error || !novoToken) {
+      // Falha de rede ao renovar não é sessão inválida: só avisa.
+      if (error && isAuthRetryableFetchError(error)) {
+        return { error: 'Sem conexão. Confira a internet e tente de novo.' } as ResultadoAcao<T>
+      }
+      await supabase.auth.signOut({ scope: 'local' })
+      return { error: MSG_SESSAO } as ResultadoAcao<T>
+    }
+    resposta = await enviar(novoToken, acao, args)
+  }
+
+  if (!resposta) return { error: 'Sem conexão com o site da loja. Confira a internet e tente de novo.' } as ResultadoAcao<T>
 
   let corpo: unknown = null
   try {

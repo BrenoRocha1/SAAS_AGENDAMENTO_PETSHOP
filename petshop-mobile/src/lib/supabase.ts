@@ -15,6 +15,25 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
+// Só em desenvolvimento: consulta que o banco recusou aparece no console
+// (caminho, status e a mensagem do banco) — as telas tratam o erro com
+// uma mensagem amigável ou seguem sem aquela parte, e sem isto a causa
+// fica invisível. Nunca registra cabeçalhos (o token vai neles).
+const fetchComRegistro: typeof fetch = async (entrada, opcoes) => {
+  const resposta = await fetch(entrada, opcoes)
+  if (!resposta.ok) {
+    const url = typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url
+    let corpo = ''
+    try {
+      corpo = (await resposta.clone().text()).slice(0, 300)
+    } catch {
+      // sem corpo legível
+    }
+    console.warn(`[supabase] ${resposta.status} ${url.replace(supabaseUrl, '').split('?')[0]} ${corpo}`)
+  }
+  return resposta
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: AsyncStorage,
@@ -22,6 +41,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+  ...(__DEV__ ? { global: { fetch: fetchComRegistro } } : {}),
 })
 
 // Renovação do token só com o app aberto na frente (recomendação do

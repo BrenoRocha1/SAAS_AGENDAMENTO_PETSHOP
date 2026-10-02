@@ -18,7 +18,7 @@ export default function RetornoDoLogin() {
       </View>
     )
   }
-  return <Redirect href={!session ? '/login' : modo === 'taxidog' ? '/taxidog' : '/'} />
+  return <Redirect href={!session ? '/login' : modo === 'taxidog' ? '/taxidog' : modo === 'cliente' ? '/cliente' : '/'} />
 }
 
 const styles = StyleSheet.create({

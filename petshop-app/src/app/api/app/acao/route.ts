@@ -1,5 +1,5 @@
 import { preflightDoApp, respostaDoApp, tokenDaRequisicao } from '@/lib/api-app'
-import { comSessaoDoApp } from '@/lib/supabase/sessao-do-app'
+import { comSessaoDoApp, conferirSessaoDoApp } from '@/lib/supabase/sessao-do-app'
 import * as acoes from '@/lib/actions'
 import * as acoesBloqueios from '@/lib/actions-bloqueios'
 import * as acoesPagamento from '@/lib/actions-pagamento'
@@ -21,14 +21,30 @@ import * as acoesTaxiDog from '@/lib/actions-taxidog'
 //   Authorization: Bearer <access_token do Supabase>
 //   { "acao": "editarServicoAction", "args": ["<id>", { "$form": { "nome": "Banho", … } }] }
 //
-// Segurança: só entra o que está na lista abaixo (nada de login, cadastro
-// de conta, exclusão de conta ou qualquer action que redirecione), e cada
-// action continua conferindo quem é o usuário e o que ele pode — nenhuma
-// checagem é pulada por vir do app.
+// Segurança: só entra o que está na lista abaixo (nada de login nem de
+// criar conta sem estar identificado), e cada action continua conferindo
+// quem é o usuário e o que ele pode — nenhuma checagem é pulada por vir
+// do app. Action que termina redirecionando (excluir a conta, completar o
+// cadastro do Google) volta como sucesso: quem decide a próxima tela é o app.
+//
+// Sessão encerrada (token ainda na validade, mas a pessoa saiu ou a conta
+// não existe mais) responde 401 com `sessao_expirada` — o app renova a
+// sessão ou manda para o login, em vez de mostrar o erro de cada action.
 
 type Acao = (...args: never[]) => Promise<unknown>
 
 const ACOES: Record<string, Acao> = {
+  // Cliente (a conta do próprio cliente)
+  criarAgendamentoAction: acoes.criarAgendamentoAction,
+  criarPetAction: acoes.criarPetAction,
+  editarPetAction: acoes.editarPetAction,
+  desativarPetAction: acoes.desativarPetAction,
+  atualizarPerfilClienteAction: acoes.atualizarPerfilClienteAction,
+  criarAvaliacaoAction: acoes.criarAvaliacaoAction,
+  editarAvaliacaoAction: acoes.editarAvaliacaoAction,
+  cotarTaxiDogAction: acoesTaxiDog.cotarTaxiDogAction,
+  completarCadastroClienteGoogleAction: acoes.completarCadastroClienteGoogleAction,
+  excluirMinhaContaAction: acoes.excluirMinhaContaAction,
   // Agenda
   criarAgendamentoLojistaAction: acoes.criarAgendamentoLojistaAction,
   atualizarStatusAgendamentoAction: acoes.atualizarStatusAgendamentoAction,
@@ -111,6 +127,9 @@ const ACOES: Record<string, Acao> = {
 // das actions de foto) mais a folga do base64.
 const TAMANHO_MAXIMO = 8 * 1024 * 1024
 
+const SESSAO_INVALIDA = Symbol('sessao invalida')
+const AUTH_INDISPONIVEL = Symbol('auth indisponivel')
+
 type ValorForm = string | number | boolean | null | { $arquivo: { base64: string; nome?: string; tipo?: string } }
 
 // As actions de formulário recebem FormData. O app manda
@@ -166,9 +185,20 @@ export async function POST(request: Request) {
   const args = Array.isArray(corpo.args) ? corpo.args.map(prepararArgumento) : []
 
   try {
-    const resultado = await comSessaoDoApp(token, () => (ACOES[nome] as (...a: unknown[]) => Promise<unknown>)(...args))
+    const resultado = await comSessaoDoApp(token, async () => {
+      const sessao = await conferirSessaoDoApp()
+      if (sessao === 'invalida') return SESSAO_INVALIDA
+      if (sessao === 'indisponivel') return AUTH_INDISPONIVEL
+      return (ACOES[nome] as (...a: unknown[]) => Promise<unknown>)(...args)
+    })
+    if (resultado === SESSAO_INVALIDA) return respostaDoApp({ error: 'Sua sessão expirou. Entre de novo.', sessao_expirada: true }, 401)
+    if (resultado === AUTH_INDISPONIVEL) return respostaDoApp({ error: 'Não foi possível conferir a sua sessão. Tente de novo em instantes.' }, 503)
     return respostaDoApp(resultado)
   } catch (e) {
+    // redirect() do Next sai como exceção: a action terminou bem.
+    if (e && typeof e === 'object' && 'digest' in e && String((e as { digest: unknown }).digest).startsWith('NEXT_REDIRECT')) {
+      return respostaDoApp({ success: true })
+    }
     console.error(`[api/app/acao] ${nome}:`, e instanceof Error ? e.message : e)
     return respostaDoApp({ error: 'Não foi possível concluir. Tente de novo.' }, 500)
   }

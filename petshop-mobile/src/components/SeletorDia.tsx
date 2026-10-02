@@ -9,14 +9,17 @@ interface Props {
   dias?: number
   valor: string
   onChange: (dataISO: string) => void
+  // Dia em que não dá para marcar (loja fechada, feriado): aparece
+  // apagado e não responde ao toque.
+  fechado?: (dataISO: string) => boolean
 }
 
 const LARGURA = 58
 
 // Faixa de dias que rola pro lado (em vez de um calendário inteiro):
 // escolher a data com um toque, sem teclado.
-export function SeletorDia({ inicio, dias = 60, valor, onChange }: Props) {
-  const lista = useMemo(() => Array.from({ length: dias }, (_, i) => somarDiasISO(inicio, i)), [inicio, dias])
+export function SeletorDia({ inicio, dias = 60, valor, onChange, fechado }: Props) {
+  const lista = useMemo(() => Array.from({ length: Math.max(1, dias) }, (_, i) => somarDiasISO(inicio, i)), [inicio, dias])
   const indice = Math.max(0, lista.indexOf(valor))
 
   return (
@@ -30,18 +33,20 @@ export function SeletorDia({ inicio, dias = 60, valor, onChange }: Props) {
       getItemLayout={(_, i) => ({ length: LARGURA + spacing.sm, offset: (LARGURA + spacing.sm) * i, index: i })}
       renderItem={({ item }) => {
         const ativo = item === valor
+        const naoAbre = !!fechado?.(item)
         const [, mes, dia] = item.split('-')
         return (
           <Pressable
             onPress={() => onChange(item)}
+            disabled={naoAbre}
             accessibilityRole="button"
-            accessibilityState={{ selected: ativo }}
-            accessibilityLabel={`${diaSemanaCurto(item)} ${dia}/${mes}`}
-            style={[styles.dia, ativo && styles.diaAtivo]}
+            accessibilityState={{ selected: ativo, disabled: naoAbre }}
+            accessibilityLabel={`${diaSemanaCurto(item)} ${dia}/${mes}${naoAbre ? ', fechado' : ''}`}
+            style={[styles.dia, ativo && styles.diaAtivo, naoAbre && styles.diaFechado]}
           >
-            <Text style={[styles.semana, ativo && styles.textoAtivo]}>{diaSemanaCurto(item)}</Text>
-            <Text style={[styles.numero, ativo && styles.textoAtivo]}>{dia}</Text>
-            <Text style={[styles.mes, ativo && styles.textoAtivo]}>/{mes}</Text>
+            <Text style={[styles.semana, ativo && styles.textoAtivo, naoAbre && styles.textoFechado]}>{diaSemanaCurto(item)}</Text>
+            <Text style={[styles.numero, ativo && styles.textoAtivo, naoAbre && styles.textoFechado]}>{dia}</Text>
+            <Text style={[styles.mes, ativo && styles.textoAtivo, naoAbre && styles.textoFechado]}>/{mes}</Text>
           </Pressable>
         )
       }}
@@ -61,8 +66,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   diaAtivo: { backgroundColor: colors.primary600, borderColor: colors.primary600 },
+  diaFechado: { backgroundColor: colors.surfaceMuted },
   semana: { ...typography.label.sm, color: colors.textMuted, textTransform: 'uppercase' },
   numero: { ...typography.heading.md, color: colors.text },
   mes: { ...typography.body.sm, color: colors.textMuted },
   textoAtivo: { color: colors.white },
+  textoFechado: { color: colors.textFaint, textDecorationLine: 'line-through' },
 })

@@ -9,9 +9,9 @@ import { colors, radius, spacing, typography } from '@/theme/theme'
 export default function TabsLayout() {
   const { role, contexto, funcionarioInativo, signOut } = useAuth()
 
-  // App mobile é o painel operacional da equipe (lojista/funcionário) —
-  // um `cliente` não tem o que fazer aqui, e um funcionário desativado
-  // perdeu o acesso (mesma checagem do loginAction do dashboard web).
+  // Área da equipe (lojista/funcionário). O cliente tem a área dele
+  // (app/cliente) e nem chega aqui; um funcionário desativado perdeu o
+  // acesso (mesma checagem do loginAction do dashboard web).
   // Logo depois de entrar, o papel e as permissões ainda estão chegando.
   if (role === null) {
     return (
@@ -20,16 +20,6 @@ export default function TabsLayout() {
           <ActivityIndicator color={colors.primary600} />
         </View>
       </SafeAreaView>
-    )
-  }
-
-  if (role === 'cliente') {
-    return (
-      <BloqueioAcesso
-        titulo="Este app é da equipe do petshop"
-        mensagem="Esta conta não é de lojista nem de funcionário. Clientes acompanham os agendamentos pelo site."
-        onSignOut={signOut}
-      />
     )
   }
 

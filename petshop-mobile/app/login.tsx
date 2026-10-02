@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/contexts/AuthContext'
 import { urlDoSite } from '@/lib/site'
@@ -19,6 +20,7 @@ import { colors, radius, spacing, typography } from '@/theme/theme'
 
 export default function LoginScreen() {
   const { signIn, signInWithGoogle } = useAuth()
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
@@ -74,7 +76,7 @@ export default function LoginScreen() {
           </View>
 
           <Text style={styles.title}>Entrar</Text>
-          <Text style={styles.subtitle}>Acesse o painel da sua loja</Text>
+          <Text style={styles.subtitle}>Cliente, loja ou equipe: a mesma conta do site</Text>
 
           {erro && (
             <View style={styles.alerta}>
@@ -157,7 +159,11 @@ export default function LoginScreen() {
             )}
           </Pressable>
 
-          <Text style={styles.rodape}>Feito para a equipe do seu petshop</Text>
+          <Pressable onPress={() => router.push('/cadastro')} hitSlop={8} accessibilityRole="link" style={styles.criarConta}>
+            <Text style={styles.criarContaTexto}>
+              Ainda não tem conta? <Text style={styles.esqueciTexto}>Criar conta de cliente</Text>
+            </Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -233,5 +239,6 @@ const styles = StyleSheet.create({
   },
   botaoGoogleTexto: { ...typography.heading.sm, color: colors.text },
   botaoTexto: { color: colors.white, ...typography.heading.sm },
-  rodape: { textAlign: 'center', color: colors.textFaint, ...typography.body.sm, marginTop: spacing['2xl'] },
+  criarConta: { alignSelf: 'center', marginTop: spacing['2xl'], minHeight: 32, justifyContent: 'center' },
+  criarContaTexto: { ...typography.body.md, color: colors.textMuted, textAlign: 'center' },
 })

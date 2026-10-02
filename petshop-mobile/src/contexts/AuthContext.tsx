@@ -6,11 +6,14 @@ import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { obterContextoLojista, type ContextoLojista } from '@/lib/lojistaContext'
 
-type Role = 'lojista' | 'funcionario' | 'cliente' | null
+// 'novo' = entrou (pelo Google) mas ainda não tem cadastro nenhum: falta
+// completar os dados de cliente.
+type Role = 'lojista' | 'funcionario' | 'cliente' | 'novo' | null
 
-// 'loja' = abas da equipe (Início, Agendamentos, Clientes, Pets, Mais).
-// 'taxidog' = área das corridas (Início, Corridas, Histórico, Mais).
-export type ModoApp = 'loja' | 'taxidog'
+// 'loja' = abas da equipe (Início, Agendamentos, Clientes, Pets).
+// 'taxidog' = área das corridas (Início, Corridas, Rotas, Histórico).
+// 'cliente' = área do cliente (Início, Agendamentos, Pets, Petshops).
+export type ModoApp = 'loja' | 'taxidog' | 'cliente'
 
 const CHAVE_MODO = 'saip:modo-app'
 
@@ -33,6 +36,8 @@ interface AuthState {
   // quando a pessoa só fechou a janela do Google.
   signInWithGoogle: () => Promise<{ error: string | null }>
   signOut: () => Promise<void>
+  // Lê de novo o papel e as permissões (depois de completar o cadastro).
+  recarregar: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthState | null>(null)
@@ -54,7 +59,8 @@ async function resolverRole(user: User): Promise<Exclude<Role, null>> {
     .maybeSingle()
   if (funcionario) return 'funcionario'
 
-  return 'cliente'
+  const { data: cliente } = await supabase.from('cliente').select('id_cliente').eq('id_cliente', user.id).maybeSingle()
+  return cliente ? 'cliente' : 'novo'
 }
 
 // O Google devolve a sessão no endereço de retorno: no fragmento
@@ -92,10 +98,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function carregarContexto(user: User) {
     const resolvedRole = await resolverRole(user)
 
-    if (resolvedRole === 'cliente') {
+    if (resolvedRole === 'cliente' || resolvedRole === 'novo') {
       setContexto(null)
       setFuncionarioInativo(false)
-      setRole('cliente')
+      setRole(resolvedRole)
       return
     }
 
@@ -188,11 +194,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    const { error } = await supabase.auth.signOut()
-    // Sem internet (ou sessão já inválida no servidor) o Supabase devolve
-    // erro e mantém a sessão no aparelho — a pessoa ficaria presa logada.
-    // Sair daqui tem que funcionar sempre: apaga a sessão local.
-    if (error) await supabase.auth.signOut({ scope: 'local' })
+    // Só este aparelho: o padrão do Supabase ('global') encerra todas as
+    // sessões da conta e tiraria a pessoa também do site. Sair daqui tem
+    // que funcionar sempre — sem internet ou com a sessão já inválida no
+    // servidor, a sessão local é apagada do mesmo jeito.
+    await supabase.auth.signOut({ scope: 'local' })
+  }
+
+  async function recarregar() {
+    const { data } = await supabase.auth.getSession()
+    if (data.session?.user) await carregarContexto(data.session.user)
   }
 
   function setModo(novo: ModoApp) {
@@ -207,7 +218,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Quem é TaxiDog cai direto nas corridas; quem também é da equipe pode
   // trocar (e a escolha fica salva no aparelho). Quem não é TaxiDog nunca
   // vê a área de corridas.
-  const modo: ModoApp = !contexto?.podeTaxidog ? 'loja' : !temAcessoLoja ? 'taxidog' : modoPreferido ?? 'taxidog'
+  const modo: ModoApp = role === 'cliente' || role === 'novo'
+    ? 'cliente'
+    : !contexto?.podeTaxidog ? 'loja' : !temAcessoLoja ? 'taxidog' : modoPreferido === 'loja' ? 'loja' : 'taxidog'
 
   const value = useMemo<AuthState>(
     () => ({
@@ -223,6 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signInWithGoogle,
       signOut,
+      recarregar,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setModo/signIn/signOut só usam setters e o client estável
     [loading, session, role, contexto, funcionarioInativo, modo, temAcessoLoja]

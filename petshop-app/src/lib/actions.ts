@@ -6,7 +6,6 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import {
-  cadastroClienteSchema,
   cadastroClienteLojistaSchema,
   editarClienteLojistaSchema,
   cadastroLojistSchema,
@@ -40,6 +39,7 @@ import { ORDEM_ETAPA, etapaEncerrada, etapaExigeDia } from '@/lib/status-agendam
 import { hojeBrasilISO } from '@/lib/agenda'
 import { coordenadasParaTaxiDog, lerTaxiDogDoFormulario, mensagemErroTaxiDog, paramsRpcTaxiDog } from '@/lib/taxidog-servidor'
 import { mensagemErroBloqueio } from '@/lib/bloqueios'
+import { criarContaCliente } from '@/lib/cadastro-cliente'
 import { alterarTransporteAction } from '@/lib/actions-rotas'
 import { formatarCep as formatarCepTaxiDog } from '@/lib/taxidog'
 import { ehFormaPagamento, mensagemErroPagamento, type FormaPagamento } from '@/lib/pagamento'
@@ -242,7 +242,10 @@ export async function loginAction(formData: FormData) {
 // de sempre (volta pro /login genérico).
 export async function logoutAction(redirectTo?: string) {
   const supabase = await createClient()
-  await supabase.auth.signOut()
+  // Só esta sessão: o padrão do Supabase ('global') encerra TODAS as
+  // sessões da conta, e sair do site derrubava o app no celular (e o site
+  // aberto em outro computador).
+  await supabase.auth.signOut({ scope: 'local' })
   revalidatePath('/', 'layout')
   redirect(redirectTo?.startsWith('/agendamento/') ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : '/login')
 }
@@ -314,58 +317,10 @@ export async function cadastroClienteAction(formData: FormData) {
     aceita_termos: formData.get('aceita_termos') === 'on' ? true : undefined,
   }
 
-  const parsed = cadastroClienteSchema.safeParse(raw)
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0].message }
-  }
-
-  const rl = await checkRateLimit('cadastroCliente', 5, 15)
-  if (!rl.success) {
-    return { error: `Muitas tentativas. Tente novamente em ${Math.ceil(rl.retryAfter! / 60)} minutos.` }
-  }
-
-  // Cria a conta via Admin API (email_confirm:true) em vez de signUp normal
-  // — mesmo padrão de cadastroLojistaAction/cadastrarClienteLojistaAction.
-  // Com "Confirm email" habilitado no projeto Supabase, signUp criava a
-  // conta mas o signInWithPassword logo abaixo falhava com "Email not
-  // confirmed", deixando o cliente com uma conta que não conseguia acessar.
-  const adminClient = createAdminClient()
-  if (!adminClient) {
-    return { error: 'Serviço temporariamente indisponível. Tente novamente em alguns minutos.' }
-  }
-
-  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
-    email: parsed.data.email,
-    password: parsed.data.senha,
-    email_confirm: true,
-    user_metadata: { role: 'cliente', nome: parsed.data.nome },
-  })
-
-  if (authError) {
-    const msg = authError.message.toLowerCase()
-    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate') || msg.includes('registered')) {
-      return { error: 'Este e-mail já está cadastrado' }
-    }
-    return { error: devError('Erro ao criar conta. Tente novamente.', authError.message) }
-  }
-
-  if (!authData.user) {
-    return { error: 'Erro interno. Tente novamente.' }
-  }
-
-  const { error: clienteError } = await adminClient.from('cliente').insert({
-    id_cliente: authData.user.id,
-    nome: parsed.data.nome,
-    cpf: parsed.data.cpf,
-    email: parsed.data.email,
-    telefone: parsed.data.telefone,
-  })
-
-  if (clienteError) {
-    // Rollback: remover usuário criado
-    await adminClient.auth.admin.deleteUser(authData.user.id)
-    return { error: 'Não foi possível finalizar o cadastro. Tente novamente ou entre em contato com o suporte.' }
-  }
+  // Validação, limite de tentativas, login e cadastro: lib/cadastro-cliente
+  // (o app mobile cria a conta pelo mesmo caminho).
+  const conta = await criarContaCliente(raw)
+  if ('error' in conta) return { error: conta.error }
 
   // ──────────────────────────────────────────────────────────────────────────
   // Estabelecer sessão nos cookies ANTES do redirect.
@@ -375,8 +330,8 @@ export async function cadastroClienteAction(formData: FormData) {
   // ──────────────────────────────────────────────────────────────────────────
   const supabase = await createClient()
   const { error: signInError } = await supabase.auth.signInWithPassword({
-    email: parsed.data.email,
-    password: parsed.data.senha,
+    email: conta.email,
+    password: conta.senha,
   })
 
   if (signInError) {

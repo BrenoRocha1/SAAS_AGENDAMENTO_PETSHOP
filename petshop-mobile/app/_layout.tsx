@@ -50,8 +50,12 @@ function RootNavigator() {
       <Stack.Protected guard={!!session && modo === 'taxidog'}>
         <Stack.Screen name="taxidog" />
       </Stack.Protected>
+      <Stack.Protected guard={!!session && modo === 'cliente'}>
+        <Stack.Screen name="cliente" />
+      </Stack.Protected>
       <Stack.Protected guard={!session}>
         <Stack.Screen name="login" />
+        <Stack.Screen name="cadastro" />
       </Stack.Protected>
       {/* Retorno do login com Google (saip://auth) — ver app/auth.tsx. */}
       <Stack.Screen name="auth" />
