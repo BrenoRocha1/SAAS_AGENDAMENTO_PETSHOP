@@ -8,6 +8,7 @@ import { remarcarAgendamentoAction } from '@/lib/actions'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { fechadoODiaTodo, somarDiasISO, textoBloqueioNoDia } from '@/lib/bloqueios'
 import { useBloqueiosDoDia } from './useBloqueiosDoDia'
+import SeletorDataHora from '@/components/SeletorDataHora'
 import { IconAlert, IconCalendar, IconCheck, IconClose, IconWhatsapp } from '@/components/icons'
 
 type Slot = { hr_slot: string; disponivel: boolean }
@@ -102,7 +103,7 @@ function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar, modo 
 
   return (
     <div className="modal-overlay" onClick={() => !isPending && onFechar()}>
-      <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">Remarcar agendamento</h3>
           <button className="modal-close" onClick={onFechar} aria-label="Fechar" disabled={isPending}>
@@ -147,52 +148,27 @@ function RemarcarConteudo({ idAgendamento, dataAtual, horaAtual, onFechar, modo 
                   : 'Se o cliente marcou mais de um serviço juntos, todos mudam juntos, na mesma ordem.'}
               </p>
               <div className="form-group">
-                <label htmlFor="remarcar-data" className="form-label form-label-required">Nova data</label>
-                <input
-                  id="remarcar-data"
-                  type="date"
-                  className="form-input"
-                  min={hoje}
-                  max={dataMax}
-                  value={data}
-                  onChange={e => { setData(e.target.value); setHora('') }}
+                <label className="form-label form-label-required">Nova data e horário</label>
+                <SeletorDataHora
+                  idLojista={idLojista}
+                  data={data}
+                  onData={d => { setData(d); setHora('') }}
+                  hora={hora}
+                  onHora={setHora}
+                  slots={slots ? slots.slots : null}
+                  aviso={
+                    slots?.erro ? 'Para remarcar, execute a migration 064_remarcar_agendamento.sql.'
+                      : diaFechado ? `Loja fechada neste dia (${diaFechado.motivo}). Escolha outra data.`
+                      : slots && slots.slots.length === 0
+                        ? (cliente ? 'Sem horário livre nesse dia. Escolha outra data.' : 'A loja não tem horário nesse dia. Escolha outra data.')
+                        : undefined
+                  }
+                  notas={bloqueiosDia.map(textoBloqueioNoDia)}
+                  dataMin={hoje}
+                  dataMax={dataMax}
+                  disabled={isPending}
+                  rotulo="Remarcar para"
                 />
-              </div>
-              <div className="form-group">
-                <label className="form-label form-label-required">Novo horário</label>
-                {!slots ? (
-                  <p className="text-sm text-muted" style={{ margin: 0 }}>Carregando horários...</p>
-                ) : slots.erro ? (
-                  <p className="text-sm text-muted" style={{ margin: 0 }}>Para remarcar, execute a migration 064_remarcar_agendamento.sql.</p>
-                ) : diaFechado ? (
-                  <p className="text-sm text-warning" style={{ margin: 0 }}>Loja fechada neste dia ({diaFechado.motivo}). Escolha outra data.</p>
-                ) : slots.slots.length === 0 ? (
-                  <p className="text-sm text-muted" style={{ margin: 0 }}>
-                    {cliente ? 'Sem horário livre nesse dia. Escolha outra data.' : 'A loja não tem horário nesse dia. Escolha outra data.'}
-                  </p>
-                ) : (
-                  <>
-                  {bloqueiosDia.map(b => (
-                    <p key={b.id_bloqueio} className="text-xs text-warning" style={{ margin: '0 0 var(--space-2)' }}>{textoBloqueioNoDia(b)}</p>
-                  ))}
-                  <div className="slots-grid">
-                    {slots.slots.map(s => {
-                      const h = s.hr_slot.slice(0, 5)
-                      return (
-                        <button
-                          key={s.hr_slot}
-                          type="button"
-                          className={`slot ${!s.disponivel ? 'slot-unavailable' : ''} ${hora === h ? 'slot-selected' : ''}`}
-                          disabled={!s.disponivel || isPending}
-                          onClick={() => setHora(h)}
-                        >
-                          {h}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  </>
-                )}
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label htmlFor="remarcar-motivo" className="form-label">Motivo (opcional)</label>

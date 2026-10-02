@@ -18,6 +18,7 @@ import {
 import { removerHorariosPassados } from '@/lib/agenda'
 import { fechadoODiaTodo, textoBloqueioNoDia } from '@/lib/bloqueios'
 import { useBloqueiosDoDia } from './useBloqueiosDoDia'
+import SeletorDataHora from '@/components/SeletorDataHora'
 import type { PlanoDoPet } from '@/lib/planos'
 import { format } from 'date-fns'
 import {
@@ -611,55 +612,25 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
 
               {/* Data e horário */}
               {servicoId && (
-                <div className="form-grid-2">
-                  <div className="form-group">
-                    <label className="form-label form-label-required">Data</label>
-                    <input
-                      type="date"
-                      className="form-input"
-                      value={data}
-                      min={format(new Date(), 'yyyy-MM-dd')}
-                      onChange={e => setData(e.target.value)}
-                      disabled={isPending}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label form-label-required">Horário</label>
-                    {loadingSlots ? (
-                      <p className="text-sm text-muted">Carregando horários...</p>
-                    ) : diaFechado ? (
-                      <p className="text-sm text-warning">Loja fechada neste dia ({diaFechado.motivo}). Escolha outra data.</p>
-                    ) : slotsErro ? (
-                      <p className="text-sm text-warning">Não foi possível carregar os horários. Troque a data e volte, ou tente de novo em instantes.</p>
-                    ) : slots.length === 0 ? (
-                      <p className="text-sm text-muted">Sem horário de funcionamento cadastrado para este dia.</p>
-                    ) : (
-                      <>
-                      {bloqueiosDia.map(b => (
-                        <p key={b.id_bloqueio} className="text-xs text-warning" style={{ margin: '0 0 var(--space-2)' }}>{textoBloqueioNoDia(b)}</p>
-                      ))}
-                      <div className="slots-grid">
-                        {slots.map(s => {
-                          // hr_slot vem do Postgres como "HH:MM:SS" (tipo TIME) —
-                          // o schema de validação exige exatamente "HH:MM", então
-                          // já normaliza aqui, antes de guardar no estado.
-                          const horaCurta = s.hr_slot.slice(0, 5)
-                          return (
-                            <button
-                              key={s.hr_slot}
-                              type="button"
-                              className={`slot ${!s.disponivel ? 'slot-unavailable' : ''} ${hora === horaCurta ? 'slot-selected' : ''}`}
-                              onClick={() => s.disponivel && setHora(horaCurta)}
-                              disabled={!s.disponivel || isPending}
-                            >
-                              {horaCurta}
-                            </button>
-                          )
-                        })}
-                      </div>
-                      </>
-                    )}
-                  </div>
+                <div className="form-group">
+                  <label className="form-label form-label-required">Data e horário</label>
+                  <SeletorDataHora
+                    idLojista={lojistaId}
+                    data={data}
+                    onData={setData}
+                    hora={hora}
+                    onHora={setHora}
+                    slots={loadingSlots ? null : slots}
+                    aviso={
+                      diaFechado ? `Loja fechada neste dia (${diaFechado.motivo}). Escolha outra data.`
+                        : slotsErro ? 'Não foi possível carregar os horários. Escolha outro dia e volte, ou tente de novo em instantes.'
+                        : slots.length === 0 ? 'Sem horário livre neste dia. Escolha outra data.'
+                        : undefined
+                    }
+                    notas={bloqueiosDia.map(textoBloqueioNoDia)}
+                    dataMin={format(new Date(), 'yyyy-MM-dd')}
+                    disabled={isPending}
+                  />
                 </div>
               )}
 

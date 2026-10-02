@@ -1139,6 +1139,76 @@ a:hover { color: var(--primary-300); }
 }
 
 /* ============================================================
+   DATA E HORÁRIO num bloco só (SeletorDataHora): mês em grade à
+   esquerda, horários do dia à direita, resumo embaixo.
+   ============================================================ */
+.sdh {
+  border: 1px solid var(--gray-800);
+  border-radius: var(--radius-lg);
+  background: var(--gray-900);
+  overflow: hidden;
+}
+.sdh-corpo { display: grid; grid-template-columns: minmax(0, 1fr) 150px; }
+.sdh-calendario { padding: var(--space-4); min-width: 0; }
+.sdh-cabecalho { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
+.sdh-mes { display: inline-block; font-weight: 600; font-size: 0.9375rem; color: var(--gray-100); }
+.sdh-mes::first-letter { text-transform: uppercase; }
+.sdh-nav {
+  width: 28px; height: 28px; display: grid; place-items: center;
+  border: 0; border-radius: var(--radius-md); background: transparent;
+  color: var(--gray-400); cursor: pointer; transition: all var(--transition-fast);
+}
+.sdh-nav:hover:not(:disabled) { background: var(--gray-850); color: var(--gray-100); }
+.sdh-nav:disabled { opacity: 0.3; cursor: default; }
+.sdh-semana, .sdh-dias { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.sdh-semana span { text-align: center; font-size: 0.75rem; font-weight: 500; color: var(--gray-500); padding-bottom: var(--space-2); }
+.sdh-dia {
+  height: 36px; display: grid; place-items: center;
+  border: 0; border-radius: var(--radius-md); background: transparent;
+  font: inherit; font-size: 0.875rem; color: var(--gray-100);
+  cursor: pointer; transition: background var(--transition-fast), color var(--transition-fast);
+}
+.sdh-dia:hover:not(:disabled):not(.is-selecionado) { background: var(--gray-850); }
+.sdh-dia.is-hoje { font-weight: 700; color: var(--primary-400); }
+.sdh-dia:disabled { color: var(--gray-600); cursor: default; font-weight: 400; }
+.sdh-dia.is-fechado { text-decoration: line-through; }
+.sdh-dia.is-selecionado, .sdh-dia.is-selecionado:disabled { background: var(--primary-600); color: #fff; font-weight: 600; }
+
+/* A coluna de horários acompanha a altura do calendário e rola por dentro. */
+.sdh-horarios { position: relative; border-left: 1px solid var(--gray-800); min-height: 220px; }
+.sdh-horarios-rolagem {
+  position: absolute; inset: 0; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px; padding: var(--space-3);
+}
+.sdh-slot {
+  flex-shrink: 0; height: 36px;
+  border: 1px solid var(--gray-800); border-radius: var(--radius-md); background: var(--gray-900);
+  font: inherit; font-size: 0.875rem; font-weight: 600; color: var(--gray-100);
+  cursor: pointer; transition: all var(--transition-fast);
+}
+.sdh-slot:hover:not(:disabled):not(.is-selecionado) { border-color: var(--primary-500); background: var(--slot-hover-bg); color: var(--primary-300); }
+.sdh-slot.is-selecionado { background: var(--primary-600); border-color: var(--primary-600); color: #fff; }
+.sdh-slot:disabled:not(.is-selecionado) { background: var(--gray-850); color: var(--gray-600); text-decoration: line-through; cursor: default; }
+.sdh-vazio { margin: 0; font-size: 0.8125rem; line-height: 1.4; color: var(--gray-500); }
+.sdh-vazio.is-aviso { color: var(--warning-400); }
+.sdh-rodape {
+  border-top: 1px solid var(--gray-800); padding: var(--space-3) var(--space-4);
+  font-size: 0.875rem; color: var(--gray-300); background: var(--gray-950);
+}
+.sdh-rodape strong { color: var(--gray-100); }
+
+/* Tela estreita: horários embaixo do calendário, em grade. */
+@media (max-width: 520px) {
+  .sdh-corpo { grid-template-columns: minmax(0, 1fr); }
+  .sdh-horarios { border-left: 0; border-top: 1px solid var(--gray-800); min-height: 0; }
+  .sdh-horarios-rolagem {
+    position: static; max-height: 196px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); align-content: start;
+  }
+  .sdh-horarios-rolagem .sdh-vazio { grid-column: 1 / -1; }
+}
+
+/* ============================================================
    TOAST / ALERTAS
    ============================================================ */
 .alert {
