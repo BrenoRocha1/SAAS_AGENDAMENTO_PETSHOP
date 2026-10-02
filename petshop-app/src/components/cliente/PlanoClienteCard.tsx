@@ -50,7 +50,7 @@ export default function PlanoClienteCard({ a, hojeISO }: { a: AssinaturaDoClient
           </div>
           <BeneficiosBarra beneficios={a.periodo_atual.beneficios} />
           <p className="text-xs text-muted" style={{ margin: 0 }}>
-            Para usar, agende o serviço normalmente: a loja desconta do plano no atendimento.
+            Para usar, agende o serviço pela sua conta: o saldo do plano já entra no agendamento, sem cobrar o serviço.
             {a.proxima_cobranca && <> Renova em <strong>{dataBR(a.proxima_cobranca)}</strong>.</>}
           </p>
         </>
