@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { ScreenContainer } from '@/components/ScreenContainer'
+import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
 import { Avatar } from '@/components/Avatar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -37,7 +38,8 @@ export default function MaisScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={styles.title}>Mais</Text>
+      {/* Aberto pela barra do topo da Início: a seta volta pra lá. */}
+      <DetailHeader title="Menu da loja" onVoltar={() => router.navigate('/')} />
 
       <Card style={styles.perfilCard}>
         <Avatar nome={contexto?.nome ?? 'Usuário'} size={48} />
@@ -89,7 +91,6 @@ export default function MaisScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { ...typography.heading.xl, color: colors.text, marginBottom: spacing.lg },
   perfilCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg },
   perfilNome: { ...typography.heading.sm, color: colors.text },
   perfilPapel: { ...typography.body.sm, color: colors.textMuted, marginTop: 2 },

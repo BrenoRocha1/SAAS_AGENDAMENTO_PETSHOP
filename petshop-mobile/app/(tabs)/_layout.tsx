@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons'
-import { Tabs } from 'expo-router'
+import { Tabs } from 'expo-router/js-tabs'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/contexts/AuthContext'
-import { opcoesTabBar, tabIcon } from '@/components/tabBar'
+import { barraDeAbas, opcoesTabBar, tabIcon } from '@/components/tabBar'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 export default function TabsLayout() {
@@ -44,7 +44,7 @@ export default function TabsLayout() {
   }
 
   return (
-    <Tabs screenOptions={opcoesTabBar}>
+    <Tabs screenOptions={opcoesTabBar} tabBar={barraDeAbas}>
       <Tabs.Screen name="index" options={{ title: 'Início', tabBarIcon: tabIcon('home', 'home-outline') }} />
       <Tabs.Screen
         name="agendamentos"
@@ -52,7 +52,8 @@ export default function TabsLayout() {
       />
       <Tabs.Screen name="clientes" options={{ title: 'Clientes', tabBarIcon: tabIcon('people', 'people-outline') }} />
       <Tabs.Screen name="pets" options={{ title: 'Pets', tabBarIcon: tabIcon('paw', 'paw-outline') }} />
-      <Tabs.Screen name="mais" options={{ title: 'Mais', tabBarIcon: tabIcon('grid', 'grid-outline') }} />
+      {/* O menu da loja não é aba: abre pela barra do topo da Início. */}
+      <Tabs.Screen name="mais" options={{ href: null }} />
     </Tabs>
   )
 }

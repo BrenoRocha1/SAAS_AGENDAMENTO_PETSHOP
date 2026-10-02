@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { format, subDays } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
+import { BarraTopo } from '@/components/BarraTopo'
 import { StatCard } from '@/components/StatCard'
 import { SectionHeader } from '@/components/SectionHeader'
 import { EmptyState } from '@/components/EmptyState'
@@ -58,7 +59,11 @@ export default function InicioTaxiDogScreen() {
   const abrirCorrida = (c: Corrida) => router.push(`/taxidog/corrida/${c.id_corrida}` as never)
 
   return (
-    <ScreenContainer refreshing={loading} onRefresh={() => { recarregar(); recarregarCorridas() }}>
+    <ScreenContainer
+      refreshing={loading}
+      onRefresh={() => { recarregar(); recarregarCorridas() }}
+      topo={<BarraTopo rotuloMenu="Menu" onMenu={() => router.push('/taxidog/mais' as never)} />}
+    >
       <View style={styles.header}>
         <Text style={styles.saudacao}>{saudacao()}, {primeiroNome}</Text>
         <Text style={styles.data}>{dataExtensaBrasil()}</Text>

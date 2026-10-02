@@ -1,36 +1,19 @@
 import { Ionicons } from '@expo/vector-icons'
-import { StyleSheet, type ColorValue } from 'react-native'
-import { colors } from '@/theme/theme'
+import type { ColorValue } from 'react-native'
+import type { BottomTabBarProps } from 'expo-router/js-tabs'
+import { BarraNavegacao } from './BarraNavegacao'
 
 // Barra inferior compartilhada pelas duas áreas do app (equipe e TaxiDog)
-// — mesma aparência, só as abas mudam.
+// — mesma aparência (BarraNavegacao, a "pílula"), só as abas mudam.
 
 type IconName = keyof typeof Ionicons.glyphMap
 
 export function tabIcon(nomeAtivo: IconName, nomeInativo: IconName) {
-  return ({ focused, color }: { focused: boolean; color: ColorValue }) => (
-    <Ionicons name={focused ? nomeAtivo : nomeInativo} size={23} color={color} />
+  return ({ focused, color, size }: { focused: boolean; color: ColorValue; size?: number }) => (
+    <Ionicons name={focused ? nomeAtivo : nomeInativo} size={size ?? 22} color={color} />
   )
 }
 
-const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: colors.surface,
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-    height: 64,
-    paddingTop: 8,
-    paddingBottom: 8,
-  },
-  tabItem: { paddingVertical: 2 },
-  label: { fontSize: 11, fontWeight: '600' },
-})
+export const opcoesTabBar = { headerShown: false }
 
-export const opcoesTabBar = {
-  headerShown: false,
-  tabBarActiveTintColor: colors.primary600,
-  tabBarInactiveTintColor: colors.textFaint,
-  tabBarLabelStyle: styles.label,
-  tabBarStyle: styles.tabBar,
-  tabBarItemStyle: styles.tabItem,
-}
+export const barraDeAbas = (props: BottomTabBarProps) => <BarraNavegacao {...props} />

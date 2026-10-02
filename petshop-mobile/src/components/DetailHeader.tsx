@@ -3,11 +3,19 @@ import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, spacing, typography } from '@/theme/theme'
 
-export function DetailHeader({ title }: { title: string }) {
+// `onVoltar`: pra tela que não tem "tela anterior" na própria pilha (o
+// menu, aberto pela barra do topo) dizer pra onde a seta leva.
+export function DetailHeader({ title, onVoltar }: { title: string; onVoltar?: () => void }) {
   const router = useRouter()
   return (
     <View style={styles.row}>
-      <Pressable onPress={() => router.back()} hitSlop={10} style={styles.voltar}>
+      <Pressable
+        onPress={onVoltar ?? (() => router.back())}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="Voltar"
+        style={styles.voltar}
+      >
         <Ionicons name="chevron-back" size={22} color={colors.text} />
       </Pressable>
       <Text style={styles.title} numberOfLines={1}>

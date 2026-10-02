@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { ScreenContainer } from '@/components/ScreenContainer'
+import { BarraTopo } from '@/components/BarraTopo'
 import { StatCard } from '@/components/StatCard'
 import { SectionHeader } from '@/components/SectionHeader'
 import { AppointmentRow } from '@/components/AppointmentRow'
@@ -39,7 +40,11 @@ export default function InicioScreen() {
   }, [agendamentos])
 
   return (
-    <ScreenContainer refreshing={loading} onRefresh={recarregar}>
+    <ScreenContainer
+      refreshing={loading}
+      onRefresh={recarregar}
+      topo={<BarraTopo rotuloMenu="Menu da loja" onMenu={() => router.push('/mais')} />}
+    >
       <View style={styles.header}>
         <Text style={styles.saudacao}>
           {saudacao()}, {contexto?.nome ?? ''}

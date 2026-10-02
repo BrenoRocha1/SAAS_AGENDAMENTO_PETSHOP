@@ -9,15 +9,18 @@ interface Props {
   refreshing?: boolean
   onRefresh?: () => void
   contentStyle?: ViewStyle
+  // Fica preso no topo, acima do que rola (a barra da tela Início).
+  topo?: ReactNode
 }
 
 // Casca padrão de tela: fundo off-white igual ao web, respeita a área
 // segura (notch/status bar) só no topo — a tab bar cuida da borda de
 // baixo. `scroll` liga um ScrollView com pull-to-refresh opcional.
-export function ScreenContainer({ children, scroll = true, refreshing, onRefresh, contentStyle }: Props) {
+export function ScreenContainer({ children, scroll = true, refreshing, onRefresh, contentStyle, topo }: Props) {
   if (!scroll) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
+        {topo}
         <View style={[styles.content, contentStyle]}>{children}</View>
       </SafeAreaView>
     )
@@ -25,6 +28,7 @@ export function ScreenContainer({ children, scroll = true, refreshing, onRefresh
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      {topo}
       {/* No iOS o teclado não empurra a tela sozinho — sem isto ele cobre o
           campo que está sendo preenchido (motivo, observação…). */}
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

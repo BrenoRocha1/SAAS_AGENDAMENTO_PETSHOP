@@ -1,6 +1,8 @@
+import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { ScreenContainer } from '@/components/ScreenContainer'
+import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
 import { Avatar } from '@/components/Avatar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -9,6 +11,7 @@ import { dialogo } from '@/lib/dialogo'
 
 export default function MaisTaxiDogScreen() {
   const { contexto, temAcessoLoja, setModo, signOut } = useAuth()
+  const router = useRouter()
 
   function confirmarSaida() {
     dialogo('Sair da conta', 'Você precisará entrar de novo e deixará de receber avisos de corridas e rotas.', [
@@ -19,7 +22,8 @@ export default function MaisTaxiDogScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={styles.title}>Mais</Text>
+      {/* Aberto pela barra do topo da Início: a seta volta pra lá. */}
+      <DetailHeader title="Menu" onVoltar={() => router.navigate('/taxidog' as never)} />
 
       <Card style={styles.perfilCard}>
         <Avatar nome={contexto?.nome ?? 'TaxiDog'} size={48} />
@@ -52,7 +56,6 @@ export default function MaisTaxiDogScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { ...typography.heading.xl, color: colors.text, marginBottom: spacing.lg },
   perfilCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg },
   perfilNome: { ...typography.heading.sm, color: colors.text },
   papel: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
