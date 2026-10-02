@@ -16,6 +16,7 @@ import { otimizarImagemParaUpload } from '@/lib/imagem'
 import { UNIDADES_VENDA, rotuloUnidade, rotuloEstoque, statusEstoque, ROTULO_STATUS_ESTOQUE, BADGE_STATUS_ESTOQUE } from '@/lib/produto'
 import CampoQuantidade from './CampoQuantidade'
 import AjustarEstoqueModal from './AjustarEstoqueModal'
+import { formatarReais } from '@/lib/taxidog'
 import {
   IconAlert,
   IconCheck,
@@ -540,10 +541,10 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                     </td>
                     <td className="text-sm text-muted">{(p.id_categoria && nomeCategoriaPorId.get(p.id_categoria)) ?? 'Sem categoria'}</td>
                     <td className="text-success font-semibold">
-                      R$ {Number(p.preco_venda).toFixed(2)} <span className="text-xs text-muted">/ {rotuloUnidade(p.unidade_venda)}</span>
+                      {formatarReais(p.preco_venda)} <span className="text-xs text-muted">/ {rotuloUnidade(p.unidade_venda)}</span>
                       {p.custo_unitario != null && (
                         <div className="text-xs text-muted" style={{ fontWeight: 400 }}>
-                          custo R$ {Number(p.custo_unitario).toFixed(2)} · margem {textoMargem(Number(p.preco_venda), Number(p.custo_unitario))?.split(' (')[0] ?? '—'}
+                          custo {formatarReais(p.custo_unitario)} · margem {textoMargem(Number(p.preco_venda), Number(p.custo_unitario))?.split(' (')[0] ?? '—'}
                         </div>
                       )}
                     </td>

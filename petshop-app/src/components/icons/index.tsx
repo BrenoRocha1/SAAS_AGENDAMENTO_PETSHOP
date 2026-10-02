@@ -25,6 +25,15 @@ export function IconPaw(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function IconMail(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
+      <path d="m4 7 8 6 8-6" />
+    </svg>
+  )
+}
+
 // Casa — aba "Início" da barra de baixo no celular (igual ao app).
 export function IconHome(props: SVGProps<SVGSVGElement>) {
   return (

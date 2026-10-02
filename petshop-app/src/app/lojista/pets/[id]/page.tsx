@@ -3,14 +3,15 @@ import { obterUsuario } from '@/lib/supabase/usuario'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { format, parseISO, differenceInYears } from 'date-fns'
-import { formatarTelefone } from '@/lib/format'
+import { formatarTelefone, iniciais } from '@/lib/format'
 import { obterContextoLojista } from '@/lib/lojista-context'
-import { IconChevronLeft, IconDog, IconPencil, IconUsers } from '@/components/icons'
+import { IconCalendar, IconChevronLeft, IconChevronRight, IconDog, IconPackage, IconPencil, IconSliders, IconUsers } from '@/components/icons'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { formasAtivas, normalizarFormasLoja } from '@/lib/pagamento'
 import type { Plano, PlanoDoPet as PlanoAtivo } from '@/lib/planos'
 import PlanoDoPet from '@/components/lojista/planos/PlanoDoPet'
+import { formatarReais } from '@/lib/taxidog'
 
 export const metadata: Metadata = { title: 'Detalhes do Pet — Lojista' }
 
@@ -111,7 +112,55 @@ export default async function DetalhePetPage({ params }: Props) {
         <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Pets
       </Link>
 
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
+      {/* Celular (até 768px): a mesma tela do pet no app (o histórico de
+          atendimentos fica no computador). */}
+      <div className="so-celular tela-app">
+        <div className="tela-app-perfil">
+          <span className="tela-app-avatar is-72" style={pet.foto_url ? { backgroundImage: `url(${pet.foto_url})` } : undefined}>
+            {!pet.foto_url && iniciais(pet.nome)}
+          </span>
+          <strong>{pet.nome}</strong>
+          <span>{[pet.especie, pet.raca].filter(Boolean).join(' • ')}</span>
+        </div>
+
+        <div className="tela-app-cartao">
+          <div className="tela-app-info is-90">
+            <IconUsers style={{ width: 16, height: 16 }} />
+            <span>Sexo</span>
+            <strong>{pet.sexo}</strong>
+          </div>
+          <div className="tela-app-info is-90">
+            <IconSliders style={{ width: 16, height: 16 }} />
+            <span>Porte</span>
+            <strong>{pet.porte ?? '—'}</strong>
+          </div>
+          <div className="tela-app-info is-90">
+            <IconCalendar style={{ width: 16, height: 16 }} />
+            <span>Nascimento</span>
+            <strong>{format(parseISO(pet.dt_nasc), 'dd/MM/yyyy')}</strong>
+          </div>
+          <div className="tela-app-info is-90">
+            <IconPackage style={{ width: 16, height: 16 }} />
+            <span>Peso</span>
+            <strong>{pet.peso != null ? `${Number(pet.peso)} kg` : '—'}</strong>
+          </div>
+        </div>
+
+        {pet.obs && (
+          <div className="tela-app-cartao">
+            <span className="tela-app-rotulo">Observações</span>
+            <p>{pet.obs}</p>
+          </div>
+        )}
+
+        {podeEditar && (
+          <Link href={`/lojista/pets?editar=${pet.id_pet}`} className="tela-app-botao is-largo">
+            <IconPencil style={{ width: 16, height: 16 }} /> Editar dados do pet
+          </Link>
+        )}
+      </div>
+
+      <div className="page-header so-desktop" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
           <div className="pet-avatar" style={{ width: 64, height: 64 }}>
             {pet.foto_url ? (
@@ -135,7 +184,7 @@ export default async function DetalhePetPage({ params }: Props) {
         )}
       </div>
 
-      <div className="grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'start' }}>
+      <div className="grid-2 so-desktop" style={{ marginBottom: 'var(--space-6)', alignItems: 'start' }}>
         <div className="card">
           <h3 className="relatorio-secao-titulo">
             <IconDog style={{ width: 15, height: 15 }} /> Dados do pet
@@ -183,7 +232,21 @@ export default async function DetalhePetPage({ params }: Props) {
         />
       )}
 
-      <div className="card">
+      {/* Celular: o tutor por último, como no app. */}
+      {cliente && (
+        <div className="so-celular tela-app">
+          <div className="dash-app-secao-topo"><h2>Tutor</h2></div>
+          <Link href={`/lojista/clientes/${cliente.id_cliente}`} className="dash-app-linha">
+            <span className="tela-app-avatar is-40">{iniciais(cliente.nome)}</span>
+            <span className="dash-app-linha-info">
+              <span className="dash-app-linha-pet">{cliente.nome}</span>
+            </span>
+            <IconChevronRight className="tela-app-seta" style={{ width: 18, height: 18 }} />
+          </Link>
+        </div>
+      )}
+
+      <div className="card so-desktop">
         <h3 className="relatorio-secao-titulo">Histórico de atendimentos neste petshop</h3>
         {atendimentos.length === 0 ? (
           <p className="text-sm text-muted">Este pet ainda não teve nenhum atendimento aqui.</p>
@@ -207,7 +270,7 @@ export default async function DetalhePetPage({ params }: Props) {
                     <td>{a.hr_agendamento.slice(0, 5)}</td>
                     <td>{a.servico?.nome ?? '—'}</td>
                     <td>{a.funcionario?.nome ?? '—'}</td>
-                    <td>R$ {Number(a.valor).toFixed(2)}</td>
+                    <td>{formatarReais(a.valor)}</td>
                     <td><span className={`badge ${classeBadgeStatus(a.status)}`}>{rotuloStatus(a.status)}</span></td>
                   </tr>
                 ))}

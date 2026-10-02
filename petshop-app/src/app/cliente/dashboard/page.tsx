@@ -186,7 +186,7 @@ export default async function ClienteDashboard() {
           <div className="stat-card-icon tone-success">
             <IconMoney style={{ width: 20, height: 20 }} />
           </div>
-          <div className="stat-card-value">R$ {valorTotal.toFixed(2)}</div>
+          <div className="stat-card-value">{formatarReais(valorTotal)}</div>
           <div className="stat-card-label">Total investido</div>
         </div>
       </div>

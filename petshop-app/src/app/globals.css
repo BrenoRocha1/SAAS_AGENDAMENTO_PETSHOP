@@ -4212,6 +4212,41 @@ div.plano-assinatura:not(.card) { padding: var(--space-3); border: 1px solid var
 }
 @keyframes subirFolha { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
+/* Peças das telas de detalhe no celular (cliente e pet, iguais às do app). */
+.tela-app-perfil { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: var(--space-4); text-align: center; }
+.tela-app-perfil strong { margin-top: 4px; font-size: 1.375rem; font-weight: 700; letter-spacing: -0.2px; color: var(--gray-100); overflow-wrap: anywhere; }
+.tela-app-perfil > span:not(.tela-app-avatar) { font-size: 1rem; color: var(--gray-400); }
+.tela-app-avatar.is-72 { width: 72px; height: 72px; font-size: 26px; }
+.tela-app-avatar.is-40 { width: 40px; height: 40px; font-size: 14px; }
+.tela-app-botao-suave, .tela-app-botao-suave:hover {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px;
+  padding: var(--space-3); border-radius: 12px; background: var(--primary-50);
+  font-size: 0.8125rem; font-weight: 600; color: var(--primary-600); text-decoration: none;
+}
+.tela-app-cartao {
+  display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); margin-bottom: var(--space-4);
+  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.tela-app-cartao p { margin: 0; font-size: 1rem; color: var(--gray-100); overflow-wrap: anywhere; }
+.tela-app-rotulo { font-size: 0.8125rem; font-weight: 600; color: var(--gray-300); }
+.tela-app-info { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.tela-app-info svg { flex-shrink: 0; color: var(--gray-600); }
+.tela-app-info > span { width: 70px; flex-shrink: 0; font-size: 0.78rem; color: var(--gray-400); }
+.tela-app-info.is-90 > span { width: 90px; }
+.tela-app-info > strong { flex: 1; min-width: 0; font-size: 1rem; font-weight: 400; color: var(--gray-100); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tela-app-botao.is-largo { flex: none; width: 100%; min-height: 50px; margin-bottom: var(--space-4); font-size: 0.9375rem; }
+.tela-app-botao.is-compacto { flex: none; }
+.dash-app-linha-pet.is-apagado { color: var(--gray-400); }
+div.dash-app-linha { cursor: pointer; }
+.btn.tela-app-perigo { border: 1px solid #fecaca; background: var(--gray-900); color: var(--danger-400); }
+.modal-footer > .so-celular { width: 100%; }
+
+@media (max-width: 768px) {
+  /* Configurações: os selos de situação descem pra linha de baixo. */
+  .config-item { flex-wrap: wrap; }
+  .config-item-status { order: 5; flex-basis: 100%; flex-wrap: wrap; padding-left: 56px; }
+}
+
 /* Novo agendamento do cliente no celular: cada etapa direto na tela e as
    escolhas no formato da "Opcao" do app (bolinha, borda índigo na marcada). */
 @media (max-width: 768px) {

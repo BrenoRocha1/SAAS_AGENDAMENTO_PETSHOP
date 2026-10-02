@@ -581,7 +581,7 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                             <div className="picker-item-sub">{s.duracao} min</div>
                           </div>
                           <div className="font-semibold text-success" style={{ flexShrink: 0 }}>
-                            R$ {precoDoServico(s).toFixed(2)}
+                            {formatarReais(precoDoServico(s))}
                           </div>
                         </button>
                       ))}

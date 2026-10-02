@@ -150,7 +150,7 @@ export default async function ConfiguracoesPage() {
                     <div className="config-item-desc">{item.descricao}</div>
                   </div>
                   {item.status && (
-                    <div className="flex gap-2" style={{ flexShrink: 0 }}>
+                    <div className="flex gap-2 config-item-status" style={{ flexShrink: 0 }}>
                       {item.status.map(s => (
                         <span key={s.texto} className={`badge ${s.ativo ? 'badge-ativo' : 'badge-inativo'}`}>
                           {s.texto}

@@ -48,6 +48,7 @@ import {
 } from '@/components/icons'
 import NovoAgendamentoModal from './NovoAgendamentoModal'
 import BotaoCopiarLinkAgendamento from './BotaoCopiarLinkAgendamento'
+import { formatarReais } from '@/lib/taxidog'
 
 // ============================================================
 // Tipos — refletem o retorno das RPCs/queries existentes
@@ -649,7 +650,7 @@ export default function DashboardClient({
                     </div>
                     <div className="timeline-meta">
                       <span className={`badge ${classeBadgeStatus(item.status)}`}>{rotuloStatus(item.status)}</span>
-                      <span className="text-sm text-success font-semibold">R$ {Number(item.valor).toFixed(2)}</span>
+                      <span className="text-sm text-success font-semibold">{formatarReais(item.valor)}</span>
                     </div>
                   </div>
                   )
@@ -806,7 +807,7 @@ function DetalheAgendamento({
       <div className="dash-detail-row"><span>Pet</span><span>{pet}{raca ? ` — ${raca}` : ''}</span></div>
       <div className="dash-detail-row"><span>Serviço</span><span>{servico}</span></div>
       <div className="dash-detail-row"><span>Horário</span><span>{hora}</span></div>
-      <div className="dash-detail-row"><span>Valor</span><span>R$ {valor.toFixed(2)}</span></div>
+      <div className="dash-detail-row"><span>Valor</span><span>{formatarReais(valor)}</span></div>
       <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(status)}`}>{rotuloStatus(status)}</span></span></div>
       <HistoricoAlteracoes key={`${id}:${dataItem}:${hora}:${servico}:${pet}`} idAgendamento={id} />
 

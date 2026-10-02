@@ -11,6 +11,7 @@ import {
 } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
 import { IconAlert, IconClose, IconPencil, IconPlus, IconScissors, IconSliders, IconTrash } from '@/components/icons'
+import { formatarReais } from '@/lib/taxidog'
 
 interface Servico {
   id_servico: string
@@ -137,7 +138,14 @@ export default function ServicosList({ servicos: inicial }: Props) {
 
   return (
     <>
-      <div className="flex justify-end" style={{ marginBottom: 'var(--space-5)' }}>
+      {/* Celular (até 768px): a mesma tela Serviços do app. */}
+      <div className="so-celular">
+        <button type="button" className="dash-app-botao" onClick={abrirNovo}>
+          <IconPlus style={{ width: 18, height: 18 }} /> Novo serviço
+        </button>
+      </div>
+
+      <div className="flex justify-end so-desktop" style={{ marginBottom: 'var(--space-5)' }}>
         <button className="btn btn-primary" onClick={abrirNovo} id="btn-novo-servico">
           <IconPlus style={{ width: 16, height: 16 }} /> Novo Serviço
         </button>
@@ -157,6 +165,48 @@ export default function ServicosList({ servicos: inicial }: Props) {
         </div>
       )}
 
+      <div className="so-celular">
+        {servicos.length === 0 ? (
+          <div className="dash-app-vazio">
+            <span className="dash-app-vazio-icone"><IconScissors style={{ width: 26, height: 26 }} /></span>
+            <strong>Nenhum serviço cadastrado</strong>
+            <span>Cadastre o primeiro serviço para a loja poder receber agendamentos.</span>
+          </div>
+        ) : (
+          <div className="dash-app-lista">
+            {servicos.map(s => (
+              <div
+                key={s.id_servico}
+                className="dash-app-linha"
+                role="button"
+                tabIndex={0}
+                onClick={() => abrirEditar(s)}
+                onKeyDown={e => { if (e.key === 'Enter') abrirEditar(s) }}
+              >
+                <span className="dash-app-linha-info">
+                  <span className={`dash-app-linha-pet ${s.status === 'Ativo' ? '' : 'is-apagado'}`}>{s.nome}</span>
+                  <span className="dash-app-linha-sub is-media">
+                    {formatarReais(s.preco)} · {s.duracao} min{s.status === 'Ativo' ? '' : ' · Inativo'}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className={`switch ${s.status === 'Ativo' ? 'switch-on' : ''}`}
+                  onClick={e => { e.stopPropagation(); handleAlternarStatus(s) }}
+                  disabled={alternandoId === s.id_servico}
+                  role="switch"
+                  aria-checked={s.status === 'Ativo'}
+                  aria-label={`${s.nome} ativo`}
+                >
+                  <span className="switch-thumb" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="so-desktop">
       {servicos.length === 0 ? (
         <div className="empty-state card">
           <IconScissors style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
@@ -183,7 +233,7 @@ export default function ServicosList({ servicos: inicial }: Props) {
                     <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{s.nome}</div>
                     {s.descricao && <div className="text-sm text-muted">{s.descricao}</div>}
                   </td>
-                  <td className="text-success font-semibold">R$ {Number(s.preco).toFixed(2)}</td>
+                  <td className="text-success font-semibold">{formatarReais(s.preco)}</td>
                   <td>{s.duracao} min</td>
                   <td>
                     <div className="flex items-center gap-2">
@@ -226,6 +276,7 @@ export default function ServicosList({ servicos: inicial }: Props) {
           </table>
         </div>
       )}
+      </div>
 
       {/* Modal */}
       {showModal && (
@@ -310,6 +361,17 @@ export default function ServicosList({ servicos: inicial }: Props) {
               </div>
 
               <div className="modal-footer">
+                {editando && (
+                  <span className="so-celular">
+                    <button
+                      type="button"
+                      className="btn btn-full tela-app-perigo"
+                      onClick={() => { setShowModal(false); handleExcluir(editando) }}
+                    >
+                      <IconTrash style={{ width: 15, height: 15 }} /> Excluir serviço
+                    </button>
+                  </span>
+                )}
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
                   Cancelar
                 </button>
@@ -530,7 +592,7 @@ function PrecosVariacoes({
                     {v.especie} · {v.tipo === 'raca' ? v.raca : v.porte}
                   </span>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-success">R$ {Number(v.preco).toFixed(2)}</span>
+                    <span className="text-sm font-semibold text-success">{formatarReais(v.preco)}</span>
                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => remover(v)} disabled={isPending} aria-label="Remover">
                       <IconTrash style={{ width: 14, height: 14 }} />
                     </button>

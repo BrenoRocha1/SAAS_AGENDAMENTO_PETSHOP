@@ -4,13 +4,16 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { format, parseISO, differenceInCalendarDays } from 'date-fns'
 import { agoraBrasil } from '@/lib/agenda'
-import { formatarTelefone, formatarCpf } from '@/lib/format'
+import { formatarTelefone, formatarCpf, iniciais } from '@/lib/format'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import { classeBadgeStatus, ehEtapaAtiva, rotuloStatus } from '@/lib/status-agendamento'
 import {
   IconCalendar,
   IconChevronLeft,
+  IconChevronRight,
   IconClock,
+  IconMail,
+  IconPhone,
   IconDog,
   IconMoney,
   IconPencil,
@@ -85,7 +88,7 @@ export default async function PerfilClientePage({ params }: Props) {
       .maybeSingle(),
     supabase
       .from('pet')
-      .select('id_pet, nome, especie, porte, raca')
+      .select('id_pet, nome, especie, porte, raca, foto_url')
       .eq('id_cliente', id)
       .eq('ativo', true)
       .order('nome'),
@@ -253,6 +256,85 @@ export default async function PerfilClientePage({ params }: Props) {
         <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Clientes
       </Link>
 
+      {/* Celular (até 768px): a mesma tela do cliente no app. O resumo
+          financeiro, a linha do tempo e o histórico ficam no computador. */}
+      <div className="so-celular tela-app">
+        <div className="tela-app-perfil">
+          <span className="tela-app-avatar is-72">{iniciais(cliente.nome)}</span>
+          <strong>{cliente.nome}</strong>
+        </div>
+
+        <div className="tela-app-acoes" style={{ marginBottom: 'var(--space-4)' }}>
+          <a href={`tel:${cliente.telefone.replace(/\D/g, '')}`} className="tela-app-botao-suave">
+            <IconPhone style={{ width: 18, height: 18 }} /> Ligar
+          </a>
+          <a
+            href={`https://wa.me/55${cliente.telefone.replace(/\D/g, '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="tela-app-botao-suave"
+          >
+            <IconWhatsapp style={{ width: 18, height: 18 }} /> WhatsApp
+          </a>
+        </div>
+
+        {contexto.podeGerenciarAgenda && (
+          <Link href={`/lojista/agendamentos?novoAgendamentoTutor=${cliente.id_cliente}`} className="dash-app-botao">
+            <IconCalendar style={{ width: 18, height: 18 }} /> Novo agendamento
+          </Link>
+        )}
+
+        <div className="tela-app-cartao">
+          <div className="tela-app-info">
+            <IconPhone style={{ width: 16, height: 16 }} />
+            <span>Telefone</span>
+            <strong>{formatarTelefone(cliente.telefone)}</strong>
+          </div>
+          <div className="tela-app-info">
+            <IconMail style={{ width: 16, height: 16 }} />
+            <span>E-mail</span>
+            <strong>{cliente.email}</strong>
+          </div>
+        </div>
+
+        {podeEditar && (
+          <Link href={`/lojista/clientes?editar=${cliente.id_cliente}`} className="tela-app-botao is-largo">
+            <IconPencil style={{ width: 16, height: 16 }} /> Editar nome e telefone
+          </Link>
+        )}
+
+        <div className="dash-app-secao-topo">
+          <h2>Pets ({pets.length})</h2>
+          {podeEditar && (
+            <Link href={`/lojista/pets?novoPetTutor=${cliente.id_cliente}`} className="tela-app-botao is-compacto">
+              <IconPlus style={{ width: 16, height: 16 }} /> Novo pet
+            </Link>
+          )}
+        </div>
+        {pets.length === 0 ? (
+          <div className="dash-app-vazio">
+            <span className="dash-app-vazio-icone"><IconDog style={{ width: 26, height: 26 }} /></span>
+            <strong>Nenhum pet cadastrado</strong>
+          </div>
+        ) : (
+          <div className="dash-app-lista">
+            {pets.map(pet => (
+              <Link key={pet.id_pet} href={`/lojista/pets/${pet.id_pet}`} className="dash-app-linha">
+                <span className="tela-app-avatar is-40" style={pet.foto_url ? { backgroundImage: `url(${pet.foto_url})` } : undefined}>
+                  {!pet.foto_url && iniciais(pet.nome)}
+                </span>
+                <span className="dash-app-linha-info">
+                  <span className="dash-app-linha-pet">{pet.nome}</span>
+                  <span className="dash-app-linha-sub">{pet.raca}</span>
+                </span>
+                <IconChevronRight className="tela-app-seta" style={{ width: 18, height: 18 }} />
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="so-desktop">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
         <div>
           <h1 className="page-title">{cliente.nome}</h1>
@@ -568,6 +650,7 @@ export default async function PerfilClientePage({ params }: Props) {
             )}
           </div>
         )}
+      </div>
       </div>
     </>
   )
