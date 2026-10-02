@@ -12,6 +12,8 @@ import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
 import ConfirmacaoAgendamento from './ConfirmacaoAgendamento'
 import PagamentoEtapa, { PixDaLoja } from './PagamentoEtapa'
+import PlanoNoPedido, { useMeusBeneficios } from './PlanoNoPedido'
+import { coberturaDoPlano } from '@/lib/planos'
 import { FORMAS_LOJA_PADRAO, ROTULO_FORMA_PAGAMENTO, normalizarFormasLoja, type FormaPagamento, type FormasLoja } from '@/lib/pagamento'
 import TaxiDogEtapa, {
   ESTADO_TRANSPORTE_INICIAL,
@@ -134,7 +136,11 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const [transporte, setTransporte] = useState<EstadoTransporte>(ESTADO_TRANSPORTE_INICIAL)
   const escolhaTaxiDog = escolhaDoTransporte(transporte)
   // Depois de agendar: tela de confirmação (WhatsApp + link pra acompanhar).
-  const [agendado, setAgendado] = useState<{ id: string | null } | null>(null)
+  const [agendado, setAgendado] = useState<{
+    id: string | null
+    plano: { aplicados: number; valorAbatido: number } | null
+    aviso: string | null
+  } | null>(null)
   // Formas que a loja escolhida aceita e a escolhida pelo cliente.
   const [formasLoja, setFormasLoja] = useState<FormasLoja>(FORMAS_LOJA_PADRAO)
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(null)
@@ -293,7 +299,17 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   )
   const totalProdutos = itensCarrinhoProdutos.reduce((acc, i) => acc + i.produto.preco_venda * i.quantidade, 0)
   const valorTaxiDog = escolhaTaxiDog?.cotacao.valor ?? 0
-  const totalGeral = (servicoSel ? precoDoServico(servicoSel) : 0) + totalProdutos + valorTaxiDog
+  const totalSemPlano = (servicoSel ? precoDoServico(servicoSel) : 0) + totalProdutos + valorTaxiDog
+
+  // Plano do cliente (migration 075): saldo do pet nesta loja no período
+  // da data escolhida (antes de escolher a data, vale o período de hoje).
+  const planosDoPet = useMeusBeneficios(lojistaId, petId, data)
+  const coberturaServicos = coberturaDoPlano(planosDoPet, servicos.map(s => s.id_servico))
+  const cobertura = coberturaDoPlano(planosDoPet, servicoId ? [servicoId] : [])
+  const [usarPlano, setUsarPlano] = useState(true)
+  const vaiUsarPlano = usarPlano && cobertura.cobertos.length > 0
+  const descontoPlano = vaiUsarPlano && servicoSel ? precoDoServico(servicoSel) : 0
+  const totalGeral = totalSemPlano - descontoPlano
 
   function handleSubmit() {
     setError(null)
@@ -314,11 +330,17 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       return
     }
     formData.set('forma_pagamento', formaPagamento)
+    if (vaiUsarPlano) formData.set('usar_plano', '1')
 
     startTransition(async () => {
       const result = await criarAgendamentoAction(formData)
-      if (result?.error) setError(result.error)
-      else setAgendado({ id: typeof result?.id_agendamento === 'string' ? result.id_agendamento : null })
+      if (result?.error) { setError(result.error); return }
+      const plano = result && 'plano' in result ? result.plano : undefined
+      setAgendado({
+        id: result && 'id_agendamento' in result && typeof result.id_agendamento === 'string' ? result.id_agendamento : null,
+        plano: plano ? { aplicados: plano.aplicados, valorAbatido: plano.valorAbatido } : null,
+        aviso: plano?.aviso ?? null,
+      })
     })
   }
 
@@ -343,8 +365,10 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
           ]}
           data={data}
           hora={hora}
-          total={totalGeral}
+          total={Math.max(0, totalSemPlano - (agendado.plano?.valorAbatido ?? 0))}
           pagamento={formaPagamento ? { forma: formaPagamento, pixChave: formasLoja.pix_chave, pixNome: formasLoja.pix_nome } : null}
+          plano={agendado.plano}
+          aviso={agendado.aviso}
         />
       </div>
     )
@@ -476,7 +500,9 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
               <p className="text-sm text-muted">Carregando serviços...</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                {servicos.map(s => (
+                {servicos.map(s => {
+                  const noPlano = petId ? coberturaServicos.cobertos.find(c => c.id_servico === s.id_servico) : undefined
+                  return (
                   <div
                     key={s.id_servico}
                     onClick={() => setServicoId(s.id_servico)}
@@ -499,10 +525,16 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div className="font-semibold text-success">{formatarReais(precoDoServico(s))}</div>
                       <div className="text-xs text-muted">{s.duracao} min</div>
+                      {noPlano && (
+                        <div className="text-xs font-semibold" style={{ color: 'var(--primary-400)' }}>
+                          No seu plano · {noPlano.quantidade - noPlano.usados} de {noPlano.quantidade}
+                        </div>
+                      )}
                     </div>
                     {servicoId === s.id_servico && <span style={{ color: 'var(--primary-400)' }}><IconCheck style={{ width: 16, height: 16 }} /></span>}
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -616,6 +648,15 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
         <div className="card">
           <h3 style={{ marginBottom: 'var(--space-6)' }}>Confirmar Agendamento</h3>
 
+          <PlanoNoPedido
+            cobertura={cobertura}
+            nomes={servicoSel ? { [servicoSel.id_servico]: servicoSel.nome } : {}}
+            data={data}
+            usar={usarPlano}
+            onUsar={setUsarPlano}
+            disabled={isPending}
+          />
+
           <div
             style={{
               background: 'var(--gray-850)',
@@ -654,8 +695,15 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
               </div>
             )}
 
+            {descontoPlano > 0 && (
+              <div className="flex justify-between">
+                <span className="text-sm text-muted">Saldo do plano</span>
+                <span className="font-semibold" style={{ color: 'var(--primary-400)' }}>− {formatarReais(descontoPlano)}</span>
+              </div>
+            )}
+
             <div className="flex justify-between" style={{ paddingTop: 'var(--space-3)', borderTop: '1px solid var(--gray-800)' }}>
-              <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>Total</span>
+              <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{descontoPlano > 0 ? 'Total a pagar' : 'Total'}</span>
               <span className="font-semibold text-success">{formatarReais(totalGeral)}</span>
             </div>
             <div className="flex justify-between">

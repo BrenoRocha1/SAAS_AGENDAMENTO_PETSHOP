@@ -175,6 +175,36 @@ export interface PlanoDoPet {
   beneficios: { id_servico: string; servico: string; quantidade: number; usados: number }[]
 }
 
+// O que o plano cobre num pedido (um ou mais serviços na mesma data).
+export interface CoberturaServico { id_servico: string; plano: string; quantidade: number; usados: number }
+export interface CoberturaPlano {
+  // Serviços com saldo no período da data — o plano paga.
+  cobertos: CoberturaServico[]
+  // Estão no plano, mas os usos do período acabaram.
+  esgotados: CoberturaServico[]
+  // Planos ativos sem período aberto para a data (ela cai depois do atual).
+  semPeriodo: PlanoDoPet[]
+}
+
+export function coberturaDoPlano(planos: PlanoDoPet[] | null | undefined, idsServicos: string[]): CoberturaPlano {
+  const cobertos: CoberturaServico[] = []
+  const esgotados: CoberturaServico[] = []
+  const lista = planos ?? []
+  for (const id of idsServicos) {
+    // Mesmo critério do banco (fn_usar_beneficio): o plano com mais saldo.
+    const melhor = lista
+      .filter(p => p.id_periodo)
+      .flatMap(p => p.beneficios.filter(b => b.id_servico === id).map(b => ({
+        id_servico: id, plano: p.plano, quantidade: Number(b.quantidade), usados: Number(b.usados),
+      })))
+      .sort((x, y) => (y.quantidade - y.usados) - (x.quantidade - x.usados))[0]
+    if (!melhor) continue
+    if (melhor.quantidade > melhor.usados) cobertos.push(melhor)
+    else esgotados.push(melhor)
+  }
+  return { cobertos, esgotados, semPeriodo: lista.filter(p => !p.id_periodo) }
+}
+
 // fn_beneficio_do_agendamento
 export interface BeneficioDoAgendamento {
   usado: { id_utilizacao: string; plano: string; valor_abatido: number; em: string } | null

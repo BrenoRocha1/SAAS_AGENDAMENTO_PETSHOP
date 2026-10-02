@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { criarAgendamentoOnlineAction, atualizarClassificacaoPetAction, logoutAction } from '@/lib/actions'
+import PlanoNoPedido, { useMeusBeneficios } from './PlanoNoPedido'
+import { coberturaDoPlano } from '@/lib/planos'
 import { removerHorariosPassados } from '@/lib/agenda'
 import { rotuloUnidade } from '@/lib/produto'
 import { formatarCpf, formatarEnderecoLoja, formatarTelefone } from '@/lib/format'
@@ -206,7 +208,11 @@ export default function AgendamentoOnlineWizard({
   const [porteForm, setPorteForm] = useState<'Pequeno' | 'Médio' | 'Grande' | ''>('')
   const [salvandoClassificacao, setSalvandoClassificacao] = useState(false)
 
-  const [resultado, setResultado] = useState<{ ids: string[] } | null>(null)
+  const [resultado, setResultado] = useState<{
+    ids: string[]
+    plano: { aplicados: number; valorAbatido: number } | null
+    aviso: string | null
+  } | null>(null)
 
   const petSel = pets.find(p => p.id_pet === petId) ?? null
   const servicosCarrinho = servicos.filter(s => carrinho.includes(s.id_servico))
@@ -221,7 +227,20 @@ export default function AgendamentoOnlineWizard({
   )
   const totalProdutos = itensCarrinhoProdutos.reduce((acc, i) => acc + i.produto.preco_venda * i.quantidade, 0)
   const valorTaxiDog = escolhaTaxiDog?.cotacao.valor ?? 0
-  const totalGeral = valorTotal + totalProdutos + valorTaxiDog
+  const totalSemPlano = valorTotal + totalProdutos + valorTaxiDog
+
+  // Plano do cliente (migration 075): saldo do pet nesta loja no período
+  // da data escolhida — cobre os serviços do carrinho que estão no plano.
+  const planosDoPet = useMeusBeneficios(autenticado ? lojista.id : '', petId, data)
+  const cobertura = coberturaDoPlano(planosDoPet, carrinho)
+  const [usarPlano, setUsarPlano] = useState(true)
+  const vaiUsarPlano = usarPlano && cobertura.cobertos.length > 0
+  const descontoPlano = vaiUsarPlano
+    ? servicosCarrinho
+        .filter(s => cobertura.cobertos.some(c => c.id_servico === s.id_servico))
+        .reduce((acc, s) => acc + Number(precos[s.id_servico] ?? s.preco), 0)
+    : 0
+  const totalGeral = totalSemPlano - descontoPlano
 
   // Preço real (considerando variação por porte/raça) assim que há pet + carrinho
   useEffect(() => {
@@ -317,11 +336,16 @@ export default function AgendamentoOnlineWizard({
       return
     }
     fd.set('forma_pagamento', formaPagamento)
+    if (vaiUsarPlano) fd.set('usar_plano', '1')
 
     startTransition(async () => {
       const result = await criarAgendamentoOnlineAction(fd)
       if (result?.error) { setErro(result.error); return }
-      setResultado({ ids: result?.ids_agendamento ?? [] })
+      setResultado({
+        ids: result?.ids_agendamento ?? [],
+        plano: result?.plano ? { aplicados: result.plano.aplicados, valorAbatido: result.plano.valorAbatido } : null,
+        aviso: result?.plano?.aviso ?? null,
+      })
       setStep('feito')
     })
   }
@@ -682,6 +706,15 @@ export default function AgendamentoOnlineWizard({
             <ResumoTaxiDog escolha={escolhaTaxiDog} disponivel={taxidogDisponivel} />
           </div>
 
+          <PlanoNoPedido
+            cobertura={cobertura}
+            nomes={Object.fromEntries(servicosCarrinho.map(s => [s.id_servico, s.nome]))}
+            data={data}
+            usar={usarPlano}
+            onUsar={setUsarPlano}
+            disabled={isPending}
+          />
+
           <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 'var(--space-5)' }}>
             <div className="agenonline-resumo-row"><span className="text-muted">Pet</span><span>{petSel?.nome} — {petSel?.raca}</span></div>
             <div className="agenonline-resumo-row"><span className="text-muted">Tutor</span><span>{cliente.nome}</span></div>
@@ -693,7 +726,10 @@ export default function AgendamentoOnlineWizard({
             {totalProdutos > 0 && (
               <div className="agenonline-resumo-row"><span className="text-muted">Produtos</span><span>{formatarReais(totalProdutos)}</span></div>
             )}
-            <div className="agenonline-resumo-row"><span className="font-semibold">Total</span><span className="font-semibold text-success">{formatarReais(totalGeral)}</span></div>
+            {descontoPlano > 0 && (
+              <div className="agenonline-resumo-row"><span className="text-muted">Saldo do plano</span><span style={{ color: 'var(--primary-400)' }}>− {formatarReais(descontoPlano)}</span></div>
+            )}
+            <div className="agenonline-resumo-row"><span className="font-semibold">{descontoPlano > 0 ? 'Total a pagar' : 'Total'}</span><span className="font-semibold text-success">{formatarReais(totalGeral)}</span></div>
             <div className="agenonline-resumo-row">
               <span className="text-muted">Pagamento</span>
               <span>
@@ -775,8 +811,10 @@ export default function AgendamentoOnlineWizard({
           itens={itensResumo}
           data={data}
           hora={horaInicio}
-          total={totalGeral}
+          total={Math.max(0, totalSemPlano - (resultado.plano?.valorAbatido ?? 0))}
           pagamento={formaPagamento ? { forma: formaPagamento, pixChave: formasPagamento.pix_chave, pixNome: formasPagamento.pix_nome } : null}
+          plano={resultado.plano}
+          aviso={resultado.aviso}
         />
       )}
 

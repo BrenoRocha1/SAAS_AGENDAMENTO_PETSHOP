@@ -71,6 +71,8 @@ interface Props {
   taxidog: Record<string, TaxiDogCliente>
   // Pagamento de cada agendamento (migration 057) — vazio sem ela.
   pagamentos: Record<string, PagamentoCliente>
+  // Agendamentos cobertos pelo saldo do plano (migration 075): id → plano.
+  noPlano?: Record<string, string>
 }
 
 // Um card = um agendamento feito de uma vez. Um carrinho com vários
@@ -128,7 +130,7 @@ function montarVisitas(agendamentos: AgendamentoCliente[], taxidog: Props['taxid
 
 const primeiraHora = (v: Visita) => (v.itens.find(i => i.status !== 'Cancelado') ?? v.itens[0]).hr_agendamento
 
-export default function AgendamentosClienteList({ agendamentos, avaliacoes, produtosComprados, taxidog, pagamentos }: Props) {
+export default function AgendamentosClienteList({ agendamentos, avaliacoes, produtosComprados, taxidog, pagamentos, noPlano = {} }: Props) {
   const [cancelId, setCancelId] = useState<string | null>(null)
   const [motivo, setMotivo] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -208,7 +210,11 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
                 </div>
                 <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
                   {v.itens.length > 1 && <span className={`badge ${classeBadgeStatus(ag.status)}`}>{rotuloStatus(ag.status)}</span>}
-                  <span className="font-semibold text-success">{formatarReais(ag.valor)}</span>
+                  {noPlano[ag.id_agendamento] && ag.status !== 'Cancelado' ? (
+                    <span className="badge badge-aceito" title={`Coberto pelo plano ${noPlano[ag.id_agendamento]}`}>Pelo plano</span>
+                  ) : (
+                    <span className="font-semibold text-success">{formatarReais(ag.valor)}</span>
+                  )}
                 </div>
               </div>
 

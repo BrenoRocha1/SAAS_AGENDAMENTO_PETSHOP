@@ -14,6 +14,7 @@ export default async function AgendamentosPage() {
   const [
     { data: agendamentos }, { data: avaliacoesRaw }, { data: itensProdutoRaw },
     { data: corridasRaw }, { data: pagamentosRaw, error: pagamentosErro },
+    { data: noPlanoRaw },
   ] = await Promise.all([
     supabase
       .from('agendamento')
@@ -53,6 +54,9 @@ export default async function AgendamentosPage() {
       .from('agendamento')
       .select('id_agendamento, id_lojista, forma_pagamento, status_pagamento')
       .eq('id_cliente', user!.id),
+    // Agendamentos que usam o saldo do plano (migration 075) — tolerante:
+    // sem a migration vem erro e a lista segue igual.
+    supabase.rpc('fn_meus_agendamentos_no_plano'),
   ])
 
   const avaliacoes: Record<string, AvaliacaoExistente> = {}
@@ -106,6 +110,12 @@ export default async function AgendamentosPage() {
     }
   }
 
+  // id do agendamento → nome do plano que cobre o serviço.
+  const noPlano: Record<string, string> = {}
+  for (const l of (noPlanoRaw ?? []) as Array<{ id_agendamento: string; plano: string }>) {
+    noPlano[l.id_agendamento] = l.plano
+  }
+
   const pagamentos: Record<string, PagamentoCliente> = {}
   for (const l of linhasPagamento) {
     pagamentos[l.id_agendamento] = {
@@ -128,6 +138,7 @@ export default async function AgendamentosPage() {
         produtosComprados={produtosComprados}
         taxidog={taxidog}
         pagamentos={pagamentos}
+        noPlano={noPlano}
       />
     </>
   )

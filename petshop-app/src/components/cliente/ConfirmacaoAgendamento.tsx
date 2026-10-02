@@ -24,13 +24,20 @@ interface Props {
   total: number
   // Forma de pagamento escolhida (migration 057) — Pix mostra a chave.
   pagamento?: { forma: FormaPagamento; pixChave?: string | null; pixNome?: string | null } | null
+  // Saldo do plano usado neste pedido (migration 075) — `total` já vem sem ele.
+  plano?: { aplicados: number; valorAbatido: number } | null
+  // Algo não saiu como pedido (ex.: o plano não pôde ser usado).
+  aviso?: string | null
 }
 
 // Endereço do site só existe no navegador (no servidor fica vazio).
 const assinarNada = () => () => {}
 const origemDoSite = () => window.location.origin
 
-export default function ConfirmacaoAgendamento({ idAgendamento, loja, pet, itens, data, hora, total, pagamento }: Props) {
+export default function ConfirmacaoAgendamento({ idAgendamento, loja, pet, itens, data, hora, total, pagamento, plano, aviso }: Props) {
+  const usouPlano = !!plano && plano.aplicados > 0
+  // Tudo coberto pelo plano: não há o que pagar neste agendamento.
+  const nadaAPagar = usouPlano && total <= 0
   const origem = useSyncExternalStore(assinarNada, origemDoSite, () => '')
   const linkAcompanhar = idAgendamento ? `/acompanhar/${idAgendamento}` : null
   const quando = `${format(parseISO(data), 'dd/MM/yyyy', { locale: ptBR })} às ${hora.slice(0, 5)}`
@@ -40,8 +47,9 @@ export default function ConfirmacaoAgendamento({ idAgendamento, loja, pet, itens
     ...itens.map(i => `- ${i}`),
     `Pet: ${pet}`,
     `Data: ${quando}`,
+    ...(usouPlano ? [`Plano: ${formatarReais(plano.valorAbatido)} cobertos pelo saldo do plano`] : []),
     `Total: ${formatarReais(total)}`,
-    ...(pagamento ? [`Pagamento: ${ROTULO_FORMA_PAGAMENTO[pagamento.forma]}`] : []),
+    ...(pagamento && !nadaAPagar ? [`Pagamento: ${ROTULO_FORMA_PAGAMENTO[pagamento.forma]}`] : []),
   ]
   // Pra loja: o resumo de sempre + o link (fica no chat, o cliente acha depois).
   const mensagemLoja = [`Olá! Acabei de agendar em ${loja.nome}:`, ...resumo, ...linhaLink].join('\n')
@@ -62,7 +70,18 @@ export default function ConfirmacaoAgendamento({ idAgendamento, loja, pet, itens
       <p className="text-sm text-muted" style={{ marginBottom: pagamento ? 'var(--space-2)' : 'var(--space-6)' }}>
         {pet} · {quando} · {loja.nome}
       </p>
-      {pagamento && (
+      {aviso && (
+        <div className="alert alert-warning" style={{ marginBottom: 'var(--space-4)', textAlign: 'left' }}>
+          <span>{aviso}</span>
+        </div>
+      )}
+      {usouPlano && (
+        <p className="text-sm" style={{ margin: '0 0 var(--space-2)' }}>
+          Saldo do plano usado: <strong>{formatarReais(plano.valorAbatido)}</strong>
+          {nadaAPagar && ' — nada a pagar neste agendamento'}
+        </p>
+      )}
+      {pagamento && !nadaAPagar && (
         <div style={{ marginBottom: 'var(--space-6)', textAlign: 'left' }}>
           <p className="text-sm" style={{ textAlign: 'center', margin: '0 0 var(--space-3)' }}>
             Pagamento: <strong>{ROTULO_FORMA_PAGAMENTO[pagamento.forma]}</strong> · {formatarReais(total)}
@@ -70,6 +89,7 @@ export default function ConfirmacaoAgendamento({ idAgendamento, loja, pet, itens
           {pagamento.forma === 'pix' && <PixDaLoja chave={pagamento.pixChave ?? null} nome={pagamento.pixNome ?? null} />}
         </div>
       )}
+      {nadaAPagar && <div style={{ marginBottom: 'var(--space-4)' }} />}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {telefoneLoja && (

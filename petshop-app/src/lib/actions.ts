@@ -1569,6 +1569,36 @@ function faltaMigrationPagamento(error: { message: string; code?: string }): boo
 }
 const MSG_MIGRATION_PAGAMENTO = 'Para agendar com forma de pagamento, execute a migration 057_formas_pagamento.sql.'
 
+// Plano do cliente (migration 075): quem agenda pela própria conta usa o
+// saldo do plano nos agendamentos que acabou de criar. Serviço fora do
+// plano não é erro (segue cobrado); o resto vira aviso — o agendamento já
+// existe e continua valendo.
+type PlanoNoPedido = { aplicados: number; valorAbatido: number; aviso?: string }
+async function usarPlanoDoCliente(supabase: Awaited<ReturnType<typeof createClient>>, ids: string[]): Promise<PlanoNoPedido> {
+  let aplicados = 0
+  let valorAbatido = 0
+  const falhas: string[] = []
+  for (const id of ids) {
+    const { data, error } = await supabase.rpc('fn_usar_beneficio', { p_id_agendamento: id })
+    if (error) {
+      if (/não inclui|não tem plano ativo/.test(error.message)) continue
+      // "Não encontrado" para o próprio agendamento = função ainda sem a
+      // regra do cliente (antes da 075).
+      falhas.push(error.message.includes('Agendamento não encontrado')
+        ? 'para o cliente usar o plano ao agendar, execute a migration 075_cliente_usa_plano.sql'
+        : error.message)
+      continue
+    }
+    aplicados += 1
+    valorAbatido += Number((data as { valor_abatido?: number } | null)?.valor_abatido ?? 0)
+  }
+  return {
+    aplicados,
+    valorAbatido,
+    aviso: falhas.length > 0 ? `O agendamento foi criado, mas o plano não foi usado: ${falhas[0]}.` : undefined,
+  }
+}
+
 export async function criarAgendamentoAction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -1651,8 +1681,12 @@ export async function criarAgendamentoAction(formData: FormData) {
     return { error: devError('Erro ao criar agendamento. Tente novamente.', error.message) }
   }
 
+  const plano = formData.get('usar_plano') === '1' && typeof data === 'string'
+    ? await usarPlanoDoCliente(supabase, [data])
+    : undefined
+
   revalidatePath('/cliente/agendamentos')
-  return { success: true, id_agendamento: data }
+  return { success: true, id_agendamento: data, plano }
 }
 
 // Carrinho com um ou mais serviços, criado a partir do link público de
@@ -1661,7 +1695,7 @@ export async function criarAgendamentoAction(formData: FormData) {
 // serviço, encadeados, numa transação só (ou agenda tudo, ou nada).
 export async function criarAgendamentoOnlineAction(
   formData: FormData
-): Promise<{ error?: string; success?: boolean; ids_agendamento?: string[] }> {
+): Promise<{ error?: string; success?: boolean; ids_agendamento?: string[]; plano?: PlanoNoPedido }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || user.user_metadata?.role !== 'cliente') {
@@ -1748,8 +1782,13 @@ export async function criarAgendamentoOnlineAction(
     return { error: devError('Erro ao criar agendamento. Tente novamente.', error.message) }
   }
 
+  const ids = (data ?? []) as string[]
+  const plano = formData.get('usar_plano') === '1' && ids.length > 0
+    ? await usarPlanoDoCliente(supabase, ids)
+    : undefined
+
   revalidatePath('/cliente/agendamentos')
-  return { success: true, ids_agendamento: data ?? [] }
+  return { success: true, ids_agendamento: ids, plano }
 }
 
 // Agendamento manual criado pelo LOJISTA (walk-in / telefone) para um
@@ -2104,6 +2143,22 @@ export async function editarAgendamentoAction(
   // Loja: mensagem pronta pro cliente (a loja decide se manda).
   let whatsapp: string | null = null
   const ehCliente = user.user_metadata?.role === 'cliente'
+
+  // Cliente (migration 075): o agendamento usava o plano e a troca devolveu
+  // o uso ao saldo — tenta usar o saldo no serviço/pet novo, pra quem
+  // agenda pelo plano não passar a pagar só por trocar de serviço coberto.
+  let valorNovo = Number(r?.valor_novo ?? 0)
+  const avisos = [...(r?.avisos ?? [])]
+  if (ehCliente && avisos.some(a => a.includes('voltou ao saldo'))) {
+    const plano = await usarPlanoDoCliente(supabase, [idAgendamento])
+    if (plano.aplicados > 0) {
+      valorNovo = Math.max(0, valorNovo - plano.valorAbatido)
+      avisos.push('O saldo do seu plano foi usado no agendamento alterado — o serviço não é cobrado.')
+    } else {
+      avisos.push('O agendamento alterado não está coberto pelo saldo do seu plano e será cobrado normalmente.')
+    }
+  }
+
   if (!ehCliente) {
     const { data: ag } = await supabase
       .from('agendamento')
@@ -2133,8 +2188,8 @@ export async function editarAgendamentoAction(
   return {
     success: true,
     valorAnterior: Number(r?.valor_anterior ?? 0),
-    valorNovo: Number(r?.valor_novo ?? 0),
-    avisos: r?.avisos ?? [],
+    valorNovo,
+    avisos,
     whatsapp,
   }
 }
