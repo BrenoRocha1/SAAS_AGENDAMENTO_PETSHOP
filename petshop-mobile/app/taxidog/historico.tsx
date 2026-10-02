@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router'
 import { StyleSheet, Text, View } from 'react-native'
 import { format, subDays } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
+import { BarraTopo } from '@/components/BarraTopo'
 import { EmptyState } from '@/components/EmptyState'
 import { CorridaCard } from '@/components/CorridaCard'
 import { Card } from '@/components/Card'
@@ -26,7 +27,7 @@ export default function HistoricoScreen() {
   const total = concluidas.reduce((soma, c) => soma + c.valor, 0)
 
   return (
-    <ScreenContainer refreshing={loading} onRefresh={recarregar}>
+    <ScreenContainer refreshing={loading} onRefresh={recarregar} topo={<BarraTopo />}>
       <Text style={styles.title}>Histórico</Text>
       <Text style={styles.subtitle}>Últimos {DIAS_PARA_TRAS} dias</Text>
 

@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { format, addDays, subDays } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
+import { BarraTopo } from '@/components/BarraTopo'
 import { SectionHeader } from '@/components/SectionHeader'
 import { EmptyState } from '@/components/EmptyState'
 import { RotaCard } from '@/components/RotaCard'
@@ -38,7 +39,7 @@ export default function RotasScreen() {
   const abrir = (r: Rota) => router.push(`/taxidog/rota/${r.id_rota}` as never)
 
   return (
-    <ScreenContainer refreshing={loading} onRefresh={recarregar}>
+    <ScreenContainer refreshing={loading} onRefresh={recarregar} topo={<BarraTopo />}>
       <Text style={styles.title}>Rotas</Text>
       <Text style={styles.subtitle}>Hoje e os próximos {DIAS_A_FRENTE} dias</Text>
 

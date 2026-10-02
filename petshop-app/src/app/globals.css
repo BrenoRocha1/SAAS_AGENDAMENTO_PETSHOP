@@ -2271,9 +2271,82 @@ svg.is-da-visita { opacity: 0.45; }
 }
 .menu-mobile-botao {
   display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
-  border: 1px solid var(--gray-800); border-radius: var(--radius-md); background: transparent; color: var(--gray-100); cursor: pointer;
+  border: 0; border-radius: var(--radius-md); background: transparent; color: var(--gray-100); cursor: pointer;
 }
-.menu-mobile-titulo { font-weight: 700; color: var(--gray-100); }
+.menu-mobile-botao:active { background: var(--gray-850); }
+.menu-mobile-logo {
+  width: 28px; height: 28px; display: grid; place-items: center; flex-shrink: 0;
+  border-radius: var(--radius-md); background: var(--primary-600); color: #fff;
+}
+.menu-mobile-titulo { font-family: var(--font-heading); font-size: 1.125rem; font-weight: 800; letter-spacing: -0.02em; color: var(--gray-100); }
+.menu-mobile-titulo span { color: var(--primary-600); }
+
+/* ============================================================
+   DASHBOARD NO CELULAR — a mesma tela Início do app
+   (petshop-mobile/app/(tabs)/index.tsx). Até 768px some a versão de
+   computador (.dash-desktop) e entra esta (.dash-app).
+   ============================================================ */
+.dash-app, .modal-overlay.dash-app-modal { display: none; }
+.dash-app-header { margin-bottom: var(--space-5); }
+.dash-app-saudacao { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.3px; line-height: 1.2; color: var(--gray-100); overflow-wrap: anywhere; }
+.dash-app-data { margin-top: 2px; font-size: 1rem; color: var(--gray-400); }
+.dash-app-data::first-letter { text-transform: uppercase; }
+.dash-app-hoje { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--primary-600); cursor: pointer; }
+.dash-app-stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-3); }
+.dash-app-stat {
+  display: flex; flex-direction: column; gap: 6px; min-width: 0;
+  padding: var(--space-3); background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px;
+}
+.dash-app-stat-icone { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: rgba(79,70,229,0.1); color: var(--primary-600); }
+.dash-app-stat-icone.is-ambar { background: rgba(217,119,6,0.1); color: var(--accent-600); }
+.dash-app-stat strong { font-size: 1.375rem; font-weight: 700; letter-spacing: -0.2px; line-height: 1.2; color: var(--gray-100); }
+.dash-app-stat > span:last-child { font-size: 0.78rem; color: var(--gray-400); }
+.dash-app-resumo {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: var(--space-3) 0; margin-bottom: var(--space-6);
+  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px;
+}
+.dash-app-resumo > div { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+.dash-app-resumo i { width: 6px; height: 6px; border-radius: 50%; margin-bottom: 2px; }
+.dash-app-resumo strong { font-size: 1.125rem; font-weight: 700; line-height: 1.3; color: var(--gray-100); }
+.dash-app-resumo span { max-width: 100%; font-size: 11px; color: var(--gray-400); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-app-secao { margin-bottom: var(--space-4); }
+.dash-app-secao-topo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
+.dash-app-secao-topo h2 { font-family: var(--font-body); font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
+.dash-app-secao-topo a { font-size: 0.8125rem; font-weight: 600; color: var(--primary-600); }
+.dash-app-lista { display: flex; flex-direction: column; gap: var(--space-3); }
+.dash-app-linha {
+  display: flex; align-items: center; gap: var(--space-3); width: 100%;
+  padding: var(--space-4); text-align: left; font: inherit; cursor: pointer;
+  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px;
+}
+.dash-app-linha:active { background: var(--gray-850); }
+.dash-app-linha-hora { width: 48px; flex-shrink: 0; font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
+.dash-app-linha-divisor { width: 1px; align-self: stretch; background: var(--gray-800); }
+.dash-app-linha-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dash-app-linha-pet { font-size: 1rem; font-weight: 700; color: var(--gray-100); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-app-linha-sub, .dash-app-linha-meta { font-size: 0.78rem; color: var(--gray-400); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-app-linha-meta { display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+.dash-app-linha-meta svg { flex-shrink: 0; color: var(--gray-600); }
+.dash-app-vazio {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
+  padding: var(--space-6) var(--space-4); color: var(--gray-600);
+}
+.dash-app-vazio strong { font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); margin-top: var(--space-2); }
+.dash-app-vazio span { font-size: 0.875rem; color: var(--gray-400); }
+.dash-app-cta {
+  display: flex; align-items: center; justify-content: center; gap: var(--space-2); width: 100%;
+  padding: var(--space-3); border: 0; border-radius: 12px; background: var(--primary-50);
+  font: inherit; font-size: 0.8125rem; font-weight: 600; color: var(--primary-600); cursor: pointer; text-decoration: none;
+}
+.dash-app-cta:hover { color: var(--primary-600); }
+.dash-app-cta.is-novo { margin-bottom: var(--space-3); background: var(--primary-600); color: #fff; }
+.dash-app-cta.is-novo:hover { color: #fff; }
+@media (max-width: 768px) {
+  .dash-desktop { display: none; }
+  .dash-app { display: block; }
+  .modal-overlay.dash-app-modal { display: flex; }
+}
 .menu-mobile-fundo { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: 49; }
 
 /* ============================================================

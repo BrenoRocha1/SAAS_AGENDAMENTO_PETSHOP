@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useRouter } from 'expo-router'
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { BarraTopo } from '@/components/BarraTopo'
 import { SearchField } from '@/components/SearchField'
 import { PetRow } from '@/components/PetRow'
 import { EmptyState } from '@/components/EmptyState'
@@ -22,6 +23,7 @@ export default function PetsScreen() {
   if (!contexto?.podeGerenciarClientesPets) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
+        <BarraTopo />
         <View style={styles.header}>
           <Text style={styles.title}>Pets</Text>
         </View>
@@ -32,6 +34,7 @@ export default function PetsScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <BarraTopo />
       <View style={styles.header}>
         <Text style={styles.title}>Pets</Text>
         <SearchField value={busca} onChangeText={setBusca} placeholder="Buscar pet, raça ou tutor..." />

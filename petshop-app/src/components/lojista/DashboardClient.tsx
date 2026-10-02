@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
-import { classeBadgeStatus, corSolidaStatus, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
+import { classeBadgeStatus, corSolidaStatus, ehEtapaAtiva, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
+import { agoraBrasilHHMM } from '@/lib/agenda'
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
 import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
 import { BotaoEditar, EditarModal } from '@/components/EditarAgendamento'
@@ -41,6 +42,9 @@ import {
   IconAlert,
   IconInbox,
   IconStore,
+  IconPaw,
+  IconScissors,
+  IconClose,
 } from '@/components/icons'
 import NovoAgendamentoModal from './NovoAgendamentoModal'
 import BotaoCopiarLinkAgendamento from './BotaoCopiarLinkAgendamento'
@@ -121,6 +125,11 @@ type Selecionado =
 function parseDia(iso: string) {
   return parseISO(`${iso}T12:00:00`)
 }
+
+// Versão de celular: as 4 etapas do dia (Cancelado é desvio, fica fora) e
+// quantos "próximos" aparecem — iguais aos do app.
+const ETAPAS_DO_DIA = ['Pendente', 'Confirmado', 'Em andamento', 'Concluído'] as const
+const MAX_PROXIMOS_APP = 4
 
 function normaliza(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
@@ -301,6 +310,37 @@ export default function DashboardClient({
     router.refresh()
   }
 
+  // ── Celular: mesma tela Início do app (petshop-mobile/app/(tabs)/index) ──
+  // Resumo do dia por etapa e os próximos atendimentos ainda por fazer.
+  const [agoraHHMM] = useState(() => agoraBrasilHHMM())
+  const horaAgora = Number(agoraHHMM.slice(0, 2))
+  const saudacao = horaAgora < 12 ? 'Bom dia' : horaAgora < 18 ? 'Boa tarde' : 'Boa noite'
+  const contagemPorStatus = agenda.reduce<Record<string, number>>((acc, a) => {
+    acc[a.status] = (acc[a.status] ?? 0) + 1
+    return acc
+  }, {})
+  const proximosDoApp = agenda
+    .filter(a => ehEtapaAtiva(a.status) && (!isSelectedToday || a.hr_agendamento.slice(0, 5) >= agoraHHMM))
+    .slice(0, MAX_PROXIMOS_APP)
+
+  const avisosDeAcao = (
+    <>
+      {acaoAviso && (
+        <div className="alert alert-success" style={{ marginBottom: 'var(--space-4)' }}>
+          <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+          <span>{acaoAviso}</span>
+        </div>
+      )}
+
+      {acaoErro && (
+        <div className="alert alert-error" style={{ marginBottom: 'var(--space-6)' }}>
+          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+          <span>{acaoErro}</span>
+        </div>
+      )}
+    </>
+  )
+
   const diasSemana = useMemo(() => {
     if (viewMode === 'dia') return []
     const base = parseDia(aggBase)
@@ -311,6 +351,118 @@ export default function DashboardClient({
 
   return (
     <>
+      {/* Celular (até 768px): a mesma tela Início do app. O que não está
+          aqui (busca, planos, fila de espera, semana/mês) fica no menu. */}
+      <div className="dash-app">
+        <div className="dash-app-header">
+          <h1 className="dash-app-saudacao">{saudacao}, {nomeLoja}</h1>
+          <p className="dash-app-data">
+            {format(selectedDateObj, "EEEE, d 'de' MMMM", { locale: ptBR })}
+            {!isSelectedToday && (
+              <>
+                {' · '}
+                <button type="button" className="dash-app-hoje" onClick={() => irParaDia(hojeISO)}>voltar para hoje</button>
+              </>
+            )}
+          </p>
+        </div>
+
+        {avisosDeAcao}
+
+        <div className="dash-app-stats">
+          <div className="dash-app-stat">
+            <span className="dash-app-stat-icone"><IconCalendar style={{ width: 18, height: 18 }} /></span>
+            <strong>{stats.agendamentosHoje}</strong>
+            <span>Agendamentos hoje</span>
+          </div>
+          <div className="dash-app-stat">
+            <span className="dash-app-stat-icone is-ambar"><IconPaw style={{ width: 18, height: 18 }} /></span>
+            <strong>{stats.petsEmAtendimento.length}</strong>
+            <span>Pets na loja agora</span>
+          </div>
+        </div>
+
+        <div className="dash-app-resumo">
+          {ETAPAS_DO_DIA.map(etapa => (
+            <div key={etapa}>
+              <i style={{ background: corSolidaStatus(etapa) }} />
+              <strong>{contagemPorStatus[etapa] ?? 0}</strong>
+              <span>{rotuloStatus(etapa)}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="dash-app-secao">
+          <div className="dash-app-secao-topo">
+            <h2>Próximos agendamentos</h2>
+            <Link href="/lojista/agendamentos">Ver todos</Link>
+          </div>
+          {proximosDoApp.length === 0 ? (
+            <div className="dash-app-vazio">
+              <IconCheck style={{ width: 28, height: 28 }} />
+              <strong>Nada pendente por agora</strong>
+              <span>Os próximos agendamentos de hoje aparecem aqui.</span>
+            </div>
+          ) : (
+            <div className="dash-app-lista">
+              {proximosDoApp.map(item => (
+                <button
+                  type="button"
+                  key={item.id_agendamento}
+                  className="dash-app-linha"
+                  onClick={() => setSelecionado({ tipo: 'agenda', item })}
+                >
+                  <span className="dash-app-linha-hora">{item.hr_agendamento.slice(0, 5)}</span>
+                  <span className="dash-app-linha-divisor" />
+                  <span className="dash-app-linha-info">
+                    <span className="dash-app-linha-pet">{item.nome_pet}</span>
+                    <span className="dash-app-linha-sub">{item.nome_cliente}</span>
+                    <span className="dash-app-linha-meta">
+                      <IconScissors style={{ width: 13, height: 13 }} /> {item.nome_servico}
+                    </span>
+                  </span>
+                  <span className={`badge ${classeBadgeStatus(item.status)}`}>{rotuloStatus(item.status)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <button type="button" className="dash-app-cta is-novo" onClick={() => setModalAberto(true)}>
+          <IconPlus style={{ width: 18, height: 18 }} /> Novo agendamento
+        </button>
+        <Link href="/lojista/agendamentos" className="dash-app-cta">
+          <IconCalendar style={{ width: 18, height: 18 }} /> Ver todos os agendamentos de hoje
+          <IconChevronRight style={{ width: 16, height: 16 }} />
+        </Link>
+      </div>
+
+      {/* Celular: o detalhe do agendamento tocado abre por cima. */}
+      {selecionado && (
+        <div className="modal-overlay dash-app-modal" onClick={() => setSelecionado(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Agendamento</h3>
+              <button className="modal-close" onClick={() => setSelecionado(null)} aria-label="Fechar">
+                <IconClose style={{ width: 15, height: 15 }} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <DetalheAgendamento
+                selecionado={selecionado}
+                isPending={isPending}
+                onMudarStatus={mudarStatus}
+                dataAgenda={selectedDate}
+                hojeISO={hojeISO}
+                onRemarcar={alvo => { setRemarcando(alvo); setSelecionado(null) }}
+                onEditar={id => { setEditando(id); setSelecionado(null) }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="dash-desktop">
       <div className="page-header">
         <h1 className="page-title">Bem-vindo, {nomeLoja}</h1>
         <p className="page-subtitle">
@@ -348,19 +500,7 @@ export default function DashboardClient({
         </div>
       </div>
 
-      {acaoAviso && (
-        <div className="alert alert-success" style={{ marginBottom: 'var(--space-4)' }}>
-          <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-          <span>{acaoAviso}</span>
-        </div>
-      )}
-
-      {acaoErro && (
-        <div className="alert alert-error" style={{ marginBottom: 'var(--space-6)' }}>
-          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-          <span>{acaoErro}</span>
-        </div>
-      )}
+      {avisosDeAcao}
 
       {/* Cards de métricas — sempre referentes a hoje */}
       <div className="grid-4" style={{ marginBottom: 'var(--space-8)' }}>
@@ -596,6 +736,7 @@ export default function DashboardClient({
             )}
           </div>
         </div>
+      </div>
       </div>
 
       {modalAberto && (

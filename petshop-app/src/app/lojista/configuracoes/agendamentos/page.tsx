@@ -157,9 +157,9 @@ export default async function ConfiguracoesAgendamentosPage() {
             <div id="precos-estimados">
               <ConfigToggleCard
                 icone={<IconMoney style={{ width: 17, height: 17 }} />}
-                titulo="Preço do serviço é estimativa"
-                descricao="Avisa o cliente, no resumo do agendamento online, que o valor do serviço pode ser ajustado no dia (pelagem muito embolada, por exemplo). A taxa do TaxiDog não muda."
-                descricaoQuandoDesativado="Desativado, o preço mostrado no agendamento online é apresentado como valor final."
+                titulo="Avisar que o preço pode mudar no dia"
+                descricao="Ligado, o cliente vê um aviso antes de confirmar o agendamento online: o valor do banho ou da tosa é uma estimativa e a loja pode ajustar no dia, conforme a pelagem e as condições do pet. É só o aviso — nenhum preço muda sozinho."
+                descricaoQuandoDesativado="Desligado, o cliente não vê aviso nenhum: o preço do serviço aparece como valor final."
                 ativoInicial={!!estimadoRow?.precos_estimados}
                 action={alternarPrecosEstimadosAction}
               />

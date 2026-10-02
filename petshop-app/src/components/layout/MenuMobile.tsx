@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { IconMenu } from '@/components/icons'
+import { IconMenu, IconPaw } from '@/components/icons'
 
 // Até 1024px a barra lateral fica fora da tela (globals.css, "RESPONSIVO").
 // Esta barra do topo tem o botão que abre ela; o fundo escuro, o Esc e a
@@ -38,7 +38,11 @@ export function BarraMenuMobile({ aberto, onAbrir, onFechar, titulo = 'SAIP' }: 
         <button type="button" className="menu-mobile-botao" onClick={onAbrir} aria-label="Abrir menu" aria-expanded={aberto}>
           <IconMenu style={{ width: 22, height: 22 }} />
         </button>
-        <span className="menu-mobile-titulo">{titulo}</span>
+        {/* Mesma marca da barra do topo do app. */}
+        <span className="menu-mobile-logo"><IconPaw style={{ width: 15, height: 15 }} /></span>
+        <span className="menu-mobile-titulo">
+          SA<span>IP</span>{titulo.replace(/^SAIP/, '')}
+        </span>
       </div>
       {aberto && <div className="menu-mobile-fundo" onClick={onFechar} aria-hidden="true" />}
     </>

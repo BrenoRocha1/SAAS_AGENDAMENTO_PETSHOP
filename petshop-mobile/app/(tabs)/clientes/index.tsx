@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router'
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { BarraTopo } from '@/components/BarraTopo'
 import { SearchField } from '@/components/SearchField'
 import { ClienteRow } from '@/components/ClienteRow'
 import { EmptyState } from '@/components/EmptyState'
@@ -24,6 +25,7 @@ export default function ClientesScreen() {
   if (!contexto?.podeGerenciarClientesPets) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
+        <BarraTopo />
         <View style={styles.header}>
           <Text style={styles.title}>Clientes</Text>
         </View>
@@ -34,6 +36,7 @@ export default function ClientesScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <BarraTopo />
       <View style={styles.header}>
         <View style={styles.tituloLinha}>
           <Text style={styles.title}>Clientes</Text>

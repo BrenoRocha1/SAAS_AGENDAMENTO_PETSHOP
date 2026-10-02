@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { BarraTopo } from '@/components/BarraTopo'
 import { AppointmentRow } from '@/components/AppointmentRow'
 import { EmptyState } from '@/components/EmptyState'
 import { SemPermissao } from '@/components/SemPermissao'
@@ -25,6 +26,7 @@ export default function AgendamentosScreen() {
   if (!contexto?.podeGerenciarAgenda) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
+        <BarraTopo />
         <View style={styles.header}>
           <Text style={styles.title}>Agendamentos</Text>
         </View>
@@ -37,6 +39,7 @@ export default function AgendamentosScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <BarraTopo />
       <View style={styles.header}>
         <View style={styles.tituloLinha}>
           <Text style={styles.title}>Agendamentos</Text>

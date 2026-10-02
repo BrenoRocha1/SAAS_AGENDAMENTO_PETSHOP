@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router'
 import { StyleSheet, Text, View } from 'react-native'
 import { format, addDays, subDays } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
+import { BarraTopo } from '@/components/BarraTopo'
 import { SectionHeader } from '@/components/SectionHeader'
 import { EmptyState } from '@/components/EmptyState'
 import { CorridaCard } from '@/components/CorridaCard'
@@ -44,7 +45,7 @@ export default function CorridasScreen() {
   const abrir = (c: Corrida) => router.push(`/taxidog/corrida/${c.id_corrida}` as never)
 
   return (
-    <ScreenContainer refreshing={loading} onRefresh={recarregar}>
+    <ScreenContainer refreshing={loading} onRefresh={recarregar} topo={<BarraTopo />}>
       <Text style={styles.title}>Corridas</Text>
       <Text style={styles.subtitle}>Hoje e os próximos {DIAS_A_FRENTE} dias</Text>
 
