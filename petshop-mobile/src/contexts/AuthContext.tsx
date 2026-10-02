@@ -188,7 +188,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
+    // Sem internet (ou sessão já inválida no servidor) o Supabase devolve
+    // erro e mantém a sessão no aparelho — a pessoa ficaria presa logada.
+    // Sair daqui tem que funcionar sempre: apaga a sessão local.
+    if (error) await supabase.auth.signOut({ scope: 'local' })
   }
 
   function setModo(novo: ModoApp) {

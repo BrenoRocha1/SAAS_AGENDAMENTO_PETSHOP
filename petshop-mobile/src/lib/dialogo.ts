@@ -6,23 +6,40 @@ export interface BotaoDialogo {
   onPress?: () => void
 }
 
-// Pergunta de confirmação. No celular é o Alert nativo; no navegador
-// (`npx expo start --web`) o Alert do React Native não faz nada, então
-// cai no confirm do próprio navegador — que só tem OK/Cancelar: com mais
-// de uma ação, pergunta uma de cada vez, da principal (a última) para a
-// primeira.
+export interface PedidoDialogo {
+  titulo: string
+  mensagem: string
+  botoes: BotaoDialogo[]
+}
+
+// Quem desenha a pergunta no navegador (components/DialogoHost, montado
+// na raiz do app).
+let anfitriao: ((pedido: PedidoDialogo) => void) | null = null
+
+export function registrarDialogo(fn: (pedido: PedidoDialogo) => void): () => void {
+  anfitriao = fn
+  return () => {
+    if (anfitriao === fn) anfitriao = null
+  }
+}
+
+// Pergunta de confirmação. No celular é o Alert nativo. No navegador
+// (`npx expo start --web`) o Alert do React Native não faz nada, e a caixa
+// do próprio navegador (window.confirm) não serve: navegador embutido
+// costuma bloqueá-la e responder "não" sozinho — o botão parecia morto.
+// Por isso, no navegador, a pergunta é desenhada pelo app.
 export function dialogo(titulo: string, mensagem: string, botoes: BotaoDialogo[]): void {
   if (Platform.OS !== 'web') {
     Alert.alert(titulo, mensagem, botoes)
     return
   }
-  const acoes = botoes.filter(b => b.style !== 'cancel').reverse()
-  const voltar = botoes.find(b => b.style === 'cancel')
-  if (acoes.length === 0) {
-    window.alert(`${titulo}\n\n${mensagem}`)
-    voltar?.onPress?.()
+  if (anfitriao) {
+    anfitriao({ titulo, mensagem, botoes })
     return
   }
+  // Sem o anfitrião montado (não deveria acontecer): caixa do navegador.
+  const acoes = botoes.filter(b => b.style !== 'cancel').reverse()
+  const voltar = botoes.find(b => b.style === 'cancel')
   for (const acao of acoes) {
     const texto = acoes.length === 1 ? `${titulo}\n\n${mensagem}` : `${titulo}\n\n${mensagem}\n\nOK = ${acao.text}`
     if (window.confirm(texto)) {

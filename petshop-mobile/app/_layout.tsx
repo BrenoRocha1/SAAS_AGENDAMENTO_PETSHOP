@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { TaxiDogProvider } from '@/contexts/TaxiDogContext'
+import { DialogoHost } from '@/components/DialogoHost'
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
 
@@ -20,6 +21,8 @@ export default function RootLayout() {
           <TaxiDogProvider>
             <RootNavigator />
           </TaxiDogProvider>
+          {/* Perguntas de confirmação quando o app roda no navegador. */}
+          <DialogoHost />
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
