@@ -103,6 +103,16 @@ export function IconUserBadge(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function IconUserPlus(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="10" cy="8" r="3.2" />
+      <path d="M3.5 19c.9-3 3.2-4.5 6.5-4.5s5.6 1.5 6.5 4.5" />
+      <path d="M19 7v6M16 10h6" />
+    </svg>
+  )
+}
+
 export function IconStore(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>

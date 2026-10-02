@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { alterarStatusPlanoAction, salvarPlanoAction } from '@/lib/actions-planos'
 import { PERIODICIDADES, rotuloPeriodicidade, sufixoPeriodo, type Periodicidade, type Plano } from '@/lib/planos'
 import { formatarReais } from '@/lib/taxidog'
-import { IconAlert, IconClose, IconPencil, IconPlus, IconRepeat } from '@/components/icons'
+import { IconAlert, IconClose, IconInfo, IconMinus, IconPencil, IconPlus, IconRepeat } from '@/components/icons'
 
 export interface ServicoOpcao { id_servico: string; nome: string; preco: number; ativo: boolean }
 
@@ -29,7 +29,7 @@ export default function PlanosLista({ planos, servicos }: { planos: Plano[]; ser
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3" style={{ marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
+      <div className="flex items-center justify-between gap-3 so-desktop" style={{ marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
         <p className="text-sm text-muted" style={{ margin: 0 }}>
           Monte o plano com os serviços que você já cadastrou e quantas vezes cada um pode ser usado por período.
         </p>
@@ -44,6 +44,55 @@ export default function PlanosLista({ planos, servicos }: { planos: Plano[]; ser
         </div>
       )}
 
+      {/* Celular: a mesma aba "Planos" do app. */}
+      <div className="so-celular">
+        <div className="tela-app-pilha">
+          <button type="button" className="dash-app-botao" onClick={() => setEditando('novo')}>
+            <IconPlus style={{ width: 18, height: 18 }} /> Novo plano
+          </button>
+          {planos.length === 0 ? (
+            <div className="dash-app-vazio">
+              <span className="dash-app-vazio-icone"><IconRepeat style={{ width: 26, height: 26 }} /></span>
+              <strong>Nenhum plano cadastrado</strong>
+              <span>Um plano junta serviços por um valor fixo no período — ex.: 4 banhos por mês.</span>
+            </div>
+          ) : (
+            planos.map(p => (
+              <div key={p.id_plano} className="cartao-app">
+                <div className="linha-app">
+                  <button type="button" className="cresce-app" onClick={() => setEditando(p)} aria-label={`Editar plano ${p.nome}`}>
+                    <span className={`titulo-app ${p.ativo ? '' : 'is-apagado'}`}>{p.nome}</span>
+                    <span className="sub-app">
+                      {formatarReais(p.valor)}{sufixoPeriodo(p.periodicidade, p.intervalo_dias)}{p.ativo ? '' : ' · Desativado'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`switch ${p.ativo ? 'switch-on' : ''}`}
+                    onClick={() => alternar(p)}
+                    disabled={alternando === p.id_plano}
+                    role="switch"
+                    aria-checked={p.ativo}
+                    aria-label={`${p.nome} ativo`}
+                  >
+                    <span className="switch-thumb" />
+                  </button>
+                </div>
+                <span className="sub-app">{p.servicos.map(s => `${s.quantidade}× ${s.servico}`).join(' · ')}</span>
+                <span className="sub-app">
+                  {p.assinaturas_ativas} {p.assinaturas_ativas === 1 ? 'assinatura ativa' : 'assinaturas ativas'} · tocar no nome para editar
+                </span>
+              </div>
+            ))
+          )}
+          <div className="alert alert-info">
+            <IconInfo style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+            <span>Para vincular um plano a um pet, abra a ficha do pet e toque em Assinar plano.</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="so-desktop">
       {planos.length === 0 ? (
         <div className="empty-state card">
           <IconRepeat style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
@@ -90,6 +139,7 @@ export default function PlanosLista({ planos, servicos }: { planos: Plano[]; ser
           ))}
         </div>
       )}
+      </div>
 
       {editando && (
         <PlanoForm
@@ -132,6 +182,17 @@ function PlanoForm({ plano, servicos, onFechar, onSalvo }: {
       if (novo[id] != null) delete novo[id]
       else novo[id] = 1
       return novo
+    })
+  }
+
+  // Celular: "−" e "+" (zero tira o serviço do plano).
+  function mudarQuantidade(id: string, delta: number) {
+    setItens(prev => {
+      const nova = Math.max(0, Math.min(999, (prev[id] ?? 0) + delta))
+      const copia = { ...prev }
+      if (nova === 0) delete copia[id]
+      else copia[id] = nova
+      return copia
     })
   }
 
@@ -181,7 +242,25 @@ function PlanoForm({ plano, servicos, onFechar, onSalvo }: {
               {opcoes.length === 0 ? (
                 <p className="text-sm text-muted" style={{ margin: 0 }}>Cadastre serviços em Serviços antes de criar um plano.</p>
               ) : (
-                <div className="plano-form-servicos">
+                <>
+                <div className="so-celular">
+                  {opcoes.map(s => {
+                    const qtd = itens[s.id_servico] ?? 0
+                    return (
+                      <div key={s.id_servico} className="passo-app">
+                        <span className={qtd === 0 ? 'is-apagado' : ''}>{s.nome}</span>
+                        <button type="button" onClick={() => mudarQuantidade(s.id_servico, -1)} disabled={qtd === 0} aria-label={`Menos ${s.nome}`}>
+                          <IconMinus style={{ width: 18, height: 18 }} />
+                        </button>
+                        <b>{qtd}</b>
+                        <button type="button" onClick={() => mudarQuantidade(s.id_servico, 1)} aria-label={`Mais ${s.nome}`}>
+                          <IconPlus style={{ width: 18, height: 18 }} />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="plano-form-servicos so-desktop">
                   {opcoes.map(s => {
                     const marcado = itens[s.id_servico] != null
                     return (
@@ -211,6 +290,7 @@ function PlanoForm({ plano, servicos, onFechar, onSalvo }: {
                     )
                   })}
                 </div>
+                </>
               )}
             </div>
 
@@ -249,7 +329,7 @@ function PlanoForm({ plano, servicos, onFechar, onSalvo }: {
             )}
           </div>
           <div className="modal-footer">
-            <button type="button" className="btn btn-ghost" onClick={onFechar} disabled={isPending}>Cancelar</button>
+            <button type="button" className="btn btn-ghost so-desktop" onClick={onFechar} disabled={isPending}>Cancelar</button>
             <button type="submit" className="btn btn-primary" disabled={isPending || Object.keys(itens).length === 0}>
               {isPending ? 'Salvando...' : 'Salvar plano'}
             </button>

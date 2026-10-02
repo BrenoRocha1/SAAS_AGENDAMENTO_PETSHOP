@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   cadastrarFuncionarioAction,
@@ -8,6 +9,8 @@ import {
   excluirFuncionarioAction,
   toggleFuncionarioAction,
 } from '@/lib/actions'
+import { formatarTelefone, iniciais } from '@/lib/format'
+import { Confirmacao, LinhaSwitch } from '@/components/app/PecasApp'
 import {
   IconAlert,
   IconCalendar,
@@ -18,11 +21,15 @@ import {
   IconLock,
   IconPackage,
   IconPencil,
+  IconPhone,
   IconPlus,
   IconScissors,
   IconShield,
   IconTrash,
   IconUserBadge,
+  IconUserPlus,
+  IconUsers,
+  IconWhatsapp,
 } from '@/components/icons'
 
 interface Funcionario {
@@ -56,15 +63,29 @@ interface Props {
   donoConta: { nome: string; email: string } | null
   // ?editar=<id> (botão "Editar" do perfil do membro): abre já editando.
   editarInicial?: string
+  // Quem está logado — no celular ninguém edita a si mesmo por aqui (como no app).
+  idUsuario?: string
 }
 
-export default function FuncionariosList({ funcionarios: initial, podeConcederAcessoTotal, donoConta, editarInicial }: Props) {
+// Etiquetas do cartão no celular (as mesmas do app).
+function tagsDe(f: Funcionario): string[] {
+  if (f.acesso_total) return ['Administrador']
+  return [
+    f.pode_gerenciar_agenda && 'Agenda',
+    f.pode_gerenciar_clientes_pets && 'Clientes e pets',
+    f.pode_gerenciar_servicos && 'Serviços',
+    f.pode_gerenciar_produtos && 'Produtos',
+  ].filter(Boolean) as string[]
+}
+
+export default function FuncionariosList({ funcionarios: initial, podeConcederAcessoTotal, donoConta, editarInicial, idUsuario }: Props) {
   const editarInicialValido = editarInicial && initial.some(f => f.id_funcionario === editarInicial) ? editarInicial : null
   const [showModal, setShowModal] = useState(!!editarInicialValido)
   const [editId, setEditId] = useState<string | null>(editarInicialValido)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [confirmarExclusao, setConfirmarExclusao] = useState<Funcionario | null>(null)
+  const [pedirDesativar, setPedirDesativar] = useState<Funcionario | null>(null)
   const [isPending, startTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -147,6 +168,16 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
   const ativos = initial.filter(f => f.ativo)
   const inativos = initial.filter(f => !f.ativo)
 
+  // Celular (igual ao app): uma lista só, ativos primeiro e por nome.
+  const equipeCelular = [...initial].sort((a, b) => Number(b.ativo) - Number(a.ativo) || a.nome.localeCompare(b.nome))
+  // Administrador de outra pessoa só o dono edita; e ninguém se edita aqui.
+  const podeEditar = (f: Funcionario) => f.id_funcionario !== idUsuario && (podeConcederAcessoTotal || !f.acesso_total)
+
+  function pedirAlternar(f: Funcionario) {
+    if (f.ativo) setPedirDesativar(f)
+    else handleToggle(f.id_funcionario, true)
+  }
+
   return (
     <>
       {success && (
@@ -163,8 +194,87 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
         </div>
       )}
 
+      {/* Celular: a mesma tela de Funcionários do app. */}
+      <div className="so-celular">
+        <button type="button" className="dash-app-botao" onClick={openNew}>
+          <IconUserPlus style={{ width: 18, height: 18 }} /> Convidar funcionário
+        </button>
+        {initial.length === 0 ? (
+          <div className="dash-app-vazio">
+            <span className="dash-app-vazio-icone"><IconUsers style={{ width: 26, height: 26 }} /></span>
+            <strong>Nenhum funcionário cadastrado</strong>
+            <span>Convide a equipe — cada pessoa recebe um e-mail para criar a própria senha.</span>
+          </div>
+        ) : (
+          <div className="tela-app-pilha">
+            {equipeCelular.map(f => {
+              const tags = tagsDe(f)
+              const digitos = (f.telefone ?? '').replace(/\D/g, '')
+              return (
+                <div key={f.id_funcionario} className="cartao-app is-gap-3">
+                  <div className="linha-app">
+                    <Link href={`/lojista/equipe/${f.id_funcionario}`} className="linha-app" style={{ flex: 1 }}>
+                      <span className="tela-app-avatar">{iniciais(f.nome)}</span>
+                      <span className="cresce-app">
+                        <span className={`titulo-app is-uma ${f.ativo ? '' : 'is-apagado'}`}>{f.nome}</span>
+                        <span className="sub-app is-uma">{f.cargo || 'Equipe'}{f.ativo ? '' : ' · Desativado'}</span>
+                      </span>
+                    </Link>
+                    {podeEditar(f) && (
+                      <button
+                        type="button"
+                        className={`switch ${f.ativo ? 'switch-on' : ''}`}
+                        onClick={() => pedirAlternar(f)}
+                        disabled={isPending}
+                        role="switch"
+                        aria-checked={f.ativo}
+                        aria-label={`Acesso de ${f.nome}`}
+                      >
+                        <span className="switch-thumb" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="tags-app">
+                    {tags.length === 0 && !f.pode_taxidog && <span className="sub-app">Sem permissões de gestão</span>}
+                    {tags.map(t => <span key={t} className="tag-app">{t}</span>)}
+                    {f.pode_taxidog && <span className="tag-app is-taxi">TaxiDog</span>}
+                  </div>
+
+                  <span className="sub-app is-uma">{f.email}</span>
+                  <div className="linha-app">
+                    <a className="tela-app-botao" href={`tel:${digitos}`}>
+                      <IconPhone style={{ width: 16, height: 16 }} /> {formatarTelefone(f.telefone)}
+                    </a>
+                    {digitos.length >= 10 && (
+                      <a className="tela-app-botao" href={`https://wa.me/55${digitos}`} target="_blank" rel="noopener noreferrer">
+                        <IconWhatsapp style={{ width: 16, height: 16 }} /> WhatsApp
+                      </a>
+                    )}
+                  </div>
+                  {podeEditar(f) && (
+                    <button type="button" className="botao-app is-secundario is-compacto" onClick={() => openEdit(f)}>
+                      <IconPencil style={{ width: 16, height: 16 }} /> Editar dados e permissões
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+      {pedirDesativar && (
+        <Confirmacao
+          titulo="Desativar acesso"
+          mensagem={`${pedirDesativar.nome} deixa de conseguir entrar no painel e no app. Dá para reativar depois.`}
+          confirmar="Desativar"
+          onConfirmar={() => { handleToggle(pedirDesativar.id_funcionario, false); setPedirDesativar(null) }}
+          onFechar={() => setPedirDesativar(null)}
+        />
+      )}
+
       {/* Botão de adicionar */}
-      <div style={{ marginBottom: 'var(--space-6)' }}>
+      <div className="so-desktop" style={{ marginBottom: 'var(--space-6)' }}>
         <button
           onClick={openNew}
           className="btn btn-primary"
@@ -178,7 +288,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
           própria lojista, sempre "Administrador" e fixo (não dá pra
           editar nem excluir por aqui). */}
       {donoConta && (
-        <div style={{ marginBottom: 'var(--space-8)' }}>
+        <div className="so-desktop" style={{ marginBottom: 'var(--space-8)' }}>
           <h2 style={{
             fontSize: '1rem',
             fontWeight: 600,
@@ -194,6 +304,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
       )}
 
       {/* Lista de membros ativos */}
+      <div className="so-desktop">
       {ativos.length === 0 && inativos.length === 0 ? (
         <div className="empty-state card">
           <IconUserBadge style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
@@ -248,8 +359,9 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
           )}
         </>
       )}
+      </div>
 
-      {/* Modal de Criação / Edição */}
+      {/* Modal de Criação / Edição (no celular, o painel que sobe de baixo) */}
       {showModal && (
         <div
           className="modal-overlay"
@@ -267,7 +379,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
           }}
         >
           <div
-            className="card animate-slide-up"
+            className="card animate-slide-up folha-equipe"
             style={{
               width: '100%',
               maxWidth: 560,
@@ -275,7 +387,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
               overflow: 'auto',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-6)' }}>
+            <div className="folha-equipe-topo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-6)' }}>
               <h2 style={{
                 fontSize: '1.25rem',
                 fontWeight: 700,
@@ -285,8 +397,11 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
                 alignItems: 'center',
                 gap: 'var(--space-2)',
               }}>
-                {editId ? <IconPencil style={{ width: 18, height: 18 }} /> : <IconUserBadge style={{ width: 18, height: 18 }} />}
-                {editId ? 'Editar Membro' : 'Novo Membro'}
+                <span className="so-desktop" style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  {editId ? <IconPencil style={{ width: 18, height: 18 }} /> : <IconUserBadge style={{ width: 18, height: 18 }} />}
+                  {editId ? 'Editar Membro' : 'Novo Membro'}
+                </span>
+                <span className="so-celular-inline">{editId ? 'Editar funcionário' : 'Convidar funcionário'}</span>
               </h2>
               <button
                 onClick={closeModal}
@@ -335,6 +450,10 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
                 </div>
               )}
 
+              {editFunc && (
+                <p className="sub-app so-celular" style={{ margin: '0 0 var(--space-3)' }}>E-mail (login): {editFunc.email}</p>
+              )}
+
               <div className="form-grid-2">
                 <div className="form-group">
                   <label htmlFor="func-telefone" className="form-label form-label-required">Telefone</label>
@@ -362,11 +481,11 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
               </div>
 
 
-              <div className="separator" />
+              <div className="separator so-desktop" />
 
               <PermissoesCampos editFunc={editFunc} podeConcederAcessoTotal={podeConcederAcessoTotal} />
 
-              <div style={{
+              <div className="so-desktop" style={{
                 display: 'flex',
                 gap: 'var(--space-3)',
                 justifyContent: editFunc ? 'space-between' : 'flex-end',
@@ -400,6 +519,20 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
                       : (editId ? 'Salvar Alterações' : 'Convidar Membro')
                     }
                   </button>
+                </div>
+              </div>
+
+              {/* Celular: os botões do painel do app. */}
+              <div className="so-celular">
+                <div className="tela-app-pilha">
+                  <button type="submit" className="botao-app" disabled={isPending}>
+                    {isPending ? (editId ? 'Salvando...' : 'Convidando...') : (editId ? 'Salvar' : 'Enviar convite')}
+                  </button>
+                  {editFunc && (podeConcederAcessoTotal || !editFunc.acesso_total) && (
+                    <button type="button" className="botao-app is-perigo" onClick={() => setConfirmarExclusao(editFunc)} disabled={isPending}>
+                      <IconTrash style={{ width: 18, height: 18 }} /> Excluir da equipe
+                    </button>
+                  )}
                 </div>
               </div>
             </form>
@@ -555,6 +688,32 @@ function PermissoesCampos({
 
   return (
     <div style={{ marginBottom: 'var(--space-4)' }}>
+      {/* Celular: as mesmas chaves do app. Os valores saem pelos campos
+          escondidos do bloco do computador, logo abaixo. */}
+      <div className="so-celular">
+        <div className="tela-app-pilha">
+          <strong className="secao-app">O que pode fazer</strong>
+          {podeConcederAcessoTotal && (
+            <LinhaSwitch
+              titulo="Administrador"
+              detalhe="Acesso igual ao seu em tudo: relatórios, equipe, configurações."
+              valor={acessoTotal}
+              onChange={handleAcessoTotal}
+            />
+          )}
+          {!acessoTotal && (
+            <>
+              <LinhaSwitch titulo="Agenda" detalhe="Ver e mexer nos agendamentos." valor={podeAgenda} onChange={setPodeAgenda} />
+              <LinhaSwitch titulo="Clientes e pets" detalhe="Consultar clientes e pets." valor={podeClientesPets} onChange={setPodeClientesPets} />
+              <LinhaSwitch titulo="Serviços" detalhe="Cadastrar e alterar serviços e preços." valor={podeServicos} onChange={setPodeServicos} />
+              <LinhaSwitch titulo="Produtos" detalhe="Catálogo e estoque." valor={podeProdutos} onChange={setPodeProdutos} />
+            </>
+          )}
+          <LinhaSwitch titulo="TaxiDog" detalhe="Recebe corridas e rotas no app." valor={podeTaxidog} onChange={setPodeTaxidog} />
+        </div>
+      </div>
+
+      <div className="so-desktop">
       <h3 style={{
         fontSize: '0.95rem',
         fontWeight: 600,
@@ -753,6 +912,7 @@ function PermissoesCampos({
           </div>
         </div>
       </label>
+      </div>
     </div>
   )
 }

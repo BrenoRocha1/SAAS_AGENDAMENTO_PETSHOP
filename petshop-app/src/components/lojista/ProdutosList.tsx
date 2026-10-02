@@ -13,9 +13,20 @@ import {
   removerFotoProdutoAction,
 } from '@/lib/actions'
 import { otimizarImagemParaUpload } from '@/lib/imagem'
-import { UNIDADES_VENDA, rotuloUnidade, rotuloEstoque, statusEstoque, ROTULO_STATUS_ESTOQUE, BADGE_STATUS_ESTOQUE } from '@/lib/produto'
+import {
+  UNIDADES_VENDA,
+  rotuloUnidade,
+  rotuloEstoque,
+  rotuloEstoqueApp,
+  statusEstoque,
+  ROTULO_STATUS_ESTOQUE,
+  ROTULO_STATUS_ESTOQUE_APP,
+  BADGE_STATUS_ESTOQUE,
+} from '@/lib/produto'
 import CampoQuantidade from './CampoQuantidade'
 import AjustarEstoqueModal from './AjustarEstoqueModal'
+import ProdutoEstoqueFolha from './ProdutoEstoqueFolha'
+import { Confirmacao, Segmentos } from '@/components/app/PecasApp'
 import { formatarReais } from '@/lib/taxidog'
 import {
   IconAlert,
@@ -68,6 +79,8 @@ function textoMargem(preco: number, custo: number): string | null {
 
 type FotoPendente = { blob: Blob; extensao: string; preview: string }
 type ModoVisualizacao = 'lista' | 'grade'
+// Filtro da tela no celular (os mesmos três do app).
+type FiltroCelular = 'todos' | 'baixo' | 'inativos'
 
 const TIPOS_IMAGEM_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
 const IMAGEM_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB — mesmo limite do servidor
@@ -110,6 +123,14 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
 
   const [estoqueAlvo, setEstoqueAlvo] = useState<Produto | null>(null)
 
+  // Celular (igual ao app): filtro em botões e o painel do produto com as
+  // abas "Estoque" e "Dados do produto".
+  const [filtroCelular, setFiltroCelular] = useState<FiltroCelular>('todos')
+  const [folhaEstoqueId, setFolhaEstoqueId] = useState<string | null>(null)
+  // Trocou de aba dentro do painel: a outra aba abre sem subir de novo.
+  const [trocouAba, setTrocouAba] = useState(false)
+  const [pedirDesativar, setPedirDesativar] = useState<Produto | null>(null)
+
   const [confirmarExclusao, setConfirmarExclusao] = useState<Produto | null>(null)
   const [excluirErro, setExcluirErro] = useState<string | null>(null)
   const [excluindoId, setExcluindoId] = useState<string | null>(null)
@@ -145,6 +166,19 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
     for (const c of categorias) mapa.set(c.id_categoria, c.nome)
     return mapa
   }, [categorias])
+
+  const produtosCelular = useMemo(() => {
+    const termo = busca.trim().toLowerCase()
+    return produtos
+      .filter(p => {
+        if (termo && !p.nome.toLowerCase().includes(termo)) return false
+        if (filtroCelular === 'inativos') return p.status === 'Inativo'
+        if (filtroCelular === 'baixo') return p.status === 'Ativo' && statusEstoque(p.estoque_atual, p.estoque_minimo) !== 'em_estoque'
+        return true
+      })
+      .sort((a, b) => a.nome.localeCompare(b.nome))
+  }, [produtos, busca, filtroCelular])
+  const folhaEstoque = folhaEstoqueId ? produtos.find(p => p.id_produto === folhaEstoqueId) ?? null : null
 
   function handleAlternarStatus(p: Produto) {
     setAlternarErro(null)
@@ -358,7 +392,29 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3" style={{ marginBottom: 'var(--space-5)', flexWrap: 'wrap' }}>
+      {/* Celular: a mesma tela de Produtos do app. */}
+      <div className="so-celular">
+        <div className="tela-app-pilha is-topo">
+          <button type="button" className="dash-app-botao" onClick={() => { setTrocouAba(false); abrirNovo() }}>
+            <IconPlus style={{ width: 18, height: 18 }} /> Novo produto
+          </button>
+          <div className="tela-app-busca">
+            <IconSearch />
+            <input placeholder="Buscar produto..." aria-label="Buscar produto" value={busca} onChange={e => setBusca(e.target.value)} />
+          </div>
+          <Segmentos
+            valor={filtroCelular}
+            onChange={setFiltroCelular}
+            opcoes={[
+              { valor: 'todos', rotulo: 'Todos' },
+              { valor: 'baixo', rotulo: 'Estoque baixo' },
+              { valor: 'inativos', rotulo: 'Inativos' },
+            ]}
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-3 so-desktop" style={{ marginBottom: 'var(--space-5)', flexWrap: 'wrap' }}>
         <div className="flex items-center gap-3 produtos-filtros">
           <div className="dash-search">
             <IconSearch />
@@ -421,6 +477,45 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
         </div>
       )}
 
+      <div className="so-celular">
+        {produtosCelular.length === 0 ? (
+          <div className="dash-app-vazio">
+            <span className="dash-app-vazio-icone"><IconPackage style={{ width: 26, height: 26 }} /></span>
+            <strong>{produtos.length === 0 ? 'Nenhum produto cadastrado' : 'Nenhum produto encontrado'}</strong>
+            <span>{produtos.length === 0 ? 'Cadastre o primeiro produto em "Novo produto".' : 'Tente outro nome ou outro filtro.'}</span>
+          </div>
+        ) : (
+          <div className="dash-app-lista">
+            {produtosCelular.map(p => {
+              const st = statusEstoque(p.estoque_atual, p.estoque_minimo)
+              const categoria = p.id_categoria ? nomeCategoriaPorId.get(p.id_categoria) : null
+              return (
+                <button
+                  key={p.id_produto}
+                  type="button"
+                  className="dash-app-linha"
+                  onClick={() => { setTrocouAba(false); setFolhaEstoqueId(p.id_produto) }}
+                >
+                  <span className="dash-app-linha-info">
+                    <span className={`dash-app-linha-pet is-duas ${p.status === 'Inativo' ? 'is-apagado' : ''}`}>{p.nome}</span>
+                    <span className="dash-app-linha-sub is-media is-solta">
+                      {formatarReais(p.preco_venda)} / {rotuloUnidade(p.unidade_venda).toLowerCase()}
+                      {categoria ? ` · ${categoria}` : ''}
+                      {p.status === 'Inativo' ? ' · Inativo' : ''}
+                    </span>
+                  </span>
+                  <span className="tela-app-lateral">
+                    <strong>{rotuloEstoqueApp(p.estoque_atual, p.unidade_venda)}</strong>
+                    <span className={`dash-app-selo is-${st}`}>{ROTULO_STATUS_ESTOQUE_APP[st]}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="so-desktop">
       {produtos.length === 0 ? (
         <div className="empty-state card">
           <IconPackage style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
@@ -595,13 +690,18 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
           </table>
         </div>
       )}
+      </div>
 
-      {/* Modal: criar/editar produto */}
+      {/* Modal: criar/editar produto. No celular é a aba "Dados do produto"
+          do painel do app: leva o nome do produto e as duas abas em cima. */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className={`modal ${trocouAba ? 'sem-subir' : ''}`} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">{editando ? 'Editar Produto' : 'Novo Produto'}</h3>
+              <h3 className="modal-title">
+                <span className="so-desktop">{editando ? 'Editar Produto' : 'Novo Produto'}</span>
+                <span className="so-celular-inline">{editando?.nome ?? 'Novo produto'}</span>
+              </h3>
               <button className="modal-close" onClick={() => setShowModal(false)} aria-label="Fechar">
                 <IconClose style={{ width: 15, height: 15 }} />
               </button>
@@ -609,6 +709,20 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
 
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
+                {editando && (
+                  <div className="so-celular">
+                    <Segmentos
+                      valor="dados"
+                      onChange={v => {
+                        if (v !== 'estoque') return
+                        setShowModal(false)
+                        setTrocouAba(true)
+                        setFolhaEstoqueId(editando.id_produto)
+                      }}
+                      opcoes={[{ valor: 'estoque', rotulo: 'Estoque' }, { valor: 'dados', rotulo: 'Dados do produto' }]}
+                    />
+                  </div>
+                )}
                 {error && (
                   <div className="alert alert-error">
                     <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{error}</span>
@@ -673,6 +787,10 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                         <option key={c.id_categoria} value={c.id_categoria}>{c.nome}</option>
                       ))}
                     </select>
+                    {/* No celular não há a barra de filtros: as categorias se gerenciam daqui. */}
+                    <button type="button" className="tela-app-link so-celular" onClick={() => { setCategoriaErro(null); setGerenciarCategorias(true) }}>
+                      Gerenciar categorias
+                    </button>
                   </div>
                   <div className="form-group">
                     <label htmlFor="unidade_venda" className="form-label form-label-required">Unidade de venda</label>
@@ -768,7 +886,18 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
               </div>
 
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
+                {editando && (
+                  <span className="so-celular">
+                    <button
+                      type="button"
+                      className="btn btn-full tela-app-perigo"
+                      onClick={() => { setShowModal(false); handleExcluir(editando) }}
+                    >
+                      <IconTrash style={{ width: 15, height: 15 }} /> Excluir produto
+                    </button>
+                  </span>
+                )}
+                <button type="button" className="btn btn-secondary so-desktop" onClick={() => setShowModal(false)}>
                   Cancelar
                 </button>
                 <button
@@ -794,6 +923,39 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
             setProdutos(prev => prev.map(x => x.id_produto === estoqueAlvo.id_produto ? { ...x, estoque_atual: novoEstoque } : x))
             setEstoqueAlvo(null)
           }}
+        />
+      )}
+
+      {/* Celular: aba "Estoque" do painel do produto. */}
+      {folhaEstoque && (
+        <ProdutoEstoqueFolha
+          key={folhaEstoque.id_produto}
+          produto={folhaEstoque}
+          semSubir={trocouAba}
+          ocupado={alternandoId === folhaEstoque.id_produto}
+          onFechar={() => setFolhaEstoqueId(null)}
+          onAbrirDados={() => { setFolhaEstoqueId(null); setTrocouAba(true); abrirEditar(folhaEstoque) }}
+          onMovimentado={novoEstoque => {
+            setProdutos(prev => prev.map(x => x.id_produto === folhaEstoque.id_produto ? { ...x, estoque_atual: novoEstoque } : x))
+            setFolhaEstoqueId(null)
+          }}
+          onPedirStatus={() => {
+            if (folhaEstoque.status === 'Ativo') {
+              setPedirDesativar(folhaEstoque)
+              return
+            }
+            handleAlternarStatus(folhaEstoque)
+            setFolhaEstoqueId(null)
+          }}
+        />
+      )}
+      {pedirDesativar && (
+        <Confirmacao
+          titulo="Desativar produto"
+          mensagem={`${pedirDesativar.nome} deixa de aparecer para venda no agendamento online. Continuar?`}
+          confirmar="Desativar"
+          onConfirmar={() => { handleAlternarStatus(pedirDesativar); setPedirDesativar(null); setFolhaEstoqueId(null) }}
+          onFechar={() => setPedirDesativar(null)}
         />
       )}
 

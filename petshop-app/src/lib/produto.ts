@@ -59,6 +59,12 @@ export function rotuloEstoque(quantidade: number, unidade: string): string {
   return `${formatarQuantidade(quantidade)} ${nome ?? unidade}`
 }
 
+// Como o app escreve nas telas do celular: vírgula decimal ("12,5 kg") e
+// "Em estoque" em minúscula.
+export function rotuloEstoqueApp(quantidade: number, unidade: string): string {
+  return rotuloEstoque(quantidade, unidade).replace('.', ',')
+}
+
 export type StatusEstoque = 'zerado' | 'baixo' | 'em_estoque'
 
 // estoque_minimo = 0 é "sem limite definido" — nunca cai em "baixo",
@@ -73,6 +79,12 @@ export const ROTULO_STATUS_ESTOQUE: Record<StatusEstoque, string> = {
   zerado: 'Zerado',
   baixo: 'Baixo',
   em_estoque: 'Em Estoque',
+}
+
+export const ROTULO_STATUS_ESTOQUE_APP: Record<StatusEstoque, string> = {
+  zerado: 'Zerado',
+  baixo: 'Baixo',
+  em_estoque: 'Em estoque',
 }
 
 export const BADGE_STATUS_ESTOQUE: Record<StatusEstoque, string> = {

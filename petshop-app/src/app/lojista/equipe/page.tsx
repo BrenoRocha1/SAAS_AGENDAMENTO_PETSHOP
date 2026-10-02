@@ -43,6 +43,7 @@ export default async function EquipePage({ searchParams }: { searchParams: Promi
         funcionarios={funcionarios ?? []}
         podeConcederAcessoTotal={ehResponsavelPelaConta(contexto)}
         donoConta={donoLojista ? { nome: donoLojista.nome_loja, email: donoLojista.email } : null}
+        idUsuario={user!.id}
         editarInicial={editar}
       />
     </>
