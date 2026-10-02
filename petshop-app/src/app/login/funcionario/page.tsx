@@ -34,7 +34,7 @@ export default function LoginFuncionarioPage() {
       if (res?.error) {
         setError(res.error)
       } else {
-        router.push('/funcionario/dashboard')
+        router.push('/lojista/agendamentos')
         router.refresh()
       }
     })
@@ -53,7 +53,7 @@ export default function LoginFuncionarioPage() {
             <IconStore style={{ width: 24, height: 24 }} />
           </div>
           <h1 style={{ fontSize: '1.5rem', marginBottom: 'var(--space-1)' }}>Login da Equipe</h1>
-          <p className="text-muted">Acesso rpido para funcionrios</p>
+          <p className="text-muted">Acesso rápido para funcionários</p>
         </div>
 
         {error && (
@@ -69,10 +69,10 @@ export default function LoginFuncionarioPage() {
           </div>
           
           <div className="form-group">
-            <label htmlFor="codigo" className="form-label">Cdigo de Acesso</label>
+            <label htmlFor="codigo" className="form-label">Código de Acesso</label>
             <input type="text" id="codigo" name="codigo" className="form-input" required placeholder="000000" maxLength={6} style={{ letterSpacing: '0.25em', fontSize: '1.25rem', textAlign: 'center' }} />
             <p className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>
-              Peca o cdigo de 6 dgitos para o administrador da loja.
+              Peça o código de 6 dígitos para o administrador da loja.
             </p>
           </div>
 

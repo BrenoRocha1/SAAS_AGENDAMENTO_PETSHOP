@@ -3446,11 +3446,11 @@ export async function gerarCodigoLoginFuncionarioAction() {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: 'No autenticado' }
+    if (!user) return { error: 'Não autenticado' }
 
     const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
     if (!contexto || !ehResponsavelPelaConta(contexto)) {
-      return { error: 'Apenas o lojista titular pode gerar o cdigo de login.' }
+      return { error: 'Apenas o lojista titular pode gerar o código de login.' }
     }
 
     const { data, error } = await supabase.rpc('fn_gerar_codigo_login_funcionario', {
@@ -3458,12 +3458,12 @@ export async function gerarCodigoLoginFuncionarioAction() {
     })
 
     if (error) {
-      return { error: devError('Erro ao gerar cdigo.', error.message) }
+      return { error: devError('Erro ao gerar código.', error.message) }
     }
 
     return { success: true, ...data }
   } catch (error: any) {
-    return { error: 'Erro de conexo ao gerar cdigo' }
+    return { error: 'Erro de conexão ao gerar código' }
   }
 }
 
@@ -3477,7 +3477,7 @@ export async function loginFuncionarioCodigoAction(email: string, codigo: string
     const adminClient = createAdminClient()
     if (!adminClient) return { error: 'Erro de servidor' }
 
-    // 1. Achar o funcionrio
+    // 1. Achar o funcionário
     const { data: func } = await adminClient
       .from('funcionario')
       .select('id_funcionario, id_lojista')
@@ -3485,9 +3485,9 @@ export async function loginFuncionarioCodigoAction(email: string, codigo: string
       .eq('ativo', true)
       .maybeSingle()
 
-    if (!func) return { error: 'Funcionrio no encontrado ou inativo.' }
+    if (!func) return { error: 'Funcionário não encontrado ou inativo.' }
 
-    // 2. Validar o cdigo do lojista
+    // 2. Validar o código do lojista
     const { data: lojista } = await adminClient
       .from('lojista')
       .select('codigo_login_funcionario, codigo_login_expiracao')
@@ -3495,14 +3495,14 @@ export async function loginFuncionarioCodigoAction(email: string, codigo: string
       .maybeSingle()
 
     if (!lojista || !lojista.codigo_login_funcionario || lojista.codigo_login_funcionario !== codigo) {
-      return { error: 'Cdigo invlido.' }
+      return { error: 'Código inválido.' }
     }
 
     if (new Date(lojista.codigo_login_expiracao).getTime() < Date.now()) {
-      return { error: 'Cdigo expirado. Pea ao lojista um novo cdigo.' }
+      return { error: 'Código expirado. Peça ao lojista um novo código.' }
     }
 
-    // 3. Resetar senha do funcionrio
+    // 3. Resetar senha do funcionário
     const randomPassword = require('crypto').randomBytes(24).toString('hex') + 'A1!'
     const { error: updateError } = await adminClient.auth.admin.updateUserById(func.id_funcionario, {
       password: randomPassword
@@ -3520,7 +3520,7 @@ export async function loginFuncionarioCodigoAction(email: string, codigo: string
     })
 
     if (loginError) {
-      return { error: 'Erro ao iniciar sesso.' }
+      return { error: 'Erro ao iniciar sessão.' }
     }
 
     return { success: true }
