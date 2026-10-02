@@ -79,6 +79,19 @@ async function obterOrigin() {
   return `${protocolo}://${host}`
 }
 
+// O PKCE code verifier do login com Google fica num cookie do endereço
+// onde o fluxo começou — o /auth/callback tem que voltar pro MESMO
+// endereço, senão o cookie não existe lá ("PKCE code verifier not found").
+// Por isso o login usa o endereço da própria requisição, nunca o
+// NEXT_PUBLIC_SITE_URL (que pode apontar pra produção rodando em localhost).
+async function obterOriginDaRequisicao() {
+  const h = await headers()
+  const host = (h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000').split(',')[0].trim()
+  const local = host.startsWith('localhost') || host.startsWith('127.0.0.1')
+  const protocolo = (h.get('x-forwarded-proto') ?? (local ? 'http' : 'https')).split(',')[0].trim()
+  return `${protocolo}://${host}`
+}
+
 // ============================================================
 // Google OAuth via Server Action — PKCE code verifier armazenado
 // via Set-Cookie no servidor para que o /auth/callback consiga
@@ -86,7 +99,7 @@ async function obterOrigin() {
 // ============================================================
 export async function getGoogleOAuthUrlAction(role?: string): Promise<{ error?: string; url?: string }> {
   const supabase = await createClient()
-  const origin = await obterOrigin()
+  const origin = await obterOriginDaRequisicao()
   
   const callbackUrl = role 
     ? `${origin}/auth/callback?role=${role}`

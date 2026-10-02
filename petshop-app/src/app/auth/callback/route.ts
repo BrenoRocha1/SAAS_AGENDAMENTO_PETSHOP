@@ -1,5 +1,4 @@
 import { createServerClient } from '@supabase/ssr'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
@@ -17,10 +16,10 @@ import { NextResponse } from 'next/server'
 // - Não tem → redireciona pra /completar-cadastro/{role}
 
 // ── Helper: origin correto pra Vercel (respeita x-forwarded-host) ─────────
+// Sempre o endereço desta requisição, nunca o NEXT_PUBLIC_SITE_URL: os
+// cookies da sessão são gravados aqui, então redirecionar pra outro
+// endereço (ex.: produção, rodando em localhost) perde a sessão.
 function resolveOrigin(request: Request, fallbackOrigin: string): string {
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '')
-  }
   const forwardedHost = request.headers.get('x-forwarded-host')
   if (forwardedHost) {
     const proto = request.headers.get('x-forwarded-proto') ?? 'https'
@@ -99,17 +98,12 @@ export async function GET(request: Request) {
     return NextResponse.redirect(url.toString())
   }
 
-  // Usar admin client para queries sem depender de RLS
-  const adminClient = createAdminClient()
-  if (!adminClient) {
-    const url = new URL(`${origin}/login`)
-    url.searchParams.set('error', 'no_admin_key')
-    return NextResponse.redirect(url.toString())
-  }
-
-  // Se a consulta falhar (ex.: service role key inválida), não dá pra
-  // concluir que o usuário é novo — mandar pro "completar cadastro" faria
-  // um lojista já cadastrado se cadastrar de novo como cliente.
+  // As consultas abaixo usam a sessão recém-criada do próprio usuário:
+  // o RLS já deixa cada um ler o próprio perfil ("select proprio" em
+  // lojista, funcionario e cliente), então o login não depende da
+  // service role key. Se a consulta falhar, não dá pra concluir que o
+  // usuário é novo — mandar pro "completar cadastro" faria um lojista já
+  // cadastrado se cadastrar de novo como cliente.
   const erroPerfil = (detalhe: string) => {
     console.error('[auth/callback] erro ao buscar perfil:', detalhe)
     const url = new URL(`${origin}/login`)
@@ -118,7 +112,7 @@ export async function GET(request: Request) {
   }
 
   // Verificar lojista
-  const { data: lojista, error: erroLojista } = await adminClient
+  const { data: lojista, error: erroLojista } = await supabase
     .from('lojista')
     .select('id_lojista')
     .eq('id_lojista', user.id)
@@ -129,7 +123,7 @@ export async function GET(request: Request) {
   }
 
   // Verificar funcionário
-  const { data: funcionario, error: erroFuncionario } = await adminClient
+  const { data: funcionario, error: erroFuncionario } = await supabase
     .from('funcionario')
     .select('id_funcionario')
     .eq('id_funcionario', user.id)
@@ -141,7 +135,7 @@ export async function GET(request: Request) {
   }
 
   // Verificar cliente
-  const { data: cliente, error: erroCliente } = await adminClient
+  const { data: cliente, error: erroCliente } = await supabase
     .from('cliente')
     .select('id_cliente')
     .eq('id_cliente', user.id)
