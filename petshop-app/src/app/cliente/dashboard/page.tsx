@@ -3,8 +3,9 @@ import { obterUsuario } from '@/lib/supabase/usuario'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { hojeBrasilISO } from '@/lib/agenda'
-import { IconCalendar, IconDog, IconMoney, IconRepeat, IconScissors, IconStore } from '@/components/icons'
+import { agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
+import { formatarReais } from '@/lib/taxidog'
+import { IconCalendar, IconDog, IconMoney, IconPaw, IconPlus, IconRepeat, IconScissors, IconStore } from '@/components/icons'
 import { dataBR, type AssinaturaDoCliente } from '@/lib/planos'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import type { Metadata } from 'next'
@@ -56,8 +57,111 @@ export default async function ClienteDashboard() {
   const hoje = hojeBrasilISO()
   const planosAtivos = ((planosErro ? [] : planosRaw ?? []) as AssinaturaDoCliente[]).filter(a => a.status === 'ativa')
 
+  // Celular: mesma tela Início do app (petshop-mobile/app/cliente/index.tsx).
+  const horaAgora = Number(agoraBrasilHHMM().slice(0, 2))
+  const saudacao = horaAgora < 12 ? 'Bom dia' : horaAgora < 18 ? 'Boa tarde' : 'Boa noite'
+  const resumoDoPlano = (a: AssinaturaDoCliente) =>
+    (a.periodo_atual && a.periodo_atual.beneficios.length > 0
+      ? a.periodo_atual.beneficios.map(b => {
+          const restam = Math.max(0, b.quantidade - Number(b.usados))
+          return `${b.servico}: ${restam} de ${b.quantidade} ${b.quantidade === 1 ? 'restante' : 'restantes'}`
+        }).join(' · ')
+      : `Começa em ${dataBR(a.data_inicio)}`)
+    + (a.proxima_cobranca ? ` · renova em ${dataBR(a.proxima_cobranca)}` : '')
+
   return (
     <>
+      {/* Celular (até 768px): a mesma tela Início do app. */}
+      <div className="dash-app">
+        <div className="dash-app-header">
+          <h1 className="dash-app-saudacao">{saudacao}{primeiroNome ? `, ${primeiroNome}` : ''}!</h1>
+          <p className="dash-app-sub">Aqui está um resumo da sua conta</p>
+        </div>
+
+        <Link href="/cliente/novo-agendamento" className="dash-app-botao">
+          <IconPlus style={{ width: 18, height: 18 }} /> Novo agendamento
+        </Link>
+
+        <div className="dash-app-stats">
+          <div className="dash-app-stat">
+            <span className="dash-app-stat-icone"><IconPaw style={{ width: 18, height: 18 }} /></span>
+            <strong>{totalPets ?? 0}</strong>
+            <span>Pets cadastrados</span>
+          </div>
+          <div className="dash-app-stat">
+            <span className="dash-app-stat-icone is-azul"><IconCalendar style={{ width: 18, height: 18 }} /></span>
+            <strong>{totalAgendamentos ?? 0}</strong>
+            <span>Agendamentos</span>
+          </div>
+        </div>
+        <div className="dash-app-stats is-uma">
+          <div className="dash-app-stat">
+            <span className="dash-app-stat-icone is-verde"><IconMoney style={{ width: 18, height: 18 }} /></span>
+            <strong>{formatarReais(valorTotal)}</strong>
+            <span>Total investido</span>
+          </div>
+        </div>
+
+        {planosAtivos.length > 0 && (
+          <div className="dash-app-secao" style={{ marginBottom: 'var(--space-5)' }}>
+            <div className="dash-app-secao-topo">
+              <h2>Meus planos</h2>
+              <Link href="/cliente/planos">Ver detalhes</Link>
+            </div>
+            <div className="dash-app-lista">
+              {planosAtivos.map(a => {
+                const abertas = a.cobrancas.filter(c => c.status === 'pendente')
+                const vencida = abertas.some(c => c.vencimento < hoje)
+                return (
+                  <div key={a.id_assinatura} className="dash-app-cartao">
+                    <strong>{a.plano} · {a.pet ?? 'Pet'}</strong>
+                    <span>{resumoDoPlano(a)}</span>
+                    {abertas.length > 0 && (
+                      <span className={`dash-app-selo ${vencida ? 'is-vencida' : 'is-aberta'}`}>
+                        {vencida ? 'Cobrança vencida' : 'Cobrança em aberto'}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="dash-app-secao-topo">
+          <h2>Próximos agendamentos</h2>
+          <Link href="/cliente/agendamentos">Ver todos</Link>
+        </div>
+        {!agendamentos.length ? (
+          <div className="dash-app-vazio">
+            <span className="dash-app-vazio-icone"><IconCalendar style={{ width: 26, height: 26 }} /></span>
+            <strong>Nenhum agendamento próximo</strong>
+            <span>Que tal agendar um serviço para o seu pet?</span>
+          </div>
+        ) : (
+          <div className="dash-app-lista">
+            {agendamentos.map(ag => {
+              const [, mes, dia] = ag.dt_agendamento.split('-')
+              return (
+                <Link key={ag.id_agendamento} href="/cliente/agendamentos" className="dash-app-linha">
+                  <span className="dash-app-linha-data">
+                    <strong>{dia}/{mes}</strong>
+                    <span>{ag.hr_agendamento.slice(0, 5)}</span>
+                  </span>
+                  <span className="dash-app-linha-divisor" />
+                  <span className="dash-app-linha-info">
+                    <span className="dash-app-linha-pet">{ag.servico?.nome ?? 'Serviço'}</span>
+                    <span className="dash-app-linha-sub">{ag.pet?.nome ?? 'Pet'} · {ag.lojista?.nome_loja ?? ''}</span>
+                  </span>
+                  <span className={`badge ${classeBadgeStatus(ag.status)}`}>{rotuloStatus(ag.status)}</span>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="dash-desktop">
       <div className="page-header">
         <h1 className="page-title">Olá{primeiroNome ? `, ${primeiroNome}` : ''}!</h1>
         <p className="page-subtitle">Aqui está um resumo da sua conta</p>
@@ -190,6 +294,7 @@ export default async function ClienteDashboard() {
             ))}
           </div>
         )}
+      </div>
       </div>
     </>
   )

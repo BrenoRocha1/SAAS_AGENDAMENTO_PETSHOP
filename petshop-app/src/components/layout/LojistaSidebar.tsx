@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import BarraLateral from '@/components/layout/BarraLateral'
 import {
   IconPaw,
+  IconHome,
   IconGrid,
   IconCalendar,
   IconKanban,
@@ -48,6 +49,16 @@ const navItemsBase = [
 ]
 
 const CHAVE_COLAPSADA = 'saip:lojista-sidebar-colapsada'
+
+// Barra de baixo no celular: as mesmas 4 abas do app (Início,
+// Agendamentos, Clientes, Pets) — cada uma só aparece se a pessoa tem
+// acesso àquela tela.
+const ABAS_CELULAR = [
+  { href: '/lojista/dashboard', label: 'Início', icon: IconHome },
+  { href: '/lojista/agendamentos', label: 'Agendamentos', icon: IconCalendar },
+  { href: '/lojista/clientes', label: 'Clientes', icon: IconUsers },
+  { href: '/lojista/pets', label: 'Pets', icon: IconPaw },
+]
 
 interface Props {
   nomeLoja: string
@@ -119,17 +130,28 @@ export default function LojistaSidebar({
   const nomeExibido = role === 'funcionario' ? (nomeUsuario ?? nomeLoja) : nomeLoja
   const initial = nomeExibido[0]?.toUpperCase() ?? 'P'
 
+  const rotulo = (item: (typeof navItems)[number]) =>
+    soMotorista && item.condicao === 'taxidog' ? 'Minhas corridas'
+      : soMotorista && item.condicao === 'taxidogRotas' ? 'Minhas rotas'
+      : item.label
+  const abasPermitidas = ABAS_CELULAR.filter(aba => navItems.some(i => i.href === aba.href))
+  // Quem não tem essas telas (ex.: só TaxiDog) fica com as primeiras do
+  // próprio menu.
+  const abas = (abasPermitidas.length > 1
+    ? abasPermitidas
+    : navItems.slice(0, 4).map(i => ({ href: i.href, label: rotulo(i), icon: i.icon }))
+  ).map(aba => ({ ...aba, ativo: aba.href === hrefAtivo }))
+
   return (
     <BarraLateral
       secao="Gestão"
       itens={navItems.map(item => ({
         href: item.href,
         icon: item.icon,
-        label: soMotorista && item.condicao === 'taxidog' ? 'Minhas corridas'
-          : soMotorista && item.condicao === 'taxidogRotas' ? 'Minhas rotas'
-          : item.label,
+        label: rotulo(item),
         ativo: item.href === hrefAtivo,
       }))}
+      abas={abas}
       iconeMarca={IconPaw}
       usuario={{
         nome: nomeExibido,

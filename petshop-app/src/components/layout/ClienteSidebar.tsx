@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import BarraLateral from '@/components/layout/BarraLateral'
 import {
   IconPaw,
+  IconHome,
   IconGrid,
   IconCalendar,
   IconPlus,
@@ -24,6 +25,14 @@ const navItems = [
 ]
 
 const CHAVE_COLAPSADA = 'saip:cliente-sidebar-colapsada'
+
+// Barra de baixo no celular: as mesmas 4 abas do app.
+const ABAS_CELULAR = [
+  { href: '/cliente/dashboard', label: 'Início', icon: IconHome },
+  { href: '/cliente/agendamentos', label: 'Agendamentos', icon: IconCalendar },
+  { href: '/cliente/pets', label: 'Pets', icon: IconPaw },
+  { href: '/cliente/petshops', label: 'Petshops', icon: IconStore },
+]
 
 interface Props {
   userName: string
@@ -46,6 +55,10 @@ export default function ClienteSidebar({ userName, userEmail }: Props) {
       itens={navItems.map(item => ({
         ...item,
         ativo: pathname === item.href || pathname.startsWith(`${item.href}/`),
+      }))}
+      abas={ABAS_CELULAR.map(aba => ({
+        ...aba,
+        ativo: pathname === aba.href || pathname.startsWith(`${aba.href}/`),
       }))}
       iconeMarca={IconPaw}
       usuario={{ nome: userName, papel: 'Cliente', iniciais: initials, dica: userEmail }}

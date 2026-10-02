@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition, type ComponentType, type SVGProps } from 'react'
+import Link from 'next/link'
 import { logoutAction } from '@/lib/actions'
 import { BarraMenuMobile, useMenuMobile } from '@/components/layout/MenuMobile'
 import { IconLogout } from '@/components/icons'
@@ -27,6 +28,9 @@ interface Props {
   // Rótulo acima dos itens ("Gestão", "Menu"...).
   secao: string
   itens: ItemBarraLateral[]
+  // Abas da barra de baixo no celular (a "pílula" do app). Sem elas (ou
+  // com uma só), a barra não aparece.
+  abas?: ItemBarraLateral[]
   iconeMarca: Icone
   // Texto depois de "SAIP" na marca (ex.: "Admin").
   sufixoMarca?: string
@@ -46,6 +50,7 @@ const LARGURA_RECOLHIDA = 60
 export default function BarraLateral({
   secao,
   itens,
+  abas,
   iconeMarca: IconeMarca,
   sufixoMarca,
   tituloMobile,
@@ -157,6 +162,30 @@ export default function BarraLateral({
           </SidebarFooter>
         </Sidebar>
       </aside>
+
+      {/* Celular: a mesma barra de baixo do app — só ícones, e a aba aberta
+          se estica pra mostrar o nome. Some no computador (globals.css). */}
+      {abas && abas.length > 1 && (
+        <nav className="barra-inferior" aria-label="Abas">
+          <div className="barra-inferior-pilula">
+            {abas.map(aba => {
+              const Icon = aba.icon
+              return (
+                <Link
+                  key={aba.href}
+                  href={aba.href}
+                  className={`barra-inferior-item ${aba.ativo ? 'is-ativa' : ''}`}
+                  aria-current={aba.ativo ? 'page' : undefined}
+                  aria-label={aba.label}
+                >
+                  <Icon style={{ width: 22, height: 22, flexShrink: 0 }} />
+                  <span>{aba.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+        </nav>
+      )}
     </>
   )
 }
