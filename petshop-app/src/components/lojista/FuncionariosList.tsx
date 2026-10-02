@@ -11,6 +11,7 @@ import {
 } from '@/lib/actions'
 import { formatarTelefone, iniciais } from '@/lib/format'
 import { Confirmacao, LinhaSwitch } from '@/components/app/PecasApp'
+import CodigoAcessoFuncionarioModal from '@/components/lojista/CodigoAcessoFuncionarioModal'
 import {
   IconAlert,
   IconCalendar,
@@ -86,6 +87,8 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
   const [success, setSuccess] = useState<string | null>(null)
   const [confirmarExclusao, setConfirmarExclusao] = useState<Funcionario | null>(null)
   const [pedirDesativar, setPedirDesativar] = useState<Funcionario | null>(null)
+  // Código de acesso rápido (migration 077): só o titular gera, e só pra ativo.
+  const [codigoPara, setCodigoPara] = useState<Funcionario | null>(null)
   const [isPending, startTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -252,6 +255,11 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
                       </a>
                     )}
                   </div>
+                  {podeConcederAcessoTotal && f.ativo && (
+                    <button type="button" className="botao-app is-secundario is-compacto" onClick={() => setCodigoPara(f)}>
+                      <IconLock style={{ width: 16, height: 16 }} /> Código de acesso
+                    </button>
+                  )}
                   {podeEditar(f) && (
                     <button type="button" className="botao-app is-secundario is-compacto" onClick={() => openEdit(f)}>
                       <IconPencil style={{ width: 16, height: 16 }} /> Editar dados e permissões
@@ -263,6 +271,13 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
           </div>
         )}
       </div>
+      {codigoPara && (
+        <CodigoAcessoFuncionarioModal
+          idFuncionario={codigoPara.id_funcionario}
+          nome={codigoPara.nome}
+          onClose={() => setCodigoPara(null)}
+        />
+      )}
       {pedirDesativar && (
         <Confirmacao
           titulo="Desativar acesso"
@@ -332,7 +347,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                 {ativos.map(func => (
-                  <FuncCard key={func.id_funcionario} func={func} onEdit={openEdit} onToggle={handleToggle} isPending={isPending} />
+                  <FuncCard key={func.id_funcionario} func={func} onEdit={openEdit} onToggle={handleToggle} onCodigo={podeConcederAcessoTotal ? setCodigoPara : undefined} isPending={isPending} />
                 ))}
               </div>
             </div>
@@ -352,7 +367,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                 {inativos.map(func => (
-                  <FuncCard key={func.id_funcionario} func={func} onEdit={openEdit} onToggle={handleToggle} isPending={isPending} />
+                  <FuncCard key={func.id_funcionario} func={func} onEdit={openEdit} onToggle={handleToggle} onCodigo={podeConcederAcessoTotal ? setCodigoPara : undefined} isPending={isPending} />
                 ))}
               </div>
             </div>
@@ -924,11 +939,13 @@ function FuncCard({
   func,
   onEdit,
   onToggle,
+  onCodigo,
   isPending,
 }: {
   func: Funcionario
   onEdit: (f: Funcionario) => void
   onToggle: (id: string, ativo: boolean) => void
+  onCodigo?: (f: Funcionario) => void
   isPending: boolean
 }) {
   const initials = func.nome
@@ -1078,6 +1095,15 @@ function FuncCard({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexShrink: 0 }}>
+        {onCodigo && func.ativo && (
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); onCodigo(func) }}
+            className="btn btn-secondary btn-sm"
+          >
+            <IconLock style={{ width: 14, height: 14 }} /> Código de acesso
+          </button>
+        )}
         <button
           onClick={e => { e.stopPropagation(); onEdit(func) }}
           className="btn btn-ghost btn-sm"
