@@ -117,8 +117,12 @@ export function podeReatribuir(status: string): boolean {
   return status === 'agendada' || status === 'entregue_loja' || status === 'pronto_entrega'
 }
 
+// "R$ 2.680,00" — com o ponto de milhar, igual ao app (formatarMoeda).
 export function formatarReais(valor: number | string | null | undefined): string {
-  return `R$ ${Number(valor ?? 0).toFixed(2).replace('.', ',')}`
+  const n = Number(valor ?? 0)
+  const [inteiro, centavos] = Math.abs(n).toFixed(2).split('.')
+  const comPontos = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return `${n < 0 ? '-' : ''}R$ ${comPontos},${centavos}`
 }
 
 export function formatarKm(km: number | string | null | undefined): string {
