@@ -313,14 +313,14 @@ export const agendamentoLojistaSchema = agendamentoSchema.extend({
 })
 
 // Sem senha: o lojista não define a senha do funcionário, só o convida.
-// Conta criada via admin.inviteUserByEmail — o funcionário define a
-// própria senha ao aceitar o convite em /redefinir-senha.
+// O funcionário é cadastrado só com o nome (migration 078): sem e-mail e
+// sem senha — entra pelo código de acesso rápido. Telefone é opcional
+// ('' = não informado).
 export const funcionarioSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(120),
-  email: z.string().email('E-mail inválido'),
   telefone: z
     .string()
-    .regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
+    .regex(/^(\d{10,11})?$/, 'Telefone deve ter 10 ou 11 dígitos'),
   cargo: z.string().max(100).optional(),
   pode_gerenciar_agenda: z.boolean().default(true),
   pode_gerenciar_servicos: z.boolean().default(false),
@@ -340,7 +340,7 @@ export const editarFuncionarioSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(120),
   telefone: z
     .string()
-    .regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
+    .regex(/^(\d{10,11})?$/, 'Telefone deve ter 10 ou 11 dígitos'),
   cargo: z.string().max(100).optional(),
   pode_gerenciar_agenda: z.boolean().default(true),
   pode_gerenciar_servicos: z.boolean().default(false),

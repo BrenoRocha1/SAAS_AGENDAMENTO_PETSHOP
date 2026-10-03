@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Avatar } from '@/components/Avatar'
 import { useAuth, type ModoApp } from '@/contexts/AuthContext'
 import { dialogo } from '@/lib/dialogo'
+import { ehEmailInterno } from '@/lib/emailInterno'
 import { colors, radius, spacing } from '@/theme/theme'
 
 type Icone = keyof typeof Ionicons.glyphMap
@@ -98,7 +99,7 @@ export function MenuLateral({ visivel, onFechar }: Props) {
   const menu = MENUS[modo]
   const nome = contexto?.nome
     ?? (user?.user_metadata?.nome as string | undefined)
-    ?? user?.email
+    ?? (ehEmailInterno(user?.email) ? undefined : user?.email)
     ?? 'Usuário'
   const papel = modo === 'cliente' ? 'Cliente'
     : modo === 'taxidog' ? 'TaxiDog'

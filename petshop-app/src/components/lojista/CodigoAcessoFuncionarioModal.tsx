@@ -82,7 +82,7 @@ export default function CodigoAcessoFuncionarioModal({ idFuncionario, nome, onCl
         <div className="modal-body">
           <p className="text-sm text-muted">
             Código de <strong style={{ color: 'var(--gray-200)' }}>{nome}</strong>. Na tela de login, em
-            &quot;Entrar com código rápido&quot;, basta digitar estes 6 números — não precisa de e-mail nem senha.
+            &quot;Código de acesso rápido&quot;, basta digitar estes 6 números — não precisa de e-mail nem senha.
           </p>
 
           {error && (

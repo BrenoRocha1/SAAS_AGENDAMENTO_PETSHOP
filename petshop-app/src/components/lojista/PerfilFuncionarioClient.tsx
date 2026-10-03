@@ -30,8 +30,9 @@ import {
 export interface FuncionarioInfo {
   id_funcionario: string
   nome: string
-  email: string
-  telefone: string
+  // Sem e-mail desde a migration 078; telefone é opcional.
+  email: string | null
+  telefone: string | null
   cargo: string | null
   pode_gerenciar_agenda: boolean
   pode_gerenciar_servicos: boolean
@@ -159,7 +160,7 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
             {!funcionario.ativo && <span className="badge badge-cancelado">Inativo</span>}
           </h1>
           <p className="page-subtitle">
-            {funcionario.cargo ?? 'Sem cargo definido'} · {funcionario.email}
+            {[funcionario.cargo ?? 'Sem cargo definido', funcionario.email].filter(Boolean).join(' · ')}
             {isPending && ' · Atualizando...'}
           </p>
         </div>
@@ -441,8 +442,8 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
             <div className="grid-2">
               <div>
                 <div className="dash-detail-row"><span>Nome</span><span>{funcionario.nome}</span></div>
-                <div className="dash-detail-row"><span>E-mail</span><span>{funcionario.email}</span></div>
-                <div className="dash-detail-row"><span>Telefone</span><span>{formatarTelefone(funcionario.telefone)}</span></div>
+                <div className="dash-detail-row"><span>Acesso</span><span>{funcionario.email ?? 'Código de acesso rápido'}</span></div>
+                <div className="dash-detail-row"><span>Telefone</span><span>{formatarTelefone(funcionario.telefone) || '—'}</span></div>
                 <div className="dash-detail-row"><span>Cargo</span><span>{funcionario.cargo ?? '—'}</span></div>
               </div>
               <div>

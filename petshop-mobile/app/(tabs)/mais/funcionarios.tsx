@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
 import { Linking, StyleSheet, Switch, Text, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
@@ -23,8 +23,10 @@ import { colors, radius, spacing, typography } from '@/theme/theme'
 interface Funcionario {
   id_funcionario: string
   nome: string
-  email: string
-  telefone: string
+  // Sem e-mail desde a migration 078 (entra pelo código de acesso rápido);
+  // só quem foi cadastrado antes tem. Telefone é opcional.
+  email: string | null
+  telefone: string | null
   cargo: string | null
   ativo: boolean
   pode_gerenciar_agenda: boolean
@@ -58,8 +60,9 @@ function tagsDe(f: Funcionario): string[] {
 }
 
 // Equipe da loja (tabela `funcionario`, a mesma da tela Equipe do painel
-// web): convidar, mudar permissões, ativar/desativar e excluir — pelas
-// mesmas actions do painel (o convite por e-mail sai do servidor).
+// web): cadastrar, mudar permissões, ativar/desativar, excluir e gerar o
+// código de acesso rápido — pelas mesmas actions do painel. O funcionário
+// é cadastrado só com o nome: não tem e-mail nem senha, entra pelo código.
 export default function FuncionariosScreen() {
   const { contexto, session } = useAuth()
   const idLojista = contexto?.idLojista
@@ -72,16 +75,61 @@ export default function FuncionariosScreen() {
   const [info, setInfo] = useState<string | null>(null)
   const [alterando, setAlterando] = useState<string | null>(null)
 
-  // Painel de convidar/editar. `editando` null = convite novo.
+  // Painel de cadastrar/editar. `editando` null = cadastro novo.
   const [painel, setPainel] = useState(false)
   const [editando, setEditando] = useState<Funcionario | null>(null)
   const [nome, setNome] = useState('')
-  const [email, setEmail] = useState('')
   const [telefone, setTelefone] = useState('')
   const [cargo, setCargo] = useState('')
   const [perm, setPerm] = useState<Permissoes>(PERMISSOES_NOVAS)
   const [erroPainel, setErroPainel] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
+
+  // Código de acesso rápido (6 dígitos, 1 minuto, uso único) de um
+  // funcionário. Enquanto o painel fica aberto, gera outro quando vence.
+  const [codigoDe, setCodigoDe] = useState<Funcionario | null>(null)
+  const [codigo, setCodigo] = useState<string | null>(null)
+  const [expiraEm, setExpiraEm] = useState<number | null>(null)
+  const [agora, setAgora] = useState(0)
+  const [gerando, setGerando] = useState(false)
+  const [erroCodigo, setErroCodigo] = useState<string | null>(null)
+
+  const gerarCodigo = useCallback(async (idFuncionario: string) => {
+    setGerando(true)
+    setErroCodigo(null)
+    const r = await chamarAcao<{ codigo: string; expiracao: string }>('gerarCodigoAcessoFuncionarioAction', idFuncionario)
+    if (r.error || !r.codigo || !r.expiracao) {
+      setErroCodigo(r.error ?? 'Não foi possível gerar o código.')
+      setCodigo(null)
+      setExpiraEm(null)
+    } else {
+      const fim = new Date(r.expiracao).getTime()
+      const t = Date.now()
+      setCodigo(r.codigo)
+      setAgora(t)
+      // Já vencido pelo relógio deste aparelho: não renova sozinho, senão
+      // geraria um código novo a cada segundo.
+      setExpiraEm(fim > t ? fim : null)
+    }
+    setGerando(false)
+  }, [])
+
+  // A contagem sai do horário de expiração (não de um contador que desconta
+  // 1 por segundo, que atrasa com o app em segundo plano).
+  useEffect(() => {
+    if (!expiraEm || !codigoDe) return
+    const idFuncionario = codigoDe.id_funcionario
+    const timer = setInterval(() => {
+      const t = Date.now()
+      setAgora(t)
+      if (t >= expiraEm) {
+        clearInterval(timer)
+        setExpiraEm(null)
+        gerarCodigo(idFuncionario)
+      }
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [expiraEm, codigoDe, gerarCodigo])
 
   const carregar = useCallback(async () => {
     if (!idLojista || !pode) return
@@ -113,8 +161,7 @@ export default function FuncionariosScreen() {
   function abrir(f: Funcionario | null) {
     setEditando(f)
     setNome(f?.nome ?? '')
-    setEmail(f?.email ?? '')
-    setTelefone(f ? mascaraTelefone(f.telefone) : '')
+    setTelefone(f?.telefone ? mascaraTelefone(f.telefone) : '')
     setCargo(f?.cargo ?? '')
     setPerm(f
       ? {
@@ -132,9 +179,8 @@ export default function FuncionariosScreen() {
 
   async function salvar() {
     if (nome.trim().length < 2) return setErroPainel('Informe o nome.')
-    if (!editando && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return setErroPainel('Informe um e-mail válido.')
     const tel = soDigitos(telefone)
-    if (tel.length < 10) return setErroPainel('Informe o telefone com DDD.')
+    if (tel && tel.length < 10) return setErroPainel('Telefone incompleto: informe com DDD ou deixe em branco.')
     setErroPainel(null)
     setSalvando(true)
     const campos = {
@@ -150,12 +196,26 @@ export default function FuncionariosScreen() {
     }
     const r = editando
       ? await chamarAcao('editarFuncionarioAction', editando.id_funcionario, form(campos))
-      : await chamarAcao('cadastrarFuncionarioAction', form({ ...campos, email: email.trim().toLowerCase() }))
+      : await chamarAcao('cadastrarFuncionarioAction', form(campos))
     setSalvando(false)
     if (r.error) return setErroPainel(r.error)
     setPainel(false)
-    if (!editando) setInfo(`Convite enviado para ${email.trim().toLowerCase()} — a pessoa cria a própria senha pelo link do e-mail.`)
+    if (!editando) setInfo(`${nome.trim()} cadastrado. Para entrar, gere o código em "Código de acesso".`)
     carregar()
+  }
+
+  function abrirCodigo(f: Funcionario) {
+    setCodigoDe(f)
+    setCodigo(null)
+    setExpiraEm(null)
+    gerarCodigo(f.id_funcionario)
+  }
+
+  function fecharCodigo() {
+    setCodigoDe(null)
+    setCodigo(null)
+    setExpiraEm(null)
+    setErroCodigo(null)
   }
 
   async function alternar(f: Funcionario, ativo: boolean) {
@@ -196,6 +256,7 @@ export default function FuncionariosScreen() {
   const marcar = (chave: keyof Permissoes) => (v: boolean) => setPerm(p => ({ ...p, [chave]: v }))
   // Administrador de outra pessoa só o dono edita; e ninguém se edita aqui.
   const podeEditar = (f: Funcionario) => f.id_funcionario !== session?.user.id && (ehDono || !f.acesso_total)
+  const tempoRestante = expiraEm ? Math.max(0, Math.ceil((expiraEm - agora) / 1000)) : 0
 
   return (
     <ScreenContainer refreshing={loading} onRefresh={carregar}>
@@ -205,15 +266,16 @@ export default function FuncionariosScreen() {
       {erro && <Aviso tipo="erro" texto={erro} style={{ marginBottom: spacing.md }} />}
       {info && <Aviso tipo="sucesso" texto={info} style={{ marginBottom: spacing.md }} />}
 
-      <Botao rotulo="Convidar funcionário" icone="person-add-outline" onPress={() => abrir(null)} style={{ marginBottom: spacing.lg }} />
+      <Botao rotulo="Cadastrar funcionário" icone="person-add-outline" onPress={() => abrir(null)} style={{ marginBottom: spacing.lg }} />
 
       {!loading && equipe.length === 0 && !erro ? (
-        <EmptyState icon="people-circle-outline" title="Nenhum funcionário cadastrado" subtitle="Convide a equipe — cada pessoa recebe um e-mail para criar a própria senha." />
+        <EmptyState icon="people-circle-outline" title="Nenhum funcionário cadastrado" subtitle="Cadastre a equipe só com o nome — cada pessoa entra com o código de acesso rápido que você gera." />
       ) : (
         <View style={{ gap: spacing.md }}>
           {equipe.map(f => {
             const tags = tagsDe(f)
             const whatsapp = linkWhatsApp(f.telefone)
+            const telefoneDoCartao = f.telefone
             return (
               <Card key={f.id_funcionario} style={{ gap: spacing.md }}>
                 <View style={styles.topo}>
@@ -244,13 +306,19 @@ export default function FuncionariosScreen() {
                   )}
                 </View>
 
-                <Text style={styles.sub} numberOfLines={1}>{f.email}</Text>
-                <View style={styles.acoes}>
-                  <Botao rotulo={formatarTelefone(f.telefone)} icone="call-outline" variante="secundario" compacto style={{ flex: 1 }} onPress={() => Linking.openURL(`tel:${f.telefone}`)} />
-                  {whatsapp && (
-                    <Botao rotulo="WhatsApp" icone="logo-whatsapp" variante="secundario" compacto style={{ flex: 1 }} onPress={() => Linking.openURL(whatsapp)} />
-                  )}
-                </View>
+                {!!f.email && <Text style={styles.sub} numberOfLines={1}>{f.email}</Text>}
+                {!!telefoneDoCartao && (
+                  <View style={styles.acoes}>
+                    <Botao rotulo={formatarTelefone(telefoneDoCartao)} icone="call-outline" variante="secundario" compacto style={{ flex: 1 }} onPress={() => Linking.openURL(`tel:${telefoneDoCartao}`)} />
+                    {whatsapp && (
+                      <Botao rotulo="WhatsApp" icone="logo-whatsapp" variante="secundario" compacto style={{ flex: 1 }} onPress={() => Linking.openURL(whatsapp)} />
+                    )}
+                  </View>
+                )}
+                {/* Só o responsável pela conta gera (a mesma regra do painel e do banco). */}
+                {ehDono && f.ativo && (
+                  <Botao rotulo="Código de acesso" icone="keypad-outline" variante="secundario" compacto onPress={() => abrirCodigo(f)} />
+                )}
                 {podeEditar(f) && (
                   <Botao rotulo="Editar dados e permissões" icone="create-outline" variante="secundario" compacto onPress={() => abrir(f)} />
                 )}
@@ -260,23 +328,18 @@ export default function FuncionariosScreen() {
         </View>
       )}
 
-      <Folha visivel={painel} titulo={editando ? 'Editar funcionário' : 'Convidar funcionário'} onFechar={() => setPainel(false)} ocupado={salvando}>
+      <Folha visivel={painel} titulo={editando ? 'Editar funcionário' : 'Cadastrar funcionário'} onFechar={() => setPainel(false)} ocupado={salvando}>
         {erroPainel && <Aviso tipo="erro" texto={erroPainel} />}
-        <Campo rotulo="Nome" value={nome} onChangeText={setNome} maxLength={120} autoCapitalize="words" />
-        {editando ? (
-          <Text style={styles.sub}>E-mail (login): {editando.email}</Text>
-        ) : (
-          <Campo
-            rotulo="E-mail"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            ajuda="A pessoa recebe um convite e cria a própria senha."
-          />
-        )}
-        <Campo rotulo="Telefone" value={telefone} onChangeText={t => setTelefone(mascaraTelefone(t))} keyboardType="phone-pad" placeholder="(11) 98765-4321" maxLength={15} />
+        <Campo
+          rotulo="Nome"
+          value={nome}
+          onChangeText={setNome}
+          maxLength={120}
+          autoCapitalize="words"
+          ajuda={editando ? undefined : 'Não precisa de e-mail nem senha: a pessoa entra com o código de acesso rápido que você gera.'}
+        />
+        {!!editando?.email && <Text style={styles.sub}>E-mail (login): {editando.email}</Text>}
+        <Campo rotulo="Telefone (opcional)" value={telefone} onChangeText={t => setTelefone(mascaraTelefone(t))} keyboardType="phone-pad" placeholder="(11) 98765-4321" maxLength={15} />
         <Campo rotulo="Cargo (opcional)" value={cargo} onChangeText={setCargo} placeholder="Ex.: Tosador" maxLength={100} />
 
         <Text style={styles.secao}>O que pode fazer</Text>
@@ -293,8 +356,28 @@ export default function FuncionariosScreen() {
         )}
         <LinhaSwitch titulo="TaxiDog" detalhe="Recebe corridas e rotas no app." valor={perm.taxidog} onChange={marcar('taxidog')} />
 
-        <Botao rotulo={editando ? 'Salvar' : 'Enviar convite'} onPress={salvar} carregando={salvando} />
+        <Botao rotulo={editando ? 'Salvar' : 'Cadastrar'} onPress={salvar} carregando={salvando} />
         {editando && <Botao rotulo="Excluir da equipe" icone="trash-outline" variante="perigo" onPress={() => pedirExclusao(editando)} desativado={salvando} />}
+      </Folha>
+
+      <Folha visivel={!!codigoDe} titulo="Código de acesso rápido" onFechar={fecharCodigo}>
+        <Text style={styles.sub}>
+          Código de <Text style={styles.forte}>{codigoDe?.nome}</Text>. Na tela de entrar, em &quot;Código de acesso rápido&quot;, basta digitar estes 6 números — não precisa de e-mail nem senha.
+        </Text>
+        {erroCodigo && <Aviso tipo="erro" texto={erroCodigo} />}
+        {codigo ? (
+          <View style={styles.codigoCaixa}>
+            <Text style={styles.codigo} selectable>{codigo}</Text>
+            <Text style={styles.sub}>
+              {gerando ? 'Gerando um novo...' : `Vale por mais ${tempoRestante}s · uso único`}
+            </Text>
+          </View>
+        ) : gerando ? (
+          <View style={styles.codigoCaixa}><Text style={styles.sub}>Gerando código...</Text></View>
+        ) : (
+          <Botao rotulo="Tentar de novo" onPress={() => codigoDe && gerarCodigo(codigoDe.id_funcionario)} />
+        )}
+        <Botao rotulo="Fechar" variante="secundario" onPress={fecharCodigo} />
       </Folha>
     </ScreenContainer>
   )
@@ -312,4 +395,7 @@ const styles = StyleSheet.create({
   tagTaxi: { backgroundColor: colors.warningBg },
   tagTaxiTexto: { color: colors.warningFg },
   acoes: { flexDirection: 'row', gap: spacing.md },
+  forte: { fontWeight: '700', color: colors.text },
+  codigoCaixa: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.lg },
+  codigo: { fontSize: 40, fontWeight: '800', letterSpacing: 10, color: colors.primary600, fontVariant: ['tabular-nums'] },
 })

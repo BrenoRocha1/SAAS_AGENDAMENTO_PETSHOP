@@ -36,8 +36,10 @@ import {
 interface Funcionario {
   id_funcionario: string
   nome: string
-  email: string
-  telefone: string
+  // Sem e-mail desde a migration 078 (entra pelo código de acesso rápido);
+  // só quem foi cadastrado antes tem. Telefone é opcional.
+  email: string | null
+  telefone: string | null
   cargo: string | null
   pode_gerenciar_agenda: boolean
   pode_gerenciar_servicos: boolean
@@ -136,7 +138,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
         if (result?.error) {
           setError(result.error)
         } else {
-          setSuccess('Convite enviado! A pessoa vai receber um e-mail para definir a própria senha e acessar o sistema.')
+          setSuccess('Membro cadastrado! Para ele entrar, gere o código em "Código de acesso".')
           closeModal()
           formRef.current?.reset()
         }
@@ -200,13 +202,13 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
       {/* Celular: a mesma tela de Funcionários do app. */}
       <div className="so-celular">
         <button type="button" className="dash-app-botao" onClick={openNew}>
-          <IconUserPlus style={{ width: 18, height: 18 }} /> Convidar funcionário
+          <IconUserPlus style={{ width: 18, height: 18 }} /> Cadastrar funcionário
         </button>
         {initial.length === 0 ? (
           <div className="dash-app-vazio">
             <span className="dash-app-vazio-icone"><IconUsers style={{ width: 26, height: 26 }} /></span>
             <strong>Nenhum funcionário cadastrado</strong>
-            <span>Convide a equipe — cada pessoa recebe um e-mail para criar a própria senha.</span>
+            <span>Cadastre a equipe só com o nome — cada pessoa entra com o código de acesso rápido que você gera.</span>
           </div>
         ) : (
           <div className="tela-app-pilha">
@@ -244,17 +246,17 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
                     {f.pode_taxidog && <span className="tag-app is-taxi">TaxiDog</span>}
                   </div>
 
-                  <span className="sub-app is-uma">{f.email}</span>
-                  <div className="linha-app">
-                    <a className="tela-app-botao" href={`tel:${digitos}`}>
-                      <IconPhone style={{ width: 16, height: 16 }} /> {formatarTelefone(f.telefone)}
-                    </a>
-                    {digitos.length >= 10 && (
+                  {f.email && <span className="sub-app is-uma">{f.email}</span>}
+                  {digitos.length >= 10 && (
+                    <div className="linha-app">
+                      <a className="tela-app-botao" href={`tel:${digitos}`}>
+                        <IconPhone style={{ width: 16, height: 16 }} /> {formatarTelefone(digitos)}
+                      </a>
                       <a className="tela-app-botao" href={`https://wa.me/55${digitos}`} target="_blank" rel="noopener noreferrer">
                         <IconWhatsapp style={{ width: 16, height: 16 }} /> WhatsApp
                       </a>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   {podeConcederAcessoTotal && f.ativo && (
                     <button type="button" className="botao-app is-secundario is-compacto" onClick={() => setCodigoPara(f)}>
                       <IconLock style={{ width: 16, height: 16 }} /> Código de acesso
@@ -416,7 +418,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
                   {editId ? <IconPencil style={{ width: 18, height: 18 }} /> : <IconUserBadge style={{ width: 18, height: 18 }} />}
                   {editId ? 'Editar Membro' : 'Novo Membro'}
                 </span>
-                <span className="so-celular-inline">{editId ? 'Editar funcionário' : 'Convidar funcionário'}</span>
+                <span className="so-celular-inline">{editId ? 'Editar funcionário' : 'Cadastrar funcionário'}</span>
               </h2>
               <button
                 onClick={closeModal}
@@ -449,29 +451,18 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
               </div>
 
               {!editId && (
-                <div className="form-group">
-                  <label htmlFor="func-email" className="form-label form-label-required">E-mail (será usado para login)</label>
-                  <input
-                    id="func-email"
-                    name="email"
-                    type="email"
-                    className="form-input"
-                    placeholder="membro@email.com"
-                    required
-                  />
-                  <span className="form-hint">
-                    A pessoa vai receber um e-mail nesse endereço para definir a própria senha
-                  </span>
-                </div>
+                <p className="form-hint" style={{ margin: '0 0 var(--space-3)' }}>
+                  Não precisa de e-mail nem senha: a pessoa entra com o código de acesso rápido que você gera na tela dela.
+                </p>
               )}
 
-              {editFunc && (
+              {editFunc?.email && (
                 <p className="sub-app so-celular" style={{ margin: '0 0 var(--space-3)' }}>E-mail (login): {editFunc.email}</p>
               )}
 
               <div className="form-grid-2">
                 <div className="form-group">
-                  <label htmlFor="func-telefone" className="form-label form-label-required">Telefone</label>
+                  <label htmlFor="func-telefone" className="form-label">Telefone (opcional)</label>
                   <input
                     id="func-telefone"
                     name="telefone"
@@ -479,7 +470,6 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
                     className="form-input"
                     placeholder="(11) 99999-9999"
                     defaultValue={editFunc?.telefone ?? ''}
-                    required
                   />
                 </div>
                 <div className="form-group">
@@ -530,8 +520,8 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
                     id="btn-salvar-funcionario"
                   >
                     {isPending
-                      ? (editId ? 'Salvando...' : 'Convidando...')
-                      : (editId ? 'Salvar Alterações' : 'Convidar Membro')
+                      ? (editId ? 'Salvando...' : 'Cadastrando...')
+                      : (editId ? 'Salvar Alterações' : 'Cadastrar Membro')
                     }
                   </button>
                 </div>
@@ -541,7 +531,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
               <div className="so-celular">
                 <div className="tela-app-pilha">
                   <button type="submit" className="botao-app" disabled={isPending}>
-                    {isPending ? (editId ? 'Salvando...' : 'Convidando...') : (editId ? 'Salvar' : 'Enviar convite')}
+                    {isPending ? (editId ? 'Salvando...' : 'Cadastrando...') : (editId ? 'Salvar' : 'Cadastrar')}
                   </button>
                   {editFunc && (podeConcederAcessoTotal || !editFunc.acesso_total) && (
                     <button type="button" className="botao-app is-perigo" onClick={() => setConfirmarExclusao(editFunc)} disabled={isPending}>
@@ -1002,8 +992,7 @@ function FuncCard({
           )}
         </div>
         <div style={{ fontSize: '0.85rem', color: 'var(--gray-400)' }}>
-          {func.cargo && <span>{func.cargo} • </span>}
-          {func.email}
+          {[func.cargo, func.email].filter(Boolean).join(' • ') || 'Entra pelo código de acesso'}
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-1)', flexWrap: 'wrap' }}>
           {func.pode_gerenciar_agenda && (

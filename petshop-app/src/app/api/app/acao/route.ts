@@ -88,6 +88,7 @@ const ACOES: Record<string, Acao> = {
   editarFuncionarioAction: acoes.editarFuncionarioAction,
   toggleFuncionarioAction: acoes.toggleFuncionarioAction,
   excluirFuncionarioAction: acoes.excluirFuncionarioAction,
+  gerarCodigoAcessoFuncionarioAction: acoes.gerarCodigoAcessoFuncionarioAction,
   // Loja e configurações
   atualizarPerfilLojistaAction: acoes.atualizarPerfilLojistaAction,
   atualizarLogoLojistaAction: acoes.atualizarLogoLojistaAction,

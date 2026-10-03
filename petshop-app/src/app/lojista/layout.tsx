@@ -7,6 +7,7 @@ import AtualizacaoAoVivo from '@/components/lojista/AtualizacaoAoVivo'
 import NotificacaoTaxiDog from '@/components/lojista/NotificacaoTaxiDog'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
+import { ehEmailInterno } from '@/lib/email-interno'
 
 export const metadata: Metadata = { title: 'Dashboard — Lojista' }
 
@@ -115,7 +116,7 @@ export default async function LojistaLayout({
       <LojistaSidebar
         nomeLoja={nomeLoja}
         nomeUsuario={nomeUsuario}
-        userEmail={user.email ?? ''}
+        userEmail={ehEmailInterno(user.email) ? '' : (user.email ?? '')}
         kanbanAtivo={kanbanAtivo}
         taxidogAtivo={taxidogAtivo}
         role={contexto.role}

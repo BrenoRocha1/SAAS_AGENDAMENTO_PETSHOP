@@ -42,6 +42,13 @@ function IconLock() {
     </svg>
   )
 }
+function IconHash() {
+  return (
+    <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
+      <path d="M5 9h14M5 15h14M10 4 8 20M16 4l-2 16" />
+    </svg>
+  )
+}
 function IconEye() {
   return (
     <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
@@ -417,6 +424,13 @@ function LoginFormPane() {
           {oauthPending ? 'Conectando...' : 'Continuar com o Google'}
         </button>
 
+        {/* Equipe do petshop: entra só com o código de 6 dígitos que o
+            responsável gera (sem e-mail nem senha). */}
+        <Link href="/login/funcionario" className="login-btn-outline">
+          <IconHash />
+          Código de acesso rápido
+        </Link>
+
         <div className="login-switch-perfil">
           {isLojista ? (
             <>
@@ -447,11 +461,6 @@ function LoginFormPane() {
               <Link href="/cadastro">Criar conta como cliente</Link>
             </>
           )}
-        </div>
-        
-        <div className="login-register-hint" style={{ marginTop: '0.5rem' }}>
-          <span>Trabalha em um petshop?{' '}</span>
-          <Link href="/login/funcionario">Entrar com código rápido</Link>
         </div>
       </div>
     </div>
@@ -502,6 +511,10 @@ function LoginFormFallback() {
         <button type="button" className="login-btn-outline" disabled>
           <IconGoogle />
           Continuar com o Google
+        </button>
+        <button type="button" className="login-btn-outline" disabled>
+          <IconHash />
+          Código de acesso rápido
         </button>
       </div>
     </div>

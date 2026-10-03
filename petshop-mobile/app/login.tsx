@@ -159,6 +159,18 @@ export default function LoginScreen() {
             )}
           </Pressable>
 
+          {/* Equipe do petshop: entra só com o código de 6 dígitos que o
+              responsável gera (sem e-mail nem senha). */}
+          <Pressable
+            onPress={() => router.push('/codigo')}
+            disabled={enviando || abrindoGoogle}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.botaoGoogle, styles.botaoCodigo, pressed && styles.botaoPressionado]}
+          >
+            <Text style={styles.cerquilha}>#</Text>
+            <Text style={styles.botaoGoogleTexto}>Código de acesso rápido</Text>
+          </Pressable>
+
           <Pressable onPress={() => router.push('/cadastro')} hitSlop={8} accessibilityRole="link" style={styles.criarConta}>
             <Text style={styles.criarContaTexto}>
               Ainda não tem conta? <Text style={styles.esqueciTexto}>Criar conta de cliente</Text>
@@ -238,6 +250,8 @@ const styles = StyleSheet.create({
     height: 50,
   },
   botaoGoogleTexto: { ...typography.heading.sm, color: colors.text },
+  botaoCodigo: { marginTop: spacing.md },
+  cerquilha: { ...typography.heading.sm, fontSize: 18, color: colors.text },
   botaoTexto: { color: colors.white, ...typography.heading.sm },
   criarConta: { alignSelf: 'center', marginTop: spacing['2xl'], minHeight: 32, justifyContent: 'center' },
   criarContaTexto: { ...typography.body.md, color: colors.textMuted, textAlign: 'center' },

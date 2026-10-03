@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { loginFuncionarioCodigoAction } from '@/lib/actions'
+import { OtpInput, type OtpInputHandle, type OtpStatus } from '@/components/ui/otp-input'
 
 function IconStore({ style }: { style?: React.CSSProperties }) {
   return (
@@ -14,28 +15,41 @@ function IconStore({ style }: { style?: React.CSSProperties }) {
   )
 }
 
+// Login da equipe: só o código de acesso rápido que o responsável da loja
+// gera na tela do funcionário (6 dígitos, 1 minuto, uso único). Não tem
+// e-mail nem senha — o código já diz quem está entrando. Entra sozinho ao
+// completar os 6 dígitos.
 export default function LoginFuncionarioPage() {
   const [isPending, startTransition] = useTransition()
+  const [status, setStatus] = useState<OtpStatus>('idle')
   const [error, setError] = useState<string | null>(null)
+  const campo = useRef<OtpInputHandle>(null)
   const router = useRouter()
 
-  function handleLogin(formData: FormData) {
+  // Código recusado: as células tremem em vermelho e depois esvaziam pra
+  // digitar de novo (cheias, qualquer tecla dispararia outra tentativa).
+  useEffect(() => {
+    if (status !== 'error') return
+    const volta = setTimeout(() => {
+      campo.current?.clear()
+      setStatus('idle')
+    }, 900)
+    return () => clearTimeout(volta)
+  }, [status])
+
+  function entrar(codigo: string) {
+    if (isPending || status !== 'idle') return
     setError(null)
-    const codigo = (formData.get('codigo') as string)?.replace(/\D/g, '') ?? ''
-
-    if (codigo.length !== 6) {
-      setError('Digite os 6 números do código.')
-      return
-    }
-
     startTransition(async () => {
       const res = await loginFuncionarioCodigoAction(codigo)
       if (res?.error) {
         setError(res.error)
-      } else {
-        router.push('/lojista/agendamentos')
-        router.refresh()
+        setStatus('error')
+        return
       }
+      setStatus('success')
+      router.push('/lojista/agendamentos')
+      router.refresh()
     })
   }
 
@@ -43,16 +57,16 @@ export default function LoginFuncionarioPage() {
     <div className="auth-layout animate-fade-in">
       <div className="auth-card">
         <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
-          <div style={{ 
-            width: 48, height: 48, borderRadius: 'var(--radius-md)', 
-            background: 'var(--primary-soft-bg)', color: 'var(--primary-500)', 
-            display: 'flex', alignItems: 'center', justifyContent: 'center', 
-            margin: '0 auto var(--space-4)' 
+          <div style={{
+            width: 48, height: 48, borderRadius: 'var(--radius-md)',
+            background: 'var(--primary-soft-bg)', color: 'var(--primary-500)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto var(--space-4)'
           }}>
             <IconStore style={{ width: 24, height: 24 }} />
           </div>
           <h1 style={{ fontSize: '1.5rem', marginBottom: 'var(--space-1)' }}>Login da Equipe</h1>
-          <p className="text-muted">Acesso rápido para funcionários</p>
+          <p className="text-muted">Digite o seu código de acesso rápido</p>
         </div>
 
         {error && (
@@ -61,19 +75,22 @@ export default function LoginFuncionarioPage() {
           </div>
         )}
 
-        <form action={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          <div className="form-group">
-            <label htmlFor="codigo" className="form-label">Código de Acesso</label>
-            <input type="text" id="codigo" name="codigo" className="form-input" required placeholder="000000" maxLength={6} inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" autoFocus style={{ letterSpacing: '0.25em', fontSize: '1.25rem', textAlign: 'center' }} />
-            <p className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>
-              Peça ao responsável da loja o seu código de 6 dígitos. Ele vale 1 minuto e já identifica você — não precisa de e-mail nem senha.
-            </p>
-          </div>
-
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: 'var(--space-2)' }} disabled={isPending}>
-            {isPending ? 'Entrando...' : 'Entrar'}
-          </button>
-        </form>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <OtpInput
+            ref={campo}
+            label="Código de acesso"
+            status={status}
+            disabled={isPending || status === 'success'}
+            autoFocus
+            onChange={valor => { if (valor) setError(null) }}
+            onComplete={entrar}
+          />
+          <p className="text-xs text-muted" style={{ textAlign: 'center', minHeight: '1.25rem' }}>
+            {isPending || status === 'success'
+              ? 'Entrando...'
+              : 'Peça ao responsável da loja o seu código de 6 dígitos. Ele vale 1 minuto e já identifica você — não precisa de e-mail nem senha.'}
+          </p>
+        </div>
 
         <div style={{ textAlign: 'center', marginTop: 'var(--space-6)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--gray-800)' }}>
           <Link href="/login" className="text-sm text-primary hover-underline">

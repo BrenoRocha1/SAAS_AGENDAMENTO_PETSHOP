@@ -17,6 +17,11 @@
 @tailwind utilities source(none);
 @source "../components/ui";
 
+/* O painel só tem tema claro. Sem isto, as classes `dark:` dos componentes
+   colados seguiriam o tema do sistema de quem acessa e pintariam peças
+   escuras numa tela clara. Assim elas só valem dentro de `.dark`. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Tokens que os componentes shadcn esperam, apontando para a paleta SAIP. */
 :root {
   --background: var(--gray-950);

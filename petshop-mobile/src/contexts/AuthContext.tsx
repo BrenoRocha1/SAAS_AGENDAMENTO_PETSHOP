@@ -4,6 +4,7 @@ import * as Linking from 'expo-linking'
 import * as WebBrowser from 'expo-web-browser'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { SITE_URL } from '@/lib/site'
 import { obterContextoLojista, type ContextoLojista } from '@/lib/lojistaContext'
 
 // 'novo' = entrou (pelo Google) mas ainda não tem cadastro nenhum: falta
@@ -32,6 +33,8 @@ interface AuthState {
   temAcessoLoja: boolean
   setModo: (modo: ModoApp) => void
   signIn: (email: string, senha: string) => Promise<{ error: string | null }>
+  // Funcionário: entra só com o código de acesso rápido (6 dígitos).
+  signInWithCode: (codigo: string) => Promise<{ error: string | null }>
   // Login com Google (a mesma conta do painel web). `error: null` também
   // quando a pessoa só fechou a janela do Google.
   signInWithGoogle: () => Promise<{ error: string | null }>
@@ -160,6 +163,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null }
   }
 
+  // O site confere o código (o mesmo de /login/funcionario) e devolve um
+  // token de entrada, trocado aqui pela sessão deste aparelho. Precisa de
+  // EXPO_PUBLIC_SITE_URL: a conferência só existe no servidor do site.
+  async function signInWithCode(codigo: string) {
+    if (!SITE_URL) return { error: 'Entrar com código precisa do endereço do site configurado no app (EXPO_PUBLIC_SITE_URL).' }
+    let corpo: { token_hash?: string; error?: string } | null = null
+    try {
+      const resposta = await fetch(`${SITE_URL}/api/app/login-codigo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo }),
+      })
+      corpo = await resposta.json()
+    } catch {
+      return { error: 'Sem conexão com o site da loja. Confira a internet e tente de novo.' }
+    }
+    if (!corpo?.token_hash) return { error: corpo?.error ?? 'Não foi possível entrar com o código.' }
+    const { error } = await supabase.auth.verifyOtp({ token_hash: corpo.token_hash, type: 'magiclink' })
+    return { error: error ? 'Não foi possível entrar com o código. Peça um novo ao responsável da loja.' : null }
+  }
+
   async function signInWithGoogle() {
     // saip://auth no app instalado; exp://…/--/auth no Expo Go. Os dois
     // precisam estar liberados em Authentication > URL Configuration >
@@ -234,6 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       temAcessoLoja,
       setModo,
       signIn,
+      signInWithCode,
       signInWithGoogle,
       signOut,
       recarregar,

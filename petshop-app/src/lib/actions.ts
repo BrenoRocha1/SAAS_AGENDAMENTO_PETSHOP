@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { gerarEmailInterno } from '@/lib/email-interno'
+import { trocarCodigoPorToken } from '@/lib/codigo-acesso'
 import {
   cadastroClienteLojistaSchema,
   editarClienteLojistaSchema,
@@ -2929,9 +2931,8 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
 
   const raw = {
     nome: formData.get('nome') as string,
-    email: formData.get('email') as string,
-    telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
-    cargo: formData.get('cargo') as string,
+    telefone: ((formData.get('telefone') as string | null) ?? '').replace(/\D/g, ''),
+    cargo: ((formData.get('cargo') as string | null) ?? '').trim() || undefined,
     pode_gerenciar_agenda: formData.get('pode_gerenciar_agenda') === 'true',
     pode_gerenciar_servicos: formData.get('pode_gerenciar_servicos') === 'true',
     pode_gerenciar_produtos: formData.get('pode_gerenciar_produtos') === 'true',
@@ -2946,18 +2947,19 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
   }
 
   // Admin client é obrigatório para criar conta Auth para o novo membro
-  // (quem convida não pode usar signUp — isso deslogaria a própria sessão)
+  // (quem cadastra não pode usar signUp — isso deslogaria a própria sessão)
   const adminClient = createAdminClient()
   if (!adminClient) {
     return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
   }
 
-  // Convida o membro por e-mail em vez de definir uma senha por ele —
-  // ele define a própria senha ao aceitar o convite em /redefinir-senha.
-  const origin = await obterOrigin()
-  const { data: authData, error: authError } = await adminClient.auth.admin.inviteUserByEmail(parsed.data.email, {
-    redirectTo: `${origin}/auth/callback?next=/redefinir-senha`,
-    data: {
+  // O funcionário não tem e-mail nem senha (migration 078): entra só pelo
+  // código de acesso rápido. A conta de autenticação é criada com um
+  // endereço interno, já confirmado e sem senha — nada é enviado a ninguém.
+  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+    email: gerarEmailInterno(),
+    email_confirm: true,
+    user_metadata: {
       role: 'funcionario',
       nome: parsed.data.nome,
       id_lojista: contexto.idLojista,
@@ -2965,12 +2967,8 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
   })
 
   if (authError) {
-    console.error('[cadastrarFuncionarioAction] inviteUserByEmail error:', authError.message)
-    const msg = authError.message.toLowerCase()
-    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate') || msg.includes('registered')) {
-      return { error: 'Este e-mail já está cadastrado no sistema.' }
-    }
-    return { error: devError('Não foi possível convidar o membro. Tente novamente.', authError.message) }
+    console.error('[cadastrarFuncionarioAction] createUser error:', authError.message)
+    return { error: devError('Não foi possível cadastrar o membro. Tente novamente.', authError.message) }
   }
 
   if (!authData.user) {
@@ -2985,8 +2983,8 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     p_id_funcionario: authData.user.id,
     p_id_lojista: contexto.idLojista,
     p_nome: parsed.data.nome,
-    p_email: parsed.data.email,
-    p_telefone: parsed.data.telefone,
+    p_email: null,
+    p_telefone: parsed.data.telefone || null,
     p_cargo: parsed.data.cargo ?? null,
     p_pode_agenda: parsed.data.pode_gerenciar_agenda,
     p_pode_servicos: parsed.data.pode_gerenciar_servicos,
@@ -3002,9 +3000,6 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     await adminClient.auth.admin.deleteUser(authData.user.id)
 
     const msg = rpcError.message ?? ''
-    if (msg.includes('email_already_exists')) {
-      return { error: 'Este e-mail já está cadastrado como funcionário, lojista ou cliente.' }
-    }
     if (msg.includes('acesso total')) {
       return { error: 'Apenas o responsável pela conta pode conceder acesso total (administrador).' }
     }
@@ -3034,8 +3029,8 @@ export async function editarFuncionarioAction(id_funcionario: string, formData: 
 
   const raw = {
     nome: formData.get('nome') as string,
-    telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
-    cargo: formData.get('cargo') as string,
+    telefone: ((formData.get('telefone') as string | null) ?? '').replace(/\D/g, ''),
+    cargo: ((formData.get('cargo') as string | null) ?? '').trim() || undefined,
     pode_gerenciar_agenda: formData.get('pode_gerenciar_agenda') === 'true',
     pode_gerenciar_servicos: formData.get('pode_gerenciar_servicos') === 'true',
     pode_gerenciar_produtos: formData.get('pode_gerenciar_produtos') === 'true',
@@ -3051,7 +3046,7 @@ export async function editarFuncionarioAction(id_funcionario: string, formData: 
     .from('funcionario')
     .update({
       nome: parsed.data.nome,
-      telefone: parsed.data.telefone,
+      telefone: parsed.data.telefone || null,
       cargo: parsed.data.cargo ?? null,
       pode_gerenciar_agenda: parsed.data.pode_gerenciar_agenda,
       pode_gerenciar_servicos: parsed.data.pode_gerenciar_servicos,
@@ -3474,49 +3469,15 @@ export async function gerarCodigoAcessoFuncionarioAction(
 
 export async function loginFuncionarioCodigoAction(codigo: string) {
   try {
-    const rl = await checkRateLimit('loginFuncionario', 10, 5)
-    if (!rl.success) {
-      return { error: "Muitas tentativas. Tente novamente em " + rl.retryAfter + "s." }
-    }
-
-    const codigoLimpo = (codigo ?? '').replace(/\D/g, '')
-    if (codigoLimpo.length !== 6) return { error: 'Digite os 6 números do código.' }
-
-    const adminClient = createAdminClient()
-    if (!adminClient) return { error: 'Erro de servidor' }
-
-    // 1. Achar o funcionário pelo código e já apagar o código (uso único).
-    // É um UPDATE só, então o mesmo código não serve pra dois logins.
-    const { data: func } = await adminClient
-      .from('funcionario')
-      .update({ codigo_login: null, codigo_login_expiracao: null })
-      .eq('codigo_login', codigoLimpo)
-      .eq('ativo', true)
-      .gt('codigo_login_expiracao', new Date().toISOString())
-      .select('id_funcionario')
-      .maybeSingle()
-
-    if (!func) {
-      return { error: 'Código inválido ou expirado. Peça um novo ao responsável da loja.' }
-    }
-
-    // 2. Entrar sem mexer na senha do funcionário: um link de acesso gerado
-    // aqui no servidor (nenhum e-mail é enviado) e trocado na hora pela
-    // sessão, que fica gravada nos cookies.
-    const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(func.id_funcionario)
-    if (!authUser?.email) return { error: 'Erro ao autenticar.' }
-
-    const { data: link, error: linkError } = await adminClient.auth.admin.generateLink({
-      type: 'magiclink',
-      email: authUser.email,
-    })
-    if (linkError || !link.properties?.hashed_token) {
-      return { error: 'Erro ao autenticar.' }
-    }
+    // Confere o código e devolve o token de entrada (lib/codigo-acesso —
+    // a mesma regra da rota do app mobile); aqui ele vira a sessão, que
+    // fica gravada nos cookies.
+    const troca = await trocarCodigoPorToken(codigo)
+    if ('error' in troca) return { error: troca.error }
 
     const supabase = await createClient()
     const { error: loginError } = await supabase.auth.verifyOtp({
-      token_hash: link.properties.hashed_token,
+      token_hash: troca.tokenHash,
       type: 'magiclink',
     })
     if (loginError) {
