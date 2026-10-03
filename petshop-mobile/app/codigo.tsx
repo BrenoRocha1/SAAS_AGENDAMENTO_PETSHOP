@@ -171,8 +171,11 @@ const styles = StyleSheet.create({
   },
   alertaTexto: { ...typography.body.md, color: colors.dangerFg, flex: 1 },
   celulas: { flexDirection: 'row', justifyContent: 'center', gap: spacing.sm },
+  // Largura flexível com teto: em tela estreita as seis células encolhem
+  // pra caber (com largura fixa, a primeira e a última saíam da tela).
   celula: {
-    width: 44,
+    flex: 1,
+    maxWidth: 44,
     height: 54,
     borderRadius: radius.md,
     borderWidth: 2,

@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkRateLimit } from '@/lib/rate-limit'
 
-// Login pelo código de acesso rápido do funcionário (migrations 077/078).
+// Login pelo código de acesso rápido do funcionário (migrations 077 a 080).
 //
 // O código (6 dígitos, 1 minuto, uso único) vira um "token de entrada" do
 // Supabase, que quem chamou troca pela sessão:
@@ -25,20 +25,28 @@ export async function trocarCodigoPorToken(
   const adminClient = createAdminClient()
   if (!adminClient) return { error: 'Erro de servidor' }
 
-  // 1. Achar o funcionário pelo código e já apagar o código (uso único).
-  // É um UPDATE só, então o mesmo código não serve pra dois logins.
-  const { data: func } = await adminClient
-    .from('funcionario')
-    .update({ codigo_login: null, codigo_login_expiracao: null })
-    .eq('codigo_login', codigoLimpo)
-    .eq('ativo', true)
-    .gt('codigo_login_expiracao', new Date().toISOString())
+  const invalido = { error: 'Código inválido ou expirado. Peça um novo ao responsável da loja.' }
+
+  // 1. Achar o código e já apagá-lo (uso único). É um DELETE só, então o
+  // mesmo código não serve pra dois logins. A tabela dos códigos (migration
+  // 080) não é legível pela API — só este servidor, com a service_role.
+  const { data: usado } = await adminClient
+    .from('funcionario_codigo_acesso')
+    .delete()
+    .eq('codigo', codigoLimpo)
+    .gt('expira_em', new Date().toISOString())
     .select('id_funcionario')
     .maybeSingle()
+  if (!usado) return invalido
 
-  if (!func) {
-    return { error: 'Código inválido ou expirado. Peça um novo ao responsável da loja.' }
-  }
+  // Desativado depois de o código ser gerado: não entra.
+  const { data: func } = await adminClient
+    .from('funcionario')
+    .select('id_funcionario')
+    .eq('id_funcionario', usado.id_funcionario)
+    .eq('ativo', true)
+    .maybeSingle()
+  if (!func) return invalido
 
   // 2. Link de acesso gerado aqui no servidor (nenhum e-mail é enviado) —
   // o que interessa dele é só o token.

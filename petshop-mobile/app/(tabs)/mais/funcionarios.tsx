@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
+import * as Clipboard from 'expo-clipboard'
 import { StyleSheet, Switch, Text, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
@@ -87,6 +88,9 @@ export default function FuncionariosScreen() {
   const [agora, setAgora] = useState(0)
   const [gerando, setGerando] = useState(false)
   const [erroCodigo, setErroCodigo] = useState<string | null>(null)
+  // Qual código foi copiado — quando ele renova, o botão volta sozinho
+  // pra "Copiar código".
+  const [copiado, setCopiado] = useState<string | null>(null)
 
   const gerarCodigo = useCallback(async (idFuncionario: string) => {
     setGerando(true)
@@ -206,6 +210,17 @@ export default function FuncionariosScreen() {
     setCodigo(null)
     setExpiraEm(null)
     setErroCodigo(null)
+    setCopiado(null)
+  }
+
+  // O botão confirma por 2s (o mesmo "Copiado" do painel web).
+  async function copiarCodigo() {
+    if (!codigo) return
+    const copiou = await Clipboard.setStringAsync(codigo).catch(() => false)
+    if (!copiou) return setErroCodigo('Não foi possível copiar. Anote o código.')
+    const valor = codigo
+    setCopiado(valor)
+    setTimeout(() => setCopiado(atual => (atual === valor ? null : atual)), 2000)
   }
 
   async function alternar(f: Funcionario, ativo: boolean) {
@@ -354,6 +369,14 @@ export default function FuncionariosScreen() {
           <View style={styles.codigoCaixa}><Text style={styles.sub}>Gerando código...</Text></View>
         ) : (
           <Botao rotulo="Tentar de novo" onPress={() => codigoDe && gerarCodigo(codigoDe.id_funcionario)} />
+        )}
+        {!!codigo && (
+          <Botao
+            rotulo={copiado === codigo ? 'Copiado' : 'Copiar código'}
+            icone={copiado === codigo ? 'checkmark' : 'copy-outline'}
+            onPress={copiarCodigo}
+            desativado={gerando}
+          />
         )}
         <Botao rotulo="Fechar" variante="secundario" onPress={fecharCodigo} />
       </Folha>

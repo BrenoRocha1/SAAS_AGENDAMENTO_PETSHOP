@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { gerarCodigoAcessoFuncionarioAction } from '@/lib/actions'
-import { IconAlert, IconClose } from '@/components/icons'
+import { IconAlert, IconCheck, IconClose, IconCopy } from '@/components/icons'
 
 interface Props {
   idFuncionario: string
@@ -20,6 +20,9 @@ export default function CodigoAcessoFuncionarioModal({ idFuncionario, nome, onCl
   const [agora, setAgora] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Qual código foi copiado — quando ele renova, o botão volta sozinho
+  // pra "Copiar código".
+  const [copiado, setCopiado] = useState<string | null>(null)
   const iniciou = useRef(false)
 
   const gerarCodigo = useCallback(async () => {
@@ -70,6 +73,25 @@ export default function CodigoAcessoFuncionarioModal({ idFuncionario, nome, onCl
 
   const tempoRestante = expiraEm ? Math.max(0, Math.ceil((expiraEm - agora) / 1000)) : 0
 
+  // Mesmo padrão dos outros "copiar" do painel: o botão confirma por 2s.
+  async function copiar() {
+    if (!codigo) return
+    try {
+      await navigator.clipboard.writeText(codigo)
+      setCopiado(codigo)
+    } catch {
+      // clipboard indisponível (http sem TLS, permissão negada etc.) — sem alarde, o código está na tela
+    }
+  }
+
+  useEffect(() => {
+    if (!copiado) return
+    const volta = setTimeout(() => setCopiado(null), 2000)
+    return () => clearTimeout(volta)
+  }, [copiado])
+
+  const copiou = !!codigo && copiado === codigo
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
@@ -115,6 +137,11 @@ export default function CodigoAcessoFuncionarioModal({ idFuncionario, nome, onCl
         <div className="modal-footer">
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Fechar
+          </button>
+          <button type="button" className="btn btn-primary" onClick={copiar} disabled={!codigo || loading}>
+            {copiou
+              ? <><IconCheck style={{ width: 14, height: 14 }} /> Copiado</>
+              : <><IconCopy style={{ width: 14, height: 14 }} /> Copiar código</>}
           </button>
         </div>
       </div>
