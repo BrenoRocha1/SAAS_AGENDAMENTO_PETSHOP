@@ -2931,7 +2931,6 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
 
   const raw = {
     nome: formData.get('nome') as string,
-    telefone: ((formData.get('telefone') as string | null) ?? '').replace(/\D/g, ''),
     cargo: ((formData.get('cargo') as string | null) ?? '').trim() || undefined,
     pode_gerenciar_agenda: formData.get('pode_gerenciar_agenda') === 'true',
     pode_gerenciar_servicos: formData.get('pode_gerenciar_servicos') === 'true',
@@ -2953,9 +2952,10 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
   }
 
-  // O funcionário não tem e-mail nem senha (migration 078): entra só pelo
-  // código de acesso rápido. A conta de autenticação é criada com um
-  // endereço interno, já confirmado e sem senha — nada é enviado a ninguém.
+  // O funcionário não tem e-mail, senha nem telefone (migrations 078 e
+  // 079): entra só pelo código de acesso rápido. A conta de autenticação é
+  // criada com um endereço interno, já confirmado e sem senha — nada é
+  // enviado a ninguém.
   const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
     email: gerarEmailInterno(),
     email_confirm: true,
@@ -2983,8 +2983,6 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     p_id_funcionario: authData.user.id,
     p_id_lojista: contexto.idLojista,
     p_nome: parsed.data.nome,
-    p_email: null,
-    p_telefone: parsed.data.telefone || null,
     p_cargo: parsed.data.cargo ?? null,
     p_pode_agenda: parsed.data.pode_gerenciar_agenda,
     p_pode_servicos: parsed.data.pode_gerenciar_servicos,
@@ -3029,7 +3027,6 @@ export async function editarFuncionarioAction(id_funcionario: string, formData: 
 
   const raw = {
     nome: formData.get('nome') as string,
-    telefone: ((formData.get('telefone') as string | null) ?? '').replace(/\D/g, ''),
     cargo: ((formData.get('cargo') as string | null) ?? '').trim() || undefined,
     pode_gerenciar_agenda: formData.get('pode_gerenciar_agenda') === 'true',
     pode_gerenciar_servicos: formData.get('pode_gerenciar_servicos') === 'true',
@@ -3046,7 +3043,6 @@ export async function editarFuncionarioAction(id_funcionario: string, formData: 
     .from('funcionario')
     .update({
       nome: parsed.data.nome,
-      telefone: parsed.data.telefone || null,
       cargo: parsed.data.cargo ?? null,
       pode_gerenciar_agenda: parsed.data.pode_gerenciar_agenda,
       pode_gerenciar_servicos: parsed.data.pode_gerenciar_servicos,
@@ -3434,9 +3430,10 @@ export async function excluirMinhaContaAction(confirmacao: string): Promise<{ er
 }
 
 // ============================================================
-// CÓDIGO DE ACESSO RÁPIDO POR FUNCIONÁRIO (MIGRATION 077)
-// O titular gera, na tela do funcionário, um código de 6 dígitos que
-// vale 1 minuto e é de uso único; o funcionário entra só com o código.
+// CÓDIGO DE ACESSO RÁPIDO POR FUNCIONÁRIO (MIGRATIONS 077 E 079)
+// O titular (ou um administrador, para funcionário comum) gera, na tela
+// do funcionário, um código de 6 dígitos que vale 1 minuto e é de uso
+// único; o funcionário entra só com o código.
 // ============================================================
 
 export async function gerarCodigoAcessoFuncionarioAction(
@@ -3448,11 +3445,14 @@ export async function gerarCodigoAcessoFuncionarioAction(
     if (!user) return { error: 'Não autenticado' }
 
     const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
-    if (!contexto || !ehResponsavelPelaConta(contexto)) {
-      return { error: 'Apenas o lojista titular pode gerar o código de acesso.' }
+    if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
+      return { error: 'Acesso não autorizado' }
     }
 
-    // A função confere no banco que o funcionário é desta loja e está ativo.
+    // A função confere no banco que o funcionário é desta loja e está
+    // ativo, e que quem pede pode gerar: o titular, para qualquer um; um
+    // administrador, só para funcionário comum (nunca outro administrador
+    // nem ele mesmo).
     const { data, error } = await supabase.rpc('fn_gerar_codigo_acesso_funcionario', {
       p_id_funcionario: idFuncionario,
     })

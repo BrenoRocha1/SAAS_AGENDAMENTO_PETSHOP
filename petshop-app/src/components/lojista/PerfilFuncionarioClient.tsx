@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { format, parseISO, differenceInCalendarDays, startOfWeek, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { toggleFuncionarioAction } from '@/lib/actions'
-import { formatarTelefone } from '@/lib/format'
 import { PRESETS, variacaoPercentual, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import CodigoAcessoFuncionarioModal from '@/components/lojista/CodigoAcessoFuncionarioModal'
@@ -30,9 +29,6 @@ import {
 export interface FuncionarioInfo {
   id_funcionario: string
   nome: string
-  // Sem e-mail desde a migration 078; telefone é opcional.
-  email: string | null
-  telefone: string | null
   cargo: string | null
   pode_gerenciar_agenda: boolean
   pode_gerenciar_servicos: boolean
@@ -64,7 +60,8 @@ interface Props {
   periodo: Periodo
   agendamentos: AgendamentoFuncionario[]
   agendamentosAnterior: AgendamentoFuncionario[]
-  // Só o titular da loja gera código de acesso rápido (migration 077).
+  // Quem está vendo pode gerar o código de acesso rápido deste funcionário?
+  // O titular, sempre; um administrador, só de funcionário comum (migration 079).
   podeGerarCodigo?: boolean
 }
 
@@ -160,7 +157,7 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
             {!funcionario.ativo && <span className="badge badge-cancelado">Inativo</span>}
           </h1>
           <p className="page-subtitle">
-            {[funcionario.cargo ?? 'Sem cargo definido', funcionario.email].filter(Boolean).join(' · ')}
+            {funcionario.cargo ?? 'Sem cargo definido'}
             {isPending && ' · Atualizando...'}
           </p>
         </div>
@@ -442,8 +439,7 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
             <div className="grid-2">
               <div>
                 <div className="dash-detail-row"><span>Nome</span><span>{funcionario.nome}</span></div>
-                <div className="dash-detail-row"><span>Acesso</span><span>{funcionario.email ?? 'Código de acesso rápido'}</span></div>
-                <div className="dash-detail-row"><span>Telefone</span><span>{formatarTelefone(funcionario.telefone) || '—'}</span></div>
+                <div className="dash-detail-row"><span>Acesso</span><span>Código de acesso rápido</span></div>
                 <div className="dash-detail-row"><span>Cargo</span><span>{funcionario.cargo ?? '—'}</span></div>
               </div>
               <div>

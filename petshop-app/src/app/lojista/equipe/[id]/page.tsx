@@ -58,7 +58,7 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
   const [{ data: funcionarioRow }, { data: agendaRaw, error: agendaErro }] = await Promise.all([
     supabase
       .from('funcionario')
-      .select('id_funcionario, nome, email, telefone, cargo, pode_gerenciar_agenda, pode_gerenciar_servicos, pode_gerenciar_produtos, pode_gerenciar_clientes_pets, acesso_total, ativo, created_at')
+      .select('id_funcionario, nome, cargo, pode_gerenciar_agenda, pode_gerenciar_servicos, pode_gerenciar_produtos, pode_gerenciar_clientes_pets, acesso_total, ativo, created_at')
       .eq('id_funcionario', id)
       .eq('id_lojista', lojistaId)
       .maybeSingle(),
@@ -157,7 +157,11 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
         periodo={periodo}
         agendamentos={agendamentos}
         agendamentosAnterior={agendamentosAnterior}
-        podeGerarCodigo={ehResponsavelPelaConta(contexto)}
+        podeGerarCodigo={
+          contexto.acessoTotal &&
+          funcionario.id_funcionario !== user!.id &&
+          (ehResponsavelPelaConta(contexto) || !funcionario.acesso_total)
+        }
       />
     </>
   )

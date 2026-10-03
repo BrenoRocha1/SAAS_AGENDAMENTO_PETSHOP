@@ -9,7 +9,7 @@ import {
   excluirFuncionarioAction,
   toggleFuncionarioAction,
 } from '@/lib/actions'
-import { formatarTelefone, iniciais } from '@/lib/format'
+import { iniciais } from '@/lib/format'
 import { Confirmacao, LinhaSwitch } from '@/components/app/PecasApp'
 import CodigoAcessoFuncionarioModal from '@/components/lojista/CodigoAcessoFuncionarioModal'
 import {
@@ -22,7 +22,6 @@ import {
   IconLock,
   IconPackage,
   IconPencil,
-  IconPhone,
   IconPlus,
   IconScissors,
   IconShield,
@@ -30,16 +29,11 @@ import {
   IconUserBadge,
   IconUserPlus,
   IconUsers,
-  IconWhatsapp,
 } from '@/components/icons'
 
 interface Funcionario {
   id_funcionario: string
   nome: string
-  // Sem e-mail desde a migration 078 (entra pelo código de acesso rápido);
-  // só quem foi cadastrado antes tem. Telefone é opcional.
-  email: string | null
-  telefone: string | null
   cargo: string | null
   pode_gerenciar_agenda: boolean
   pode_gerenciar_servicos: boolean
@@ -89,7 +83,9 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
   const [success, setSuccess] = useState<string | null>(null)
   const [confirmarExclusao, setConfirmarExclusao] = useState<Funcionario | null>(null)
   const [pedirDesativar, setPedirDesativar] = useState<Funcionario | null>(null)
-  // Código de acesso rápido (migration 077): só o titular gera, e só pra ativo.
+  // Código de acesso rápido (migrations 077 e 079), só pra funcionário ativo.
+  // O titular gera pra qualquer um; um administrador, só pra funcionário
+  // comum — a mesma regra de podeEditar, conferida de novo no banco.
   const [codigoPara, setCodigoPara] = useState<Funcionario | null>(null)
   const [isPending, startTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
@@ -214,7 +210,6 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
           <div className="tela-app-pilha">
             {equipeCelular.map(f => {
               const tags = tagsDe(f)
-              const digitos = (f.telefone ?? '').replace(/\D/g, '')
               return (
                 <div key={f.id_funcionario} className="cartao-app is-gap-3">
                   <div className="linha-app">
@@ -246,18 +241,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
                     {f.pode_taxidog && <span className="tag-app is-taxi">TaxiDog</span>}
                   </div>
 
-                  {f.email && <span className="sub-app is-uma">{f.email}</span>}
-                  {digitos.length >= 10 && (
-                    <div className="linha-app">
-                      <a className="tela-app-botao" href={`tel:${digitos}`}>
-                        <IconPhone style={{ width: 16, height: 16 }} /> {formatarTelefone(digitos)}
-                      </a>
-                      <a className="tela-app-botao" href={`https://wa.me/55${digitos}`} target="_blank" rel="noopener noreferrer">
-                        <IconWhatsapp style={{ width: 16, height: 16 }} /> WhatsApp
-                      </a>
-                    </div>
-                  )}
-                  {podeConcederAcessoTotal && f.ativo && (
+                  {podeEditar(f) && f.ativo && (
                     <button type="button" className="botao-app is-secundario is-compacto" onClick={() => setCodigoPara(f)}>
                       <IconLock style={{ width: 16, height: 16 }} /> Código de acesso
                     </button>
@@ -349,7 +333,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                 {ativos.map(func => (
-                  <FuncCard key={func.id_funcionario} func={func} onEdit={openEdit} onToggle={handleToggle} onCodigo={podeConcederAcessoTotal ? setCodigoPara : undefined} isPending={isPending} />
+                  <FuncCard key={func.id_funcionario} func={func} onEdit={openEdit} onToggle={handleToggle} onCodigo={podeEditar(func) ? setCodigoPara : undefined} isPending={isPending} />
                 ))}
               </div>
             </div>
@@ -369,7 +353,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                 {inativos.map(func => (
-                  <FuncCard key={func.id_funcionario} func={func} onEdit={openEdit} onToggle={handleToggle} onCodigo={podeConcederAcessoTotal ? setCodigoPara : undefined} isPending={isPending} />
+                  <FuncCard key={func.id_funcionario} func={func} onEdit={openEdit} onToggle={handleToggle} onCodigo={podeEditar(func) ? setCodigoPara : undefined} isPending={isPending} />
                 ))}
               </div>
             </div>
@@ -452,37 +436,20 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
 
               {!editId && (
                 <p className="form-hint" style={{ margin: '0 0 var(--space-3)' }}>
-                  Não precisa de e-mail nem senha: a pessoa entra com o código de acesso rápido que você gera na tela dela.
+                  Só o nome basta: a pessoa entra com o código de acesso rápido que você gera na tela dela.
                 </p>
               )}
 
-              {editFunc?.email && (
-                <p className="sub-app so-celular" style={{ margin: '0 0 var(--space-3)' }}>E-mail (login): {editFunc.email}</p>
-              )}
-
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label htmlFor="func-telefone" className="form-label">Telefone (opcional)</label>
-                  <input
-                    id="func-telefone"
-                    name="telefone"
-                    type="tel"
-                    className="form-input"
-                    placeholder="(11) 99999-9999"
-                    defaultValue={editFunc?.telefone ?? ''}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="func-cargo" className="form-label">Cargo</label>
-                  <input
-                    id="func-cargo"
-                    name="cargo"
-                    type="text"
-                    className="form-input"
-                    placeholder="Tosador(a), Banhista..."
-                    defaultValue={editFunc?.cargo ?? ''}
-                  />
-                </div>
+              <div className="form-group">
+                <label htmlFor="func-cargo" className="form-label">Cargo</label>
+                <input
+                  id="func-cargo"
+                  name="cargo"
+                  type="text"
+                  className="form-input"
+                  placeholder="Tosador(a), Banhista..."
+                  defaultValue={editFunc?.cargo ?? ''}
+                />
               </div>
 
 
@@ -992,7 +959,7 @@ function FuncCard({
           )}
         </div>
         <div style={{ fontSize: '0.85rem', color: 'var(--gray-400)' }}>
-          {[func.cargo, func.email].filter(Boolean).join(' • ') || 'Entra pelo código de acesso'}
+          {func.cargo || 'Entra pelo código de acesso'}
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-1)', flexWrap: 'wrap' }}>
           {func.pode_gerenciar_agenda && (

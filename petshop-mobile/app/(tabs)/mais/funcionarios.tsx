@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
-import { Linking, StyleSheet, Switch, Text, View } from 'react-native'
+import { StyleSheet, Switch, Text, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
@@ -16,17 +16,11 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { MSG_SEM_SITE, acoesDisponiveis, chamarAcao, form } from '@/lib/acoes'
 import { dialogo } from '@/lib/dialogo'
-import { formatarTelefone, linkWhatsApp } from '@/lib/format'
-import { mascaraTelefone, soDigitos } from '@/lib/mascaras'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 interface Funcionario {
   id_funcionario: string
   nome: string
-  // Sem e-mail desde a migration 078 (entra pelo código de acesso rápido);
-  // só quem foi cadastrado antes tem. Telefone é opcional.
-  email: string | null
-  telefone: string | null
   cargo: string | null
   ativo: boolean
   pode_gerenciar_agenda: boolean
@@ -62,7 +56,8 @@ function tagsDe(f: Funcionario): string[] {
 // Equipe da loja (tabela `funcionario`, a mesma da tela Equipe do painel
 // web): cadastrar, mudar permissões, ativar/desativar, excluir e gerar o
 // código de acesso rápido — pelas mesmas actions do painel. O funcionário
-// é cadastrado só com o nome: não tem e-mail nem senha, entra pelo código.
+// é cadastrado só com o nome: não tem e-mail, senha nem telefone, entra
+// pelo código.
 export default function FuncionariosScreen() {
   const { contexto, session } = useAuth()
   const idLojista = contexto?.idLojista
@@ -79,7 +74,6 @@ export default function FuncionariosScreen() {
   const [painel, setPainel] = useState(false)
   const [editando, setEditando] = useState<Funcionario | null>(null)
   const [nome, setNome] = useState('')
-  const [telefone, setTelefone] = useState('')
   const [cargo, setCargo] = useState('')
   const [perm, setPerm] = useState<Permissoes>(PERMISSOES_NOVAS)
   const [erroPainel, setErroPainel] = useState<string | null>(null)
@@ -161,7 +155,6 @@ export default function FuncionariosScreen() {
   function abrir(f: Funcionario | null) {
     setEditando(f)
     setNome(f?.nome ?? '')
-    setTelefone(f?.telefone ? mascaraTelefone(f.telefone) : '')
     setCargo(f?.cargo ?? '')
     setPerm(f
       ? {
@@ -179,13 +172,10 @@ export default function FuncionariosScreen() {
 
   async function salvar() {
     if (nome.trim().length < 2) return setErroPainel('Informe o nome.')
-    const tel = soDigitos(telefone)
-    if (tel && tel.length < 10) return setErroPainel('Telefone incompleto: informe com DDD ou deixe em branco.')
     setErroPainel(null)
     setSalvando(true)
     const campos = {
       nome: nome.trim(),
-      telefone: tel,
       cargo: cargo.trim(),
       pode_gerenciar_agenda: perm.agenda,
       pode_gerenciar_servicos: perm.servicos,
@@ -274,8 +264,6 @@ export default function FuncionariosScreen() {
         <View style={{ gap: spacing.md }}>
           {equipe.map(f => {
             const tags = tagsDe(f)
-            const whatsapp = linkWhatsApp(f.telefone)
-            const telefoneDoCartao = f.telefone
             return (
               <Card key={f.id_funcionario} style={{ gap: spacing.md }}>
                 <View style={styles.topo}>
@@ -306,17 +294,9 @@ export default function FuncionariosScreen() {
                   )}
                 </View>
 
-                {!!f.email && <Text style={styles.sub} numberOfLines={1}>{f.email}</Text>}
-                {!!telefoneDoCartao && (
-                  <View style={styles.acoes}>
-                    <Botao rotulo={formatarTelefone(telefoneDoCartao)} icone="call-outline" variante="secundario" compacto style={{ flex: 1 }} onPress={() => Linking.openURL(`tel:${telefoneDoCartao}`)} />
-                    {whatsapp && (
-                      <Botao rotulo="WhatsApp" icone="logo-whatsapp" variante="secundario" compacto style={{ flex: 1 }} onPress={() => Linking.openURL(whatsapp)} />
-                    )}
-                  </View>
-                )}
-                {/* Só o responsável pela conta gera (a mesma regra do painel e do banco). */}
-                {ehDono && f.ativo && (
+                {/* O titular gera pra qualquer um; um administrador, só pra
+                    funcionário comum (a mesma regra do painel e do banco). */}
+                {podeEditar(f) && f.ativo && (
                   <Botao rotulo="Código de acesso" icone="keypad-outline" variante="secundario" compacto onPress={() => abrirCodigo(f)} />
                 )}
                 {podeEditar(f) && (
@@ -336,10 +316,8 @@ export default function FuncionariosScreen() {
           onChangeText={setNome}
           maxLength={120}
           autoCapitalize="words"
-          ajuda={editando ? undefined : 'Não precisa de e-mail nem senha: a pessoa entra com o código de acesso rápido que você gera.'}
+          ajuda={editando ? undefined : 'Só o nome basta: a pessoa entra com o código de acesso rápido que você gera.'}
         />
-        {!!editando?.email && <Text style={styles.sub}>E-mail (login): {editando.email}</Text>}
-        <Campo rotulo="Telefone (opcional)" value={telefone} onChangeText={t => setTelefone(mascaraTelefone(t))} keyboardType="phone-pad" placeholder="(11) 98765-4321" maxLength={15} />
         <Campo rotulo="Cargo (opcional)" value={cargo} onChangeText={setCargo} placeholder="Ex.: Tosador" maxLength={100} />
 
         <Text style={styles.secao}>O que pode fazer</Text>
@@ -394,7 +372,6 @@ const styles = StyleSheet.create({
   tagTexto: { ...typography.label.md, color: colors.primary700, fontSize: 12 },
   tagTaxi: { backgroundColor: colors.warningBg },
   tagTaxiTexto: { color: colors.warningFg },
-  acoes: { flexDirection: 'row', gap: spacing.md },
   forte: { fontWeight: '700', color: colors.text },
   codigoCaixa: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.lg },
   codigo: { fontSize: 40, fontWeight: '800', letterSpacing: 10, color: colors.primary600, fontVariant: ['tabular-nums'] },
