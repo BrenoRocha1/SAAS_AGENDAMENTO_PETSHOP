@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { format, addDays, subDays } from 'date-fns'
+import { format, subDays } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { BarraTopo } from '@/components/BarraTopo'
 import { SectionHeader } from '@/components/SectionHeader'
@@ -13,25 +13,25 @@ import { agoraBrasil, hojeBrasilISO } from '@/lib/agenda'
 import type { Rota } from '@/lib/taxidog-rotas'
 import { colors, spacing, typography } from '@/theme/theme'
 
-const DIAS_A_FRENTE = 7
-// Rota que ficou em andamento de um dia anterior não pode sumir da lista
-// — senão o TaxiDog não tem como terminar.
+// O TaxiDog vê só as rotas de hoje — as dos dias seguintes não aparecem.
+// A exceção é a que ficou em andamento de um dia anterior: não pode sumir
+// da lista, senão ele não tem como terminar.
 const DIAS_PARA_TRAS = 7
 
 export default function RotasScreen() {
   const router = useRouter()
   const hoje = hojeBrasilISO()
   const desde = format(subDays(agoraBrasil(), DIAS_PARA_TRAS), 'yyyy-MM-dd')
-  const ate = format(addDays(agoraBrasil(), DIAS_A_FRENTE), 'yyyy-MM-dd')
-  const { rotas, loading, erro, recarregar } = useMinhasRotas(desde, ate)
+  const { rotas: todas, loading, erro, recarregar } = useMinhasRotas(desde, hoje)
+  // Garante de novo aqui: nada com data depois de hoje.
+  const rotas = useMemo(() => todas.filter(r => r.data <= hoje), [todas, hoje])
 
   const secoes = useMemo(() => {
     const abertas = rotas.filter(r => r.status !== 'cancelada' && r.status !== 'concluida')
     return [
       { titulo: 'Em andamento', itens: abertas.filter(r => r.status === 'em_andamento') },
       { titulo: 'Aguardando aprovação', itens: abertas.filter(r => r.status === 'aguardando_aprovacao') },
-      { titulo: 'Hoje', itens: abertas.filter(r => r.status !== 'em_andamento' && r.status !== 'aguardando_aprovacao' && r.data <= hoje) },
-      { titulo: 'Próximos dias', itens: abertas.filter(r => r.status !== 'em_andamento' && r.status !== 'aguardando_aprovacao' && r.data > hoje) },
+      { titulo: 'Hoje', itens: abertas.filter(r => r.status !== 'em_andamento' && r.status !== 'aguardando_aprovacao') },
       { titulo: 'Concluídas hoje', itens: rotas.filter(r => r.status === 'concluida' && r.data === hoje) },
     ].filter(s => s.itens.length > 0)
   }, [rotas, hoje])
@@ -41,7 +41,7 @@ export default function RotasScreen() {
   return (
     <ScreenContainer refreshing={loading} onRefresh={recarregar} topo={<BarraTopo />}>
       <Text style={styles.title}>Rotas</Text>
-      <Text style={styles.subtitle}>Hoje e os próximos {DIAS_A_FRENTE} dias</Text>
+      <Text style={styles.subtitle}>Só as de hoje</Text>
 
       <Pressable style={styles.montar} onPress={() => router.push('/taxidog/montar-rota' as never)}>
         <Ionicons name="add-circle" size={20} color={colors.white} />

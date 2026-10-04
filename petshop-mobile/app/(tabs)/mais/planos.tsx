@@ -97,7 +97,7 @@ export default function PlanosScreen() {
     const [planosRes, extra] = await Promise.all([
       supabase.rpc('fn_planos_da_loja'),
       aba === 'planos'
-        ? supabase.from('servico').select('id_servico, nome, status').eq('id_lojista', idLojista).order('nome')
+        ? supabase.from('servico').select('id_servico, nome, status').eq('id_lojista', idLojista).is('excluido_em', null).order('nome')
         : aba === 'assinaturas'
           ? supabase.rpc('fn_assinaturas_da_loja', { p_id_cliente: null, p_detalhes: false })
           : Promise.all([

@@ -27,7 +27,10 @@ export default async function TaxiDogPage({ searchParams }: Props) {
 
   const modoMotorista = !contexto.podeGerenciarAgenda && contexto.podeTaxidog
   const hojeISO = hojeBrasilISO()
-  const data = params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO
+  // A conta que é só TaxiDog vê apenas as corridas de hoje — nem os dias
+  // seguintes nem os anteriores (o que já fez fica no relatório). Quem
+  // gerencia a agenda continua podendo navegar pelos dias.
+  const data = !modoMotorista && params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO
 
   if (contexto.podeGerenciarAgenda) {
     // Tolerante como o resto: sem a coluna, o Kanban conta como ativado.

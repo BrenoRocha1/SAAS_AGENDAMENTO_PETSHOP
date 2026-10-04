@@ -165,6 +165,14 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
     : null
   const beneficioDisponivel = !!beneficioServico && beneficioServico.quantidade > beneficioServico.usados
   const vaiUsarBeneficio = beneficioDisponivel && usarBeneficio
+  // O plano cobre o agendamento inteiro (só o serviço dele, sem TaxiDog):
+  // não há o que pagar, então a forma de pagamento nem aparece. É a mesma
+  // conta que o servidor refaz (formaSemCobrancaPeloPlano); se ele
+  // discordar — o saldo acabou nesse meio-tempo —, `planoNaoCobriu` traz o
+  // pagamento de volta.
+  const [planoNaoCobriu, setPlanoNaoCobriu] = useState(false)
+  const comTaxiDog = taxidogAtivo && transporte.opcao === 'taxidog'
+  const nadaAPagar = vaiUsarBeneficio && !comTaxiDog && !planoNaoCobriu
   const precoDoServico = (s: { id_servico: string; preco: number | string }) =>
     precosDoPet?.petId === petId && precosDoPet.precos[s.id_servico] != null ? precosDoPet.precos[s.id_servico] : Number(s.preco)
   useEffect(() => {
@@ -273,18 +281,22 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
     formData.set('hr_agendamento', hora)
     formData.set('obs', obs)
     if (taxidogAtivo && escolhaTaxiDog) formData.set('taxidog', taxiDogParaFormulario(escolhaTaxiDog))
-    if (!formaPagamento) {
-      setError('Escolha a forma de pagamento.')
-      return
+    if (!nadaAPagar) {
+      if (!formaPagamento) {
+        setError('Escolha a forma de pagamento.')
+        return
+      }
+      formData.set('forma_pagamento', formaPagamento)
+      formData.set('status_pagamento', statusPagamento)
     }
-    formData.set('forma_pagamento', formaPagamento)
-    formData.set('status_pagamento', statusPagamento)
     if (vaiUsarBeneficio) formData.set('usar_beneficio', '1')
 
     startTransition(async () => {
       const result = await criarAgendamentoLojistaAction(formData)
       if (result?.error) {
         setError(result.error)
+        // O servidor não confirmou a cobertura do plano: pede o pagamento.
+        if (nadaAPagar && result.error === 'Escolha a forma de pagamento.') setPlanoNaoCobriu(true)
         setRecargaSlots(n => n + 1)
         return
       }
@@ -319,7 +331,7 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
     })
   }
 
-  const podeSubmeter = !!(clienteId && petId && servicoId && data && hora && formaPagamento) && (!taxidogAtivo || transportePronto(transporte)) && !isPending && !success
+  const podeSubmeter = !!(clienteId && petId && servicoId && data && hora && (formaPagamento || nadaAPagar)) && (!taxidogAtivo || transportePronto(transporte)) && !isPending && !success
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -679,8 +691,9 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                 </div>
               )}
 
-              {/* Pagamento — obrigatório (migration 057) */}
-              {servicoId && (
+              {/* Pagamento — obrigatório (migration 057), menos quando o
+                  plano cobre o agendamento inteiro: aí não há o que pagar. */}
+              {servicoId && !nadaAPagar && (
                 <div className="form-group">
                   <label className="form-label">Pagamento</label>
                   <div className="form-grid-2">

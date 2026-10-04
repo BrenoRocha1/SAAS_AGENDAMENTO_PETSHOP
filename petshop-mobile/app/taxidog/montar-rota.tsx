@@ -2,15 +2,13 @@ import { useCallback, useMemo, useState } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { addDays, format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { EmptyState } from '@/components/EmptyState'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTaxiDogTempoReal } from '@/contexts/TaxiDogContext'
 import { supabase } from '@/lib/supabase'
-import { agoraBrasil } from '@/lib/agenda'
+import { hojeBrasilISO } from '@/lib/agenda'
 import { ROTULO_MODALIDADE } from '@/lib/taxidog'
 import { montarPlanoInicial, normalizarTrecho, type ParadaPlano, type TrechoPendente } from '@/lib/taxidog-rotas'
 import { colors, radius, spacing, typography } from '@/theme/theme'
@@ -44,8 +42,8 @@ export default function MontarRotaScreen() {
   const router = useRouter()
   const { contexto } = useAuth()
   const { marcarFeitoPorMim } = useTaxiDogTempoReal()
-  const dias = useMemo(() => [0, 1, 2, 3].map(n => addDays(agoraBrasil(), n)), [])
-  const [dia, setDia] = useState(format(dias[0], 'yyyy-MM-dd'))
+  // Só com as corridas de hoje — o TaxiDog não vê os dias seguintes.
+  const dia = hojeBrasilISO()
   const [trechos, setTrechos] = useState<TrechoPendente[]>([])
   const [precisaAprovacao, setPrecisaAprovacao] = useState(true)
   const [marcados, setMarcados] = useState<Set<string>>(new Set())
@@ -142,20 +140,6 @@ export default function MontarRotaScreen() {
     <ScreenContainer refreshing={false} onRefresh={carregar}>
       <DetailHeader title="Montar rota" />
 
-      <View style={styles.dias}>
-        {dias.map((d, i) => {
-          const iso = format(d, 'yyyy-MM-dd')
-          const ativo = iso === dia
-          return (
-            <Pressable key={iso} onPress={() => setDia(iso)} style={[styles.dia, ativo && styles.diaAtivo]}>
-              <Text style={[styles.diaTexto, ativo && styles.diaTextoAtivo]}>
-                {i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : format(d, 'EEE dd', { locale: ptBR })}
-              </Text>
-            </Pressable>
-          )
-        })}
-      </View>
-
       {precisaAprovacao && (
         <Text style={styles.nota}>A rota que você montar vai para aprovação da loja antes de sair.</Text>
       )}
@@ -170,7 +154,7 @@ export default function MontarRotaScreen() {
       {loading ? (
         <ActivityIndicator color={colors.primary600} style={{ marginTop: spacing.xl }} />
       ) : trechos.length === 0 ? (
-        <EmptyState icon="car-outline" title="Nenhuma corrida livre" subtitle="Não há corridas sem TaxiDog ou suas para montar rota neste dia." />
+        <EmptyState icon="car-outline" title="Nenhuma corrida livre" subtitle="Não há corridas de hoje sem TaxiDog ou suas para montar rota." />
       ) : (
         <>
           {busca.length > 0 && (
@@ -213,11 +197,6 @@ export default function MontarRotaScreen() {
 }
 
 const styles = StyleSheet.create({
-  dias: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg, flexWrap: 'wrap' },
-  dia: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full, backgroundColor: colors.surfaceMuted },
-  diaAtivo: { backgroundColor: colors.primary600 },
-  diaTexto: { ...typography.label.md, color: colors.textDim, textTransform: 'capitalize' },
-  diaTextoAtivo: { color: colors.white },
   nota: { ...typography.body.md, color: colors.textMuted, marginBottom: spacing.lg },
   alertaErro: {
     flexDirection: 'row',

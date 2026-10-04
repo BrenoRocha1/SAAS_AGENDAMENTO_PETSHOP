@@ -92,6 +92,8 @@ export function TaxiDogProvider({ children }: { children: ReactNode }) {
     const linha = (data as Record<string, unknown>[] | null)?.[0]
     if (!linha) return
     const c = normalizarCorrida(linha)
+    // O TaxiDog só vê o dia de hoje: corrida de dia seguinte não avisa.
+    if (c.dt_agendamento > hoje) return
     const quando = c.dt_agendamento === hoje
       ? `às ${c.hr_agendamento.slice(0, 5)}`
       : `em ${c.dt_agendamento.split('-').reverse().slice(0, 2).join('/')} às ${c.hr_agendamento.slice(0, 5)}`

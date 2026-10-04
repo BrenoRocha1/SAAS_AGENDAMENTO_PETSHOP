@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useRouter } from 'expo-router'
 import { StyleSheet, Text, View } from 'react-native'
-import { format, addDays, subDays } from 'date-fns'
+import { format, subDays } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { BarraTopo } from '@/components/BarraTopo'
 import { SectionHeader } from '@/components/SectionHeader'
@@ -12,17 +12,18 @@ import { agoraBrasil, hojeBrasilISO } from '@/lib/agenda'
 import { disponivel, emMovimento, encerrada, type Corrida } from '@/lib/taxidog'
 import { colors, spacing, typography } from '@/theme/theme'
 
-const DIAS_A_FRENTE = 7
-// Corrida que ficou aberta de um dia anterior (ex.: pronto para entrega à
-// noite) não pode sumir da lista — senão o TaxiDog não tem como encerrar.
+// O TaxiDog vê só as corridas de hoje — as dos dias seguintes não aparecem.
+// A exceção é a que ficou aberta de um dia anterior (ex.: pronto para
+// entrega à noite): não pode sumir da lista, senão ele não tem como encerrar.
 const DIAS_PARA_TRAS = 7
 
 export default function CorridasScreen() {
   const router = useRouter()
   const hoje = hojeBrasilISO()
   const desde = format(subDays(agoraBrasil(), DIAS_PARA_TRAS), 'yyyy-MM-dd')
-  const ate = format(addDays(agoraBrasil(), DIAS_A_FRENTE), 'yyyy-MM-dd')
-  const { corridas, rotaPorCorrida, loading, erro, recarregar } = useMinhasCorridas(desde, ate)
+  const { corridas: todas, rotaPorCorrida, loading, erro, recarregar } = useMinhasCorridas(desde, hoje)
+  // Garante de novo aqui: nada com data depois de hoje.
+  const corridas = useMemo(() => todas.filter(c => c.dt_agendamento <= hoje), [todas, hoje])
 
   const secoes = useMemo(() => {
     const abertas = corridas.filter(c => !encerrada(c.status))
@@ -38,7 +39,6 @@ export default function CorridasScreen() {
       { titulo: 'Prontos para entrega', itens: prontas },
       { titulo: 'Dias anteriores', itens: resto.filter(c => c.dt_agendamento < hoje) },
       { titulo: 'Hoje', itens: resto.filter(c => c.dt_agendamento === hoje) },
-      { titulo: 'Próximos dias', itens: resto.filter(c => c.dt_agendamento > hoje) },
     ].filter(s => s.itens.length > 0)
   }, [corridas, hoje])
 
@@ -47,7 +47,7 @@ export default function CorridasScreen() {
   return (
     <ScreenContainer refreshing={loading} onRefresh={recarregar} topo={<BarraTopo />}>
       <Text style={styles.title}>Corridas</Text>
-      <Text style={styles.subtitle}>Hoje e os próximos {DIAS_A_FRENTE} dias</Text>
+      <Text style={styles.subtitle}>Só as de hoje</Text>
 
       {erro ? (
         <EmptyState icon="alert-circle-outline" title="Não foi possível carregar" subtitle={erro} />

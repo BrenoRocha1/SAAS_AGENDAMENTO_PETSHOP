@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import KanbanBoard, { type KanbanItem } from '@/components/lojista/KanbanBoard'
+import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/DashboardClient'
 import TaxiDogConteudo from '@/components/lojista/TaxiDogConteudo'
 import { carregarTransportePorVisita } from '@/lib/taxidog-visita'
 import { carregarPagamentos } from '@/lib/pagamento-servidor'
@@ -73,12 +74,25 @@ export default async function KanbanPage({ searchParams }: Props) {
       .eq('id_lojista', lojistaId)
       .eq('ativo', true)
       .order('created_at'),
+    // Com preço e duração: além do filtro do board, alimenta o modal de
+    // "Novo agendamento".
     supabase
       .from('servico')
-      .select('id_servico, nome')
+      .select('id_servico, nome, preco, duracao')
       .eq('id_lojista', lojistaId)
       .eq('status', 'Ativo')
       .order('nome'),
+    // Clientes e pets da loja, pro modal de "Novo agendamento" — as mesmas
+    // consultas do Dashboard e da Agenda (todo cliente vinculado à loja,
+    // migration 014; os pets já vêm filtrados pelo RLS, migration 015).
+    supabase
+      .from('cliente_lojista')
+      .select('cliente:id_cliente ( id_cliente, nome, telefone )')
+      .eq('id_lojista', lojistaId),
+    supabase
+      .from('pet')
+      .select('id_pet, id_cliente, nome, raca')
+      .eq('ativo', true),
   ])
 
   // (junto com a config do TaxiDog, usada logo abaixo — antes, em fila)
@@ -157,6 +171,8 @@ export default async function KanbanPage({ searchParams }: Props) {
     { data: agendaRaw, error: agendaErro },
     { data: funcionariosRaw },
     { data: servicosRaw },
+    { data: vinculos },
+    { data: petsVisiveis },
   ] = await dadosDoBoard
 
   if (agendaErro) {
@@ -269,15 +285,26 @@ export default async function KanbanPage({ searchParams }: Props) {
     alterado_cliente: alteradosPeloCliente.has(a.id_agendamento),
   }))
 
+  const clientesMap = new Map<string, ClienteComPets>()
+  for (const v of (vinculos ?? []) as unknown as Array<{ cliente: { id_cliente: string; nome: string; telefone: string } | null }>) {
+    if (v.cliente && !clientesMap.has(v.cliente.id_cliente)) clientesMap.set(v.cliente.id_cliente, { ...v.cliente, pets: [] })
+  }
+  for (const p of (petsVisiveis ?? []) as unknown as Array<{ id_pet: string; id_cliente: string; nome: string; raca: string }>) {
+    clientesMap.get(p.id_cliente)?.pets.push({ id_pet: p.id_pet, nome: p.nome, raca: p.raca })
+  }
+  const clientesComPets = Array.from(clientesMap.values()).sort((a, b) => a.nome.localeCompare(b.nome))
+
   return (
     <>
       {cabecalho}
       <KanbanBoard
+        lojistaId={lojistaId}
         selectedDate={selectedDate}
         hojeISO={hojeISO}
         itensIniciais={itens}
+        clientes={clientesComPets}
         funcionarios={(funcionariosRaw ?? []) as { id_funcionario: string; nome: string }[]}
-        servicos={(servicosRaw ?? []) as { id_servico: string; nome: string }[]}
+        servicos={(servicosRaw ?? []) as ServicoAtivo[]}
         podeAtribuirProfissional={contexto.acessoTotal}
         taxidogAtivo={!taxidogCfgErro && !!taxidogCfg?.ativo}
         formasPagamento={pagamentos.formasAceitas}

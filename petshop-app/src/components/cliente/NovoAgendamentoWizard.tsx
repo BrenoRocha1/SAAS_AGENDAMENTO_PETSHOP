@@ -145,12 +145,6 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const [formasLoja, setFormasLoja] = useState<FormasLoja>(FORMAS_LOJA_PADRAO)
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(null)
 
-  const etapas: Step[] = taxidogDisponivel
-    ? ['loja', 'petservico', 'transporte', 'pagamento', 'datahora', 'confirmar']
-    : ['loja', 'petservico', 'pagamento', 'datahora', 'confirmar']
-  const avancar = () => setStep(atual => etapas[etapas.indexOf(atual) + 1] ?? atual)
-  const voltar = () => setStep(atual => etapas[etapas.indexOf(atual) - 1] ?? atual)
-
   function escolherLojista(id: string) {
     if (id === lojistaId) return
     setLojistaId(id)
@@ -310,6 +304,28 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const vaiUsarPlano = usarPlano && cobertura.cobertos.length > 0
   const descontoPlano = vaiUsarPlano && servicoSel ? precoDoServico(servicoSel) : 0
   const totalGeral = totalSemPlano - descontoPlano
+  // O plano cobre o pedido inteiro (só o serviço dele, sem produto nem
+  // TaxiDog): não há o que pagar, então a forma de pagamento nem aparece.
+  // Se depois entrar algo cobrado (um produto na confirmação, por exemplo),
+  // a etapa volta e é exigida antes de confirmar. É a mesma conta que o
+  // servidor refaz (formaSemCobrancaPeloPlano); se ele discordar — o saldo
+  // acabou nesse meio-tempo —, `planoNaoCobriu` traz o pagamento de volta.
+  const [planoNaoCobriu, setPlanoNaoCobriu] = useState(false)
+  const nadaAPagar = vaiUsarPlano && !planoNaoCobriu && itensCarrinhoProdutos.length === 0 && !escolhaTaxiDog
+
+  const todasEtapas: Step[] = taxidogDisponivel
+    ? ['loja', 'petservico', 'transporte', 'pagamento', 'datahora', 'confirmar']
+    : ['loja', 'petservico', 'pagamento', 'datahora', 'confirmar']
+  // A barra de progresso conta o pagamento só quando ele é pedido (ou
+  // quando a pessoa já está nele).
+  const etapas = todasEtapas.filter(e => e !== 'pagamento' || !nadaAPagar || step === 'pagamento')
+  const vizinha = (atual: Step, sentido: 1 | -1) => {
+    let i = todasEtapas.indexOf(atual) + sentido
+    if (todasEtapas[i] === 'pagamento' && nadaAPagar) i += sentido
+    return todasEtapas[i] ?? atual
+  }
+  const avancar = () => setStep(atual => vizinha(atual, 1))
+  const voltar = () => setStep(atual => vizinha(atual, -1))
 
   function handleSubmit() {
     setError(null)
@@ -324,17 +340,27 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       formData.set('produtos', JSON.stringify(itensCarrinhoProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))))
     }
     if (escolhaTaxiDog) formData.set('taxidog', taxiDogParaFormulario(escolhaTaxiDog))
-    if (!formaPagamento) {
-      setError('Escolha a forma de pagamento.')
-      setStep('pagamento')
-      return
+    if (!nadaAPagar) {
+      if (!formaPagamento) {
+        setError('Escolha a forma de pagamento.')
+        setStep('pagamento')
+        return
+      }
+      formData.set('forma_pagamento', formaPagamento)
     }
-    formData.set('forma_pagamento', formaPagamento)
     if (vaiUsarPlano) formData.set('usar_plano', '1')
 
     startTransition(async () => {
       const result = await criarAgendamentoAction(formData)
-      if (result?.error) { setError(result.error); return }
+      if (result?.error) {
+        setError(result.error)
+        // O servidor não confirmou a cobertura do plano: pede o pagamento.
+        if (nadaAPagar && result.error === 'Escolha a forma de pagamento.') {
+          setPlanoNaoCobriu(true)
+          setStep('pagamento')
+        }
+        return
+      }
       const plano = result && 'plano' in result ? result.plano : undefined
       setAgendado({
         id: result && 'id_agendamento' in result && typeof result.id_agendamento === 'string' ? result.id_agendamento : null,
@@ -366,7 +392,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
           data={data}
           hora={hora}
           total={Math.max(0, totalSemPlano - (agendado.plano?.valorAbatido ?? 0))}
-          pagamento={formaPagamento ? { forma: formaPagamento, pixChave: formasLoja.pix_chave, pixNome: formasLoja.pix_nome } : null}
+          pagamento={!nadaAPagar && formaPagamento ? { forma: formaPagamento, pixChave: formasLoja.pix_chave, pixNome: formasLoja.pix_nome } : null}
           plano={agendado.plano}
           aviso={agendado.aviso}
         />
@@ -709,16 +735,18 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
               <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{descontoPlano > 0 ? 'Total a pagar' : 'Total'}</span>
               <span className="font-semibold text-success">{formatarReais(totalGeral)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted">Pagamento</span>
-              <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>
-                {formaPagamento ? ROTULO_FORMA_PAGAMENTO[formaPagamento] : '—'}{' '}
-                <button type="button" className="text-accent text-sm" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 400 }} onClick={() => setStep('pagamento')}>
-                  Trocar
-                </button>
-              </span>
-            </div>
-            {formaPagamento === 'pix' && <PixDaLoja chave={formasLoja.pix_chave} nome={formasLoja.pix_nome} />}
+            {!nadaAPagar && (
+              <div className="flex justify-between">
+                <span className="text-sm text-muted">Pagamento</span>
+                <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>
+                  {formaPagamento ? ROTULO_FORMA_PAGAMENTO[formaPagamento] : '—'}{' '}
+                  <button type="button" className="text-accent text-sm" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 400 }} onClick={() => setStep('pagamento')}>
+                    {formaPagamento ? 'Trocar' : 'Escolher'}
+                  </button>
+                </span>
+              </div>
+            )}
+            {!nadaAPagar && formaPagamento === 'pix' && <PixDaLoja chave={formasLoja.pix_chave} nome={formasLoja.pix_nome} />}
             {precosEstimados && (
               <p className="text-xs text-muted" style={{ margin: 0 }}>
                 O valor do serviço é uma estimativa: a loja pode ajustar o preço final conforme a pelagem e as condições do pet no dia.

@@ -153,15 +153,20 @@ export default function TaxiDogPainel({ data, caminho, caminhoRotas, hojeISO, co
   return (
     <>
       <div className="kanban-toolbar">
+        {/* A conta que é só TaxiDog fica no dia de hoje: sem setas pra trocar de dia. */}
         <div className="dash-day-nav">
-          <button onClick={() => irParaDia(format(subDays(dataObj, 1), 'yyyy-MM-dd'))} aria-label="Dia anterior">
-            <IconChevronLeft />
-          </button>
+          {!modoMotorista && (
+            <button onClick={() => irParaDia(format(subDays(dataObj, 1), 'yyyy-MM-dd'))} aria-label="Dia anterior">
+              <IconChevronLeft />
+            </button>
+          )}
           <span className="dash-day-label">{format(dataObj, "EEEE, dd 'de' MMMM", { locale: ptBR })}</span>
-          <button onClick={() => irParaDia(format(addDays(dataObj, 1), 'yyyy-MM-dd'))} aria-label="Próximo dia">
-            <IconChevronRight />
-          </button>
-          {data !== hojeISO && (
+          {!modoMotorista && (
+            <button onClick={() => irParaDia(format(addDays(dataObj, 1), 'yyyy-MM-dd'))} aria-label="Próximo dia">
+              <IconChevronRight />
+            </button>
+          )}
+          {!modoMotorista && data !== hojeISO && (
             <button className="btn btn-ghost btn-sm" onClick={() => irParaDia(hojeISO)} style={{ marginLeft: 'var(--space-2)' }}>
               Hoje
             </button>

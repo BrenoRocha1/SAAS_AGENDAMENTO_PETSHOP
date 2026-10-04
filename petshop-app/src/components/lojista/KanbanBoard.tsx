@@ -19,6 +19,8 @@ import { origemTaxiDogDaVisita, type TransporteVisita } from '@/lib/taxidog-visi
 import TransporteAgendamento from '@/components/lojista/TransporteAgendamento'
 import PagamentoAgendamento from '@/components/lojista/PagamentoAgendamento'
 import BeneficioAgendamento from '@/components/lojista/planos/BeneficioAgendamento'
+import NovoAgendamentoModal from '@/components/lojista/NovoAgendamentoModal'
+import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/DashboardClient'
 import type { FormaPagamento } from '@/lib/pagamento'
 import {
   IconAlert,
@@ -28,6 +30,7 @@ import {
   IconChevronRight,
   IconClose,
   IconDog,
+  IconPlus,
   IconUserBadge,
 } from '@/components/icons'
 
@@ -67,11 +70,15 @@ export interface KanbanItem {
 }
 
 interface Props {
+  lojistaId: string
   selectedDate: string
   hojeISO: string
   itensIniciais: KanbanItem[]
+  // Clientes e pets da loja — só pro modal de "Novo agendamento".
+  clientes: ClienteComPets[]
   funcionarios: { id_funcionario: string; nome: string }[]
-  servicos: { id_servico: string; nome: string }[]
+  // Serviços ativos: filtro do board e opções do modal.
+  servicos: ServicoAtivo[]
   // Só o responsável pela conta ou um administrador pode atribuir/trocar
   // o profissional responsável — ver atribuirFuncionarioAction.
   podeAtribuirProfissional: boolean
@@ -96,7 +103,7 @@ function parseDia(iso: string) {
   return parseISO(`${iso}T12:00:00`)
 }
 
-export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, funcionarios, servicos, podeAtribuirProfissional, taxidogAtivo, formasPagamento }: Props) {
+export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIniciais, clientes, funcionarios, servicos, podeAtribuirProfissional, taxidogAtivo, formasPagamento }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [itens, setItens] = useState(itensIniciais)
@@ -107,6 +114,7 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
   const [confirmarBusca, setConfirmarBusca] = useState<{ item: KanbanItem; novoStatus: 'Em andamento' | 'Concluído'; info: TaxiDogPendente } | null>(null)
   const [filtroFuncionario, setFiltroFuncionario] = useState('')
   const [filtroServico, setFiltroServico] = useState('')
+  const [novoAberto, setNovoAberto] = useState(false)
 
   // Re-sincroniza com o servidor quando o dia muda (navegação por Link) —
   // ajuste de estado durante a renderização, não em efeito.
@@ -348,6 +356,10 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
               ))}
             </select>
           )}
+          <button type="button" className="btn btn-primary" onClick={() => setNovoAberto(true)}>
+            <IconPlus style={{ width: 16, height: 16 }} />
+            Novo agendamento
+          </button>
         </div>
       </div>
 
@@ -598,6 +610,22 @@ export default function KanbanBoard({ selectedDate, hojeISO, itensIniciais, func
             </div>
           </div>
         </div>
+      )}
+
+      {/* Mesmo modal do Dashboard e da Agenda; abre no dia que o board mostra.
+          Ao criar, o board recarrega (se o agendamento for de outro dia, ele
+          só aparece indo até lá). */}
+      {novoAberto && (
+        <NovoAgendamentoModal
+          lojistaId={lojistaId}
+          defaultDate={selectedDate}
+          clientes={clientes}
+          servicos={servicos}
+          funcionarios={funcionarios}
+          podeAtribuirProfissional={podeAtribuirProfissional}
+          onClose={() => setNovoAberto(false)}
+          onCreated={() => router.refresh()}
+        />
       )}
 
       {remarcando && <RemarcarModal {...remarcando} onFechar={() => setRemarcando(null)} />}

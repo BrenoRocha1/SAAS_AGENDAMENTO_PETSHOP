@@ -94,6 +94,8 @@ export default function NovoAgendamentoClienteScreen() {
   const [hora, setHora] = useState('')
   const [quantidades, setQuantidades] = useState<Record<string, string>>({})
   const [usarPlano, setUsarPlano] = useState(true)
+  // O servidor não confirmou que o plano cobre o pedido: volta a pedir o pagamento.
+  const [planoNaoCobriu, setPlanoNaoCobriu] = useState(false)
   const [obs, setObs] = useState('')
 
   // Dados da loja escolhida.
@@ -236,13 +238,6 @@ export default function NovoAgendamentoClienteScreen() {
       .sort((a, b) => Number(minhasLojas.has(b.id_lojista)) - Number(minhasLojas.has(a.id_lojista)) || a.nome_loja.localeCompare(b.nome_loja, 'pt-BR'))
   }, [lojas, busca, minhasLojas])
 
-  const etapas: Etapa[] = taxidogDisponivel
-    ? ['loja', 'petservico', 'transporte', 'pagamento', 'datahora', 'confirmar']
-    : ['loja', 'petservico', 'pagamento', 'datahora', 'confirmar']
-  const passo = etapas.indexOf(etapa) + 1
-  const avancar = () => { setErro(null); setEtapa(atual => etapas[etapas.indexOf(atual) + 1] ?? atual) }
-  const voltar = () => { setErro(null); setEtapa(atual => etapas[etapas.indexOf(atual) - 1] ?? atual) }
-
   const loja = lojas?.find(l => l.id_lojista === lojaId) ?? null
   const pet = pets?.find(p => p.id_pet === petId) ?? null
   const precoDe = (s: Servico) => (precos?.petId === petId && precos.valores[s.id_servico] != null ? precos.valores[s.id_servico] : s.preco)
@@ -259,6 +254,26 @@ export default function NovoAgendamentoClienteScreen() {
   const vaiUsarPlano = usarPlano && cobertura.cobertos.length > 0
   const descontoPlano = vaiUsarPlano && servico ? precoDe(servico) : 0
   const totalGeral = totalSemPlano - descontoPlano
+  // O plano cobre o pedido inteiro (só o serviço dele, sem produto nem
+  // TaxiDog): não há o que pagar, então a forma de pagamento nem aparece.
+  // Se depois entrar algo cobrado (um produto na confirmação, por exemplo),
+  // a etapa volta e é exigida antes de confirmar. O servidor refaz a conta.
+  const planoCobreTudo = vaiUsarPlano && !planoNaoCobriu && itensProdutos.length === 0 && !escolhaTaxi
+
+  const todasEtapas: Etapa[] = taxidogDisponivel
+    ? ['loja', 'petservico', 'transporte', 'pagamento', 'datahora', 'confirmar']
+    : ['loja', 'petservico', 'pagamento', 'datahora', 'confirmar']
+  // O progresso conta o pagamento só quando ele é pedido (ou quando a
+  // pessoa já está nele).
+  const etapas = todasEtapas.filter(e => e !== 'pagamento' || !planoCobreTudo || etapa === 'pagamento')
+  const passo = etapas.indexOf(etapa) + 1
+  const vizinha = (atual: Etapa, sentido: 1 | -1) => {
+    let i = todasEtapas.indexOf(atual) + sentido
+    if (todasEtapas[i] === 'pagamento' && planoCobreTudo) i += sentido
+    return todasEtapas[i] ?? atual
+  }
+  const avancar = () => { setErro(null); setEtapa(atual => vizinha(atual, 1)) }
+  const voltar = () => { setErro(null); setEtapa(atual => vizinha(atual, -1)) }
   const carregandoSlots = !!servico && !!data && slots?.chave !== chaveSlots
 
   function escolherLoja(id: string) {
@@ -277,7 +292,7 @@ export default function NovoAgendamentoClienteScreen() {
   }
 
   async function agendar() {
-    if (!forma) {
+    if (!planoCobreTudo && !forma) {
       setErro('Escolha a forma de pagamento.')
       setEtapa('pagamento')
       return
@@ -300,13 +315,18 @@ export default function NovoAgendamentoClienteScreen() {
         obs: obs.trim(),
         produtos: itensProdutos.length > 0 ? JSON.stringify(itensProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))) : null,
         taxidog: escolhaTaxi ? taxiDogParaFormulario(escolhaTaxi) : null,
-        forma_pagamento: forma,
+        forma_pagamento: planoCobreTudo ? null : forma,
         usar_plano: vaiUsarPlano ? '1' : null,
       }),
     )
     setEnviando(false)
     if (r.error) {
       setErro(r.error)
+      // O servidor não confirmou a cobertura do plano: pede o pagamento.
+      if (planoCobreTudo && r.error === 'Escolha a forma de pagamento.') {
+        setPlanoNaoCobriu(true)
+        setEtapa('pagamento')
+      }
       // O horário pode ter sido ocupado enquanto a pessoa confirmava.
       setRecarga(n => n + 1)
       return
@@ -524,7 +544,7 @@ export default function NovoAgendamentoClienteScreen() {
             {descontoPlano > 0 && <Linha rotulo="Saldo do plano" valor={`− ${formatarMoeda(descontoPlano)}`} />}
             <View style={styles.divisor} />
             <Linha rotulo={descontoPlano > 0 ? 'Total a pagar' : 'Total'} valor={formatarMoeda(totalGeral)} forte />
-            <Linha rotulo="Pagamento" valor={forma ? ROTULO_FORMA_PAGAMENTO[forma] : '—'} />
+            {!planoCobreTudo && <Linha rotulo="Pagamento" valor={forma ? ROTULO_FORMA_PAGAMENTO[forma] : 'A escolher'} />}
             {precosEstimados && (
               <Text style={styles.textoPequeno}>
                 O valor do serviço é uma estimativa: a loja pode ajustar o preço final conforme a pelagem e as condições do pet no dia.

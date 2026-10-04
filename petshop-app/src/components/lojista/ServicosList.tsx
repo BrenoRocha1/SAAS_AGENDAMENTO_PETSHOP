@@ -130,7 +130,7 @@ export default function ServicosList({ servicos: inicial }: Props) {
         setShowModal(false)
         setDraftVariacoes([])
         // Recarregar lista
-        const { data } = await supabase.from('servico').select('*').order('created_at', { ascending: false })
+        const { data } = await supabase.from('servico').select('*').is('excluido_em', null).order('created_at', { ascending: false })
         setServicos(data ?? [])
       }
     })
@@ -409,7 +409,8 @@ export default function ServicosList({ servicos: inicial }: Props) {
                 </span>
                 <p style={{ color: 'var(--gray-200)' }}>
                   Tem certeza que deseja excluir <strong style={{ color: 'var(--gray-100)' }}>&quot;{confirmarExclusao.nome}&quot;</strong>?
-                  Essa ação não pode ser desfeita.
+                  Ele sai da lista e não pode mais ser agendado. Os atendimentos já feitos continuam no relatório de
+                  vendas, e o que já está marcado com ele continua valendo. Essa ação não pode ser desfeita.
                 </p>
               </div>
             </div>

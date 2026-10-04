@@ -45,7 +45,7 @@ export default async function PlanosPage({ searchParams }: { searchParams: Promi
   // .then() é o que dispara a consulta — o builder do Supabase só envia
   // quando alguém espera por ele.
   const pServicos = aba === 'planos'
-    ? supabase.from('servico').select('id_servico, nome, preco, status').eq('id_lojista', contexto.idLojista).order('nome').then(r => r)
+    ? supabase.from('servico').select('id_servico, nome, preco, status').eq('id_lojista', contexto.idLojista).is('excluido_em', null).order('nome').then(r => r)
     : null
   const pAssinaturas = aba === 'assinaturas'
     ? supabase.rpc('fn_assinaturas_da_loja', { p_id_cliente: null, p_detalhes: false }).then(r => r)

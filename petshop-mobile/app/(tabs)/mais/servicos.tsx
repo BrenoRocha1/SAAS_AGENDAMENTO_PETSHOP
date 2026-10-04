@@ -74,6 +74,8 @@ export default function ServicosScreen() {
       .from('servico')
       .select('id_servico, nome, descricao, preco, duracao, status')
       .eq('id_lojista', idLojista)
+      // Serviço excluído (migration 081) fica só no histórico e no relatório.
+      .is('excluido_em', null)
       .order('created_at', { ascending: false })
     if (error) setErro('Não foi possível carregar os serviços.')
     else {
@@ -147,7 +149,7 @@ export default function ServicosScreen() {
   }
 
   function pedirExclusao(s: Servico) {
-    dialogo('Excluir serviço', `Excluir "${s.nome}"? Só dá para excluir serviço que nunca teve agendamento — senão, desative.`, [
+    dialogo('Excluir serviço', `Excluir "${s.nome}"? Ele sai da lista e não pode mais ser agendado. Os atendimentos já feitos continuam no relatório de vendas.`, [
       { text: 'Voltar', style: 'cancel' },
       {
         text: 'Excluir',

@@ -78,6 +78,9 @@ export default async function RelatorioCorridasPage({ searchParams }: Props) {
   let de = params.de && DATA_RE.test(params.de) ? params.de : inicioMes
   let ate = params.ate && DATA_RE.test(params.ate) ? params.ate : hoje
   if (de > ate) [de, ate] = [ate, de]
+  // O TaxiDog não vê corrida de dia que ainda não chegou.
+  if (modoMotorista && ate > hoje) ate = hoje
+  if (modoMotorista && de > hoje) de = hoje
   if (differenceInCalendarDays(parseISO(ate), parseISO(de)) > MAX_DIAS) {
     de = format(addDays(parseISO(ate), -MAX_DIAS), 'yyyy-MM-dd')
   }

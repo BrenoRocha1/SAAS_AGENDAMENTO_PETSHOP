@@ -44,7 +44,8 @@ import { mensagemErroBloqueio } from '@/lib/bloqueios'
 import { criarContaCliente } from '@/lib/cadastro-cliente'
 import { alterarTransporteAction } from '@/lib/actions-rotas'
 import { formatarCep as formatarCepTaxiDog } from '@/lib/taxidog'
-import { ehFormaPagamento, mensagemErroPagamento, type FormaPagamento } from '@/lib/pagamento'
+import { ehFormaPagamento, formasAtivas, mensagemErroPagamento, normalizarFormasLoja, type FormaPagamento } from '@/lib/pagamento'
+import { coberturaDoPlano, type PlanoDoPet } from '@/lib/planos'
 import { erroQuantidadeInteira } from '@/lib/produto'
 import type { ServicoVariacaoData } from '@/lib/validations'
 
@@ -878,6 +879,8 @@ export async function alternarStatusServicoAction(id_servico: string, ativo: boo
     .update({ status: ativo ? 'Ativo' : 'Inativo' })
     .eq('id_servico', id_servico)
     .eq('id_lojista', contexto.idLojista)
+    // Serviço excluído (migration 081) não volta por aqui.
+    .is('excluido_em', null)
 
   if (error) return { error: devError('Erro ao atualizar status do serviço.', error.message) }
 
@@ -885,11 +888,14 @@ export async function alternarStatusServicoAction(id_servico: string, ativo: boo
   return { success: true }
 }
 
-// Exclusão de verdade (não é o toggle de status Ativo/Inativo). Só é
-// possível quando o serviço nunca teve nenhum agendamento (nem
-// cancelado) — a FK agendamento.id_servico é ON DELETE RESTRICT de
-// propósito, pra nunca perder histórico. Por isso a checagem prévia
-// aqui, pra devolver uma mensagem clara em vez do erro cru do banco.
+// Excluir serviço (não é o toggle de status Ativo/Inativo).
+//
+// Sem nada ligado a ele, o serviço é apagado de verdade. Com histórico
+// (agendamentos, avaliações, usos de plano), a linha tem que continuar no
+// banco — as FKs são ON DELETE RESTRICT de propósito, e é dela que o
+// relatório de vendas tira o nome. Nesse caso ele é marcado como excluído
+// (migration 081): fica 'Inativo' e some da tela de Serviços e da escolha
+// de serviço, mas continua no relatório e nos históricos.
 export async function excluirServicoAction(id_servico: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -902,28 +908,46 @@ export async function excluirServicoAction(id_servico: string) {
   const db = clienteParaEscritaLojista(contexto, supabase)
   if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
 
-  const { count } = await supabase
-    .from('agendamento')
-    .select('id_agendamento', { count: 'exact', head: true })
+  // Serviço de um plano que ainda é vendido: excluir deixaria o plano
+  // prometendo algo que ninguém consegue mais agendar.
+  const { data: emPlanos } = await supabase
+    .from('plano_servico')
+    .select('plano:id_plano ( nome, ativo, id_lojista )')
     .eq('id_servico', id_servico)
-
-  if (count && count > 0) {
+  const planosAtivos = ((emPlanos ?? []) as unknown as { plano: { nome: string; ativo: boolean; id_lojista: string } | null }[])
+    .filter(p => p.plano?.ativo && p.plano.id_lojista === contexto.idLojista)
+    .map(p => p.plano!.nome)
+  if (planosAtivos.length > 0) {
     return {
-      error: 'Este serviço já tem agendamentos (inclusive cancelados) e não pode ser excluído. Marque-o como "Inativo" em vez de excluir.',
+      error: `Este serviço faz parte do plano "${planosAtivos[0]}"${planosAtivos.length > 1 ? ` e de mais ${planosAtivos.length - 1}` : ''}. Tire o serviço do plano (ou desative o plano) antes de excluir.`,
     }
   }
 
-  const { error } = await db
+  // Tenta apagar de verdade. Com histórico não apaga, de um destes jeitos:
+  // o banco recusa (23503, alguma tabela ainda aponta pra ele) ou a policy
+  // de DELETE nem enxerga a linha (002_rls: o lojista só apaga serviço sem
+  // agendamento) e o DELETE volta sem erro e sem apagar nada — por isso o
+  // .select(), pra saber se a linha saiu mesmo.
+  const { data: apagados, error } = await db
     .from('servico')
     .delete()
     .eq('id_servico', id_servico)
     .eq('id_lojista', contexto.idLojista)
+    .select('id_servico')
+  if (error && error.code !== '23503') {
+    return { error: devError('Erro ao excluir serviço.', error.message) }
+  }
 
-  if (error) {
-    if (error.code === '23503') {
-      return { error: 'Este serviço tem agendamentos vinculados e não pode ser excluído. Marque-o como "Inativo" em vez de excluir.' }
+  if (error || !apagados || apagados.length === 0) {
+    const { data: marcados, error: erroMarcar } = await db
+      .from('servico')
+      .update({ status: 'Inativo', excluido_em: new Date().toISOString() })
+      .eq('id_servico', id_servico)
+      .eq('id_lojista', contexto.idLojista)
+      .select('id_servico')
+    if (erroMarcar || !marcados || marcados.length === 0) {
+      return { error: devError('Erro ao excluir serviço.', erroMarcar?.message ?? 'nenhuma linha alterada') }
     }
-    return { error: 'Erro ao excluir serviço.' }
   }
 
   revalidatePath('/lojista/servicos')
@@ -1533,6 +1557,37 @@ function lerFormaPagamento(formData: FormData): { forma?: FormaPagamento; erro?:
   return { forma }
 }
 
+// O plano do pet cobre o pedido inteiro (migrations 060 e 075)? Só quando
+// TODOS os serviços estão no saldo do plano e não há mais nada a cobrar
+// (produto ou TaxiDog). Aí ninguém escolhe forma de pagamento — não há o
+// que pagar, e a tela nem pergunta. Mas o banco exige uma forma em todo
+// agendamento: vai a primeira que a loja aceita (o valor fica zerado
+// quando o plano é usado, logo depois de criar). Fora desse caso devolve
+// null e vale a regra de sempre: sem forma escolhida, não agenda.
+// `pelaLoja`: quem agenda é a loja (lê o saldo por fn_beneficios_do_pet);
+// senão é o próprio cliente (fn_meus_beneficios).
+async function formaSemCobrancaPeloPlano(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  pedido: { idLojista: string; idPet: string; data: string; idsServicos: string[]; temExtras: boolean; pelaLoja?: boolean }
+): Promise<FormaPagamento | null> {
+  const ids = [...new Set(pedido.idsServicos)]
+  // Serviço repetido no pedido: o saldo pode não dar para os dois.
+  if (pedido.temExtras || ids.length === 0 || ids.length !== pedido.idsServicos.length) return null
+
+  const { data: planos, error } = pedido.pelaLoja
+    ? await supabase.rpc('fn_beneficios_do_pet', { p_id_pet: pedido.idPet, p_data: pedido.data })
+    : await supabase.rpc('fn_meus_beneficios', {
+        p_id_lojista: pedido.idLojista,
+        p_id_pet: pedido.idPet,
+        p_data: pedido.data,
+      })
+  if (error || !Array.isArray(planos)) return null
+  if (coberturaDoPlano(planos as PlanoDoPet[], ids).cobertos.length !== ids.length) return null
+
+  const { data: formas } = await supabase.rpc('fn_formas_pagamento_loja', { p_id_lojista: pedido.idLojista })
+  return formasAtivas(normalizarFormasLoja(formas))[0] ?? null
+}
+
 // Função "com pagamento" ainda não existe no banco.
 function faltaMigrationPagamento(error: { message: string; code?: string }): boolean {
   return (error.code === 'PGRST202' || error.message.includes('Could not find the function')) && error.message.includes('com_pagamento')
@@ -1602,7 +1657,17 @@ export async function criarAgendamentoAction(formData: FormData) {
   // O cliente não escolhe quem faz a corrida (só a loja).
   const taxidog = lerTaxiDogDoFormulario(formData, { semEscolhaDeTaxiDog: true })
   if (taxidog.erro) return { error: taxidog.erro }
-  const pagamento = lerFormaPagamento(formData)
+  let pagamento = lerFormaPagamento(formData)
+  if (pagamento.erro && formData.get('usar_plano') === '1') {
+    const forma = await formaSemCobrancaPeloPlano(supabase, {
+      idLojista: parsed.data.id_lojista,
+      idPet: parsed.data.id_pet,
+      data: parsed.data.dt_agendamento,
+      idsServicos: [parsed.data.id_servico],
+      temExtras: (parsed.data.produtos?.length ?? 0) > 0 || !!taxidog.dados,
+    })
+    if (forma) pagamento = { forma }
+  }
   if (pagamento.erro) return { error: pagamento.erro }
 
   const paramsAgendamento = {
@@ -1702,7 +1767,17 @@ export async function criarAgendamentoOnlineAction(
 
   const taxidog = lerTaxiDogDoFormulario(formData, { semEscolhaDeTaxiDog: true })
   if (taxidog.erro) return { error: taxidog.erro }
-  const pagamento = lerFormaPagamento(formData)
+  let pagamento = lerFormaPagamento(formData)
+  if (pagamento.erro && formData.get('usar_plano') === '1') {
+    const forma = await formaSemCobrancaPeloPlano(supabase, {
+      idLojista: parsed.data.id_lojista,
+      idPet: parsed.data.id_pet,
+      data: parsed.data.dt_agendamento,
+      idsServicos: parsed.data.servicos,
+      temExtras: (parsed.data.produtos?.length ?? 0) > 0 || !!taxidog.dados,
+    })
+    if (forma) pagamento = { forma }
+  }
   if (pagamento.erro) return { error: pagamento.erro }
 
   const paramsAgendamento = {
@@ -1796,7 +1871,19 @@ export async function criarAgendamentoLojistaAction(
   const taxidog = lerTaxiDogDoFormulario(formData)
   if (taxidog.erro) return { error: taxidog.erro }
   // Pagamento obrigatório (migration 057): a loja pode lançar já "pago".
-  const pagamento = lerFormaPagamento(formData)
+  // Só não é pedido quando o plano do pet cobre o agendamento inteiro.
+  let pagamento = lerFormaPagamento(formData)
+  if (pagamento.erro && formData.get('usar_beneficio') === '1') {
+    const forma = await formaSemCobrancaPeloPlano(supabase, {
+      idLojista: parsed.data.id_lojista,
+      idPet: parsed.data.id_pet,
+      data: parsed.data.dt_agendamento,
+      idsServicos: [parsed.data.id_servico],
+      temExtras: !!taxidog.dados,
+      pelaLoja: true,
+    })
+    if (forma) pagamento = { forma }
+  }
   if (pagamento.erro) return { error: pagamento.erro }
   const statusPagamento = formData.get('status_pagamento') === 'pago' ? 'pago' : 'pendente'
 

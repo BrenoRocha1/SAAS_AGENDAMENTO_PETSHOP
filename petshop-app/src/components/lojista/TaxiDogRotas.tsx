@@ -176,11 +176,16 @@ export default function TaxiDogRotas({ perfil, precisaAprovacao, data, hojeISO, 
   return (
     <>
       <div className="kanban-toolbar">
+        {/* O TaxiDog fica no dia de hoje: sem setas pra trocar de dia. */}
         <div className="dash-day-nav">
-          <button onClick={() => irParaDia(format(subDays(dataObj, 1), 'yyyy-MM-dd'))} aria-label="Dia anterior"><IconChevronLeft /></button>
+          {perfil === 'gestor' && (
+            <button onClick={() => irParaDia(format(subDays(dataObj, 1), 'yyyy-MM-dd'))} aria-label="Dia anterior"><IconChevronLeft /></button>
+          )}
           <span className="dash-day-label">{format(dataObj, "EEEE, dd 'de' MMMM", { locale: ptBR })}</span>
-          <button onClick={() => irParaDia(format(addDays(dataObj, 1), 'yyyy-MM-dd'))} aria-label="Próximo dia"><IconChevronRight /></button>
-          {data !== hojeISO && (
+          {perfil === 'gestor' && (
+            <button onClick={() => irParaDia(format(addDays(dataObj, 1), 'yyyy-MM-dd'))} aria-label="Próximo dia"><IconChevronRight /></button>
+          )}
+          {perfil === 'gestor' && data !== hojeISO && (
             <button className="btn btn-ghost btn-sm" onClick={() => irParaDia(hojeISO)} style={{ marginLeft: 'var(--space-2)' }}>Hoje</button>
           )}
         </div>

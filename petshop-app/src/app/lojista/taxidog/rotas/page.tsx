@@ -34,7 +34,8 @@ export default async function RotasTaxiDogPage({ searchParams }: Props) {
 
   const perfil: PerfilRotas = contexto.podeGerenciarAgenda ? 'gestor' : 'taxidog'
   const hojeISO = hojeBrasilISO()
-  let data = params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO
+  // O TaxiDog vê só as rotas de hoje; a gestão navega pelos dias.
+  let data = perfil === 'gestor' && params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO
   const idRota = params.rota && UUID_RE.test(params.rota) ? params.rota : null
   const caminho = '/lojista/taxidog/rotas'
 

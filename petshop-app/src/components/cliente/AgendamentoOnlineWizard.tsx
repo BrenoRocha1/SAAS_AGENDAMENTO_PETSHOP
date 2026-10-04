@@ -172,14 +172,6 @@ export default function AgendamentoOnlineWizard({
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [step, setStep] = useState<Step>('servicos')
-  const etapas: Step[] = useMemo(
-    () => taxidogDisponivel
-      ? ['servicos', 'pet', 'transporte', 'pagamento', 'dados', 'horario', 'resumo']
-      : ['servicos', 'pet', 'pagamento', 'dados', 'horario', 'resumo'],
-    [taxidogDisponivel]
-  )
-  const avancar = () => setStep(atual => etapas[etapas.indexOf(atual) + 1] ?? atual)
-  const voltar = () => setStep(atual => etapas[etapas.indexOf(atual) - 1] ?? atual)
   const [transporte, setTransporte] = useState<EstadoTransporte>(ESTADO_TRANSPORTE_INICIAL)
   const escolhaTaxiDog = escolhaDoTransporte(transporte)
   // Forma de pagamento do pedido inteiro (migration 057) — obrigatória.
@@ -241,6 +233,33 @@ export default function AgendamentoOnlineWizard({
         .reduce((acc, s) => acc + Number(precos[s.id_servico] ?? s.preco), 0)
     : 0
   const totalGeral = totalSemPlano - descontoPlano
+  // O plano cobre o pedido inteiro (todos os serviços do carrinho, sem
+  // produto nem TaxiDog): não há o que pagar, então a forma de pagamento
+  // nem aparece. Se depois entrar algo cobrado (um produto no resumo, por
+  // exemplo), a etapa volta e é exigida antes de confirmar. É a mesma conta
+  // que o servidor refaz (formaSemCobrancaPeloPlano); se ele discordar — o
+  // saldo acabou nesse meio-tempo —, `planoNaoCobriu` traz o pagamento de volta.
+  const [planoNaoCobriu, setPlanoNaoCobriu] = useState(false)
+  const nadaAPagar = vaiUsarPlano && !planoNaoCobriu
+    && carrinho.length > 0 && carrinho.every(id => cobertura.cobertos.some(c => c.id_servico === id))
+    && itensCarrinhoProdutos.length === 0 && !escolhaTaxiDog
+
+  const todasEtapas: Step[] = useMemo(
+    () => taxidogDisponivel
+      ? ['servicos', 'pet', 'transporte', 'pagamento', 'dados', 'horario', 'resumo']
+      : ['servicos', 'pet', 'pagamento', 'dados', 'horario', 'resumo'],
+    [taxidogDisponivel]
+  )
+  // A barra de progresso conta o pagamento só quando ele é pedido (ou
+  // quando a pessoa já está nele).
+  const etapas = todasEtapas.filter(e => e !== 'pagamento' || !nadaAPagar || step === 'pagamento')
+  const vizinha = (atual: Step, sentido: 1 | -1) => {
+    let i = todasEtapas.indexOf(atual) + sentido
+    if (todasEtapas[i] === 'pagamento' && nadaAPagar) i += sentido
+    return todasEtapas[i] ?? atual
+  }
+  const avancar = () => setStep(atual => vizinha(atual, 1))
+  const voltar = () => setStep(atual => vizinha(atual, -1))
 
   // Preço real (considerando variação por porte/raça) assim que há pet + carrinho
   useEffect(() => {
@@ -330,17 +349,27 @@ export default function AgendamentoOnlineWizard({
       fd.set('produtos', JSON.stringify(itensCarrinhoProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))))
     }
     if (escolhaTaxiDog) fd.set('taxidog', taxiDogParaFormulario(escolhaTaxiDog))
-    if (!formaPagamento) {
-      setErro('Escolha a forma de pagamento.')
-      setStep('pagamento')
-      return
+    if (!nadaAPagar) {
+      if (!formaPagamento) {
+        setErro('Escolha a forma de pagamento.')
+        setStep('pagamento')
+        return
+      }
+      fd.set('forma_pagamento', formaPagamento)
     }
-    fd.set('forma_pagamento', formaPagamento)
     if (vaiUsarPlano) fd.set('usar_plano', '1')
 
     startTransition(async () => {
       const result = await criarAgendamentoOnlineAction(fd)
-      if (result?.error) { setErro(result.error); return }
+      if (result?.error) {
+        setErro(result.error)
+        // O servidor não confirmou a cobertura do plano: pede o pagamento.
+        if (nadaAPagar && result.error === 'Escolha a forma de pagamento.') {
+          setPlanoNaoCobriu(true)
+          setStep('pagamento')
+        }
+        return
+      }
       setResultado({
         ids: result?.ids_agendamento ?? [],
         plano: result?.plano ? { aplicados: result.plano.aplicados, valorAbatido: result.plano.valorAbatido } : null,
@@ -730,16 +759,18 @@ export default function AgendamentoOnlineWizard({
               <div className="agenonline-resumo-row"><span className="text-muted">Saldo do plano</span><span style={{ color: 'var(--primary-400)' }}>− {formatarReais(descontoPlano)}</span></div>
             )}
             <div className="agenonline-resumo-row"><span className="font-semibold">{descontoPlano > 0 ? 'Total a pagar' : 'Total'}</span><span className="font-semibold text-success">{formatarReais(totalGeral)}</span></div>
-            <div className="agenonline-resumo-row">
-              <span className="text-muted">Pagamento</span>
-              <span>
-                {formaPagamento ? ROTULO_FORMA_PAGAMENTO[formaPagamento] : '—'}{' '}
-                <button type="button" className="text-accent text-sm" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} onClick={() => setStep('pagamento')}>
-                  Trocar
-                </button>
-              </span>
-            </div>
-            {formaPagamento === 'pix' && (
+            {!nadaAPagar && (
+              <div className="agenonline-resumo-row">
+                <span className="text-muted">Pagamento</span>
+                <span>
+                  {formaPagamento ? ROTULO_FORMA_PAGAMENTO[formaPagamento] : '—'}{' '}
+                  <button type="button" className="text-accent text-sm" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} onClick={() => setStep('pagamento')}>
+                    {formaPagamento ? 'Trocar' : 'Escolher'}
+                  </button>
+                </span>
+              </div>
+            )}
+            {!nadaAPagar && formaPagamento === 'pix' && (
               <div style={{ marginTop: 'var(--space-2)' }}>
                 <PixDaLoja chave={formasPagamento.pix_chave} nome={formasPagamento.pix_nome} />
               </div>
@@ -812,7 +843,7 @@ export default function AgendamentoOnlineWizard({
           data={data}
           hora={horaInicio}
           total={Math.max(0, totalSemPlano - (resultado.plano?.valorAbatido ?? 0))}
-          pagamento={formaPagamento ? { forma: formaPagamento, pixChave: formasPagamento.pix_chave, pixNome: formasPagamento.pix_nome } : null}
+          pagamento={!nadaAPagar && formaPagamento ? { forma: formaPagamento, pixChave: formasPagamento.pix_chave, pixNome: formasPagamento.pix_nome } : null}
           plano={resultado.plano}
           aviso={resultado.aviso}
         />

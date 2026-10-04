@@ -173,7 +173,10 @@ export default function NovoAgendamentoScreen() {
         .sort((a, b) => (b.quantidade - b.usados) - (a.quantidade - a.usados))[0] ?? null
     : null
   const vaiUsarBeneficio = !!beneficio && beneficio.quantidade > beneficio.usados && usarBeneficio
-  const pronto = !!(clienteId && petId && servicoId && data && hora && forma)
+  // O plano cobre o agendamento inteiro (aqui não há produto nem TaxiDog):
+  // não há o que pagar, então a forma de pagamento nem aparece.
+  const planoCobreTudo = vaiUsarBeneficio && formas.length > 0
+  const pronto = !!(clienteId && petId && servicoId && data && hora && (forma || planoCobreTudo))
 
   function trocarCliente(id: string) {
     setClienteId(id)
@@ -186,8 +189,10 @@ export default function NovoAgendamentoScreen() {
     setErro(null)
     setEnviando(true)
     const { data: idNovo, error } = await supabase.rpc('fn_criar_agendamento_lojista_com_pagamento', {
-      p_forma_pagamento: forma,
-      p_status_pagamento: pago,
+      // Sem cobrança o banco ainda exige uma forma: vai a primeira que a
+      // loja aceita (o valor zera quando o plano é usado, logo abaixo).
+      p_forma_pagamento: planoCobreTudo ? formas[0] : forma,
+      p_status_pagamento: planoCobreTudo ? 'pendente' : pago,
       p_id_lojista: idLojista,
       p_id_cliente: clienteId,
       p_id_pet: petId,
@@ -329,20 +334,6 @@ export default function NovoAgendamentoScreen() {
       {/* 5. Pagamento e observação */}
       {servico && hora !== '' && (
         <>
-          <Text style={styles.secao}>Pagamento</Text>
-          <View style={{ gap: spacing.sm }}>
-            {formas.map(f => (
-              <Opcao key={f} titulo={ROTULO_FORMA_PAGAMENTO[f]} selecionada={forma === f} onPress={() => setForma(f)} />
-            ))}
-          </View>
-          <View style={{ marginTop: spacing.md }}>
-            <Segmentos
-              valor={pago}
-              onChange={setPago}
-              opcoes={[{ valor: 'pendente', rotulo: 'Ainda não pagou' }, { valor: 'pago', rotulo: 'Já pagou' }]}
-            />
-          </View>
-
           {beneficio && beneficio.quantidade > beneficio.usados && (
             <Card style={[styles.escolhido, { marginTop: spacing.lg }]}>
               <View style={{ flex: 1, gap: 2 }}>
@@ -358,6 +349,24 @@ export default function NovoAgendamentoScreen() {
                 thumbColor={colors.white}
               />
             </Card>
+          )}
+
+          {!planoCobreTudo && (
+            <>
+              <Text style={styles.secao}>Pagamento</Text>
+              <View style={{ gap: spacing.sm }}>
+                {formas.map(f => (
+                  <Opcao key={f} titulo={ROTULO_FORMA_PAGAMENTO[f]} selecionada={forma === f} onPress={() => setForma(f)} />
+                ))}
+              </View>
+              <View style={{ marginTop: spacing.md }}>
+                <Segmentos
+                  valor={pago}
+                  onChange={setPago}
+                  opcoes={[{ valor: 'pendente', rotulo: 'Ainda não pagou' }, { valor: 'pago', rotulo: 'Já pagou' }]}
+                />
+              </View>
+            </>
           )}
 
           <View style={{ marginTop: spacing.lg }}>

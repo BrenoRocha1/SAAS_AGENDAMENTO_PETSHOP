@@ -33,6 +33,8 @@ export default async function ServicosPage() {
     .from('servico')
     .select('*')
     .eq('id_lojista', contexto.idLojista)
+    // Serviço excluído (migration 081) fica só no histórico e no relatório.
+    .is('excluido_em', null)
     .order('created_at', { ascending: false })
 
   return (
