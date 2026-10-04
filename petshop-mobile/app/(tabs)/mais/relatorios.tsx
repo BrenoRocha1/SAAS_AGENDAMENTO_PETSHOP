@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabase'
 import { dataBR } from '@/lib/agenda'
 import { faltaMigration } from '@/lib/erros'
 import { formatarMoeda } from '@/lib/format'
-import { rotuloForma } from '@/lib/pagamento'
+import { ehFormaPlano, rotuloForma } from '@/lib/pagamento'
 import { PRESETS, calcularPeriodo, calcularPeriodoAnterior, variacaoPercentual, type PeriodoPreset } from '@/lib/relatorios'
 import { colors, spacing, typography } from '@/theme/theme'
 
@@ -187,7 +187,9 @@ export default function RelatoriosScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.linhaNome} numberOfLines={1}>{rotuloForma(p.forma)}</Text>
                       <Text style={styles.linhaSub}>
-                        Recebido {formatarMoeda(p.recebido)} · a receber {formatarMoeda(p.pendente)}
+                        {ehFormaPlano(p.forma)
+                          ? 'Pelo plano, sem cobrança no agendamento'
+                          : `Recebido ${formatarMoeda(p.recebido)} · a receber ${formatarMoeda(p.pendente)}`}
                       </Text>
                     </View>
                     <Text style={styles.linhaValor}>{formatarMoeda(p.total)}</Text>

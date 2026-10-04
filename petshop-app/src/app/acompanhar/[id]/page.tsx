@@ -7,7 +7,7 @@ import { ROTULO_MODALIDADE, formatarReais, type ModalidadeTaxiDog } from '@/lib/
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import AtualizarSozinho from '@/components/AtualizarSozinho'
 import { PixDaLoja } from '@/components/cliente/PagamentoEtapa'
-import { CLASSE_STATUS_PAGAMENTO, ROTULO_STATUS_PAGAMENTO, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
+import { CLASSE_STATUS_PAGAMENTO, ROTULO_FORMA_PLANO, ROTULO_STATUS_PAGAMENTO, ehFormaPlano, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
 import { IconAlert, IconCar, IconCheck, IconClock, IconMapPin, IconPaw, IconWhatsapp } from '@/components/icons'
 
 // Página pública "Acompanhar agendamento" (migration 056). O link vai pro
@@ -208,7 +208,9 @@ export default async function AcompanharPage({ params }: Props) {
             <div className="acomp-pagamento">
               {total === 0 ? (
                 // Tudo coberto (ex.: plano): nada a pagar.
-                <span className="text-sm">Pagamento: <strong>nada a pagar neste agendamento</strong></span>
+                <span className="text-sm">
+                  Pagamento: <strong>{ehFormaPlano(a.pagamento.forma) ? `${ROTULO_FORMA_PLANO} — nada a pagar` : 'nada a pagar neste agendamento'}</strong>
+                </span>
               ) : (
                 <>
                   <div className="flex items-center justify-between gap-2">

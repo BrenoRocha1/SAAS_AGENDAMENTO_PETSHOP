@@ -9,7 +9,7 @@ import { agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import { rotuloEstoque } from '@/lib/produto'
 import { ROTULO_MODALIDADE, formatarReais, rotuloStatusCorrida, type ModalidadeTaxiDog } from '@/lib/taxidog'
-import { CLASSE_STATUS_PAGAMENTO, ROTULO_STATUS_PAGAMENTO, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
+import { CLASSE_STATUS_PAGAMENTO, ROTULO_FORMA_PLANO, ROTULO_STATUS_PAGAMENTO, ehFormaPlano, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
 import { PixDaLoja } from '@/components/cliente/PagamentoEtapa'
 import { IconAlert, IconCalendar, IconCar, IconChevronRight, IconMoney, IconPackage, IconPencil, IconPlus, IconStar, IconStore, IconTrash, IconWhatsapp } from '@/components/icons'
 import AvaliacaoModal, { type AvaliacaoExistente } from './AvaliacaoModal'
@@ -350,7 +350,9 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
           <div className="flex items-center justify-between text-sm" style={{ gap: 'var(--space-3)' }}>
             {/* Tudo coberto (ex.: plano): não há o que pagar neste agendamento. */}
             {v.valor === 0 ? (
-              <span style={{ color: 'var(--gray-300)' }}>Nada a pagar neste agendamento</span>
+              <span style={{ color: 'var(--gray-300)' }}>
+                {ehFormaPlano(v.pagamento.forma) ? `${ROTULO_FORMA_PLANO} — nada a pagar` : 'Nada a pagar neste agendamento'}
+              </span>
             ) : (
               <>
                 <span style={{ color: 'var(--gray-300)' }}>{rotuloForma(v.pagamento.forma)}</span>

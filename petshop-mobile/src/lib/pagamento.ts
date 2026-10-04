@@ -26,7 +26,16 @@ export const ehFormaPagamento = (v: unknown): v is FormaPagamento =>
 export const ehStatusPagamento = (v: unknown): v is StatusPagamento =>
   v === 'pendente' || v === 'pago' || v === 'cancelado'
 
+// Pedido inteiro coberto pelo plano do pet (migration 082): não há o que
+// pagar e a forma gravada é 'plano'. Ninguém escolhe essa forma — o banco a
+// grava quando o benefício zera o pedido e a tira se voltar a haver cobrança
+// —, por isso ela fica fora de FORMAS_PAGAMENTO e de FormaPagamento.
+export const FORMA_PLANO = 'plano'
+export const ROTULO_FORMA_PLANO = 'Plano de assinatura'
+export const ehFormaPlano = (v: unknown): boolean => v === FORMA_PLANO
+
 export function rotuloForma(forma: string | null | undefined): string {
+  if (ehFormaPlano(forma)) return ROTULO_FORMA_PLANO
   return ehFormaPagamento(forma) ? ROTULO_FORMA_PAGAMENTO[forma] : 'Não informada'
 }
 

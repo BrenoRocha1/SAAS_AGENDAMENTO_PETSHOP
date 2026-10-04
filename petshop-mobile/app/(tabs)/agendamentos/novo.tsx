@@ -189,8 +189,10 @@ export default function NovoAgendamentoScreen() {
     setErro(null)
     setEnviando(true)
     const { data: idNovo, error } = await supabase.rpc('fn_criar_agendamento_lojista_com_pagamento', {
-      // Sem cobrança o banco ainda exige uma forma: vai a primeira que a
-      // loja aceita (o valor zera quando o plano é usado, logo abaixo).
+      // Sem cobrança o banco ainda exige uma forma pra criar: vai a primeira
+      // que a loja aceita, só de passagem — quando o plano é usado, logo
+      // abaixo, o valor zera e o banco troca a forma para "Plano de
+      // assinatura" (migration 082).
       p_forma_pagamento: planoCobreTudo ? formas[0] : forma,
       p_status_pagamento: planoCobreTudo ? 'pendente' : pago,
       p_id_lojista: idLojista,

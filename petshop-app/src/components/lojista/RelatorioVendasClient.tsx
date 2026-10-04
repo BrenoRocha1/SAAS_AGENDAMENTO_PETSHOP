@@ -7,7 +7,7 @@ import { ptBR } from 'date-fns/locale'
 import { exportarRelatorioVendasCsvAction } from '@/lib/actions'
 import { PRESETS, variacaoPercentual, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
-import { CLASSE_STATUS_PAGAMENTO, ROTULO_STATUS_PAGAMENTO, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
+import { CLASSE_STATUS_PAGAMENTO, ROTULO_STATUS_PAGAMENTO, ehFormaPlano, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
 import type { RelatorioPlanos } from '@/lib/planos'
 import {
   IconAlert,
@@ -535,7 +535,7 @@ export default function RelatorioVendasClient({
                           <td>{moeda(row.valor)}</td>
                           <td>
                             <span className="text-sm">{rotuloForma(row.forma_pagamento)}</span>
-                            {ehStatusPagamento(row.status_pagamento) && (
+                            {!ehFormaPlano(row.forma_pagamento) && ehStatusPagamento(row.status_pagamento) && (
                               <span className={`badge ${CLASSE_STATUS_PAGAMENTO[row.status_pagamento]}`} style={{ marginLeft: 6 }}>{ROTULO_STATUS_PAGAMENTO[row.status_pagamento]}</span>
                             )}
                           </td>
@@ -721,8 +721,10 @@ function VendasPorPagamento({ linhas }: { linhas: VendaPorPagamento[] | null }) 
                 <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{rotuloForma(l.forma === 'nao_informada' ? null : l.forma)}</div>
                 <div className="text-xs text-muted">
                   {l.pedidos} pedido{l.pedidos !== 1 ? 's' : ''} · {l.forma === 'nao_informada'
-                    ? 'de antes das formas de pagamento'
-                    : `recebido ${moeda(l.recebido)} · a receber ${moeda(l.pendente)}`}
+                    ? 'sem forma de pagamento registrada'
+                    : ehFormaPlano(l.forma)
+                      ? 'pelo plano, sem cobrança no agendamento'
+                      : `recebido ${moeda(l.recebido)} · a receber ${moeda(l.pendente)}`}
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>

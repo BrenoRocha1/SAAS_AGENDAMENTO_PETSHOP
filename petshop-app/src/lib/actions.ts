@@ -1560,10 +1560,12 @@ function lerFormaPagamento(formData: FormData): { forma?: FormaPagamento; erro?:
 // O plano do pet cobre o pedido inteiro (migrations 060 e 075)? Só quando
 // TODOS os serviços estão no saldo do plano e não há mais nada a cobrar
 // (produto ou TaxiDog). Aí ninguém escolhe forma de pagamento — não há o
-// que pagar, e a tela nem pergunta. Mas o banco exige uma forma em todo
-// agendamento: vai a primeira que a loja aceita (o valor fica zerado
-// quando o plano é usado, logo depois de criar). Fora desse caso devolve
-// null e vale a regra de sempre: sem forma escolhida, não agenda.
+// que pagar, e a tela nem pergunta. Mas o banco exige uma forma aceita
+// pela loja pra criar o agendamento: vai a primeira que ela aceita, só de
+// passagem — logo depois de criar o plano é usado, o valor zera e o banco
+// troca a forma para 'plano', "Plano de assinatura" (migration 082). Fora
+// desse caso devolve null e vale a regra de sempre: sem forma escolhida,
+// não agenda.
 // `pelaLoja`: quem agenda é a loja (lê o saldo por fn_beneficios_do_pet);
 // senão é o próprio cliente (fn_meus_beneficios).
 async function formaSemCobrancaPeloPlano(

@@ -30,6 +30,7 @@ import {
   ROTULO_FORMA_PAGAMENTO,
   ROTULO_STATUS_PAGAMENTO,
   ehFormaPagamento,
+  ehFormaPlano,
   ehStatusPagamento,
   formasAtivas,
   normalizarFormasLoja,
@@ -297,10 +298,13 @@ export default function AgendamentoDetalheScreen() {
           <Text style={styles.rotuloCartao}>Pagamento</Text>
           <Text style={styles.valorCartao}>
             {rotuloForma(a.forma_pagamento)}
-            {ehStatusPagamento(a.status_pagamento) ? ` · ${ROTULO_STATUS_PAGAMENTO[a.status_pagamento]}` : ''}
+            {/* Coberto pelo plano (migration 082): não há pagamento a receber nem forma a trocar. */}
+            {ehFormaPlano(a.forma_pagamento)
+              ? ' · nada a pagar'
+              : ehStatusPagamento(a.status_pagamento) ? ` · ${ROTULO_STATUS_PAGAMENTO[a.status_pagamento]}` : ''}
           </Text>
         </View>
-        {podeGerenciar && a.status !== 'Cancelado' && formas.length > 0 && (
+        {podeGerenciar && a.status !== 'Cancelado' && formas.length > 0 && !ehFormaPlano(a.forma_pagamento) && (
           <Botao rotulo="Alterar" variante="secundario" compacto onPress={() => abrirPainel('pagamento')} />
         )}
       </Card>

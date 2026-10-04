@@ -27,7 +27,7 @@ import {
 } from '@/lib/cliente'
 import { mensagemDoBanco } from '@/lib/erros'
 import { formatarMoeda, linkWhatsApp } from '@/lib/format'
-import { ROTULO_STATUS_PAGAMENTO, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
+import { ROTULO_FORMA_PLANO, ROTULO_STATUS_PAGAMENTO, ehFormaPlano, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
 import { rotuloEstoque } from '@/lib/produto'
 import { ROTULO_MODALIDADE, rotuloStatusCorrida } from '@/lib/taxidog'
 import { colors, radius, spacing, typography } from '@/theme/theme'
@@ -225,7 +225,9 @@ export default function AgendamentosClienteScreen() {
           <Text style={styles.blocoTitulo}>Pagamento</Text>
           {/* Tudo coberto (ex.: plano): não há o que pagar neste agendamento. */}
           {v.valor === 0 ? (
-            <Text style={styles.texto}>Nada a pagar neste agendamento</Text>
+            <Text style={styles.texto}>
+              {ehFormaPlano(v.pagamento.forma) ? `${ROTULO_FORMA_PLANO} — nada a pagar` : 'Nada a pagar neste agendamento'}
+            </Text>
           ) : (
             <Text style={styles.texto}>
               {rotuloForma(v.pagamento.forma)}

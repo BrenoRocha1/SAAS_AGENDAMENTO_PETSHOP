@@ -6,8 +6,10 @@ import { atualizarPagamentoAction } from '@/lib/actions-pagamento'
 import {
   CLASSE_STATUS_PAGAMENTO,
   ROTULO_FORMA_PAGAMENTO,
+  ROTULO_FORMA_PLANO,
   ROTULO_STATUS_PAGAMENTO,
   ehFormaPagamento,
+  ehFormaPlano,
   ehStatusPagamento,
   type FormaPagamento,
   type StatusPagamento,
@@ -39,6 +41,20 @@ export default function PagamentoAgendamento({ idAgendamento, forma, status, for
       if (r.error) setErro(r.error)
       router.refresh()
     })
+  }
+
+  // Pedido coberto pelo plano (migration 082): não há forma a escolher nem
+  // pagamento a receber.
+  if (ehFormaPlano(forma)) {
+    return (
+      <div className="transporte-bloco">
+        <span className="flex items-center gap-1 text-sm font-semibold" style={{ color: 'var(--gray-200)' }}>
+          <IconMoney style={{ width: 14, height: 14 }} /> Pagamento
+        </span>
+        <span className="text-sm">{ROTULO_FORMA_PLANO}</span>
+        <span className="text-xs text-muted">Coberto pelo plano — nada a pagar neste agendamento.</span>
+      </div>
+    )
   }
 
   return (
@@ -82,7 +98,7 @@ export default function PagamentoAgendamento({ idAgendamento, forma, status, for
           {formaAtual ? ROTULO_FORMA_PAGAMENTO[formaAtual] : 'Não informada'}
         </span>
       )}
-      {!formaAtual && podeAlterar && <span className="text-xs text-muted">Agendamento antigo — escolha a forma para registrar.</span>}
+      {!formaAtual && podeAlterar && <span className="text-xs text-muted">Sem forma de pagamento registrada — escolha a forma.</span>}
       {erro && <span className="text-xs" style={{ color: 'var(--status-cancelado-fg)' }}>{erro}</span>}
     </div>
   )
