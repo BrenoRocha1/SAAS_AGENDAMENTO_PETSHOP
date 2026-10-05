@@ -189,7 +189,15 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
   const petSel = petsDoCliente.find(p => p.id_pet === petId)
 
   function handleCriarPet() {
-    if (!clienteId || !petNome.trim() || !petRaca.trim() || !petDtNasc) return
+    if (!clienteId) return
+    if (!petNome.trim() || !petRaca.trim()) {
+      setPetErro('Informe o nome e a raça do pet.')
+      return
+    }
+    if (!petDtNasc) {
+      setPetErro('A data de nascimento do pet é obrigatória.')
+      return
+    }
     setPetErro(null)
     const formData = new FormData()
     formData.set('id_cliente', clienteId)

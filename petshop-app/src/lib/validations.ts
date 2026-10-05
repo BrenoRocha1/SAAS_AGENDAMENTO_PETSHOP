@@ -129,10 +129,11 @@ export const petSchema = z.object({
   // faixas de preço "por porte"/"por raça" cadastradas pelo lojista.
   especie: z.enum(['Cão', 'Gato']).optional(),
   porte: z.enum(['Pequeno', 'Médio', 'Grande']).optional(),
-  dt_nasc: z.string().refine(d => {
-    const date = new Date(d)
-    return date <= new Date()
-  }, 'Data de nascimento não pode ser futura'),
+  dt_nasc: z
+    .string({ error: 'Data de nascimento é obrigatória' })
+    .min(1, 'Data de nascimento é obrigatória')
+    .refine(d => !Number.isNaN(new Date(d).getTime()), 'Data de nascimento inválida')
+    .refine(d => new Date(d) <= new Date(), 'Data de nascimento não pode ser futura'),
   peso: z
     .number()
     .min(0.1, 'Peso inválido')
