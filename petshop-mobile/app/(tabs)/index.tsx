@@ -73,7 +73,7 @@ export default function InicioScreen() {
             />
 
             {erro ? (
-              <EmptyState icon="alert-circle-outline" title="Não foi possível carregar" subtitle={erro} />
+              <EmptyState icon="alert-circle-outline" ilustracao="erro" title="Não foi possível carregar" subtitle={erro} />
             ) : resumo.proximos.length === 0 ? (
               <EmptyState
                 icon="checkmark-circle-outline"

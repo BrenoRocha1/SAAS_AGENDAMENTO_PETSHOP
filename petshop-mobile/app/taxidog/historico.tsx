@@ -45,7 +45,7 @@ export default function HistoricoScreen() {
       )}
 
       {erro ? (
-        <EmptyState icon="alert-circle-outline" title="Não foi possível carregar" subtitle={erro} />
+        <EmptyState icon="alert-circle-outline" ilustracao="erro" title="Não foi possível carregar" subtitle={erro} />
       ) : !loading && encerradas.length === 0 ? (
         <EmptyState icon="time-outline" title="Nenhuma corrida encerrada" subtitle="Suas corridas concluídas aparecem aqui." />
       ) : (

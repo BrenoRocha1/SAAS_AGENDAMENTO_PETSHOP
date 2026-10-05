@@ -94,7 +94,7 @@ export default function ClienteDetalheScreen() {
     return (
       <ScreenContainer scroll={false}>
         <DetailHeader title="Cliente" />
-        <EmptyState icon="alert-circle-outline" title="Cliente não encontrado" subtitle={erro ?? undefined} />
+        <EmptyState icon="alert-circle-outline" ilustracao="nao-encontrado" title="Cliente não encontrado" subtitle={erro ?? undefined} />
       </ScreenContainer>
     )
   }

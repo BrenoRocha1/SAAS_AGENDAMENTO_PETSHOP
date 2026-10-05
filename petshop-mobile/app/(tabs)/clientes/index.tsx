@@ -70,7 +70,7 @@ export default function ClientesScreen() {
         ListFooterComponent={temMais && loadingMais ? <ActivityIndicator style={{ marginVertical: spacing.lg }} color={colors.primary600} /> : null}
         ListEmptyComponent={
           loading ? null : erro ? (
-            <EmptyState icon="alert-circle-outline" title="Não foi possível carregar" subtitle={erro} />
+            <EmptyState icon="alert-circle-outline" ilustracao="erro" title="Não foi possível carregar" subtitle={erro} />
           ) : (
             <EmptyState
               icon="people-outline"

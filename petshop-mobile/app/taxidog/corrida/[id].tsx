@@ -110,7 +110,7 @@ export default function CorridaDetalheScreen() {
     return (
       <ScreenContainer scroll={false}>
         <DetailHeader title="Corrida" />
-        <EmptyState icon="alert-circle-outline" title="Corrida não encontrada" subtitle="Ela pode ter sido atribuída a outro TaxiDog." />
+        <EmptyState icon="alert-circle-outline" ilustracao="nao-encontrado" title="Corrida não encontrada" subtitle="Ela pode ter sido atribuída a outro TaxiDog." />
       </ScreenContainer>
     )
   }

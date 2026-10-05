@@ -101,7 +101,7 @@ export default function AgendamentoDetalheScreen() {
     return (
       <ScreenContainer scroll={false}>
         <DetailHeader title="Agendamento" />
-        <EmptyState icon="alert-circle-outline" title="Agendamento não encontrado" subtitle={erroCarga ?? undefined} />
+        <EmptyState icon="alert-circle-outline" ilustracao="nao-encontrado" title="Agendamento não encontrado" subtitle={erroCarga ?? undefined} />
       </ScreenContainer>
     )
   }

@@ -83,7 +83,7 @@ export default function PetDetalheScreen() {
     return (
       <ScreenContainer scroll={false}>
         <DetailHeader title="Pet" />
-        <EmptyState icon="alert-circle-outline" title="Pet não encontrado" subtitle={erro ?? undefined} />
+        <EmptyState icon="alert-circle-outline" ilustracao="nao-encontrado" title="Pet não encontrado" subtitle={erro ?? undefined} />
       </ScreenContainer>
     )
   }

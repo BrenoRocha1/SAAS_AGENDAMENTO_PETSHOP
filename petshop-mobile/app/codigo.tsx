@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { Ilustracao } from '@/components/Ilustracao'
 import { useAuth } from '@/contexts/AuthContext'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
@@ -79,6 +80,8 @@ export default function CodigoScreen() {
               SA<Text style={{ color: colors.primary600 }}>IP</Text>
             </Text>
           </View>
+
+          <Ilustracao nome="codigo" altura={140} style={styles.ilustracao} />
 
           <Text style={styles.title}>Código de acesso rápido</Text>
           <Text style={styles.subtitle}>Digite os 6 números que o responsável da loja gerou para você</Text>
@@ -148,7 +151,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing['2xl'] },
-  brand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginBottom: spacing['3xl'] },
+  brand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginBottom: spacing.xl },
+  ilustracao: { marginBottom: spacing.xl },
   logoBox: {
     width: 36,
     height: 36,

@@ -51,7 +51,7 @@ export default function PetClienteScreen() {
       <ScreenContainer scroll={false}>
         <DetailHeader title="Pet" />
         {erroCarga ? (
-          <EmptyState icon="alert-circle-outline" title="Pet não encontrado" subtitle={erroCarga} />
+          <EmptyState icon="alert-circle-outline" ilustracao="nao-encontrado" title="Pet não encontrado" subtitle={erroCarga} />
         ) : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.primary600} /></View>
         )}

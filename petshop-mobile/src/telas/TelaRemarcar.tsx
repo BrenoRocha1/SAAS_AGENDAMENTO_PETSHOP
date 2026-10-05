@@ -72,7 +72,7 @@ export function TelaRemarcar({ modo }: { modo: 'loja' | 'cliente' }) {
       <ScreenContainer scroll={false}>
         <DetailHeader title="Remarcar" />
         {erroCarga ? (
-          <EmptyState icon="alert-circle-outline" title="Agendamento não encontrado" subtitle={erroCarga} />
+          <EmptyState icon="alert-circle-outline" ilustracao="nao-encontrado" title="Agendamento não encontrado" subtitle={erroCarga} />
         ) : (
           <View style={styles.centro}><ActivityIndicator color={colors.primary600} /></View>
         )}

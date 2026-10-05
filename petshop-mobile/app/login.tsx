@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { Ilustracao } from '@/components/Ilustracao'
 import { useAuth } from '@/contexts/AuthContext'
 import { urlDoSite } from '@/lib/site'
 import { colors, radius, spacing, typography } from '@/theme/theme'
@@ -74,6 +75,8 @@ export default function LoginScreen() {
               SA<Text style={{ color: colors.primary600 }}>IP</Text>
             </Text>
           </View>
+
+          <Ilustracao nome="login" altura={120} style={styles.ilustracao} />
 
           <Text style={styles.title}>Entrar</Text>
           <Text style={styles.subtitle}>Cliente, loja ou equipe: a mesma conta do site</Text>
@@ -186,7 +189,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing['2xl'] },
-  brand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginBottom: spacing['3xl'] },
+  brand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginBottom: spacing.xl },
+  ilustracao: { marginBottom: spacing.xl },
   logoBox: {
     width: 36,
     height: 36,

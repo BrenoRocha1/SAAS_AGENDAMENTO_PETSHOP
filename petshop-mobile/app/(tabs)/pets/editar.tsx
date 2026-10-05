@@ -50,7 +50,7 @@ export default function EditarPetScreen() {
       <ScreenContainer scroll={false}>
         <DetailHeader title="Editar pet" />
         {erro ? (
-          <EmptyState icon="alert-circle-outline" title="Pet não encontrado" subtitle={erro} />
+          <EmptyState icon="alert-circle-outline" ilustracao="nao-encontrado" title="Pet não encontrado" subtitle={erro} />
         ) : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.primary600} /></View>
         )}

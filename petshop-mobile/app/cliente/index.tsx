@@ -139,7 +139,7 @@ export default function InicioClienteScreen() {
       {erro ? (
         <Aviso tipo="erro" texto={erro} />
       ) : proximos.length === 0 && !loading ? (
-        <EmptyState icon="calendar-outline" title="Nenhum agendamento próximo" subtitle="Que tal agendar um serviço para o seu pet?" />
+        <EmptyState icon="calendar-outline" ilustracao="agendar" title="Nenhum agendamento próximo" subtitle="Que tal agendar um serviço para o seu pet?" />
       ) : (
         <View style={{ gap: spacing.md }}>
           {proximos.map(ag => {

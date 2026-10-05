@@ -98,7 +98,7 @@ export default function AgendamentosScreen() {
         onRefresh={recarregar}
         ListEmptyComponent={
           loading ? null : erro ? (
-            <EmptyState icon="alert-circle-outline" title="Não foi possível carregar" subtitle={erro} />
+            <EmptyState icon="alert-circle-outline" ilustracao="erro" title="Não foi possível carregar" subtitle={erro} />
           ) : (
             <EmptyState
               icon="calendar-outline"

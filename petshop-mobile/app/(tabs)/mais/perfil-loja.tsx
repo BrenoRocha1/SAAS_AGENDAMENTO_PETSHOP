@@ -80,7 +80,7 @@ export default function PerfilLojaScreen() {
     return (
       <ScreenContainer scroll={false}>
         <DetailHeader title="Dados da loja" />
-        <EmptyState icon="alert-circle-outline" title="Não foi possível carregar" subtitle={erroCarga ?? undefined} />
+        <EmptyState icon="alert-circle-outline" ilustracao="erro" title="Não foi possível carregar" subtitle={erroCarga ?? undefined} />
       </ScreenContainer>
     )
   }

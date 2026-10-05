@@ -316,7 +316,7 @@ export default function AgendamentosClienteScreen() {
       {erro && <Aviso tipo="erro" texto={erro} style={{ marginBottom: spacing.md }} />}
 
       {!loading && visitas.length === 0 && !erro ? (
-        <EmptyState icon="calendar-outline" title="Nenhum agendamento ainda" subtitle="Toque em Novo para marcar o primeiro serviço do seu pet." />
+        <EmptyState icon="calendar-outline" ilustracao="agendar" title="Nenhum agendamento ainda" subtitle="Toque em Novo para marcar o primeiro serviço do seu pet." />
       ) : (
         <>
           {destaque && (

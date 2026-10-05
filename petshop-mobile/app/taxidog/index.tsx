@@ -77,7 +77,7 @@ export default function InicioTaxiDogScreen() {
       </View>
 
       {erro ? (
-        <EmptyState icon="alert-circle-outline" title="Não foi possível carregar" subtitle={erro} />
+        <EmptyState icon="alert-circle-outline" ilustracao="erro" title="Não foi possível carregar" subtitle={erro} />
       ) : (
         <>
           {avulsas.disponiveis > 0 && (

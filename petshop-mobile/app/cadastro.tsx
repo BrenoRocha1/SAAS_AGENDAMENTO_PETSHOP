@@ -6,6 +6,7 @@ import { DetailHeader } from '@/components/DetailHeader'
 import { Aviso } from '@/components/Aviso'
 import { Botao } from '@/components/Botao'
 import { Campo } from '@/components/Campo'
+import { Ilustracao } from '@/components/Ilustracao'
 import { LinhaSwitch } from '@/components/LinhaSwitch'
 import { useAuth } from '@/contexts/AuthContext'
 import { mascaraCpf, mascaraTelefone, soDigitos } from '@/lib/mascaras'
@@ -77,6 +78,7 @@ export default function CadastroScreen() {
     <ScreenContainer>
       <DetailHeader title="Criar conta" />
       <View style={{ gap: spacing.md }}>
+        <Ilustracao nome="boas-vindas" altura={130} />
         <Text style={styles.texto}>Conta de cliente, para agendar e acompanhar os serviços do seu pet.</Text>
         <Campo rotulo="Nome completo" value={nome} onChangeText={setNome} maxLength={120} autoCapitalize="words" autoComplete="name" />
         <Campo rotulo="CPF" value={cpf} onChangeText={t => setCpf(mascaraCpf(t))} keyboardType="number-pad" placeholder="000.000.000-00" maxLength={14} />

@@ -50,7 +50,7 @@ export default function CorridasScreen() {
       <Text style={styles.subtitle}>Só as de hoje</Text>
 
       {erro ? (
-        <EmptyState icon="alert-circle-outline" title="Não foi possível carregar" subtitle={erro} />
+        <EmptyState icon="alert-circle-outline" ilustracao="erro" title="Não foi possível carregar" subtitle={erro} />
       ) : !loading && secoes.length === 0 ? (
         <EmptyState
           icon="car-outline"

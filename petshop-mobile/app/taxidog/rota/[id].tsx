@@ -81,7 +81,7 @@ export default function RotaScreen() {
     return (
       <ScreenContainer scroll={false}>
         <DetailHeader title="Rota" />
-        <EmptyState icon="alert-circle-outline" title="Rota não encontrada" subtitle={erroCarga ?? 'Ela pode ter sido passada para outro TaxiDog.'} />
+        <EmptyState icon="alert-circle-outline" ilustracao="nao-encontrado" title="Rota não encontrada" subtitle={erroCarga ?? 'Ela pode ter sido passada para outro TaxiDog.'} />
       </ScreenContainer>
     )
   }
