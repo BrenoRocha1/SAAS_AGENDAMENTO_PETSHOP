@@ -7,6 +7,7 @@ import { ROTULO_FORMA_PAGAMENTO, ehFormaPagamento, type FormaPagamento } from '@
 import { dataBR, rotuloPeriodicidade, sufixoPeriodo, type Assinatura, type Plano } from '@/lib/planos'
 import { formatarReais } from '@/lib/taxidog'
 import { IconPlus, IconRepeat } from '@/components/icons'
+import { Secao, SecaoVazia } from '@/components/relatorio/Secao'
 import AssinarPlanoModal from './AssinarPlanoModal'
 import BeneficiosBarra from './BeneficiosBarra'
 import CobrancaPagamento from './CobrancaPagamento'
@@ -23,22 +24,19 @@ export default function PlanosDoCliente({ assinaturas, planos, pets, hojeISO, fo
   const [assinando, setAssinando] = useState(false)
 
   return (
-    <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-      <div className="flex items-center justify-between gap-2" style={{ marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
-        <h3 className="relatorio-secao-titulo" style={{ margin: 0 }}>
-          <IconRepeat style={{ width: 15, height: 15 }} /> Planos e assinaturas
-        </h3>
-        {pets.length > 0 && (
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAssinando(true)}>
-            <IconPlus style={{ width: 14, height: 14 }} /> Assinar plano
-          </button>
-        )}
-      </div>
-
+    <Secao
+      titulo="Planos e assinaturas"
+      icone={<IconRepeat />}
+      acao={pets.length > 0 && (
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAssinando(true)}>
+          <IconPlus style={{ width: 14, height: 14 }} /> Assinar plano
+        </button>
+      )}
+    >
       {assinaturas.length === 0 ? (
-        <p className="text-sm text-muted" style={{ margin: 0 }}>
+        <SecaoVazia>
           Nenhum plano. {pets.length > 0 ? 'Use "Assinar plano" para vincular um plano a um pet deste cliente.' : 'Cadastre um pet para poder assinar um plano.'}
-        </p>
+        </SecaoVazia>
       ) : (
         <div className="planos-assinaturas">
           {assinaturas.map(a => (
@@ -57,7 +55,7 @@ export default function PlanosDoCliente({ assinaturas, planos, pets, hojeISO, fo
           onAssinado={() => { setAssinando(false); router.refresh() }}
         />
       )}
-    </div>
+    </Secao>
   )
 }
 

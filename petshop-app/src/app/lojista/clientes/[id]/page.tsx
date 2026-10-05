@@ -28,6 +28,11 @@ import PlanosDoCliente from '@/components/lojista/planos/PlanosDoCliente'
 import { formasAtivas, normalizarFormasLoja } from '@/lib/pagamento'
 import type { Assinatura, Plano } from '@/lib/planos'
 import Ilustracao from '@/components/Ilustracao'
+import { GradeIndicadores, Indicador } from '@/components/relatorio/Indicador'
+import { DuasColunas, NotaDaSecao, Pilha, Secao, SecaoVazia } from '@/components/relatorio/Secao'
+import { MiniIndicadores } from '@/components/relatorio/MiniIndicadores'
+import { Ranking } from '@/components/relatorio/Ranking'
+import { formatarReais } from '@/lib/taxidog'
 
 export const metadata: Metadata = { title: 'Perfil do Cliente — Lojista' }
 
@@ -58,9 +63,7 @@ interface AvaliacaoRow {
   funcionario: { nome: string } | null
 }
 
-function moeda(v: number) {
-  return `R$ ${v.toFixed(2)}`
-}
+const moeda = formatarReais
 
 export default async function PerfilClientePage({ params }: Props) {
   const { id } = await params
@@ -369,289 +372,253 @@ export default async function PerfilClientePage({ params }: Props) {
         </div>
       </div>
 
-      {/* ── Resumo ── */}
-      <div className="grid-4" style={{ marginBottom: 'var(--space-6)' }}>
-        <div className="stat-card">
-          <div className="stat-card-icon tone-warning">
-            <IconMoney style={{ width: 20, height: 20 }} />
-          </div>
-          <div className="stat-card-value">{moeda(totalGasto)}</div>
-          <div className="stat-card-label">Total gasto</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-icon tone-info">
-            <IconMoney style={{ width: 20, height: 20 }} />
-          </div>
-          <div className="stat-card-value">{moeda(ticketMedio)}</div>
-          <div className="stat-card-label">Ticket médio</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-icon tone-primary">
-            <IconCalendar style={{ width: 20, height: 20 }} />
-          </div>
-          <div className="stat-card-value">{naoCancelados.length}</div>
-          <div className="stat-card-label">Agendamentos ({qtdVendas} concluídos)</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-icon tone-success">
-            <IconDog style={{ width: 20, height: 20 }} />
-          </div>
-          <div className="stat-card-value">{pets.length}</div>
-          <div className="stat-card-label">Pets</div>
-        </div>
-      </div>
+      <Pilha>
+        {/* ── Resumo ── */}
+        <GradeIndicadores colunas={4}>
+          <Indicador rotulo="Total gasto" valor={moeda(totalGasto)} icone={<IconMoney />} detalhe="atendimentos concluídos" />
+          <Indicador rotulo="Ticket médio" valor={moeda(ticketMedio)} icone={<IconMoney />} detalhe="por atendimento concluído" />
+          <Indicador
+            rotulo="Agendamentos"
+            valor={naoCancelados.length}
+            icone={<IconCalendar />}
+            detalhe={`${qtdVendas} concluído${qtdVendas !== 1 ? 's' : ''}`}
+          />
+          <Indicador rotulo="Pets" valor={pets.length} icone={<IconDog />} />
+        </GradeIndicadores>
 
-      <div className="grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'start' }}>
-        {/* ── Último / próximo agendamento ── */}
-        <div className="card">
-          <h3 className="relatorio-secao-titulo">
-            <IconClock style={{ width: 15, height: 15 }} /> Último atendimento
-          </h3>
-          {ultimoAtendimento ? (
+        <DuasColunas>
+          {/* ── Último / próximo agendamento ── */}
+          <Secao
+            titulo="Último atendimento"
+            icone={<IconClock />}
+            descricao={diasDesdeUltimo === null
+              ? undefined
+              : diasDesdeUltimo === 0
+                ? 'Foi hoje'
+                : `Há ${diasDesdeUltimo} dia${diasDesdeUltimo !== 1 ? 's' : ''}`}
+          >
+            {ultimoAtendimento ? (
+              <div>
+                <div className="dash-detail-row"><span>Data</span><span>{format(parseISO(ultimoAtendimento.dt_agendamento), 'dd/MM/yyyy')} às {ultimoAtendimento.hr_agendamento.slice(0, 5)}</span></div>
+                <div className="dash-detail-row"><span>Pet</span><span>{ultimoAtendimento.pet?.nome ?? '—'}</span></div>
+                <div className="dash-detail-row"><span>Serviço</span><span>{ultimoAtendimento.servico?.nome ?? '—'}</span></div>
+                <div className="dash-detail-row"><span>Profissional</span><span>{ultimoAtendimento.funcionario?.nome ?? '—'}</span></div>
+                <div className="dash-detail-row"><span>Valor</span><span>{moeda(Number(ultimoAtendimento.valor))}</span></div>
+              </div>
+            ) : (
+              <SecaoVazia>Nenhum atendimento concluído ainda.</SecaoVazia>
+            )}
+          </Secao>
+
+          <Secao titulo="Próximo agendamento" icone={<IconCalendar />}>
+            {proximoAgendamento ? (
+              <div>
+                <div className="dash-detail-row"><span>Data</span><span>{format(parseISO(proximoAgendamento.dt_agendamento), 'dd/MM/yyyy')} às {proximoAgendamento.hr_agendamento.slice(0, 5)}</span></div>
+                <div className="dash-detail-row"><span>Pet</span><span>{proximoAgendamento.pet?.nome ?? '—'}</span></div>
+                <div className="dash-detail-row"><span>Serviço</span><span>{proximoAgendamento.servico?.nome ?? '—'}</span></div>
+                <div className="dash-detail-row"><span>Profissional</span><span>{proximoAgendamento.funcionario?.nome ?? '—'}</span></div>
+                <div className="dash-detail-row"><span>Valor</span><span>{moeda(Number(proximoAgendamento.valor))}</span></div>
+                <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(proximoAgendamento.status)}`}>{rotuloStatus(proximoAgendamento.status)}</span></span></div>
+              </div>
+            ) : (
+              <SecaoVazia>Nenhum agendamento futuro.</SecaoVazia>
+            )}
+          </Secao>
+        </DuasColunas>
+
+        <DuasColunas>
+          {/* ── Dados do cliente ── */}
+          <Secao titulo="Dados do cliente" icone={<IconUsers />}>
+            <div>
+              <div className="dash-detail-row"><span>Nome</span><span>{cliente.nome}</span></div>
+              <div className="dash-detail-row"><span>Telefone</span><span>{formatarTelefone(cliente.telefone)}</span></div>
+              <div className="dash-detail-row"><span>E-mail</span><span>{cliente.email}</span></div>
+              <div className="dash-detail-row"><span>CPF</span><span>{formatarCpf(cliente.cpf)}</span></div>
+              <div className="dash-detail-row"><span>Cadastro</span><span>{format(parseISO(cliente.created_at), 'dd/MM/yyyy')}</span></div>
+              <div className="dash-detail-row"><span>Última atualização</span><span>{format(parseISO(cliente.updated_at), 'dd/MM/yyyy')}</span></div>
+            </div>
+          </Secao>
+
+          {/* ── Resumo financeiro ── */}
+          <Secao titulo="Resumo financeiro" icone={<IconMoney />}>
+            <div>
+              <div className="dash-detail-row"><span>Total gasto (concluídos)</span><span>{moeda(totalGasto)}</span></div>
+              <div className="dash-detail-row"><span>Total pendente</span><span>{moeda(totalPendente)}</span></div>
+              <div className="dash-detail-row"><span>Ticket médio</span><span>{moeda(ticketMedio)}</span></div>
+              <div className="dash-detail-row"><span>Atendimentos concluídos</span><span>{qtdVendas}</span></div>
+              <div className="dash-detail-row"><span>Cancelamentos</span><span>{qtdCancelados}</span></div>
+              {maiorValor !== null && <div className="dash-detail-row"><span>Maior valor em um atendimento</span><span>{moeda(maiorValor)}</span></div>}
+              {servicosMaisUtilizados[0] && <div className="dash-detail-row"><span>Serviço mais contratado</span><span>{servicosMaisUtilizados[0].nome}</span></div>}
+              {frequenciaMediaDias !== null && (
+                <div className="dash-detail-row"><span>Frequência média</span><span>a cada {frequenciaMediaDias} dia{frequenciaMediaDias !== 1 ? 's' : ''}</span></div>
+              )}
+            </div>
+            {frequenciaMediaDias === null && (
+              <NotaDaSecao>Frequência média ainda não disponível (precisa de pelo menos 2 atendimentos concluídos).</NotaDaSecao>
+            )}
+          </Secao>
+        </DuasColunas>
+
+        {/* ── Pets ── */}
+        <Secao
+          titulo="Pets"
+          icone={<IconDog />}
+          descricao={petMaisAtendido && petMaisAtendido.qtdAgendamentos > 0 ? `Mais atendido: ${petMaisAtendido.nome}` : undefined}
+        >
+          {petsComStats.length === 0 ? (
+            <SecaoVazia>Nenhum pet cadastrado.</SecaoVazia>
+          ) : (
+            <Ranking
+              comIniciais
+              itens={petsComStats.map(p => ({
+                chave: p.id_pet,
+                titulo: p.nome,
+                href: `/lojista/pets/${p.id_pet}`,
+                valor: `${p.qtdAgendamentos} atendimento${p.qtdAgendamentos !== 1 ? 's' : ''}`,
+                detalhe: [
+                  [p.especie, p.porte, p.raca].filter(Boolean).join(' · '),
+                  p.ultimoAtendimento && `último em ${format(parseISO(p.ultimoAtendimento.dt_agendamento), 'dd/MM/yyyy')}`,
+                  p.proximoAtendimento && `próximo em ${format(parseISO(p.proximoAtendimento.dt_agendamento), 'dd/MM/yyyy')}`,
+                ].filter(Boolean).join(' · '),
+              }))}
+            />
+          )}
+        </Secao>
+
+        {/* ── Serviços mais utilizados ── */}
+        <Secao titulo="Serviços mais utilizados" icone={<IconScissors />} descricao="Parte de cada serviço no total gasto">
+          {servicosMaisUtilizados.length === 0 ? (
+            <SecaoVazia>Nenhum atendimento concluído ainda.</SecaoVazia>
+          ) : (
+            <Ranking
+              itens={servicosMaisUtilizados.map(s => ({
+                chave: s.nome,
+                titulo: s.nome,
+                valor: moeda(s.valor),
+                detalhe: `${s.qtd} atendimento${s.qtd !== 1 ? 's' : ''}`,
+                ...(totalGasto > 0
+                  ? { parte: s.valor / totalGasto, rotuloDaParte: `${((s.valor / totalGasto) * 100).toFixed(1).replace('.', ',')}%` }
+                  : {}),
+              }))}
+            />
+          )}
+        </Secao>
+
+        {planosCliente && (
+          <PlanosDoCliente
+            assinaturas={planosCliente.assinaturas}
+            planos={planosCliente.planos}
+            pets={pets.map(p => ({ id_pet: p.id_pet, nome: p.nome }))}
+            hojeISO={hojeISO}
+            formasAceitas={planosCliente.formas}
+          />
+        )}
+
+        {/* ── Avaliações feitas pelo cliente ── */}
+        <Secao titulo="Avaliações do cliente" icone={<IconStar />}>
+          {avaliacoesCliente.length === 0 || mediaNotasCliente == null ? (
+            <SecaoVazia>Este cliente ainda não avaliou nenhum atendimento.</SecaoVazia>
+          ) : (
             <>
-              <div className="dash-detail-row"><span>Data</span><span>{format(parseISO(ultimoAtendimento.dt_agendamento), 'dd/MM/yyyy')} às {ultimoAtendimento.hr_agendamento.slice(0, 5)}</span></div>
-              <div className="dash-detail-row"><span>Pet</span><span>{ultimoAtendimento.pet?.nome ?? '—'}</span></div>
-              <div className="dash-detail-row"><span>Serviço</span><span>{ultimoAtendimento.servico?.nome ?? '—'}</span></div>
-              <div className="dash-detail-row"><span>Profissional</span><span>{ultimoAtendimento.funcionario?.nome ?? '—'}</span></div>
-              <div className="dash-detail-row"><span>Valor</span><span>{moeda(Number(ultimoAtendimento.valor))}</span></div>
-              {diasDesdeUltimo !== null && (
-                <p className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>
-                  {diasDesdeUltimo === 0
-                    ? 'Último atendimento foi hoje.'
-                    : `Há ${diasDesdeUltimo} dia${diasDesdeUltimo !== 1 ? 's' : ''} desde o último atendimento.`}
+              <MiniIndicadores
+                itens={[
+                  { valor: avaliacoesCliente.length, rotulo: 'avaliações feitas' },
+                  {
+                    valor: (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        {formatarMedia(mediaNotasCliente)}
+                        <Estrelas nota={mediaNotasCliente} tamanho={14} />
+                      </span>
+                    ),
+                    rotulo: 'média das notas que deu',
+                  },
+                ]}
+              />
+              <div>
+                {avaliacoesCliente.map(a => (
+                  <div key={a.id_avaliacao} className="avaliacao-item">
+                    <div className="avaliacao-item-topo">
+                      <Estrelas nota={a.nota} />
+                      <span className="text-xs text-muted">{format(new Date(a.created_at), 'dd/MM/yyyy')}</span>
+                    </div>
+                    <p className={`avaliacao-item-comentario ${a.comentario ? '' : 'is-vazio'}`}>
+                      {a.comentario ? <>&ldquo;{a.comentario}&rdquo;</> : 'Sem comentário'}
+                    </p>
+                    <div className="avaliacao-item-meta">
+                      <span>Pet: <strong>{a.pet?.nome ?? '—'}</strong></span>
+                      <span>Serviço: <strong>{a.servico?.nome ?? '—'}</strong></span>
+                      {a.funcionario?.nome && <span>Profissional: <strong>{a.funcionario.nome}</strong></span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </Secao>
+
+        {/* ── Linha do tempo ── */}
+        {timeline.length > 0 && (
+          <Secao titulo="Linha do tempo" icone={<IconClock />} descricao="Os atendimentos mais recentes">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              {timeline.map(a => (
+                <div key={a.id_agendamento} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-3)', paddingBottom: 'var(--space-3)', borderBottom: '1px solid var(--gray-850)' }}>
+                  <div style={{ minWidth: 90, fontSize: '0.8rem', color: 'var(--gray-400)' }}>
+                    {format(parseISO(a.dt_agendamento), 'dd/MM/yyyy')}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 160 }}>
+                    <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{a.servico?.nome ?? 'Serviço'}</span>
+                    {' · '}
+                    <span className="text-sm text-muted">Pet: {a.pet?.nome ?? '—'}</span>
+                  </div>
+                  <div className="text-sm font-semibold text-success">{moeda(Number(a.valor))}</div>
+                  <span className={`badge ${classeBadgeStatus(a.status)}`}>{rotuloStatus(a.status)}</span>
+                </div>
+              ))}
+            </div>
+          </Secao>
+        )}
+
+        {/* ── Histórico completo ── */}
+        <Secao titulo="Histórico de agendamentos" icone={<IconCalendar />}>
+          {agendamentos.length === 0 ? (
+            <SecaoVazia>Nenhum histórico disponível.</SecaoVazia>
+          ) : (
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Horário</th>
+                    <th>Pet</th>
+                    <th>Serviço</th>
+                    <th>Profissional</th>
+                    <th>Valor</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {agendamentos.map(a => (
+                    <tr key={a.id_agendamento}>
+                      <td>{format(parseISO(a.dt_agendamento), 'dd/MM/yyyy')}</td>
+                      <td>{a.hr_agendamento.slice(0, 5)}</td>
+                      <td>{a.pet?.nome ?? '—'}</td>
+                      <td>{a.servico?.nome ?? '—'}</td>
+                      <td>{a.funcionario?.nome ?? '—'}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{moeda(Number(a.valor))}</td>
+                      <td><span className={`badge ${classeBadgeStatus(a.status)}`}>{rotuloStatus(a.status)}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {agendamentos.length === 200 && (
+                <p className="text-xs text-muted" style={{ padding: 'var(--space-3)' }}>
+                  Mostrando os 200 atendimentos mais recentes.
                 </p>
               )}
-            </>
-          ) : (
-            <p className="text-sm text-muted">Nenhum atendimento concluído ainda.</p>
-          )}
-        </div>
-
-        <div className="card">
-          <h3 className="relatorio-secao-titulo">
-            <IconCalendar style={{ width: 15, height: 15 }} /> Próximo agendamento
-          </h3>
-          {proximoAgendamento ? (
-            <>
-              <div className="dash-detail-row"><span>Data</span><span>{format(parseISO(proximoAgendamento.dt_agendamento), 'dd/MM/yyyy')} às {proximoAgendamento.hr_agendamento.slice(0, 5)}</span></div>
-              <div className="dash-detail-row"><span>Pet</span><span>{proximoAgendamento.pet?.nome ?? '—'}</span></div>
-              <div className="dash-detail-row"><span>Serviço</span><span>{proximoAgendamento.servico?.nome ?? '—'}</span></div>
-              <div className="dash-detail-row"><span>Profissional</span><span>{proximoAgendamento.funcionario?.nome ?? '—'}</span></div>
-              <div className="dash-detail-row"><span>Valor</span><span>{moeda(Number(proximoAgendamento.valor))}</span></div>
-              <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(proximoAgendamento.status)}`}>{rotuloStatus(proximoAgendamento.status)}</span></span></div>
-            </>
-          ) : (
-            <p className="text-sm text-muted">Nenhum agendamento futuro.</p>
-          )}
-        </div>
-      </div>
-
-      <div className="grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'start' }}>
-        {/* ── Dados do cliente ── */}
-        <div className="card">
-          <h3 className="relatorio-secao-titulo">
-            <IconUsers style={{ width: 15, height: 15 }} /> Dados do cliente
-          </h3>
-          <div className="dash-detail-row"><span>Nome</span><span>{cliente.nome}</span></div>
-          <div className="dash-detail-row"><span>Telefone</span><span>{formatarTelefone(cliente.telefone)}</span></div>
-          <div className="dash-detail-row"><span>E-mail</span><span>{cliente.email}</span></div>
-          <div className="dash-detail-row"><span>CPF</span><span>{formatarCpf(cliente.cpf)}</span></div>
-          <div className="dash-detail-row"><span>Cadastro</span><span>{format(parseISO(cliente.created_at), 'dd/MM/yyyy')}</span></div>
-          <div className="dash-detail-row"><span>Última atualização</span><span>{format(parseISO(cliente.updated_at), 'dd/MM/yyyy')}</span></div>
-        </div>
-
-        {/* ── Resumo financeiro ── */}
-        <div className="card">
-          <h3 className="relatorio-secao-titulo">
-            <IconMoney style={{ width: 15, height: 15 }} /> Resumo financeiro
-          </h3>
-          <div className="dash-detail-row"><span>Total gasto (concluídos)</span><span>{moeda(totalGasto)}</span></div>
-          <div className="dash-detail-row"><span>Total pendente</span><span>{moeda(totalPendente)}</span></div>
-          <div className="dash-detail-row"><span>Ticket médio</span><span>{moeda(ticketMedio)}</span></div>
-          <div className="dash-detail-row"><span>Atendimentos concluídos</span><span>{qtdVendas}</span></div>
-          <div className="dash-detail-row"><span>Cancelamentos</span><span>{qtdCancelados}</span></div>
-          {maiorValor !== null && <div className="dash-detail-row"><span>Maior valor em um atendimento</span><span>{moeda(maiorValor)}</span></div>}
-          {servicosMaisUtilizados[0] && <div className="dash-detail-row"><span>Serviço mais contratado</span><span>{servicosMaisUtilizados[0].nome}</span></div>}
-          {frequenciaMediaDias !== null ? (
-            <div className="dash-detail-row"><span>Frequência média</span><span>a cada {frequenciaMediaDias} dia{frequenciaMediaDias !== 1 ? 's' : ''}</span></div>
-          ) : (
-            <p className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>
-              Frequência média ainda não disponível (precisa de pelo menos 2 atendimentos concluídos).
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* ── Pets ── */}
-      <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-        <h3 className="relatorio-secao-titulo">
-          <IconDog style={{ width: 15, height: 15 }} /> Pets
-          {petMaisAtendido && petMaisAtendido.qtdAgendamentos > 0 && (
-            <span className="text-xs text-muted" style={{ fontWeight: 400, marginLeft: 'var(--space-2)' }}>
-              (mais atendido: {petMaisAtendido.nome})
-            </span>
-          )}
-        </h3>
-        {petsComStats.length === 0 ? (
-          <p className="text-sm text-muted">Nenhum pet cadastrado.</p>
-        ) : (
-          <div className="relatorio-lista">
-            {petsComStats.map(p => (
-              <Link key={p.id_pet} href={`/lojista/pets/${p.id_pet}`} className="relatorio-lista-item" style={{ textDecoration: 'none', color: 'inherit' }}>
-                <div className="relatorio-lista-info">
-                  <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</div>
-                  <div className="text-xs text-muted">
-                    {[p.especie, p.porte, p.raca].filter(Boolean).join(' · ')} · {p.qtdAgendamentos} atendimento{p.qtdAgendamentos !== 1 ? 's' : ''}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  {p.ultimoAtendimento && <div className="text-xs text-muted">Último: {format(parseISO(p.ultimoAtendimento.dt_agendamento), 'dd/MM/yyyy')}</div>}
-                  {p.proximoAtendimento && <div className="text-xs text-success">Próximo: {format(parseISO(p.proximoAtendimento.dt_agendamento), 'dd/MM/yyyy')}</div>}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Serviços mais utilizados ── */}
-      <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-        <h3 className="relatorio-secao-titulo">
-          <IconScissors style={{ width: 15, height: 15 }} /> Serviços mais utilizados
-        </h3>
-        {servicosMaisUtilizados.length === 0 ? (
-          <p className="text-sm text-muted">Nenhum atendimento concluído ainda.</p>
-        ) : (
-          <div className="relatorio-lista">
-            {servicosMaisUtilizados.map(s => (
-              <div key={s.nome} className="relatorio-lista-item">
-                <div className="relatorio-lista-info">
-                  <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{s.nome}</div>
-                  <div className="text-xs text-muted">{s.qtd} atendimento{s.qtd !== 1 ? 's' : ''}</div>
-                </div>
-                <div className="font-semibold text-success">{moeda(s.valor)}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {planosCliente && (
-        <PlanosDoCliente
-          assinaturas={planosCliente.assinaturas}
-          planos={planosCliente.planos}
-          pets={pets.map(p => ({ id_pet: p.id_pet, nome: p.nome }))}
-          hojeISO={hojeISO}
-          formasAceitas={planosCliente.formas}
-        />
-      )}
-
-      {/* ── Avaliações feitas pelo cliente ── */}
-      <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-        <h3 className="relatorio-secao-titulo">
-          <IconStar style={{ width: 15, height: 15 }} /> Avaliações do cliente
-        </h3>
-        {avaliacoesCliente.length === 0 || mediaNotasCliente == null ? (
-          <p className="text-sm text-muted">Este cliente ainda não avaliou nenhum atendimento.</p>
-        ) : (
-          <>
-            <div className="flex gap-6" style={{ flexWrap: 'wrap', marginBottom: 'var(--space-3)' }}>
-              <div>
-                <div className="text-xs text-muted">Total de avaliações feitas</div>
-                <div className="font-semibold" style={{ color: 'var(--gray-100)', fontSize: '1.125rem' }}>{avaliacoesCliente.length}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted">Média das notas que deu</div>
-                <div className="avaliacao-media">
-                  <span className="font-semibold" style={{ color: 'var(--gray-100)', fontSize: '1.125rem' }}>{formatarMedia(mediaNotasCliente)}</span>
-                  <Estrelas nota={mediaNotasCliente} tamanho={14} />
-                </div>
-              </div>
             </div>
-            {avaliacoesCliente.map(a => (
-              <div key={a.id_avaliacao} className="avaliacao-item">
-                <div className="avaliacao-item-topo">
-                  <Estrelas nota={a.nota} />
-                  <span className="text-xs text-muted">{format(new Date(a.created_at), 'dd/MM/yyyy')}</span>
-                </div>
-                <p className={`avaliacao-item-comentario ${a.comentario ? '' : 'is-vazio'}`}>
-                  {a.comentario ? <>&ldquo;{a.comentario}&rdquo;</> : 'Sem comentário'}
-                </p>
-                <div className="avaliacao-item-meta">
-                  <span>Pet: <strong>{a.pet?.nome ?? '—'}</strong></span>
-                  <span>Serviço: <strong>{a.servico?.nome ?? '—'}</strong></span>
-                  {a.funcionario?.nome && <span>Profissional: <strong>{a.funcionario.nome}</strong></span>}
-                </div>
-              </div>
-            ))}
-          </>
-        )}
-      </div>
-
-      {/* ── Linha do tempo ── */}
-      {timeline.length > 0 && (
-        <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-          <h3 className="relatorio-secao-titulo">Linha do tempo</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            {timeline.map(a => (
-              <div key={a.id_agendamento} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-3)', paddingBottom: 'var(--space-3)', borderBottom: '1px solid var(--gray-850)' }}>
-                <div style={{ minWidth: 90, fontSize: '0.8rem', color: 'var(--gray-400)' }}>
-                  {format(parseISO(a.dt_agendamento), 'dd/MM/yyyy')}
-                </div>
-                <div style={{ flex: 1, minWidth: 160 }}>
-                  <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{a.servico?.nome ?? 'Serviço'}</span>
-                  {' · '}
-                  <span className="text-sm text-muted">Pet: {a.pet?.nome ?? '—'}</span>
-                </div>
-                <div className="text-sm font-semibold text-success">{moeda(Number(a.valor))}</div>
-                <span className={`badge ${classeBadgeStatus(a.status)}`}>{rotuloStatus(a.status)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Histórico completo ── */}
-      <div className="card">
-        <h3 className="relatorio-secao-titulo">Histórico de agendamentos</h3>
-        {agendamentos.length === 0 ? (
-          <p className="text-sm text-muted">Nenhum histórico disponível.</p>
-        ) : (
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Horário</th>
-                  <th>Pet</th>
-                  <th>Serviço</th>
-                  <th>Profissional</th>
-                  <th>Valor</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {agendamentos.map(a => (
-                  <tr key={a.id_agendamento}>
-                    <td>{format(parseISO(a.dt_agendamento), 'dd/MM/yyyy')}</td>
-                    <td>{a.hr_agendamento.slice(0, 5)}</td>
-                    <td>{a.pet?.nome ?? '—'}</td>
-                    <td>{a.servico?.nome ?? '—'}</td>
-                    <td>{a.funcionario?.nome ?? '—'}</td>
-                    <td>{moeda(Number(a.valor))}</td>
-                    <td><span className={`badge ${classeBadgeStatus(a.status)}`}>{rotuloStatus(a.status)}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {agendamentos.length === 200 && (
-              <p className="text-xs text-muted" style={{ padding: 'var(--space-3)' }}>
-                Mostrando os 200 atendimentos mais recentes.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </Secao>
+      </Pilha>
       </div>
     </>
   )

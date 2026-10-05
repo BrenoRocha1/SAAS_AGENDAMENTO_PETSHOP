@@ -2168,30 +2168,6 @@ svg.is-da-visita { opacity: 0.45; }
   margin-bottom: var(--space-4);
 }
 
-.relatorio-lista { display: flex; flex-direction: column; gap: var(--space-1); }
-
-.relatorio-lista-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border-bottom: 1px solid var(--gray-850);
-}
-.relatorio-lista-item:last-child { border-bottom: none; }
-.relatorio-lista-info { min-width: 0; }
-
-.relatorio-mini-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3) var(--space-5);
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--gray-800);
-}
-.relatorio-mini-stats > div { font-size: 0.8rem; color: var(--gray-400); display: flex; flex-direction: column; gap: 2px; }
-.relatorio-mini-stats > div > span { font-size: 1.25rem; font-weight: 700; color: var(--gray-100); font-family: var(--font-heading); }
-
 .relatorio-tabela-filtros { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
 .relatorio-tabela-filtros .form-select { min-width: 160px; width: auto; }
 
@@ -2204,62 +2180,6 @@ svg.is-da-visita { opacity: 0.45; }
   margin-top: var(--space-4);
 }
 
-/* Gráfico de evolução — barras em CSS puro, sem biblioteca de charts */
-.relatorio-grafico {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 160px;
-  padding-top: var(--space-2);
-}
-
-.relatorio-grafico-col {
-  flex: 1;
-  min-width: 3px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: 100%;
-}
-
-.relatorio-grafico-barra-wrap {
-  flex: 1;
-  width: 100%;
-  display: flex;
-  align-items: flex-end;
-}
-
-.relatorio-grafico-barra {
-  width: 100%;
-  min-height: 2px;
-  background: var(--primary-600);
-  border-radius: 2px 2px 0 0;
-  transition: background var(--transition-fast);
-}
-.relatorio-grafico-barra.is-melhor { background: var(--success-500); }
-.relatorio-grafico-barra-wrap:hover .relatorio-grafico-barra { background: var(--primary-400); }
-
-.relatorio-grafico-label {
-  font-size: 0.65rem;
-  color: var(--gray-500);
-  margin-top: var(--space-2);
-  white-space: nowrap;
-}
-
-.relatorio-grafico-legenda {
-  display: flex;
-  gap: var(--space-5);
-  flex-wrap: wrap;
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--gray-800);
-  font-size: 0.8rem;
-  color: var(--gray-400);
-}
-
-@media (max-width: 1024px) {
-  .relatorio-grafico-label { display: none; }
-}
 
 /* ============================================================
    CONFIGURAÇÕES — hub de navegação (/lojista/configuracoes)
@@ -3258,12 +3178,6 @@ a.tela-app-novo, a.tela-app-novo:hover { color: #fff; text-decoration: none; }
 .avaliacao-media { display: flex; align-items: center; gap: var(--space-2); }
 .avaliacao-media-valor { font-family: var(--font-heading); font-size: 1.5rem; font-weight: 800; color: var(--gray-100); line-height: 1; }
 
-/* Distribuição por nota: "5 estrelas ████ 82" */
-.avaliacao-dist { display: flex; flex-direction: column; gap: var(--space-2); }
-.avaliacao-dist-linha { display: grid; grid-template-columns: 72px minmax(0, 1fr) 40px; align-items: center; gap: var(--space-3); font-size: 0.8125rem; color: var(--gray-300); }
-.avaliacao-dist-barra { height: 8px; background: var(--gray-800); border-radius: var(--radius-full); overflow: hidden; }
-.avaliacao-dist-barra span { display: block; height: 100%; background: var(--accent-500); border-radius: var(--radius-full); }
-.avaliacao-dist-num { text-align: right; font-weight: 600; color: var(--gray-100); }
 
 /* Um item de avaliação na lista */
 .avaliacao-item { padding: var(--space-4) 0; border-bottom: 1px solid var(--gray-800); }
@@ -4093,9 +4007,6 @@ a.tela-app-novo, a.tela-app-novo:hover { color: #fff; text-decoration: none; }
 .pix-loja-linha { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .pix-loja-linha > .text-xs { width: 44px; flex-shrink: 0; }
 .pix-loja-chave { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; color: var(--gray-100); word-break: break-all; flex: 1; min-width: 0; }
-.pag-rel-barra { display: flex; height: 6px; border-radius: 999px; overflow: hidden; background: var(--gray-850); }
-.pag-rel-barra-pago { background: var(--status-concluido-solid); }
-.pag-rel-barra-pendente { background: var(--status-aguardando-solid); }
 .acomp-pagamento { display: flex; flex-direction: column; gap: var(--space-3); }
 
 /* ============================================================
@@ -4159,10 +4070,6 @@ div.plano-assinatura:not(.card) { padding: var(--space-3); border: 1px solid var
 .historico-alteracoes ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .historico-alteracoes li { font-size: 0.8125rem; color: var(--gray-300); }
 
-.plano-resumo-numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); }
-.plano-resumo-numeros > div, .plano-resumo-numeros > a { display: flex; flex-direction: column; font-size: 0.8125rem; color: var(--gray-400); padding: var(--space-3); border-radius: var(--radius-md); background: var(--gray-850); text-decoration: none; }
-.plano-resumo-numeros span { font-size: 1.125rem; font-weight: 700; color: var(--gray-100); }
-.plano-resumo-numeros .is-alerta span { color: var(--danger-400); }
 .plano-resumo-proximas { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-4); }
 
 .plano-aviso-agendamento { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); margin-bottom: var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--primary-500); background: var(--gray-850); }

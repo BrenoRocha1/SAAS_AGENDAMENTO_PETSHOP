@@ -14,6 +14,8 @@ import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lo
 import HistoricoAlteracoes from '@/components/lojista/HistoricoAlteracoes'
 import type { TaxiDogPendente } from '@/lib/actions'
 import ResumoPlanosCard from '@/components/lojista/planos/ResumoPlanosCard'
+import SegmentedControl from '@/components/ui/segmented-control'
+import { GradeIndicadores, Indicador } from '@/components/relatorio/Indicador'
 import type { ResumoPlanos } from '@/lib/planos'
 import { textoBloqueioNoDia, type BloqueioLoja } from '@/lib/bloqueios'
 import {
@@ -131,6 +133,11 @@ function parseDia(iso: string) {
 // quantos "próximos" aparecem — iguais aos do app.
 const ETAPAS_DO_DIA = ['Pendente', 'Confirmado', 'Em andamento', 'Concluído'] as const
 const MAX_PROXIMOS_APP = 4
+const VISOES_DA_AGENDA = [
+  { value: 'dia', label: 'Dia' },
+  { value: 'semana', label: 'Semana' },
+  { value: 'mes', label: 'Mês' },
+]
 
 function normaliza(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
@@ -503,57 +510,32 @@ export default function DashboardClient({
 
       {avisosDeAcao}
 
-      {/* Cards de métricas — sempre referentes a hoje */}
-      <div className="grid-4" style={{ marginBottom: 'var(--space-8)' }}>
-        <div className="stat-card animate-slide-up">
-          <div className="flex items-center justify-between">
-            <div className="stat-card-icon tone-primary">
-              <IconCalendar style={{ width: 20, height: 20 }} />
-            </div>
-          </div>
-          <div className="stat-card-value">{stats.agendamentosHoje}</div>
-          <div className="stat-card-label">Agendamentos hoje</div>
-        </div>
-
-        <div className="stat-card animate-slide-up">
-          <div className="flex items-center justify-between">
-            <div className="stat-card-icon tone-primary">
-              <IconUsers style={{ width: 20, height: 20 }} />
-            </div>
-          </div>
-          <div className="stat-card-value">{stats.petsEmAtendimento.length}</div>
-          <div className="stat-card-label">Pets em atendimento</div>
-          <div className="text-xs text-muted truncate">
-            {stats.petsEmAtendimento.length > 0 ? stats.petsEmAtendimento.join(', ') : 'Nenhum agora'}
-          </div>
-        </div>
-
-        <div className="stat-card animate-slide-up">
-          <div className="flex items-center justify-between">
-            <div className="stat-card-icon tone-primary">
-              <IconMoney style={{ width: 20, height: 20 }} />
-            </div>
-          </div>
-          <div className="stat-card-value">R$ {stats.faturamentoHoje.toFixed(0)}</div>
-          <div className="stat-card-label">Faturamento do dia</div>
-        </div>
-
-        <div className="stat-card animate-slide-up">
-          <div className="flex items-center justify-between">
-            <div className="stat-card-icon tone-primary">
-              <IconClock style={{ width: 20, height: 20 }} />
-            </div>
-          </div>
-          <div className="stat-card-value">{stats.horariosLivresHoje}</div>
-          <div className="stat-card-label">Horários livres hoje</div>
-          <div className="text-xs text-muted">
-            {stats.proximoHorarioLivre ? `Próx: ${stats.proximoHorarioLivre.slice(0, 5)}` : 'Sem vagas hoje'}
-          </div>
-        </div>
+      {/* Indicadores — sempre referentes a hoje */}
+      <div style={{ marginBottom: 'var(--space-8)' }}>
+        <GradeIndicadores colunas={4}>
+          <Indicador rotulo="Agendamentos hoje" valor={stats.agendamentosHoje} icone={<IconCalendar />} />
+          <Indicador
+            rotulo="Pets em atendimento"
+            valor={stats.petsEmAtendimento.length}
+            icone={<IconUsers />}
+            detalhe={stats.petsEmAtendimento.length > 0 ? stats.petsEmAtendimento.join(', ') : 'nenhum agora'}
+          />
+          <Indicador rotulo="Faturamento do dia" valor={formatarReais(stats.faturamentoHoje)} icone={<IconMoney />} />
+          <Indicador
+            rotulo="Horários livres hoje"
+            valor={stats.horariosLivresHoje}
+            icone={<IconClock />}
+            detalhe={stats.proximoHorarioLivre ? `próximo às ${stats.proximoHorarioLivre.slice(0, 5)}` : 'sem vagas hoje'}
+          />
+        </GradeIndicadores>
       </div>
 
       {/* Agenda + painel lateral */}
-      {resumoPlanos?.tem_planos && <ResumoPlanosCard resumo={resumoPlanos} />}
+      {resumoPlanos?.tem_planos && (
+        <div style={{ marginBottom: 'var(--space-8)' }}>
+          <ResumoPlanosCard resumo={resumoPlanos} />
+        </div>
+      )}
 
       <div className="dash-grid">
         <div className="card">
@@ -603,17 +585,12 @@ export default function DashboardClient({
               )}
             </div>
 
-            <div className="flex gap-2">
-              {(['dia', 'semana', 'mes'] as const).map(v => (
-                <button
-                  key={v}
-                  className={`btn btn-sm ${viewMode === v ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => setViewMode(v)}
-                >
-                  {v === 'dia' ? 'Dia' : v === 'semana' ? 'Semana' : 'Mês'}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              label="Visão da agenda"
+              options={VISOES_DA_AGENDA}
+              value={viewMode}
+              onValueChange={v => setViewMode(v as typeof viewMode)}
+            />
           </div>
 
           {viewMode === 'dia' && bloqueiosDoDia.map(b => (
