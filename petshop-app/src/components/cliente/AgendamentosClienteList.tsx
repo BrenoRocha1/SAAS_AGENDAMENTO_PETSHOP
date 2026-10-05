@@ -16,6 +16,7 @@ import AvaliacaoModal, { type AvaliacaoExistente } from './AvaliacaoModal'
 import { EditarModal } from '@/components/EditarAgendamento'
 import { RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
 import { Estrelas } from './Estrelas'
+import Ilustracao from '@/components/Ilustracao'
 
 type Status = 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
 
@@ -206,7 +207,7 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
         </div>
         <div className="so-celular">
           <div className="dash-app-vazio">
-            <span className="dash-app-vazio-icone"><IconCalendar style={{ width: 26, height: 26 }} /></span>
+            <Ilustracao nome="agendar" altura={110} style={{ marginBottom: 0 }} />
             <strong>Nenhum agendamento ainda</strong>
             <span>Toque em Novo para marcar o primeiro serviço do seu pet.</span>
           </div>

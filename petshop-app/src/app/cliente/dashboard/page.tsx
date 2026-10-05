@@ -9,6 +9,7 @@ import { IconCalendar, IconDog, IconMoney, IconPaw, IconPlus, IconRepeat, IconSc
 import { dataBR, type AssinaturaDoCliente } from '@/lib/planos'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import type { Metadata } from 'next'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Dashboard — Cliente' }
 
@@ -134,7 +135,7 @@ export default async function ClienteDashboard() {
         </div>
         {!agendamentos.length ? (
           <div className="dash-app-vazio">
-            <span className="dash-app-vazio-icone"><IconCalendar style={{ width: 26, height: 26 }} /></span>
+            <Ilustracao nome="agendar" altura={110} style={{ marginBottom: 0 }} />
             <strong>Nenhum agendamento próximo</strong>
             <span>Que tal agendar um serviço para o seu pet?</span>
           </div>
@@ -237,7 +238,7 @@ export default async function ClienteDashboard() {
 
         {!agendamentos.length ? (
           <div className="empty-state">
-            <IconCalendar style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+            <Ilustracao nome="agendar" />
             <div className="empty-state-title">Nenhum agendamento próximo</div>
             <p style={{ marginBottom: 'var(--space-4)' }}>Que tal agendar um serviço para seu pet?</p>
             <Link href="/cliente/novo-agendamento" className="btn btn-primary">

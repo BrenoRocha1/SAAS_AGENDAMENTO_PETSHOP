@@ -13,6 +13,7 @@ import {
   IconSearch,
   IconUsers,
 } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 export interface ClienteLinha {
   id_cliente: string
@@ -114,7 +115,9 @@ export default function ClientesList({ clientes, total, pagina, pageSize, busca,
 
         {clientes.length === 0 ? (
           <div className="dash-app-vazio">
-            <span className="dash-app-vazio-icone"><IconUsers style={{ width: 26, height: 26 }} /></span>
+            {busca
+              ? <span className="dash-app-vazio-icone"><IconUsers style={{ width: 26, height: 26 }} /></span>
+              : <Ilustracao nome="clientes" altura={110} style={{ marginBottom: 0 }} />}
             <strong>{busca ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}</strong>
             <span>{busca ? 'Tente outro nome ou telefone.' : 'Os clientes da sua loja aparecem aqui.'}</span>
           </div>
@@ -171,7 +174,7 @@ export default function ClientesList({ clientes, total, pagina, pageSize, busca,
 
       {clientes.length === 0 ? (
         <div className="empty-state card">
-          <IconUsers style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          {busca ? <IconUsers style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} /> : <Ilustracao nome="clientes" />}
           <div className="empty-state-title">
             {busca ? 'Nenhum cliente encontrado para essa busca.' : 'Nenhum cliente ainda'}
           </div>

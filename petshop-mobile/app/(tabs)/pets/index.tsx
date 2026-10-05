@@ -57,6 +57,7 @@ export default function PetsScreen() {
           ) : (
             <EmptyState
               icon="paw-outline"
+              ilustracao={busca ? undefined : 'pets'}
               title={busca ? 'Nenhum pet encontrado' : 'Nenhum pet cadastrado'}
               subtitle={busca ? 'Tente outro nome, raça ou tutor.' : 'Os pets da sua loja aparecem aqui.'}
             />

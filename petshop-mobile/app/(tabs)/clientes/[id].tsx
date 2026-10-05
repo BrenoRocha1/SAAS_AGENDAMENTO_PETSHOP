@@ -176,7 +176,7 @@ export default function ClienteDetalheScreen() {
         )}
       </View>
       {pets.length === 0 ? (
-        <EmptyState icon="paw-outline" title="Nenhum pet cadastrado" />
+        <EmptyState icon="paw-outline" ilustracao="pets" title="Nenhum pet cadastrado" />
       ) : (
         <View style={{ gap: spacing.md }}>
           {pets.map(pet => (

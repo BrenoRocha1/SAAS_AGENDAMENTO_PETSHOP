@@ -67,7 +67,7 @@ export default function PetsClienteScreen() {
       {erro && <Aviso tipo="erro" texto={erro} style={{ marginBottom: spacing.md }} />}
 
       {!loading && pets.length === 0 && !erro ? (
-        <EmptyState icon="paw-outline" title="Nenhum pet cadastrado" subtitle="Cadastre o seu pet para poder agendar." />
+        <EmptyState icon="paw-outline" ilustracao="pets" title="Nenhum pet cadastrado" subtitle="Cadastre o seu pet para poder agendar." />
       ) : (
         <View style={{ gap: spacing.md }}>
           {pets.map(p => (

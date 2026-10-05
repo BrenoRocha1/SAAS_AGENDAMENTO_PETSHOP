@@ -74,6 +74,7 @@ export default function ClientesScreen() {
           ) : (
             <EmptyState
               icon="people-outline"
+              ilustracao={busca ? undefined : 'clientes'}
               title={busca ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}
               subtitle={busca ? 'Tente outro nome ou telefone.' : 'Os clientes da sua loja aparecem aqui.'}
             />

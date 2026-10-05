@@ -27,6 +27,7 @@ import { Estrelas, formatarMedia } from '@/components/cliente/Estrelas'
 import PlanosDoCliente from '@/components/lojista/planos/PlanosDoCliente'
 import { formasAtivas, normalizarFormasLoja } from '@/lib/pagamento'
 import type { Assinatura, Plano } from '@/lib/planos'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Perfil do Cliente — Lojista' }
 
@@ -156,7 +157,7 @@ export default async function PerfilClientePage({ params }: Props) {
           <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Clientes
         </Link>
         <div className="empty-state card">
-          <IconUsers style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="nao-encontrado" />
           <div className="empty-state-title">Cliente não encontrado</div>
           <p>Ele pode não existir, ou não estar vinculado ao seu petshop.</p>
         </div>

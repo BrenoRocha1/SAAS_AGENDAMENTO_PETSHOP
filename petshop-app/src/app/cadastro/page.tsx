@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { cadastroClienteAction, getGoogleOAuthUrlAction } from '@/lib/actions'
 import { IconIdCard, IconPhone, IconUser } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 const stroke = {
   fill: 'none',
@@ -117,6 +118,8 @@ export default function CadastroClientePage() {
             </span>
             <span className="login-brand-name">SAIP</span>
           </div>
+
+          <Ilustracao nome="boas-vindas" altura={120} />
 
           <h1 className="login-heading">Criar conta</h1>
           <p className="login-sub">Cadastre-se para agendar serviços para o seu pet.</p>

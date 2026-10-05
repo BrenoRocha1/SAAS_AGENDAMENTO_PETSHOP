@@ -2,13 +2,14 @@ import { createClient } from '@/lib/supabase/server'
 import { obterUsuario } from '@/lib/supabase/usuario'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { IconAlert, IconChevronLeft, IconUserBadge } from '@/components/icons'
+import { IconAlert, IconChevronLeft } from '@/components/icons'
 import { calcularPeriodo, calcularPeriodoAnterior, type PeriodoPreset } from '@/lib/relatorios'
 import { obterContextoLojista, ehResponsavelPelaConta } from '@/lib/lojista-context'
 import PerfilFuncionarioClient, {
   type AgendamentoFuncionario,
   type FuncionarioInfo,
 } from '@/components/lojista/PerfilFuncionarioClient'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Perfil do Membro — Lojista' }
 
@@ -90,7 +91,7 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
           <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Equipe
         </Link>
         <div className="empty-state card">
-          <IconUserBadge style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="nao-encontrado" />
           <div className="empty-state-title">Membro não encontrado</div>
           <p>Ele pode ter sido removido, ou não pertence ao seu petshop.</p>
         </div>

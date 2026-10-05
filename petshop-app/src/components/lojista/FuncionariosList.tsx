@@ -28,8 +28,8 @@ import {
   IconTrash,
   IconUserBadge,
   IconUserPlus,
-  IconUsers,
 } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 interface Funcionario {
   id_funcionario: string
@@ -202,7 +202,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
         </button>
         {initial.length === 0 ? (
           <div className="dash-app-vazio">
-            <span className="dash-app-vazio-icone"><IconUsers style={{ width: 26, height: 26 }} /></span>
+            <Ilustracao nome="equipe" altura={110} style={{ marginBottom: 0 }} />
             <strong>Nenhum funcionário cadastrado</strong>
             <span>Cadastre a equipe só com o nome — cada pessoa entra com o código de acesso rápido que você gera.</span>
           </div>
@@ -308,7 +308,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
       <div className="so-desktop">
       {ativos.length === 0 && inativos.length === 0 ? (
         <div className="empty-state card">
-          <IconUserBadge style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="equipe" />
           <div className="empty-state-title">Nenhum outro membro cadastrado</div>
           <p style={{ marginBottom: 'var(--space-5)' }}>
             Cadastre membros da equipe para ajudar na gestão do seu petshop

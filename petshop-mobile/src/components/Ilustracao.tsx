@@ -2,7 +2,8 @@ import { Image, type ImageStyle, type StyleProp } from 'react-native'
 
 // Ilustrações do app, do unDraw (undraw.co — uso livre, sem crédito), já na
 // cor da marca. Entram só onde a tela está vazia ou é uma porta de entrada
-// (login, código, cadastro); nunca no meio de uma lista com conteúdo.
+// (login, código, cadastro); nunca no meio de uma lista com conteúdo, nem
+// no resultado de uma busca.
 //
 // São PNGs gerados a partir dos SVGs de assets/ilustracoes/svg — o app não
 // tem biblioteca de SVG. Um arquivo só por desenho, grande (cabe em
@@ -17,6 +18,9 @@ const FONTES = {
   login: require('../../assets/ilustracoes/login.png'),
   codigo: require('../../assets/ilustracoes/codigo.png'),
   'boas-vindas': require('../../assets/ilustracoes/boas-vindas.png'),
+  pets: require('../../assets/ilustracoes/pets.png'),
+  clientes: require('../../assets/ilustracoes/clientes.png'),
+  equipe: require('../../assets/ilustracoes/equipe.png'),
 } as const
 
 export type NomeIlustracao = keyof typeof FONTES

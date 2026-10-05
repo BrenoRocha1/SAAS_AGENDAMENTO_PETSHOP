@@ -4,6 +4,7 @@ import { Suspense, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { loginAction, getGoogleOAuthUrlAction } from '@/lib/actions'
+import Ilustracao from '@/components/Ilustracao'
 
 /* ------------------------------------------------------------------ *
  * Ícones — line icons em SVG inline (sem biblioteca externa).
@@ -340,6 +341,9 @@ function LoginFormPane() {
         <span className="login-brand-name">PetShop Agenda</span>
       </div>
 
+      {/* Só no celular: no computador o painel ao lado já faz esse papel. */}
+      <div className="so-celular"><Ilustracao nome="login" altura={110} /></div>
+
       <h1 className="login-heading">Entrar</h1>
       <p className="login-sub">
         {isLojista
@@ -477,6 +481,7 @@ function LoginFormFallback() {
         </span>
         <span className="login-brand-name">PetShop Agenda</span>
       </div>
+      <div className="so-celular"><Ilustracao nome="login" altura={110} /></div>
       <h1 className="login-heading">Entrar</h1>
       <p className="login-sub">Agende serviços para o seu pet.</p>
 

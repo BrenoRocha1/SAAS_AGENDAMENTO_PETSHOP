@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from 'react'
 import { atualizarPerfilLojistaAction } from '@/lib/actions'
 import { IconAlert, IconCheck, IconSave } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 function formatarCep(cep: string): string {
   const d = cep.replace(/\D/g, '')
@@ -108,7 +109,7 @@ export default function PerfilLojistaForm({ lojista }: Props) {
   if (!lojista) {
     return (
       <div className="empty-state card">
-        <IconAlert style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+        <Ilustracao nome="nao-encontrado" />
         <div className="empty-state-title">Perfil não encontrado</div>
         <p>Erro ao carregar dados da loja.</p>
       </div>

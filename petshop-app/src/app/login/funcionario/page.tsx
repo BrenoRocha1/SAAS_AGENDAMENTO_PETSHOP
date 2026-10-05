@@ -5,15 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { loginFuncionarioCodigoAction } from '@/lib/actions'
 import { OtpInput, type OtpInputHandle, type OtpStatus } from '@/components/ui/otp-input'
-
-function IconStore({ style }: { style?: React.CSSProperties }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={style}>
-      <path d="m2 7 4.5-4.5h11L22 7l-1 12H3Z" />
-      <path d="M16 19v-4.5c0-1.4-1.1-2.5-2.5-2.5h-3c-1.4 0-2.5 1.1-2.5 2.5V19" />
-    </svg>
-  )
-}
+import Ilustracao from '@/components/Ilustracao'
 
 // Login da equipe: só o código de acesso rápido que o responsável da loja
 // gera na tela do funcionário (6 dígitos, 1 minuto, uso único). Não tem
@@ -57,14 +49,7 @@ export default function LoginFuncionarioPage() {
     <div className="auth-layout animate-fade-in">
       <div className="auth-card">
         <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
-          <div style={{
-            width: 48, height: 48, borderRadius: 'var(--radius-md)',
-            background: 'var(--primary-soft-bg)', color: 'var(--primary-500)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto var(--space-4)'
-          }}>
-            <IconStore style={{ width: 24, height: 24 }} />
-          </div>
+          <Ilustracao nome="codigo" altura={120} />
           <h1 style={{ fontSize: '1.5rem', marginBottom: 'var(--space-1)' }}>Login da Equipe</h1>
           <p className="text-muted">Digite o seu código de acesso rápido</p>
         </div>

@@ -274,7 +274,7 @@ export default function FuncionariosScreen() {
       <Botao rotulo="Cadastrar funcionário" icone="person-add-outline" onPress={() => abrir(null)} style={{ marginBottom: spacing.lg }} />
 
       {!loading && equipe.length === 0 && !erro ? (
-        <EmptyState icon="people-circle-outline" title="Nenhum funcionário cadastrado" subtitle="Cadastre a equipe só com o nome — cada pessoa entra com o código de acesso rápido que você gera." />
+        <EmptyState icon="people-circle-outline" ilustracao="equipe" title="Nenhum funcionário cadastrado" subtitle="Cadastre a equipe só com o nome — cada pessoa entra com o código de acesso rápido que você gera." />
       ) : (
         <View style={{ gap: spacing.md }}>
           {equipe.map(f => {

@@ -18,6 +18,7 @@ import {
   IconSearch,
   IconUser,
 } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 export interface PetLinha extends PetParaEditar {
   telefone_cliente: string
@@ -139,7 +140,9 @@ export default function PetsList({
 
         {pets.length === 0 ? (
           <div className="dash-app-vazio">
-            <span className="dash-app-vazio-icone"><IconPaw style={{ width: 26, height: 26 }} /></span>
+            {busca
+              ? <span className="dash-app-vazio-icone"><IconPaw style={{ width: 26, height: 26 }} /></span>
+              : <Ilustracao nome="pets" altura={110} style={{ marginBottom: 0 }} />}
             <strong>{busca ? 'Nenhum pet encontrado' : 'Nenhum pet cadastrado'}</strong>
             <span>{busca ? 'Tente outro nome, raça ou tutor.' : 'Os pets da sua loja aparecem aqui.'}</span>
           </div>
@@ -215,7 +218,7 @@ export default function PetsList({
 
       {pets.length === 0 ? (
         <div className="empty-state card">
-          <IconDog style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          {temFiltroAtivo ? <IconDog style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} /> : <Ilustracao nome="pets" />}
           <div className="empty-state-title">
             {temFiltroAtivo ? 'Nenhum pet encontrado para essa busca.' : 'Nenhum pet cadastrado.'}
           </div>

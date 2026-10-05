@@ -12,6 +12,7 @@ import { formasAtivas, normalizarFormasLoja } from '@/lib/pagamento'
 import type { Plano, PlanoDoPet as PlanoAtivo } from '@/lib/planos'
 import PlanoDoPet from '@/components/lojista/planos/PlanoDoPet'
 import { formatarReais } from '@/lib/taxidog'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Detalhes do Pet — Lojista' }
 
@@ -70,7 +71,7 @@ export default async function DetalhePetPage({ params }: Props) {
           <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar para Pets
         </Link>
         <div className="empty-state card">
-          <IconDog style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="nao-encontrado" />
           <div className="empty-state-title">Pet não encontrado</div>
           <p>Ele pode ter sido removido, ou não pertence a um cliente do seu petshop.</p>
         </div>

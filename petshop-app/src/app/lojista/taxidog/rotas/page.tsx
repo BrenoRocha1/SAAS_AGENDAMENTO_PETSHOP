@@ -11,6 +11,7 @@ import type { TaxiDogOpcao } from '@/lib/taxidog'
 import TaxiDogRotas, { type PerfilRotas } from '@/components/lojista/TaxiDogRotas'
 import TaxiDogRotaExecucao from '@/components/lojista/TaxiDogRotaExecucao'
 import { IconAlert, IconCar, IconKanban } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'TaxiDog — Rotas' }
 
@@ -128,7 +129,7 @@ export default async function RotasTaxiDogPage({ searchParams }: Props) {
           />
         ) : (
           <div className="empty-state card">
-            <IconCar style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+            <Ilustracao nome="nao-encontrado" />
             <div className="empty-state-title">Rota não encontrada</div>
             <p>Ela pode ter sido passada para outro TaxiDog. <Link href={caminho} className="text-accent">Ver as rotas</Link></p>
           </div>

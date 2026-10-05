@@ -3,9 +3,10 @@ import { obterUsuario } from '@/lib/supabase/usuario'
 import Link from 'next/link'
 import { differenceInYears } from 'date-fns'
 import PetCard from '@/components/cliente/PetCard'
-import { IconChevronRight, IconDog, IconPaw, IconPlus } from '@/components/icons'
+import { IconChevronRight, IconPlus } from '@/components/icons'
 import { iniciais } from '@/lib/format'
 import type { Metadata } from 'next'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Meus Pets' }
 
@@ -48,7 +49,7 @@ export default async function PetsPage() {
 
         {!listaPets.length ? (
           <div className="dash-app-vazio">
-            <span className="dash-app-vazio-icone"><IconPaw style={{ width: 26, height: 26 }} /></span>
+            <Ilustracao nome="pets" altura={110} style={{ marginBottom: 0 }} />
             <strong>Nenhum pet cadastrado</strong>
             <span>Cadastre o seu pet para poder agendar.</span>
           </div>
@@ -83,7 +84,7 @@ export default async function PetsPage() {
 
       {!listaPets.length ? (
         <div className="empty-state card">
-          <IconDog style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="pets" />
           <div className="empty-state-title">Nenhum pet cadastrado ainda</div>
           <p style={{ marginBottom: 'var(--space-5)' }}>
             Cadastre seu primeiro pet para começar a agendar serviços
