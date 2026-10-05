@@ -6,7 +6,9 @@ import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { exportarRelatorioVendasCsvAction } from '@/lib/actions'
 import { PRESETS, variacaoPercentual, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
+import { hojeBrasilISO } from '@/lib/agenda'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
+import FiltroPeriodo from '@/components/lojista/FiltroPeriodo'
 import { CLASSE_STATUS_PAGAMENTO, ROTULO_STATUS_PAGAMENTO, ehFormaPlano, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
 import type { RelatorioPlanos } from '@/lib/planos'
 import {
@@ -159,18 +161,6 @@ export default function RelatorioVendasClient({
   const [isExporting, startExportTransition] = useTransition()
   const [exportErro, setExportErro] = useState<string | null>(null)
 
-  const [customIni, setCustomIni] = useState(periodo.ini)
-  const [customFim, setCustomFim] = useState(periodo.fim)
-  // Ao trocar de período (outro preset ou "Aplicar"), os campos De/Até
-  // passam a mostrar o período que está valendo.
-  const chavePeriodo = `${periodo.ini}|${periodo.fim}`
-  const [chavePeriodoAnterior, setChavePeriodoAnterior] = useState(chavePeriodo)
-  if (chavePeriodoAnterior !== chavePeriodo) {
-    setChavePeriodoAnterior(chavePeriodo)
-    setCustomIni(periodo.ini)
-    setCustomFim(periodo.fim)
-  }
-
   function navegar(overrides: Record<string, string | undefined>) {
     const params: Record<string, string | undefined> = {
       periodo: preset,
@@ -195,8 +185,8 @@ export default function RelatorioVendasClient({
     navegar({ periodo: novoPreset, ini: undefined, fim: undefined, pagina: undefined })
   }
 
-  function aplicarPersonalizado() {
-    navegar({ periodo: 'personalizado', ini: customIni, fim: customFim, pagina: undefined })
+  function aplicarPersonalizado(ini: string, fim: string) {
+    navegar({ periodo: 'personalizado', ini, fim, pagina: undefined })
   }
 
   function mudarFiltro(campo: 'funcionario' | 'servico' | 'status', valor: string) {
@@ -253,50 +243,15 @@ export default function RelatorioVendasClient({
 
       {/* Filtro de período */}
       <div className="relatorio-filtros card">
-        <div className="relatorio-presets">
-          {PRESETS.map(p => (
-            <button
-              key={p.value}
-              type="button"
-              className={`btn btn-sm ${preset === p.value ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => mudarPreset(p.value)}
-              disabled={isPending}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        {preset === 'personalizado' && (
-          <div className="relatorio-personalizado">
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">De</label>
-              <input
-                type="date"
-                className="form-input"
-                value={customIni}
-                max={customFim}
-                onChange={e => setCustomIni(e.target.value)}
-                disabled={isPending}
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Até</label>
-              <input
-                type="date"
-                className="form-input"
-                value={customFim}
-                min={customIni}
-                max={format(new Date(), 'yyyy-MM-dd')}
-                onChange={e => setCustomFim(e.target.value)}
-                disabled={isPending}
-              />
-            </div>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={aplicarPersonalizado} disabled={isPending}>
-              Aplicar
-            </button>
-          </div>
-        )}
+        <FiltroPeriodo
+          opcoes={PRESETS}
+          valor={preset}
+          onMudar={mudarPreset}
+          ini={periodo.ini}
+          fim={periodo.fim}
+          onPersonalizado={aplicarPersonalizado}
+          dataMax={hojeBrasilISO()}
+        />
       </div>
 
       {semDadosNoPeriodo ? (

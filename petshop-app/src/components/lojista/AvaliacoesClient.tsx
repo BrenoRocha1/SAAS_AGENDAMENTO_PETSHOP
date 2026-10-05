@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PRESETS, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
+import { hojeBrasilISO } from '@/lib/agenda'
 import { IconChevronLeft, IconChevronRight, IconInbox, IconStar } from '@/components/icons'
 import { Estrelas, formatarMedia } from '@/components/cliente/Estrelas'
+import FiltroPeriodo from '@/components/lojista/FiltroPeriodo'
 
 // Espelha o retorno de fn_avaliacoes_lojista (migration 034).
 export interface LinhaAvaliacao {
@@ -49,14 +51,20 @@ interface Props {
 
 const NOTAS = [5, 4, 3, 2, 1] as const
 
+// Aqui o filtro de período começa vazio ("Todo o período"), antes das
+// opções dos relatórios de vendas.
+const TODO_O_PERIODO = 'todo'
+const OPCOES_PERIODO: { value: PeriodoPreset | typeof TODO_O_PERIODO; label: string }[] = [
+  { value: TODO_O_PERIODO, label: 'Todo o período' },
+  ...PRESETS,
+]
+
 export default function AvaliacoesClient({
   resumo, avaliacoes, totalLista, pagina, pageSize, preset, periodo,
   filtroNota, filtroServico, filtroFuncionario, servicos, funcionarios,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [customIni, setCustomIni] = useState(periodo?.ini ?? '')
-  const [customFim, setCustomFim] = useState(periodo?.fim ?? '')
 
   // Filtros moram na URL (mesmo padrão dos Relatórios de Vendas): o
   // servidor faz a agregação e a paginação, o navegador só re-renderiza.
@@ -126,52 +134,17 @@ export default function AvaliacoesClient({
 
           {/* ── Filtros ── */}
           <div className="relatorio-filtros card">
-            <div className="relatorio-presets">
-              <button
-                type="button"
-                className={`btn btn-sm ${preset === null ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => mudarPreset(null)}
-              >
-                Todo o período
-              </button>
-              {PRESETS.map(p => (
-                <button
-                  key={p.value}
-                  type="button"
-                  className={`btn btn-sm ${preset === p.value ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => mudarPreset(p.value)}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            {preset === 'personalizado' && (() => {
-              // O estado local só existe depois que a pessoa mexe no campo;
-              // até lá mostra o intervalo que o servidor já aplicou (ao
-              // entrar em "Personalizado" sem datas, ele usa os últimos 30 dias).
-              const ini = customIni || periodo?.ini || ''
-              const fim = customFim || periodo?.fim || ''
-              return (
-                <div className="relatorio-personalizado">
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">De</label>
-                    <input type="date" className="form-input" value={ini} max={fim || undefined} onChange={e => setCustomIni(e.target.value)} />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Até</label>
-                    <input type="date" className="form-input" value={fim} min={ini || undefined} onChange={e => setCustomFim(e.target.value)} />
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => navegar({ periodo: 'personalizado', ini, fim, pagina: undefined })}
-                  >
-                    Aplicar
-                  </button>
-                </div>
-              )
-            })()}
+            {/* Sem período escolhido vale "Todo o período". Ao entrar em
+                "Personalizado" sem datas, o servidor usa os últimos 30 dias. */}
+            <FiltroPeriodo
+              opcoes={OPCOES_PERIODO}
+              valor={preset ?? TODO_O_PERIODO}
+              onMudar={novo => mudarPreset(novo === TODO_O_PERIODO ? null : novo)}
+              ini={periodo?.ini ?? hojeBrasilISO()}
+              fim={periodo?.fim ?? hojeBrasilISO()}
+              onPersonalizado={(ini, fim) => navegar({ periodo: 'personalizado', ini, fim, pagina: undefined })}
+              dataMax={hojeBrasilISO()}
+            />
 
             <div className="relatorio-tabela-filtros" style={{ marginTop: 'var(--space-4)', marginBottom: 0 }}>
               <select className="form-select" value={filtroNota ?? ''} onChange={e => navegar({ nota: e.target.value || undefined, pagina: undefined })}>

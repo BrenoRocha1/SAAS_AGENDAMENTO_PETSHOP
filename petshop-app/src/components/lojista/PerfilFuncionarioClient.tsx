@@ -7,8 +7,10 @@ import { format, parseISO, differenceInCalendarDays, startOfWeek, addDays } from
 import { ptBR } from 'date-fns/locale'
 import { toggleFuncionarioAction } from '@/lib/actions'
 import { PRESETS, variacaoPercentual, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
+import { hojeBrasilISO } from '@/lib/agenda'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import CodigoAcessoFuncionarioModal from '@/components/lojista/CodigoAcessoFuncionarioModal'
+import FiltroPeriodo from '@/components/lojista/FiltroPeriodo'
 import {
   IconAlert,
   IconCalendar,
@@ -88,8 +90,6 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
   const [toggleErro, setToggleErro] = useState<string | null>(null)
   const [codigoAberto, setCodigoAberto] = useState(false)
 
-  const [customIni, setCustomIni] = useState(periodo.ini)
-  const [customFim, setCustomFim] = useState(periodo.fim)
   const [filtroStatus, setFiltroStatus] = useState('')
   const [filtroServico, setFiltroServico] = useState('')
 
@@ -209,34 +209,15 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
 
       {/* ── Filtro de período ── */}
       <div className="relatorio-filtros card">
-        <div className="relatorio-presets">
-          {PRESETS.map(p => (
-            <button
-              key={p.value}
-              type="button"
-              className={`btn btn-sm ${preset === p.value ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => navegar({ periodo: p.value, ini: undefined, fim: undefined })}
-              disabled={isPending}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        {preset === 'personalizado' && (
-          <div className="relatorio-personalizado">
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">De</label>
-              <input type="date" className="form-input" value={customIni} max={customFim} onChange={e => setCustomIni(e.target.value)} disabled={isPending} />
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Até</label>
-              <input type="date" className="form-input" value={customFim} min={customIni} max={format(new Date(), 'yyyy-MM-dd')} onChange={e => setCustomFim(e.target.value)} disabled={isPending} />
-            </div>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => navegar({ periodo: 'personalizado', ini: customIni, fim: customFim })} disabled={isPending}>
-              Aplicar
-            </button>
-          </div>
-        )}
+        <FiltroPeriodo
+          opcoes={PRESETS}
+          valor={preset}
+          onMudar={novo => navegar({ periodo: novo, ini: undefined, fim: undefined })}
+          ini={periodo.ini}
+          fim={periodo.fim}
+          onPersonalizado={(ini, fim) => navegar({ periodo: 'personalizado', ini, fim })}
+          dataMax={hojeBrasilISO()}
+        />
         <p className="text-xs text-muted" style={{ margin: 0 }}>
           Período: {format(parseDia(periodo.ini), 'dd/MM/yyyy')} a {format(parseDia(periodo.fim), 'dd/MM/yyyy')} — todos os números desta página são deste intervalo.
         </p>

@@ -14,6 +14,7 @@ import {
   type CorridaDetalhe,
 } from '@/lib/taxidog'
 import { IconAlert, IconCar, IconChartBar, IconCheck, IconChevronLeft, IconClose, IconMoney, IconUserBadge } from '@/components/icons'
+import PeriodoRelatorioTaxiDog from '@/components/lojista/PeriodoRelatorioTaxiDog'
 
 export const metadata: Metadata = { title: 'Relatório de corridas — TaxiDog' }
 
@@ -93,8 +94,6 @@ export default async function RelatorioCorridasPage({ searchParams }: Props) {
     { rotulo: 'Mês passado', de: format(startOfMonth(mesPassado), 'yyyy-MM-dd'), ate: format(endOfMonth(mesPassado), 'yyyy-MM-dd') },
   ]
   const filtroTaxidog = gestor ? (params.taxidog ?? '') : ''
-  const hrefPeriodo = (d: string, a: string) =>
-    `/lojista/taxidog/relatorio?de=${d}&ate=${a}${filtroTaxidog ? `&taxidog=${filtroTaxidog}` : ''}`
 
   // ── Dados ─────────────────────────────────────────────────
   const { data: linhas, error } = await supabase.rpc('fn_listar_corridas', { p_data_ini: de, p_data_fim: ate })
@@ -143,25 +142,20 @@ export default async function RelatorioCorridasPage({ searchParams }: Props) {
     <>
       {cabecalho}
 
-      {/* Período (formulário GET — funciona sem JavaScript) */}
+      {/* Período: opções prontas e, em "Personalizado", o calendário. */}
       <div className="relatorio-filtros card" style={{ marginBottom: 'var(--space-6)' }}>
-        <div className="relatorio-presets">
-          {presets.map(p => (
-            <Link key={p.rotulo} href={hrefPeriodo(p.de, p.ate)} className={`btn btn-sm ${p.de === de && p.ate === ate ? 'btn-primary' : 'btn-secondary'}`}>
-              {p.rotulo}
-            </Link>
-          ))}
-        </div>
-        <form method="get" action="/lojista/taxidog/relatorio" style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label" htmlFor="de">De</label>
-            <input id="de" name="de" type="date" className="form-input" defaultValue={de} />
-          </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label" htmlFor="ate">Até</label>
-            <input id="ate" name="ate" type="date" className="form-input" defaultValue={ate} />
-          </div>
-          {gestor && taxidogsDoPeriodo.length > 0 && (
+        <PeriodoRelatorioTaxiDog
+          presets={presets}
+          de={de}
+          ate={ate}
+          filtroTaxidog={filtroTaxidog}
+          dataMax={modoMotorista ? hoje : undefined}
+        />
+        {/* Filtro por TaxiDog (formulário GET), mantendo o período. */}
+        {gestor && taxidogsDoPeriodo.length > 0 && (
+          <form method="get" action="/lojista/taxidog/relatorio" style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <input type="hidden" name="de" value={de} />
+            <input type="hidden" name="ate" value={ate} />
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label" htmlFor="taxidog">TaxiDog</label>
               <select id="taxidog" name="taxidog" className="form-select" defaultValue={filtroTaxidog}>
@@ -170,9 +164,9 @@ export default async function RelatorioCorridasPage({ searchParams }: Props) {
                 <option value="sem">Sem TaxiDog</option>
               </select>
             </div>
-          )}
-          <button type="submit" className="btn btn-secondary btn-sm">Filtrar</button>
-        </form>
+            <button type="submit" className="btn btn-secondary btn-sm">Filtrar</button>
+          </form>
+        )}
       </div>
 
       {/* Indicadores */}

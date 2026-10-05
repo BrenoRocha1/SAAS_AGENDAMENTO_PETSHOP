@@ -2119,15 +2119,43 @@ svg.is-da-visita { opacity: 0.45; }
   margin-bottom: var(--space-6);
 }
 
-.relatorio-presets { display: flex; gap: var(--space-2); flex-wrap: wrap; }
-
-.relatorio-personalizado {
+/* Filtro de período (FiltroPeriodo): as opções num controle segmentado
+   (src/components/ui/segmented-control.tsx) e, ao lado, quando a
+   escolhida é "Personalizado", o período num calendário (SeletorPeriodo). */
+.filtro-periodo {
   display: flex;
-  align-items: flex-end;
-  gap: var(--space-3);
+  align-items: center;
   flex-wrap: wrap;
+  gap: var(--space-3);
+  min-width: 0;
+  max-width: 100%;
 }
-.relatorio-personalizado .form-input { width: auto; }
+
+/* O calendário do período abre embaixo do botão. A grade do mês é a do
+   SeletorDataHora (.sdh-*); aqui só o que é do intervalo: os dias entre o
+   primeiro e o último formam uma faixa contínua. */
+.periodo { position: relative; display: inline-flex; }
+.periodo-gatilho { font-variant-numeric: tabular-nums; }
+.periodo-popover {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+  width: 320px; max-width: calc(100vw - 1.5rem);
+  border: 1px solid var(--gray-800); border-radius: var(--radius-lg);
+  background: var(--gray-900); box-shadow: var(--shadow-xl);
+  overflow: hidden;
+}
+.periodo-popover .sdh-dias { column-gap: 0; }
+.sdh-dia.is-intervalo { border-radius: 0; background: var(--slot-hover-bg); color: var(--primary-300); }
+.sdh-dia.is-inicio { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.sdh-dia.is-fim { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.periodo-rodape {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: var(--space-3);
+  border-top: 1px solid var(--gray-800); padding: var(--space-3) var(--space-4);
+  background: var(--gray-950);
+}
+.periodo-resumo { font-size: 0.8125rem; color: var(--gray-300); }
+.periodo-resumo strong { color: var(--gray-100); }
+.periodo-acoes { display: flex; gap: var(--space-2); margin-left: auto; }
 
 .relatorio-secao-titulo {
   display: flex;
