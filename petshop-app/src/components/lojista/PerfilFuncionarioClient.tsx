@@ -1,16 +1,21 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, parseISO, differenceInCalendarDays, startOfWeek, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { toggleFuncionarioAction } from '@/lib/actions'
-import { PRESETS, variacaoPercentual, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
+import { PRESETS, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import CodigoAcessoFuncionarioModal from '@/components/lojista/CodigoAcessoFuncionarioModal'
 import FiltroPeriodo from '@/components/lojista/FiltroPeriodo'
+import { GradeIndicadores, Indicador, compararComAnterior } from '@/components/relatorio/Indicador'
+import { DuasColunas, NotaDaSecao, Pilha, Secao, SecaoVazia } from '@/components/relatorio/Secao'
+import { Ranking } from '@/components/relatorio/Ranking'
+import { formatarReais } from '@/lib/taxidog'
 import {
   IconAlert,
   IconCalendar,
@@ -22,8 +27,6 @@ import {
   IconMoney,
   IconPencil,
   IconScissors,
-  IconTrendDown,
-  IconTrendUp,
   IconUserBadge,
   IconUsers,
 } from '@/components/icons'
@@ -69,13 +72,18 @@ interface Props {
 
 const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 
-function moeda(v: number) {
-  return `R$ ${v.toFixed(2)}`
-}
+const moeda = formatarReais
 
 function pct(v: number) {
-  return `${(v * 100).toFixed(1)}%`
+  return `${(v * 100).toFixed(1).replace('.', ',')}%`
 }
+
+// O gráfico (Recharts) só é baixado por quem abre esta tela, e só no
+// navegador — a biblioteca é pesada pra entrar no pacote das outras.
+const GraficoEvolucao = dynamic(() => import('@/components/relatorio/GraficoEvolucao'), {
+  ssr: false,
+  loading: () => <div style={{ height: '16rem' }} aria-hidden />,
+})
 
 // Mesmo truque usado em Kanban/Agenda: meio-dia fixo pra parseISO não
 // escorregar de dia por causa de fuso — dt_agendamento é só 'yyyy-MM-dd'.
@@ -230,193 +238,175 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
           <p>Tente escolher outro período.</p>
         </div>
       ) : (
-        <>
+        <Pilha>
           {/* ── Resumo ── */}
-          <div className="grid-4" style={{ marginBottom: 'var(--space-6)' }}>
-            <Card icon={<IconCalendar style={{ width: 20, height: 20 }} />} cor="primary" label="Atendimentos realizados" valor={String(resumo.qtdAtendimentos)} comparacao={{ atual: resumo.qtdAtendimentos, anterior: resumoAnterior.qtdAtendimentos }} />
-            <Card icon={<IconDog style={{ width: 20, height: 20 }} />} cor="success" label="Pets atendidos (diferentes)" valor={String(resumo.petsUnicos)} comparacao={{ atual: resumo.petsUnicos, anterior: resumoAnterior.petsUnicos }} />
-            <Card icon={<IconScissors style={{ width: 20, height: 20 }} />} cor="info" label="Serviços concluídos" valor={String(resumo.qtdConcluidos)} />
-            <Card icon={<IconMoney style={{ width: 20, height: 20 }} />} cor="warning" label="Faturamento associado" valor={moeda(resumo.faturamento)} comparacao={{ atual: resumo.faturamento, anterior: resumoAnterior.faturamento }} />
-            <Card icon={<IconMoney style={{ width: 20, height: 20 }} />} cor="info" label="Ticket médio" valor={resumo.qtdConcluidos > 0 ? moeda(resumo.ticketMedio) : '—'} />
-            <Card icon={<IconAlert style={{ width: 20, height: 20 }} />} cor="danger" label="Cancelamentos" valor={String(resumo.qtdCancelados)} />
-            <Card icon={<IconClock style={{ width: 20, height: 20 }} />} cor="primary" label="Dias com atendimento" valor={String(resumo.diasTrabalhados)} />
-            <Card icon={<IconUsers style={{ width: 20, height: 20 }} />} cor="success" label="Média por dia" valor={resumo.diasTrabalhados > 0 ? resumo.mediaPorDia.toFixed(1) : '—'} />
-          </div>
+          <GradeIndicadores colunas={4}>
+            <Indicador rotulo="Atendimentos realizados" valor={resumo.qtdAtendimentos} icone={<IconCalendar />} variacao={compararComAnterior(resumo.qtdAtendimentos, resumoAnterior.qtdAtendimentos)} />
+            <Indicador rotulo="Pets atendidos" valor={resumo.petsUnicos} icone={<IconDog />} variacao={compararComAnterior(resumo.petsUnicos, resumoAnterior.petsUnicos)} detalhe="pets diferentes" />
+            <Indicador rotulo="Serviços concluídos" valor={resumo.qtdConcluidos} icone={<IconScissors />} />
+            <Indicador rotulo="Faturamento associado" valor={moeda(resumo.faturamento)} icone={<IconMoney />} variacao={compararComAnterior(resumo.faturamento, resumoAnterior.faturamento)} />
+            <Indicador rotulo="Ticket médio" valor={resumo.qtdConcluidos > 0 ? moeda(resumo.ticketMedio) : '—'} icone={<IconMoney />} detalhe="por atendimento concluído" />
+            <Indicador rotulo="Cancelamentos" valor={resumo.qtdCancelados} icone={<IconAlert />} />
+            <Indicador rotulo="Dias com atendimento" valor={resumo.diasTrabalhados} icone={<IconClock />} />
+            <Indicador rotulo="Média por dia" valor={resumo.diasTrabalhados > 0 ? resumo.mediaPorDia.toFixed(1).replace('.', ',') : '—'} icone={<IconUsers />} detalhe="atendimentos por dia trabalhado" />
+          </GradeIndicadores>
 
           {/* ── Faturamento + Atendimentos ── */}
-          <div className="grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'start' }}>
-            <div className="card">
-              <h3 className="relatorio-secao-titulo">
-                <IconMoney style={{ width: 15, height: 15 }} /> Faturamento
-              </h3>
-              <p className="text-xs text-muted" style={{ marginBottom: 'var(--space-3)' }}>
-                Mesma regra do Relatório de Vendas: soma do valor dos atendimentos com status Concluído.
-              </p>
-              <div className="dash-detail-row"><span>Faturamento no período</span><span>{moeda(resumo.faturamento)}</span></div>
-              <div className="dash-detail-row"><span>Atendimentos concluídos</span><span>{resumo.qtdConcluidos}</span></div>
-              <div className="dash-detail-row"><span>Ticket médio</span><span>{resumo.qtdConcluidos > 0 ? moeda(resumo.ticketMedio) : '—'}</span></div>
-              {porServico[0] && <div className="dash-detail-row"><span>Maior faturamento por serviço</span><span>{porServico[0].nome} ({moeda(porServico[0].valor)})</span></div>}
-            </div>
+          <DuasColunas>
+            <Secao titulo="Faturamento" icone={<IconMoney />} descricao="Mesma regra do Relatório de Vendas: soma do valor dos atendimentos concluídos">
+              <div>
+                <div className="dash-detail-row"><span>Faturamento no período</span><span>{moeda(resumo.faturamento)}</span></div>
+                <div className="dash-detail-row"><span>Atendimentos concluídos</span><span>{resumo.qtdConcluidos}</span></div>
+                <div className="dash-detail-row"><span>Ticket médio</span><span>{resumo.qtdConcluidos > 0 ? moeda(resumo.ticketMedio) : '—'}</span></div>
+                {porServico[0] && <div className="dash-detail-row"><span>Maior faturamento por serviço</span><span>{porServico[0].nome} ({moeda(porServico[0].valor)})</span></div>}
+              </div>
+            </Secao>
 
-            <div className="card">
-              <h3 className="relatorio-secao-titulo">
-                <IconCheck style={{ width: 15, height: 15 }} /> Atendimentos
-              </h3>
-              <div className="dash-detail-row"><span>Total no período</span><span>{agendamentos.length}</span></div>
-              <div className="dash-detail-row"><span>Concluídos</span><span>{resumo.qtdConcluidos}</span></div>
-              <div className="dash-detail-row"><span>Pendentes</span><span>{resumo.qtdPendente}</span></div>
-              <div className="dash-detail-row"><span>Aceitos</span><span>{resumo.qtdConfirmado}</span></div>
-              <div className="dash-detail-row"><span>Em andamento</span><span>{resumo.qtdEmAndamento}</span></div>
-              <div className="dash-detail-row"><span>Cancelados</span><span>{resumo.qtdCancelados}</span></div>
-              <div className="dash-detail-row"><span>Taxa de conclusão</span><span>{pct(resumo.taxaConclusao)}</span></div>
-              <div className="dash-detail-row"><span>Taxa de cancelamento</span><span>{pct(resumo.taxaCancelamento)}</span></div>
-              <p className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>
-                Taxas calculadas sobre o total de agendamentos do período (concluídos ou cancelados ÷ total).
-              </p>
-            </div>
-          </div>
+            <Secao titulo="Atendimentos" icone={<IconCheck />} descricao="Como terminaram os agendamentos do período">
+              <div>
+                <div className="dash-detail-row"><span>Total no período</span><span>{agendamentos.length}</span></div>
+                <div className="dash-detail-row"><span>Concluídos</span><span>{resumo.qtdConcluidos}</span></div>
+                <div className="dash-detail-row"><span>Pendentes</span><span>{resumo.qtdPendente}</span></div>
+                <div className="dash-detail-row"><span>Aceitos</span><span>{resumo.qtdConfirmado}</span></div>
+                <div className="dash-detail-row"><span>Em andamento</span><span>{resumo.qtdEmAndamento}</span></div>
+                <div className="dash-detail-row"><span>Cancelados</span><span>{resumo.qtdCancelados}</span></div>
+                <div className="dash-detail-row"><span>Taxa de conclusão</span><span>{pct(resumo.taxaConclusao)}</span></div>
+                <div className="dash-detail-row"><span>Taxa de cancelamento</span><span>{pct(resumo.taxaCancelamento)}</span></div>
+              </div>
+              <NotaDaSecao>Taxas calculadas sobre o total de agendamentos do período (concluídos ou cancelados ÷ total).</NotaDaSecao>
+            </Secao>
+          </DuasColunas>
 
-          <div className="grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'start' }}>
+          <DuasColunas>
             {/* ── Pets atendidos ── */}
-            <div className="card">
-              <h3 className="relatorio-secao-titulo">
-                <IconDog style={{ width: 15, height: 15 }} /> Pets atendidos
-              </h3>
-              <p className="text-xs text-muted" style={{ marginBottom: 'var(--space-3)' }}>
-                {resumo.qtdAtendimentos} atendimento{resumo.qtdAtendimentos !== 1 ? 's' : ''} em {resumo.petsUnicos} pet{resumo.petsUnicos !== 1 ? 's' : ''} diferente{resumo.petsUnicos !== 1 ? 's' : ''}.
-              </p>
+            <Secao
+              titulo="Pets atendidos"
+              icone={<IconDog />}
+              descricao={`${resumo.qtdAtendimentos} atendimento${resumo.qtdAtendimentos !== 1 ? 's' : ''} em ${resumo.petsUnicos} pet${resumo.petsUnicos !== 1 ? 's' : ''} diferente${resumo.petsUnicos !== 1 ? 's' : ''}`}
+            >
               {porPet.length === 0 ? (
-                <p className="text-sm text-muted">Nenhum atendimento no período.</p>
+                <SecaoVazia>Nenhum atendimento no período.</SecaoVazia>
               ) : (
-                <div className="relatorio-lista">
-                  {porPet.map(p => (
-                    <Link key={p.id_pet} href={`/lojista/pets/${p.id_pet}`} className="relatorio-lista-item" style={{ textDecoration: 'none', color: 'inherit' }}>
-                      <div className="relatorio-lista-info">
-                        <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</div>
-                      </div>
-                      <div className="text-sm text-muted">{p.qtd} atendimento{p.qtd !== 1 ? 's' : ''}</div>
-                    </Link>
-                  ))}
-                </div>
+                <Ranking
+                  itens={porPet.map(p => ({
+                    chave: p.id_pet,
+                    titulo: p.nome,
+                    href: `/lojista/pets/${p.id_pet}`,
+                    valor: `${p.qtd} atendimento${p.qtd !== 1 ? 's' : ''}`,
+                    parte: p.qtd / Math.max(1, porPet[0].qtd),
+                  }))}
+                />
               )}
-            </div>
+            </Secao>
 
             {/* ── Clientes atendidos ── */}
-            <div className="card">
-              <h3 className="relatorio-secao-titulo">
-                <IconUsers style={{ width: 15, height: 15 }} /> Clientes atendidos
-              </h3>
-              <p className="text-xs text-muted" style={{ marginBottom: 'var(--space-3)' }}>
-                {resumo.clientesUnicos} cliente{resumo.clientesUnicos !== 1 ? 's' : ''} diferente{resumo.clientesUnicos !== 1 ? 's' : ''}, sendo {resumo.clientesRecorrentes} recorrente{resumo.clientesRecorrentes !== 1 ? 's' : ''} (mais de 1 atendimento com este profissional no período).
-              </p>
+            <Secao
+              titulo="Clientes atendidos"
+              icone={<IconUsers />}
+              descricao={`${resumo.clientesUnicos} cliente${resumo.clientesUnicos !== 1 ? 's' : ''} diferente${resumo.clientesUnicos !== 1 ? 's' : ''}, sendo ${resumo.clientesRecorrentes} recorrente${resumo.clientesRecorrentes !== 1 ? 's' : ''} (mais de 1 atendimento com este profissional no período)`}
+            >
               {porCliente.length === 0 ? (
-                <p className="text-sm text-muted">Nenhum atendimento no período.</p>
+                <SecaoVazia>Nenhum atendimento no período.</SecaoVazia>
               ) : (
-                <div className="relatorio-lista">
-                  {porCliente.map(c => (
-                    <div key={c.id_cliente} className="relatorio-lista-item">
-                      <div className="relatorio-lista-info">
-                        <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{c.nome}</div>
-                      </div>
-                      <div className="text-sm text-muted">{c.qtd} atendimento{c.qtd !== 1 ? 's' : ''}</div>
-                    </div>
-                  ))}
-                </div>
+                <Ranking
+                  comIniciais
+                  itens={porCliente.map(c => ({
+                    chave: c.id_cliente,
+                    titulo: c.nome,
+                    valor: `${c.qtd} atendimento${c.qtd !== 1 ? 's' : ''}`,
+                    parte: c.qtd / Math.max(1, porCliente[0].qtd),
+                  }))}
+                />
               )}
-            </div>
-          </div>
+            </Secao>
+          </DuasColunas>
 
           {/* ── Serviços realizados ── */}
-          <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-            <h3 className="relatorio-secao-titulo">
-              <IconScissors style={{ width: 15, height: 15 }} /> Serviços realizados
-            </h3>
-            <p className="text-xs text-muted" style={{ marginBottom: 'var(--space-3)' }}>
-              Só atendimentos concluídos (mesma regra do faturamento) — ordenado por quantidade de atendimentos.
-              {porServico[0] && ` Mais realizado: ${porServico[0].nome}.`}
-            </p>
+          <Secao
+            titulo="Serviços realizados"
+            icone={<IconScissors />}
+            descricao={`Só atendimentos concluídos (mesma regra do faturamento), com a parte de cada um no faturamento.${porServico[0] ? ` Mais realizado: ${porServico[0].nome}.` : ''}`}
+          >
             {porServico.length === 0 ? (
-              <p className="text-sm text-muted">Nenhum atendimento concluído no período.</p>
+              <SecaoVazia>Nenhum atendimento concluído no período.</SecaoVazia>
             ) : (
-              <div className="relatorio-lista">
-                {porServico.map(s => (
-                  <div key={s.id_servico} className="relatorio-lista-item">
-                    <div className="relatorio-lista-info">
-                      <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{s.nome}</div>
-                      <div className="text-xs text-muted">{s.qtd} atendimento{s.qtd !== 1 ? 's' : ''}</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div className="font-semibold text-success">{moeda(s.valor)}</div>
-                      <div className="text-xs text-muted">{((s.valor / resumo.faturamento) * 100 || 0).toFixed(1)}% do faturamento</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <Ranking
+                itens={porServico.map(s => ({
+                  chave: s.id_servico,
+                  titulo: s.nome,
+                  valor: moeda(s.valor),
+                  detalhe: `${s.qtd} atendimento${s.qtd !== 1 ? 's' : ''}`,
+                  ...(resumo.faturamento > 0
+                    ? { parte: s.valor / resumo.faturamento, rotuloDaParte: pct(s.valor / resumo.faturamento) }
+                    : {}),
+                }))}
+              />
             )}
-          </div>
+          </Secao>
 
-          <div className="grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'start' }}>
+          <DuasColunas>
             {/* ── Dias de maior movimento ── */}
-            <div className="card">
-              <h3 className="relatorio-secao-titulo">Dias de maior movimento</h3>
+            <Secao titulo="Dias de maior movimento" icone={<IconCalendar />}>
               {porDiaSemana.length === 0 ? (
-                <p className="text-sm text-muted">Sem dados suficientes.</p>
+                <SecaoVazia>Sem dados suficientes.</SecaoVazia>
               ) : (
-                <div className="relatorio-lista">
-                  {porDiaSemana.map(d => (
-                    <div key={d.dia} className="relatorio-lista-item">
-                      <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{d.dia}</div>
-                      <div className="text-sm text-muted">{d.qtd} atendimento{d.qtd !== 1 ? 's' : ''}</div>
-                    </div>
-                  ))}
-                </div>
+                <Ranking
+                  itens={porDiaSemana.map(d => ({
+                    chave: d.dia,
+                    titulo: d.dia,
+                    valor: `${d.qtd} atendimento${d.qtd !== 1 ? 's' : ''}`,
+                    parte: d.qtd / Math.max(1, ...porDiaSemana.map(x => x.qtd)),
+                  }))}
+                />
               )}
-            </div>
+            </Secao>
 
             {/* ── Horários de maior movimento ── */}
-            <div className="card">
-              <h3 className="relatorio-secao-titulo">Horários de maior movimento</h3>
+            <Secao titulo="Horários de maior movimento" icone={<IconClock />}>
               {porHorario.length === 0 ? (
-                <p className="text-sm text-muted">Sem dados suficientes.</p>
+                <SecaoVazia>Sem dados suficientes.</SecaoVazia>
               ) : (
-                <div className="relatorio-lista">
-                  {porHorario.map(h => (
-                    <div key={h.label} className="relatorio-lista-item">
-                      <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{h.label}</div>
-                      <div className="text-sm text-muted">{h.qtd} atendimento{h.qtd !== 1 ? 's' : ''}</div>
-                    </div>
-                  ))}
-                </div>
+                <Ranking
+                  itens={porHorario.map(h => ({
+                    chave: h.label,
+                    titulo: h.label,
+                    valor: `${h.qtd} atendimento${h.qtd !== 1 ? 's' : ''}`,
+                    parte: h.qtd / Math.max(1, ...porHorario.map(x => x.qtd)),
+                  }))}
+                />
               )}
-            </div>
-          </div>
+            </Secao>
+          </DuasColunas>
 
           {/* ── Evolução ── */}
-          <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-            <h3 className="relatorio-secao-titulo">Evolução no período</h3>
-            <div className="table-container">
-              <table className="table">
-                <thead>
-                  <tr><th>Data</th><th>Atendimentos</th><th>Faturamento</th></tr>
-                </thead>
-                <tbody>
-                  {evolucao.map(e => (
-                    <tr key={e.ordem}>
-                      <td>{e.label}</td>
-                      <td>{e.atendimentos}</td>
-                      <td>{moeda(e.faturamento)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <Secao titulo="Evolução no período" descricao="Faturamento dos atendimentos concluídos, ao longo do período">
+            <GraficoEvolucao
+              rotuloDasVendas="Atendimentos"
+              pontos={evolucao.map(e => ({ rotulo: e.label, faturamento: e.faturamento, vendas: e.atendimentos }))}
+            />
+            <details>
+              <summary className="text-sm text-muted" style={{ cursor: 'pointer' }}>Ver os números em tabela</summary>
+              <div className="table-container" style={{ marginTop: 'var(--space-3)' }}>
+                <table className="table">
+                  <thead>
+                    <tr><th>Data</th><th>Atendimentos</th><th>Faturamento</th></tr>
+                  </thead>
+                  <tbody>
+                    {evolucao.map(e => (
+                      <tr key={e.ordem}>
+                        <td>{e.label}</td>
+                        <td>{e.atendimentos}</td>
+                        <td>{moeda(e.faturamento)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </Secao>
 
           {/* ── Dados do funcionário ── */}
-          <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-            <h3 className="relatorio-secao-titulo">
-              <IconUserBadge style={{ width: 15, height: 15 }} /> Dados do funcionário
-            </h3>
+          <Secao titulo="Dados do funcionário" icone={<IconUserBadge />}>
             <div className="grid-2">
               <div>
                 <div className="dash-detail-row"><span>Nome</span><span>{funcionario.nome}</span></div>
@@ -439,12 +429,11 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
                 <div className="dash-detail-row"><span>Cadastro</span><span>{format(parseISO(funcionario.created_at), 'dd/MM/yyyy')}</span></div>
               </div>
             </div>
-          </div>
+          </Secao>
 
           {/* ── Histórico ── */}
-          <div className="card">
-            <h3 className="relatorio-secao-titulo">Histórico de atendimentos</h3>
-            <div className="relatorio-tabela-filtros">
+          <Secao titulo="Histórico de atendimentos" descricao="Todos os agendamentos deste profissional no período">
+            <div className="relatorio-tabela-filtros" style={{ marginBottom: 0 }}>
               <select className="form-select" value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)}>
                 <option value="">Todos os status</option>
                 {(['Pendente', 'Confirmado', 'Em andamento', 'Concluído', 'Cancelado'] as const).map(s => (
@@ -458,7 +447,7 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
             </div>
 
             {historico.length === 0 ? (
-              <p className="text-sm text-muted">Nenhum registro com esses filtros.</p>
+              <SecaoVazia>Nenhum registro com esses filtros.</SecaoVazia>
             ) : (
               <div className="table-container">
                 <table className="table">
@@ -475,7 +464,7 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
                         <td>{a.nome_pet}</td>
                         <td>{a.nome_cliente}</td>
                         <td>{a.nome_servico}</td>
-                        <td>{moeda(a.valor)}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{moeda(a.valor)}</td>
                         <td><span className={`badge ${classeBadgeStatus(a.status)}`}>{rotuloStatus(a.status)}</span></td>
                       </tr>
                     ))}
@@ -483,50 +472,10 @@ export default function PerfilFuncionarioClient({ funcionario, preset, periodo, 
                 </table>
               </div>
             )}
-          </div>
-        </>
+          </Secao>
+        </Pilha>
       )}
     </div>
-  )
-}
-
-// ============================================================
-// Card de indicador com comparação opcional vs período anterior
-// ============================================================
-function Card({
-  icon, cor, label, valor, comparacao,
-}: {
-  icon: React.ReactNode
-  cor: 'primary' | 'success' | 'warning' | 'info' | 'danger'
-  label: string
-  valor: string
-  comparacao?: { atual: number; anterior: number }
-}) {
-  return (
-    <div className="stat-card">
-      <div className="flex items-center justify-between">
-        <div className={`stat-card-icon tone-${cor}`}>{icon}</div>
-        {comparacao && <ComparacaoBadge {...comparacao} />}
-      </div>
-      <div className="stat-card-value">{valor}</div>
-      <div className="stat-card-label">{label}</div>
-    </div>
-  )
-}
-
-function ComparacaoBadge({ atual, anterior }: { atual: number; anterior: number }) {
-  if (anterior === 0) {
-    if (atual === 0) return null
-    return <span className="badge badge-ativo">Novo</span>
-  }
-  const v = variacaoPercentual(atual, anterior)
-  if (v === null || Math.abs(v) < 0.05) return <span className="badge badge-inativo">= período anterior</span>
-  const positivo = v > 0
-  return (
-    <span className={`badge ${positivo ? 'badge-ativo' : 'badge-cancelado'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      {positivo ? <IconTrendUp style={{ width: 11, height: 11 }} /> : <IconTrendDown style={{ width: 11, height: 11 }} />}
-      {positivo ? '+' : ''}{v.toFixed(1)}%
-    </span>
   )
 }
 

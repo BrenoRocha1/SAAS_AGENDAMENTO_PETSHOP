@@ -1,14 +1,21 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { exportarRelatorioVendasCsvAction } from '@/lib/actions'
-import { PRESETS, variacaoPercentual, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
+import { PRESETS, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import FiltroPeriodo from '@/components/lojista/FiltroPeriodo'
+import { Badge } from '@/components/ui/badge'
+import { GradeIndicadores, Indicador, compararComAnterior } from '@/components/relatorio/Indicador'
+import { DuasColunas, GrupoDaSecao, NotaDaSecao, Pilha, Secao, SecaoVazia } from '@/components/relatorio/Secao'
+import { MiniIndicadores } from '@/components/relatorio/MiniIndicadores'
+import { BarraEmPartes, Ranking } from '@/components/relatorio/Ranking'
+import { formatarReais } from '@/lib/taxidog'
 import { CLASSE_STATUS_PAGAMENTO, ROTULO_STATUS_PAGAMENTO, ehFormaPlano, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
 import type { RelatorioPlanos } from '@/lib/planos'
 import {
@@ -23,8 +30,6 @@ import {
   IconInbox,
   IconMoney,
   IconScissors,
-  IconTrendDown,
-  IconTrendUp,
   IconUserBadge,
   IconUsers,
   IconRepeat,
@@ -128,9 +133,14 @@ interface Props {
 
 const STATUS_OPCOES = ['Pendente', 'Confirmado', 'Em andamento', 'Concluído', 'Cancelado'] as const
 
-function moeda(v: number) {
-  return `R$ ${v.toFixed(2)}`
-}
+const moeda = formatarReais
+
+// O gráfico (Recharts) só é baixado por quem abre o relatório, e só no
+// navegador — a biblioteca é pesada pra entrar no pacote das outras telas.
+const GraficoEvolucao = dynamic(() => import('@/components/relatorio/GraficoEvolucao'), {
+  ssr: false,
+  loading: () => <div style={{ height: '16rem' }} aria-hidden />,
+})
 
 export default function RelatorioVendasClient({
   preset,
@@ -261,181 +271,156 @@ export default function RelatorioVendasClient({
           <p>Tente escolher outro período ou verifique se há agendamentos cadastrados.</p>
         </div>
       ) : (
-        <>
-          {/* ── Cards principais ── */}
-          <div className="grid-3" style={{ marginBottom: 'var(--space-6)' }}>
-            <CardIndicador
-              icon={<IconMoney style={{ width: 20, height: 20 }} />}
-              cor="warning"
-              label="Faturamento (atendimentos concluídos)"
+        <Pilha>
+          {/* ── Indicadores ── */}
+          <GradeIndicadores>
+            <Indicador
+              rotulo="Faturamento"
               valor={moeda(resumo.faturamento)}
-              comparacao={resumoAnterior ? { atual: resumo.faturamento, anterior: resumoAnterior.faturamento } : undefined}
+              icone={<IconMoney />}
+              variacao={resumoAnterior && compararComAnterior(resumo.faturamento, resumoAnterior.faturamento)}
+              detalhe="atendimentos concluídos"
             />
-            <CardIndicador
-              icon={<IconCheck style={{ width: 20, height: 20 }} />}
-              cor="success"
-              label="Vendas (atendimentos concluídos)"
+            <Indicador
+              rotulo="Vendas"
               valor={String(resumo.vendas)}
-              comparacao={resumoAnterior ? { atual: resumo.vendas, anterior: resumoAnterior.vendas } : undefined}
+              icone={<IconCheck />}
+              variacao={resumoAnterior && compararComAnterior(resumo.vendas, resumoAnterior.vendas)}
+              detalhe="atendimentos concluídos"
             />
-            <CardIndicador
-              icon={<IconChartBar style={{ width: 20, height: 20 }} />}
-              cor="info"
-              label="Ticket médio (por venda)"
+            <Indicador
+              rotulo="Ticket médio"
               valor={moeda(resumo.vendas > 0 ? resumo.faturamento / resumo.vendas : 0)}
+              icone={<IconChartBar />}
+              detalhe="por venda"
             />
-            <CardIndicador
-              icon={<IconCalendar style={{ width: 20, height: 20 }} />}
-              cor="primary"
-              label="Atendimentos no período"
+            <Indicador
+              rotulo="Atendimentos no período"
               valor={String(resumo.atendimentos_total)}
-              comparacao={resumoAnterior ? { atual: resumo.atendimentos_total, anterior: resumoAnterior.atendimentos_total } : undefined}
+              icone={<IconCalendar />}
+              variacao={resumoAnterior && compararComAnterior(resumo.atendimentos_total, resumoAnterior.atendimentos_total)}
             />
-            <CardIndicador
-              icon={<IconClock style={{ width: 20, height: 20 }} />}
-              cor="info"
-              label="Valor médio por atendimento"
+            <Indicador
+              rotulo="Valor médio por atendimento"
               valor={moeda(resumo.atendimentos_total > 0 ? resumo.valor_atendimentos_total / resumo.atendimentos_total : 0)}
+              icone={<IconClock />}
             />
-            <CardIndicador
-              icon={<IconAlert style={{ width: 20, height: 20 }} />}
-              cor="danger"
-              label="Total pendente (agendado/confirmado)"
+            <Indicador
+              rotulo="Total pendente"
               valor={moeda(resumo.pendente)}
+              icone={<IconAlert />}
+              detalhe="agendado ou confirmado"
             />
-          </div>
+          </GradeIndicadores>
 
           {/* ── Evolução do faturamento ── */}
-          <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-            <h3 className="relatorio-secao-titulo">Evolução das vendas</h3>
-            <GraficoFaturamento dados={porDia} />
-          </div>
+          <Secao titulo="Evolução das vendas" descricao="Faturamento por dia dos atendimentos concluídos">
+            <EvolucaoDasVendas dados={porDia} />
+          </Secao>
 
           {/* ── Vendas por forma de pagamento (migration 057) ── */}
-          <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-            <h3 className="relatorio-secao-titulo">
-              <IconMoney style={{ width: 15, height: 15 }} /> Vendas por forma de pagamento
-            </h3>
+          <Secao titulo="Vendas por forma de pagamento" icone={<IconMoney />} descricao="Pedidos com data no período, sem os cancelados">
             <VendasPorPagamento linhas={porPagamento} />
-          </div>
+          </Secao>
 
           {/* ── Vendas de produtos: bruto, CMV e líquido (migration 062) ── */}
           {vendasProdutos && (
-            <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-              <h3 className="relatorio-secao-titulo">
-                <IconPackage style={{ width: 15, height: 15 }} /> Vendas de produtos
-              </h3>
+            <Secao titulo="Vendas de produtos" icone={<IconPackage />} descricao="Produtos vendidos junto de atendimentos concluídos">
               <VendasDeProdutos v={vendasProdutos} />
-            </div>
+            </Secao>
           )}
 
           {/* ── Planos recorrentes (migration 060) ── */}
           {relatorioPlanos?.tem_planos && (
-            <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-              <h3 className="relatorio-secao-titulo">
-                <IconRepeat style={{ width: 15, height: 15 }} /> Planos e assinaturas
-              </h3>
+            <Secao titulo="Planos e assinaturas" icone={<IconRepeat />} descricao="Receita e cobranças dos planos no período">
               <PlanosNoRelatorio r={relatorioPlanos} />
-            </div>
+            </Secao>
           )}
 
-          <div className="grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'start' }}>
+          <DuasColunas>
             {/* ── Vendas por serviço ── */}
-            <div className="card">
-              <h3 className="relatorio-secao-titulo">
-                <IconScissors style={{ width: 15, height: 15 }} /> Vendas por serviço
-              </h3>
+            <Secao titulo="Vendas por serviço" icone={<IconScissors />} descricao="Parte de cada serviço no faturamento">
               {porServico.length === 0 ? (
-                <p className="text-sm text-muted">Nenhuma venda concluída neste período.</p>
+                <SecaoVazia>Nenhuma venda concluída neste período.</SecaoVazia>
               ) : (
-                <div className="relatorio-lista">
-                  {porServico.map(s => (
-                    <div key={s.id_servico} className="relatorio-lista-item">
-                      <div className="relatorio-lista-info">
-                        <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{s.nome_servico}</div>
-                        <div className="text-xs text-muted">{s.qtd_vendas} atendimento{s.qtd_vendas !== 1 ? 's' : ''}</div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div className="font-semibold text-success">{moeda(s.faturamento)}</div>
-                        <div className="text-xs text-muted">{((s.faturamento / resumo.faturamento) * 100 || 0).toFixed(1)}%</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <Ranking
+                  itens={porServico.map(s => ({
+                    chave: s.id_servico,
+                    titulo: s.nome_servico,
+                    valor: moeda(s.faturamento),
+                    detalhe: `${s.qtd_vendas} atendimento${s.qtd_vendas !== 1 ? 's' : ''}`,
+                    ...parteDe(s.faturamento, resumo.faturamento),
+                  }))}
+                />
               )}
-            </div>
+            </Secao>
 
             {/* ── Vendas por profissional ── */}
-            <div className="card">
-              <h3 className="relatorio-secao-titulo">
-                <IconUserBadge style={{ width: 15, height: 15 }} /> Vendas por profissional
-              </h3>
+            <Secao titulo="Vendas por profissional" icone={<IconUserBadge />} descricao="Parte de cada profissional no faturamento">
               {porProfissional.length === 0 ? (
-                <p className="text-sm text-muted">Nenhuma venda concluída neste período.</p>
+                <SecaoVazia>Nenhuma venda concluída neste período.</SecaoVazia>
               ) : (
-                <div className="relatorio-lista">
-                  {porProfissional.map(p => (
-                    <div key={p.id_funcionario ?? 'sem-profissional'} className="relatorio-lista-item">
-                      <div className="relatorio-lista-info">
-                        <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome_funcionario}</div>
-                        <div className="text-xs text-muted">{p.qtd_atendimentos} atendimento{p.qtd_atendimentos !== 1 ? 's' : ''} · ticket médio {moeda(p.ticket_medio)}</div>
-                      </div>
-                      <div className="font-semibold text-success">{moeda(p.faturamento)}</div>
-                    </div>
-                  ))}
-                </div>
+                <Ranking
+                  comIniciais
+                  itens={porProfissional.map(p => ({
+                    chave: p.id_funcionario ?? 'sem-profissional',
+                    titulo: p.nome_funcionario,
+                    // Atendimentos sem profissional não são uma pessoa: sem iniciais.
+                    sigla: p.id_funcionario ? undefined : '—',
+                    valor: moeda(p.faturamento),
+                    detalhe: `${p.qtd_atendimentos} atendimento${p.qtd_atendimentos !== 1 ? 's' : ''} · ticket médio ${moeda(p.ticket_medio)}`,
+                    ...parteDe(p.faturamento, resumo.faturamento),
+                  }))}
+                />
               )}
-            </div>
-          </div>
+            </Secao>
+          </DuasColunas>
 
-          <div style={{ marginBottom: 'var(--space-6)' }}>
-            {/* ── Clientes ── */}
-            <div className="card">
-              <h3 className="relatorio-secao-titulo">
-                <IconUsers style={{ width: 15, height: 15 }} /> Clientes
-              </h3>
-              {clientesResumo && (
-                <div className="relatorio-mini-stats">
-                  <div><span>{clientesResumo.clientes_atendidos}</span>atendidos</div>
-                  <div><span>{clientesResumo.clientes_novos}</span>novos</div>
-                  <div><span>{clientesResumo.clientes_recorrentes}</span>recorrentes</div>
-                </div>
-              )}
-              {porCliente.length === 0 ? (
-                <p className="text-sm text-muted">Nenhuma venda concluída neste período.</p>
-              ) : (
-                <div className="relatorio-lista">
-                  {porCliente.map(c => (
-                    <div key={c.id_cliente} className="relatorio-lista-item">
-                      <div className="relatorio-lista-info">
-                        <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{c.nome_cliente}</div>
-                        <div className="text-xs text-muted">{c.qtd_atendimentos} atendimento{c.qtd_atendimentos !== 1 ? 's' : ''}</div>
-                      </div>
-                      <div className="font-semibold text-success">{moeda(c.valor_total)}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          {/* ── Clientes ── */}
+          <Secao titulo="Clientes" icone={<IconUsers />} descricao="Quem mais comprou no período">
+            {clientesResumo && (
+              <MiniIndicadores
+                itens={[
+                  { valor: clientesResumo.clientes_atendidos, rotulo: 'atendidos' },
+                  { valor: clientesResumo.clientes_novos, rotulo: 'novos' },
+                  { valor: clientesResumo.clientes_recorrentes, rotulo: 'recorrentes' },
+                ]}
+              />
+            )}
+            {porCliente.length === 0 ? (
+              <SecaoVazia>Nenhuma venda concluída neste período.</SecaoVazia>
+            ) : (
+              <Ranking
+                comIniciais
+                itens={porCliente.map(c => ({
+                  chave: c.id_cliente,
+                  titulo: c.nome_cliente,
+                  valor: moeda(c.valor_total),
+                  detalhe: `${c.qtd_atendimentos} atendimento${c.qtd_atendimentos !== 1 ? 's' : ''}`,
+                  ...parteDe(c.valor_total, resumo.faturamento),
+                }))}
+              />
+            )}
+          </Secao>
 
           {/* ── Detalhamento ── */}
-          <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-              <h3 className="relatorio-secao-titulo" style={{ marginBottom: 0 }}>Detalhamento das vendas</h3>
+          <Secao
+            titulo="Detalhamento das vendas"
+            descricao="Todos os agendamentos do período, um por linha"
+            acao={
               <button type="button" className="btn btn-secondary btn-sm" onClick={handleExportar} disabled={isExporting}>
                 <IconDownload style={{ width: 14, height: 14 }} /> {isExporting ? 'Exportando...' : 'Exportar CSV'}
               </button>
-            </div>
-
+            }
+          >
             {exportErro && (
-              <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
+              <div className="alert alert-error">
                 <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
                 <span>{exportErro}</span>
               </div>
             )}
 
-            <div className="relatorio-tabela-filtros">
+            <div className="relatorio-tabela-filtros" style={{ marginBottom: 0 }}>
               <select className="form-select" value={filtroFuncionario} onChange={e => mudarFiltro('funcionario', e.target.value)} disabled={isPending}>
                 <option value="">Todos os profissionais</option>
                 {funcionarios.map(f => <option key={f.id_funcionario} value={f.id_funcionario}>{f.nome}</option>)}
@@ -487,7 +472,7 @@ export default function RelatorioVendasClient({
                           <td>{row.nome_pet}</td>
                           <td>{row.nome_servico}</td>
                           <td>{row.nome_funcionario ?? '—'}</td>
-                          <td>{moeda(row.valor)}</td>
+                          <td style={{ whiteSpace: 'nowrap' }}>{moeda(row.valor)}</td>
                           <td>
                             <span className="text-sm">{rotuloForma(row.forma_pagamento)}</span>
                             {!ehFormaPlano(row.forma_pagamento) && ehStatusPagamento(row.status_pagamento) && (
@@ -516,10 +501,48 @@ export default function RelatorioVendasClient({
                 </div>
               </>
             )}
-          </div>
-        </>
+          </Secao>
+        </Pilha>
       )}
     </div>
+  )
+}
+
+// Peso de `valor` em `total`, pra barra e pro texto ao lado ("42,5%").
+// Sem total, a linha fica sem barra.
+function parteDe(valor: number, total: number): { parte?: number; rotuloDaParte?: string } {
+  if (!(total > 0)) return {}
+  const parte = valor / total
+  return { parte, rotuloDaParte: `${(parte * 100).toFixed(1).replace('.', ',')}%` }
+}
+
+// ============================================================
+// Evolução: faturamento por dia em gráfico de área e, embaixo, o melhor e
+// o pior dia (com venda) do período.
+// ============================================================
+function EvolucaoDasVendas({ dados }: { dados: VendaPorDia[] }) {
+  if (dados.length === 0) {
+    return <SecaoVazia>Sem dados para exibir.</SecaoVazia>
+  }
+
+  const melhorDia = dados.reduce((melhor, d) => (d.faturamento > melhor.faturamento ? d : melhor), dados[0])
+  const diasComVenda = dados.filter(d => d.faturamento > 0)
+  const piorDia = diasComVenda.length > 0
+    ? diasComVenda.reduce((pior, d) => (d.faturamento < pior.faturamento ? d : pior), diasComVenda[0])
+    : null
+  const dia = (iso: string) => format(parseISO(iso), 'dd/MM')
+
+  return (
+    <>
+      <GraficoEvolucao pontos={dados.map(d => ({ rotulo: dia(d.dia), faturamento: Number(d.faturamento), vendas: Number(d.vendas) }))} />
+      <MiniIndicadores
+        itens={[
+          { valor: moeda(melhorDia.faturamento), rotulo: `maior faturamento · ${dia(melhorDia.dia)}`, tom: 'sucesso' },
+          ...(piorDia ? [{ valor: moeda(piorDia.faturamento), rotulo: `menor faturamento (com venda) · ${dia(piorDia.dia)}` }] : []),
+          { valor: `${diasComVenda.length} de ${dados.length}`, rotulo: 'dias com venda' },
+        ]}
+      />
+    </>
   )
 }
 
@@ -536,17 +559,19 @@ function VendasDeProdutos({ v }: { v: VendasProdutos }) {
   const cmv = Number(v.cmv)
   const brutoComCusto = Number(v.bruto_com_custo)
   if (bruto === 0) {
-    return <p className="text-sm text-muted" style={{ margin: 0 }}>Nenhum produto vendido em atendimentos concluídos neste período.</p>
+    return <SecaoVazia>Nenhum produto vendido em atendimentos concluídos neste período.</SecaoVazia>
   }
   return (
     <>
-      <div className="relatorio-mini-stats">
-        <div><span>{moeda(bruto)}</span>faturamento bruto</div>
-        <div><span style={{ color: 'var(--danger-400)' }}>{moeda(cmv)}</span>CMV (custo das mercadorias)</div>
-        <div><span className="text-success">{moeda(Number(v.liquido))}</span>faturamento líquido (bruto − CMV)</div>
-        <div><span>{margem(brutoComCusto - cmv, brutoComCusto)}</span>margem</div>
-      </div>
-      <div className="table-container" style={{ marginTop: 'var(--space-4)' }}>
+      <MiniIndicadores
+        itens={[
+          { valor: moeda(bruto), rotulo: 'faturamento bruto' },
+          { valor: moeda(cmv), rotulo: 'CMV (custo das mercadorias)', tom: 'perigo' },
+          { valor: moeda(Number(v.liquido)), rotulo: 'faturamento líquido (bruto − CMV)', tom: 'sucesso' },
+          { valor: margem(brutoComCusto - cmv, brutoComCusto), rotulo: 'margem' },
+        ]}
+      />
+      <div className="table-container">
         <table className="table">
           <thead>
             <tr>
@@ -575,12 +600,12 @@ function VendasDeProdutos({ v }: { v: VendasProdutos }) {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted" style={{ margin: 'var(--space-3) 0 0' }}>
-        Produtos vendidos junto de atendimentos concluídos no período (mesma regra do faturamento). O CMV usa o custo registrado no momento de cada venda.
+      <NotaDaSecao>
+        Mesma regra do faturamento: só entram atendimentos concluídos no período. O CMV usa o custo registrado no momento de cada venda.
         {Number(v.itens_sem_custo) > 0 && (
           <> <strong>{moeda(Number(v.bruto_sem_custo))}</strong> em {v.itens_sem_custo} venda{Number(v.itens_sem_custo) !== 1 ? 's' : ''} sem custo registrado (feitas antes de cadastrar o custo): entram no bruto e no líquido sem descontar CMV, e ficam fora da margem. Cadastre o custo em Produtos para as próximas vendas.</>
         )}
-      </p>
+      </NotaDaSecao>
     </>
   )
 }
@@ -591,56 +616,48 @@ function VendasDeProdutos({ v }: { v: VendasProdutos }) {
 // ============================================================
 function PlanosNoRelatorio({ r }: { r: RelatorioPlanos }) {
   const maiorUso = Math.max(1, ...r.servicos.map(s => Number(s.usos)))
+  const receitaDosPlanos = r.planos.reduce((soma, p) => soma + Number(p.receita), 0)
   return (
     <>
-      <div className="relatorio-mini-stats">
-        <div><span className="text-success">{moeda(Number(r.receita_periodo))}</span>receita de planos (pagamentos no período)</div>
-        <div><span>{r.ativas}</span>planos ativos · {moeda(Number(r.receita_mensal))}/mês recorrente</div>
-      </div>
-      <div className="relatorio-mini-stats">
-        <div><span className="text-success">{r.pagas_qtd}</span>pagas · {moeda(Number(r.pagas_valor))}</div>
-        <div><span style={{ color: 'var(--warning-400)' }}>{r.pendentes_qtd}</span>pendentes · {moeda(Number(r.pendentes_valor))}</div>
-        <div><span style={{ color: 'var(--danger-400)' }}>{r.vencidas_qtd}</span>vencidas · {moeda(Number(r.vencidas_valor))}</div>
-      </div>
-      <div className="grid-2" style={{ alignItems: 'start', marginTop: 'var(--space-4)' }}>
-        <div>
-          <div className="text-xs text-muted" style={{ marginBottom: 'var(--space-2)' }}>Planos mais vendidos</div>
-          <div className="relatorio-lista">
-            {r.planos.map(p => (
-              <div key={p.plano} className="relatorio-lista-item">
-                <div className="relatorio-lista-info">
-                  <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{p.plano}</div>
-                  <div className="text-xs text-muted">{p.ativas} ativa{p.ativas !== 1 ? 's' : ''} · {p.novas} nova{p.novas !== 1 ? 's' : ''} no período</div>
-                </div>
-                <div className="font-semibold text-success">{moeda(Number(p.receita))}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div>
-          <div className="text-xs text-muted" style={{ marginBottom: 'var(--space-2)' }}>Serviços mais usados pelos planos</div>
+      <MiniIndicadores
+        itens={[
+          { valor: moeda(Number(r.receita_periodo)), rotulo: 'receita de planos (pagamentos no período)', tom: 'sucesso' },
+          { valor: r.ativas, rotulo: `planos ativos · ${moeda(Number(r.receita_mensal))}/mês recorrente` },
+          { valor: r.pagas_qtd, rotulo: `cobranças pagas · ${moeda(Number(r.pagas_valor))}`, tom: 'sucesso' },
+          { valor: r.pendentes_qtd, rotulo: `pendentes · ${moeda(Number(r.pendentes_valor))}`, tom: 'alerta' },
+          { valor: r.vencidas_qtd, rotulo: `vencidas · ${moeda(Number(r.vencidas_valor))}`, tom: 'perigo' },
+        ]}
+      />
+      <DuasColunas>
+        <GrupoDaSecao titulo="Planos mais vendidos">
+          <Ranking
+            itens={r.planos.map(p => ({
+              chave: p.plano,
+              titulo: p.plano,
+              valor: moeda(Number(p.receita)),
+              detalhe: `${p.ativas} ativa${p.ativas !== 1 ? 's' : ''} · ${p.novas} nova${p.novas !== 1 ? 's' : ''} no período`,
+              ...parteDe(Number(p.receita), receitaDosPlanos),
+            }))}
+          />
+        </GrupoDaSecao>
+        <GrupoDaSecao titulo="Serviços mais usados pelos planos">
           {r.servicos.length === 0 ? (
-            <p className="text-sm text-muted" style={{ margin: 0 }}>Nenhum benefício usado neste período.</p>
+            <SecaoVazia>Nenhum benefício usado neste período.</SecaoVazia>
           ) : (
-            <div className="relatorio-lista">
-              {r.servicos.map(s => (
-                <div key={s.servico} className="relatorio-lista-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-1)' }}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{s.servico}</span>
-                    <span className="text-sm">{s.usos} uso{Number(s.usos) !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="pag-rel-barra" aria-hidden>
-                    <span className="pag-rel-barra-pago" style={{ width: `${(Number(s.usos) / maiorUso) * 100}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <Ranking
+              itens={r.servicos.map(s => ({
+                chave: s.servico,
+                titulo: s.servico,
+                valor: `${s.usos} uso${Number(s.usos) !== 1 ? 's' : ''}`,
+                parte: Number(s.usos) / maiorUso,
+              }))}
+            />
           )}
-        </div>
-      </div>
-      <p className="text-xs text-muted" style={{ margin: 'var(--space-3) 0 0' }}>
+        </GrupoDaSecao>
+      </DuasColunas>
+      <NotaDaSecao>
         Pagas/pendentes/vencidas: cobranças com vencimento no período. Receita: cobranças marcadas como pagas no período. Serviço usado pelo plano não entra no faturamento dos atendimentos (a receita vem da cobrança do plano).
-      </p>
+      </NotaDaSecao>
     </>
   )
 }
@@ -651,10 +668,10 @@ function PlanosNoRelatorio({ r }: { r: RelatorioPlanos }) {
 // ============================================================
 function VendasPorPagamento({ linhas }: { linhas: VendaPorPagamento[] | null }) {
   if (linhas === null) {
-    return <p className="text-sm text-muted">Execute a migration 057_formas_pagamento.sql para ver as vendas por forma de pagamento.</p>
+    return <SecaoVazia>Execute a migration 057_formas_pagamento.sql para ver as vendas por forma de pagamento.</SecaoVazia>
   }
   if (linhas.length === 0) {
-    return <p className="text-sm text-muted">Nenhum pedido neste período.</p>
+    return <SecaoVazia>Nenhum pedido neste período.</SecaoVazia>
   }
   const total = linhas.reduce((s, l) => s + l.total, 0)
   const recebido = linhas.reduce((s, l) => s + l.recebido, 0)
@@ -663,144 +680,42 @@ function VendasPorPagamento({ linhas }: { linhas: VendaPorPagamento[] | null }) 
 
   return (
     <>
-      <div className="relatorio-mini-stats">
-        <div><span>{moeda(total)}</span>registrado em {pedidos} pedido{pedidos !== 1 ? 's' : ''}</div>
-        <div><span className="text-success">{moeda(recebido)}</span>recebido</div>
-        <div><span style={{ color: 'var(--warning-400)' }}>{moeda(pendente)}</span>a receber</div>
-      </div>
-      <div className="relatorio-lista">
-        {linhas.map(l => (
-          <div key={l.forma} className="relatorio-lista-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)' }}>
-            <div className="flex items-center justify-between gap-3">
-              <div className="relatorio-lista-info">
-                <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{rotuloForma(l.forma === 'nao_informada' ? null : l.forma)}</div>
-                <div className="text-xs text-muted">
-                  {l.pedidos} pedido{l.pedidos !== 1 ? 's' : ''} · {l.forma === 'nao_informada'
-                    ? 'sem forma de pagamento registrada'
-                    : ehFormaPlano(l.forma)
-                      ? 'pelo plano, sem cobrança no agendamento'
-                      : `recebido ${moeda(l.recebido)} · a receber ${moeda(l.pendente)}`}
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="font-semibold text-success">{moeda(l.total)}</div>
-                <div className="text-xs text-muted">{((l.total / total) * 100 || 0).toFixed(1)}%</div>
-              </div>
-            </div>
-            <div className="pag-rel-barra" aria-hidden>
-              <span className="pag-rel-barra-pago" style={{ width: `${(l.recebido / (total || 1)) * 100}%` }} />
-              <span className="pag-rel-barra-pendente" style={{ width: `${(l.pendente / (total || 1)) * 100}%` }} />
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="text-xs text-muted" style={{ margin: 'var(--space-3) 0 0' }}>
-        Pedidos com data no período, sem os cancelados. &quot;Recebido&quot; é o que a loja marcou como pago; &quot;Não informada&quot; são agendamentos de antes das formas de pagamento.
-      </p>
+      <MiniIndicadores
+        itens={[
+          { valor: moeda(total), rotulo: `registrado em ${pedidos} pedido${pedidos !== 1 ? 's' : ''}` },
+          { valor: moeda(recebido), rotulo: 'recebido', tom: 'sucesso' },
+          { valor: moeda(pendente), rotulo: 'a receber', tom: 'alerta' },
+        ]}
+      />
+      <Ranking
+        itens={linhas.map(l => ({
+          chave: l.forma,
+          titulo: rotuloForma(l.forma === 'nao_informada' ? null : l.forma),
+          etiqueta: <Badge variant="secondary">{l.pedidos} pedido{l.pedidos !== 1 ? 's' : ''}</Badge>,
+          valor: moeda(l.total),
+          detalhe: l.forma === 'nao_informada'
+            ? 'sem forma de pagamento registrada'
+            : ehFormaPlano(l.forma)
+              ? 'pelo plano, sem cobrança no agendamento'
+              : `recebido ${moeda(l.recebido)} · a receber ${moeda(l.pendente)}`,
+          // A barra é a fatia da forma no total: verde o recebido, âmbar o que falta.
+          barra: (
+            <BarraEmPartes
+              total={total}
+              partes={[
+                { valor: l.recebido, tom: 'sucesso' },
+                { valor: l.pendente, tom: 'alerta' },
+                { valor: Math.max(0, l.total - l.recebido - l.pendente), tom: 'neutro' },
+              ]}
+              rotulo={`${rotuloForma(l.forma === 'nao_informada' ? null : l.forma)}: recebido e a receber`}
+            />
+          ),
+          rotuloDaParte: parteDe(l.total, total).rotuloDaParte,
+        }))}
+      />
+      <NotaDaSecao>
+        Na barra, verde é o recebido, âmbar o que falta receber e cinza o que não tem situação de pagamento. &quot;Recebido&quot; é o que a loja marcou como pago; &quot;Não informada&quot; são agendamentos de antes das formas de pagamento.
+      </NotaDaSecao>
     </>
-  )
-}
-
-// ============================================================
-// Card de indicador — reaproveita .stat-card (o mesmo do Dashboard);
-// a "comparação com período anterior" fica aqui dentro, calculada a
-// partir de dois números reais (nunca uma porcentagem inventada).
-// ============================================================
-function CardIndicador({
-  icon,
-  cor,
-  label,
-  valor,
-  comparacao,
-}: {
-  icon: React.ReactNode
-  cor: 'primary' | 'success' | 'warning' | 'info' | 'danger'
-  label: string
-  valor: string
-  comparacao?: { atual: number; anterior: number }
-}) {
-
-  return (
-    <div className="stat-card">
-      <div className="flex items-center justify-between">
-        <div className={`stat-card-icon tone-${cor}`}>
-          {icon}
-        </div>
-        {comparacao && <ComparacaoBadge {...comparacao} />}
-      </div>
-      <div className="stat-card-value">{valor}</div>
-      <div className="stat-card-label">{label}</div>
-    </div>
-  )
-}
-
-function ComparacaoBadge({ atual, anterior }: { atual: number; anterior: number }) {
-  if (anterior === 0) {
-    if (atual === 0) return null
-    return <span className="badge badge-ativo">Novo</span>
-  }
-  const pct = variacaoPercentual(atual, anterior)
-  if (pct === null || Math.abs(pct) < 0.05) return <span className="badge badge-inativo">= período anterior</span>
-  const positivo = pct > 0
-  return (
-    <span className={`badge ${positivo ? 'badge-ativo' : 'badge-cancelado'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      {positivo ? <IconTrendUp style={{ width: 11, height: 11 }} /> : <IconTrendDown style={{ width: 11, height: 11 }} />}
-      {positivo ? '+' : ''}{pct.toFixed(1)}%
-    </span>
-  )
-}
-
-// ============================================================
-// Gráfico de evolução — barras simples em CSS/HTML puro (sem lib),
-// como pedido: "não adicionar biblioteca pesada pra um gráfico simples".
-// ============================================================
-function GraficoFaturamento({ dados }: { dados: VendaPorDia[] }) {
-  if (dados.length === 0) {
-    return <p className="text-sm text-muted">Sem dados para exibir.</p>
-  }
-
-  const maxFaturamento = Math.max(...dados.map(d => d.faturamento), 1)
-  const melhorDia = dados.reduce((melhor, d) => (d.faturamento > melhor.faturamento ? d : melhor), dados[0])
-  const diasComVenda = dados.filter(d => d.faturamento > 0)
-  const piorDia = diasComVenda.length > 0
-    ? diasComVenda.reduce((pior, d) => (d.faturamento < pior.faturamento ? d : pior), diasComVenda[0])
-    : null
-
-  // Mostra rótulo de data só de tempos em tempos, senão os dias somem
-  // uns em cima dos outros num período de 30/90 dias.
-  const passoRotulo = Math.max(1, Math.ceil(dados.length / 10))
-
-  return (
-    <div>
-      <div className="relatorio-grafico">
-        {dados.map((d, i) => {
-          const altura = Math.max(2, (d.faturamento / maxFaturamento) * 100)
-          const ehMelhor = d.dia === melhorDia.dia && d.faturamento > 0
-          return (
-            <div key={d.dia} className="relatorio-grafico-col">
-              <div className="relatorio-grafico-barra-wrap" title={`${format(parseISO(d.dia), 'dd/MM')}: ${moeda(d.faturamento)} · ${d.vendas} venda${d.vendas !== 1 ? 's' : ''}`}>
-                <div
-                  className={`relatorio-grafico-barra ${ehMelhor ? 'is-melhor' : ''}`}
-                  style={{ height: `${altura}%` }}
-                />
-              </div>
-              {i % passoRotulo === 0 && (
-                <span className="relatorio-grafico-label">{format(parseISO(d.dia), 'dd/MM')}</span>
-              )}
-            </div>
-          )
-        })}
-      </div>
-      <div className="relatorio-grafico-legenda">
-        <span>
-          <strong className="text-success">Maior faturamento:</strong> {format(parseISO(melhorDia.dia), 'dd/MM')} ({moeda(melhorDia.faturamento)})
-        </span>
-        {piorDia && (
-          <span>
-            <strong className="text-muted">Menor faturamento (com venda):</strong> {format(parseISO(piorDia.dia), 'dd/MM')} ({moeda(piorDia.faturamento)})
-          </span>
-        )}
-      </div>
-    </div>
   )
 }

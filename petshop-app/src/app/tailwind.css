@@ -5,8 +5,10 @@
    O resto do sistema continua no design system do globals.css. Por isso:
    - sem o "preflight" (reset global do Tailwind), que mudaria o visual
      de todas as telas;
-   - classes geradas só a partir de src/components/ui (source(none) +
-     @source) — pra usar Tailwind em outra pasta, acrescente um @source;
+   - classes geradas só a partir de src/components/ui e de
+     src/components/relatorio, os blocos dos relatórios montados com esses
+     componentes (source(none) + @source) — pra usar Tailwind em outra
+     pasta, acrescente um @source;
    - utilitários fora de @layer: o reset `* { margin: 0; padding: 0 }` do
      globals.css não está em layer e ganharia de qualquer regra em layer.
 
@@ -16,6 +18,7 @@
 @import "tailwindcss/theme.css" layer(theme);
 @tailwind utilities source(none);
 @source "../components/ui";
+@source "../components/relatorio";
 
 /* O painel só tem tema claro. Sem isto, as classes `dark:` dos componentes
    colados seguiriam o tema do sistema de quem acessa e pintariam peças
@@ -28,10 +31,49 @@
   --foreground: var(--gray-100);
   --card: var(--gray-900);
   --card-foreground: var(--gray-100);
+  --popover: var(--gray-900);
+  --popover-foreground: var(--gray-100);
   --muted: var(--gray-850);
   --muted-foreground: var(--gray-400);
+  --secondary: var(--gray-850);
+  --secondary-foreground: var(--gray-200);
+  --accent: var(--primary-50);
+  --accent-foreground: var(--primary-300);
+  --destructive: var(--danger-500);
+  --destructive-foreground: #ffffff;
   --border: var(--gray-800);
+  --input: var(--gray-700);
   --primary: var(--primary-600);
   --primary-foreground: #ffffff;
   --ring: var(--primary-400);
+}
+
+/* Os mesmos tokens como cores do Tailwind, pras classes que os componentes
+   shadcn usam (bg-card, text-muted-foreground, border-border…). Os tons de
+   status são os do globals.css (verde = recebido/concluído etc.). */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-ring: var(--ring);
+  --color-success: var(--success-400);
+  --color-success-solid: var(--status-concluido-solid);
+  --color-warning: var(--warning-400);
+  --color-warning-solid: var(--status-aguardando-solid);
+  --color-danger: var(--danger-400);
 }

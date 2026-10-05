@@ -10,6 +10,9 @@ import { hojeBrasilISO } from '@/lib/agenda'
 import { IconChevronLeft, IconChevronRight, IconInbox, IconStar } from '@/components/icons'
 import { Estrelas, formatarMedia } from '@/components/cliente/Estrelas'
 import FiltroPeriodo from '@/components/lojista/FiltroPeriodo'
+import { GradeIndicadores, Indicador } from '@/components/relatorio/Indicador'
+import { DuasColunas, NotaDaSecao, Pilha, Secao, SecaoVazia } from '@/components/relatorio/Secao'
+import { Ranking } from '@/components/relatorio/Ranking'
 
 // Espelha o retorno de fn_avaliacoes_lojista (migration 034).
 export interface LinhaAvaliacao {
@@ -114,26 +117,30 @@ export default function AvaliacoesClient({
           <p>Assim que um cliente avaliar um atendimento finalizado, ela aparece aqui.</p>
         </div>
       ) : (
-        <>
+        <Pilha>
           {/* ── Visão geral da loja (sem filtro nenhum) ── */}
-          <div className="grid-2" style={{ marginBottom: 'var(--space-6)' }}>
-            <div className="stat-card">
-              <div className="stat-card-label" style={{ marginBottom: 'var(--space-3)' }}>Média geral da loja</div>
-              <div className="avaliacao-media">
-                <span className="avaliacao-media-valor" style={{ fontSize: '2rem' }}>{formatarMedia(resumo.geral.media ?? 0)}</span>
-                <Estrelas nota={resumo.geral.media ?? 0} tamanho={20} />
-              </div>
-              <div className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>Considera todas as avaliações, sem filtro</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-card-label" style={{ marginBottom: 'var(--space-3)' }}>Total de avaliações</div>
-              <div className="stat-card-value">{resumo.geral.total}</div>
-              <div className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>Desde a primeira avaliação recebida</div>
-            </div>
-          </div>
+          <GradeIndicadores colunas={2}>
+            <Indicador
+              rotulo="Média geral da loja"
+              valor={
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  {formatarMedia(resumo.geral.media ?? 0)}
+                  <Estrelas nota={resumo.geral.media ?? 0} tamanho={18} />
+                </span>
+              }
+              icone={<IconStar />}
+              detalhe="todas as avaliações, sem filtro"
+            />
+            <Indicador
+              rotulo="Total de avaliações"
+              valor={resumo.geral.total}
+              icone={<IconInbox />}
+              detalhe="desde a primeira avaliação recebida"
+            />
+          </GradeIndicadores>
 
           {/* ── Filtros ── */}
-          <div className="relatorio-filtros card">
+          <div className="relatorio-filtros card" style={{ marginBottom: 0 }}>
             {/* Sem período escolhido vale "Todo o período". Ao entrar em
                 "Personalizado" sem datas, o servidor usa os últimos 30 dias. */}
             <FiltroPeriodo
@@ -165,47 +172,41 @@ export default function AvaliacoesClient({
           </div>
 
           {/* ── Recorte filtrado: média e distribuição ── */}
-          <div className="grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'start' }}>
-            <div className="card">
-              <h3 className="relatorio-secao-titulo">
-                {temFiltro ? 'Média no período / filtro selecionado' : 'Média de todas as avaliações'}
-              </h3>
+          <DuasColunas>
+            <Secao
+              titulo={temFiltro ? 'Média no período / filtro selecionado' : 'Média de todas as avaliações'}
+              icone={<IconStar />}
+            >
               {resumo.periodo.total === 0 || resumo.periodo.media == null ? (
-                <p className="text-sm text-muted">Nenhuma avaliação com esses filtros.</p>
+                <SecaoVazia>Nenhuma avaliação com esses filtros.</SecaoVazia>
               ) : (
                 <>
                   <div className="avaliacao-media">
                     <span className="avaliacao-media-valor" style={{ fontSize: '2rem' }}>{formatarMedia(resumo.periodo.media)}</span>
                     <Estrelas nota={resumo.periodo.media} tamanho={20} />
                   </div>
-                  <div className="text-sm text-muted" style={{ marginTop: 'var(--space-2)' }}>
+                  <NotaDaSecao>
                     {resumo.periodo.total} {resumo.periodo.total === 1 ? 'avaliação' : 'avaliações'}
                     {periodo && ` entre ${format(parseISO(periodo.ini), 'dd/MM/yyyy')} e ${format(parseISO(periodo.fim), 'dd/MM/yyyy')}`}
-                  </div>
+                  </NotaDaSecao>
                 </>
               )}
-            </div>
+            </Secao>
 
-            <div className="card">
-              <h3 className="relatorio-secao-titulo">Distribuição das notas</h3>
-              <div className="avaliacao-dist">
-                {NOTAS.map(n => {
-                  const qtd = resumo.periodo.porNota[n]
-                  return (
-                    <div key={n} className="avaliacao-dist-linha">
-                      <span>{n} {n === 1 ? 'estrela' : 'estrelas'}</span>
-                      <span className="avaliacao-dist-barra"><span style={{ width: `${(qtd / maiorContagem) * 100}%` }} /></span>
-                      <span className="avaliacao-dist-num">{qtd}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
+            <Secao titulo="Distribuição das notas" descricao="Quantas avaliações de cada nota, com esses filtros">
+              <Ranking
+                itens={NOTAS.map(n => ({
+                  chave: String(n),
+                  titulo: `${n} ${n === 1 ? 'estrela' : 'estrelas'}`,
+                  valor: resumo.periodo.porNota[n],
+                  parte: resumo.periodo.porNota[n] / maiorContagem,
+                }))}
+              />
+            </Secao>
+          </DuasColunas>
 
           {/* ── Lista ── */}
-          <div className="card">
-            <h3 className="relatorio-secao-titulo">Avaliações recebidas</h3>
+          <Secao titulo="Avaliações recebidas">
             {avaliacoes.length === 0 ? (
               <div className="empty-state" style={{ padding: 'var(--space-6) 0' }}>
                 <IconInbox style={{ width: 32, height: 32, color: 'var(--gray-600)', margin: '0 auto var(--space-3)' }} />
@@ -247,8 +248,8 @@ export default function AvaliacoesClient({
                 </div>
               </>
             )}
-          </div>
-        </>
+          </Secao>
+        </Pilha>
       )}
     </div>
   )

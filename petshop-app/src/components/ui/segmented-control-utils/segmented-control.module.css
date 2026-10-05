@@ -9,8 +9,10 @@
 .root {
   --sc-foreground: var(--gray-100);
   --sc-border: var(--gray-800);
-  --sc-surface: var(--gray-900);
-  --sc-surface-muted: var(--gray-850);
+  --sc-track: var(--gray-900);
+  --sc-selected: var(--primary-50);
+  --sc-selected-border: var(--primary-200);
+  --sc-selected-text: var(--primary-300);
   --sc-text-muted: var(--gray-400);
   --sc-focus-ring: var(--primary-400);
   --sc-radius: 1.125rem;
@@ -18,7 +20,6 @@
   --sc-text: 0.875rem;
   --sc-duration: 160ms;
   --sc-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --sc-shadow: 0 1px 2px rgba(17, 24, 39, 0.06);
 
   display: inline-flex;
   min-width: 0;
@@ -36,7 +37,7 @@
   padding: 3px;
   border: 1px solid var(--sc-border);
   border-radius: var(--sc-radius);
-  background: var(--sc-surface-muted);
+  background: var(--sc-track);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
@@ -75,18 +76,17 @@
   transition: color var(--sc-duration) var(--sc-ease);
   -webkit-tap-highlight-color: transparent;
 }
-.button:hover,
-.button[aria-pressed="true"] { color: var(--sc-foreground); }
+.button:hover { color: var(--sc-foreground); }
+.button[aria-pressed="true"] { color: var(--sc-selected-text); }
 .button:focus-visible { outline: 2px solid var(--sc-focus-ring); outline-offset: -2px; }
 
 /* A "pílula" da opção escolhida — é ela que desliza. */
 .selection {
   position: absolute;
   inset: 0;
-  border: 1px solid var(--sc-border);
+  border: 1px solid var(--sc-selected-border);
   border-radius: inherit;
-  background: var(--sc-surface);
-  box-shadow: var(--sc-shadow);
+  background: var(--sc-selected);
 }
 
 .label {

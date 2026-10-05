@@ -15,6 +15,9 @@ import {
 } from '@/lib/taxidog'
 import { IconAlert, IconCar, IconChartBar, IconCheck, IconChevronLeft, IconClose, IconMoney, IconUserBadge } from '@/components/icons'
 import PeriodoRelatorioTaxiDog from '@/components/lojista/PeriodoRelatorioTaxiDog'
+import { GradeIndicadores, Indicador } from '@/components/relatorio/Indicador'
+import { Pilha, Secao, SecaoVazia } from '@/components/relatorio/Secao'
+import { Ranking } from '@/components/relatorio/Ranking'
 
 export const metadata: Metadata = { title: 'Relatório de corridas — TaxiDog' }
 
@@ -169,92 +172,77 @@ export default async function RelatorioCorridasPage({ searchParams }: Props) {
         )}
       </div>
 
-      {/* Indicadores */}
-      <div className="grid-4" style={{ marginBottom: 'var(--space-6)' }}>
-        <div className="stat-card">
-          <div className="stat-card-icon tone-success"><IconCheck style={{ width: 20, height: 20 }} /></div>
-          <div className="stat-card-value">{concluidas.length}</div>
-          <div className="stat-card-label">{concluidas.length === 1 ? 'Corrida concluída' : 'Corridas concluídas'}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-icon tone-warning"><IconMoney style={{ width: 20, height: 20 }} /></div>
-          <div className="stat-card-value">{formatarReais(valorConcluidas)}</div>
-          <div className="stat-card-label">Valor das concluídas</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-icon tone-info"><IconCar style={{ width: 20, height: 20 }} /></div>
-          <div className="stat-card-value">{emAberto}</div>
-          <div className="stat-card-label">Em aberto</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-icon tone-danger"><IconClose style={{ width: 20, height: 20 }} /></div>
-          <div className="stat-card-value">{canceladas.length}</div>
-          <div className="stat-card-label">{canceladas.length === 1 ? 'Cancelada' : 'Canceladas'}</div>
-        </div>
-      </div>
+      <Pilha>
+        {/* Indicadores */}
+        <GradeIndicadores colunas={4}>
+          <Indicador
+            rotulo={concluidas.length === 1 ? 'Corrida concluída' : 'Corridas concluídas'}
+            valor={concluidas.length}
+            icone={<IconCheck />}
+          />
+          <Indicador rotulo="Valor das concluídas" valor={formatarReais(valorConcluidas)} icone={<IconMoney />} />
+          <Indicador rotulo="Em aberto" valor={emAberto} icone={<IconCar />} />
+          <Indicador rotulo={canceladas.length === 1 ? 'Cancelada' : 'Canceladas'} valor={canceladas.length} icone={<IconClose />} />
+        </GradeIndicadores>
 
-      {gestor && porTaxidog.length > 0 && (
-        <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-          <h3 className="relatorio-secao-titulo">
-            <IconUserBadge style={{ width: 15, height: 15 }} /> Por TaxiDog (concluídas)
-          </h3>
-          <div className="relatorio-lista">
-            {porTaxidog.map(t => (
-              <div key={t.nome} className="relatorio-lista-item">
-                <div className="relatorio-lista-info">
-                  <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{t.nome}</div>
-                  <div className="text-xs text-muted">{t.qtd} {t.qtd === 1 ? 'corrida' : 'corridas'}</div>
-                </div>
-                <div className="font-semibold text-success">{formatarReais(t.valor)}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="card">
-        <h3 className="relatorio-secao-titulo">
-          <IconChartBar style={{ width: 15, height: 15 }} /> Corridas do período
-        </h3>
-        {corridas.length === 0 ? (
-          <p className="text-sm text-muted">Nenhuma corrida neste período.</p>
-        ) : (
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Horário</th>
-                  <th>Pet</th>
-                  <th>Cliente</th>
-                  <th>Transporte</th>
-                  {gestor && <th>TaxiDog</th>}
-                  <th>Status</th>
-                  <th>Valor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {corridas.map(c => (
-                  <tr key={c.id_corrida}>
-                    <td>{format(parseISO(c.dt_agendamento), 'dd/MM/yyyy')}</td>
-                    <td>{c.hr_agendamento.slice(0, 5)}</td>
-                    <td>{c.pet_nome}</td>
-                    <td>{c.cliente_nome}</td>
-                    <td>{ROTULO_MODALIDADE[c.modalidade]}</td>
-                    {gestor && <td>{c.funcionario_nome ?? '—'}</td>}
-                    <td>
-                      <span className={`badge ${classeBadge(c)}`} style={{ textTransform: 'none', letterSpacing: 0 }}>
-                        {rotuloStatusCorrida({ status: c.status, modalidade: c.modalidade, temTaxiDog: !!c.id_funcionario, statusAgendamento: c.status_agendamento })}
-                      </span>
-                    </td>
-                    <td>{formatarReais(c.valor)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {gestor && porTaxidog.length > 0 && (
+          <Secao titulo="Por TaxiDog" icone={<IconUserBadge />} descricao="Corridas concluídas de cada um no período">
+            <Ranking
+              comIniciais
+              itens={porTaxidog.map(t => ({
+                chave: t.nome,
+                titulo: t.nome,
+                // Corridas sem TaxiDog atribuído não são uma pessoa: sem iniciais.
+                sigla: t.nome === 'Sem TaxiDog' ? '—' : undefined,
+                valor: formatarReais(t.valor),
+                detalhe: `${t.qtd} ${t.qtd === 1 ? 'corrida' : 'corridas'}`,
+                parte: valorConcluidas > 0 ? t.valor / valorConcluidas : undefined,
+              }))}
+            />
+          </Secao>
         )}
-      </div>
+
+        <Secao titulo="Corridas do período" icone={<IconChartBar />}>
+          {corridas.length === 0 ? (
+            <SecaoVazia>Nenhuma corrida neste período.</SecaoVazia>
+          ) : (
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Horário</th>
+                    <th>Pet</th>
+                    <th>Cliente</th>
+                    <th>Transporte</th>
+                    {gestor && <th>TaxiDog</th>}
+                    <th>Status</th>
+                    <th>Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {corridas.map(c => (
+                    <tr key={c.id_corrida}>
+                      <td>{format(parseISO(c.dt_agendamento), 'dd/MM/yyyy')}</td>
+                      <td>{c.hr_agendamento.slice(0, 5)}</td>
+                      <td>{c.pet_nome}</td>
+                      <td>{c.cliente_nome}</td>
+                      <td>{ROTULO_MODALIDADE[c.modalidade]}</td>
+                      {gestor && <td>{c.funcionario_nome ?? '—'}</td>}
+                      <td>
+                        <span className={`badge ${classeBadge(c)}`} style={{ textTransform: 'none', letterSpacing: 0 }}>
+                          {rotuloStatusCorrida({ status: c.status, modalidade: c.modalidade, temTaxiDog: !!c.id_funcionario, statusAgendamento: c.status_agendamento })}
+                        </span>
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{formatarReais(c.valor)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Secao>
+      </Pilha>
     </>
   )
 }
