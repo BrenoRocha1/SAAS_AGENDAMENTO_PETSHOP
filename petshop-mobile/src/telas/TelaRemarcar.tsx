@@ -3,15 +3,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
-import { Card } from '@/components/Card'
 import { EmptyState } from '@/components/EmptyState'
-import { Botao } from '@/components/Botao'
+import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { Aviso } from '@/components/Aviso'
 import { Campo } from '@/components/Campo'
-import { SeletorDia } from '@/components/SeletorDia'
-import { GradeHorarios } from '@/components/GradeHorarios'
+import { IconWhatsapp } from '@/components/IconesDoSite'
+import { SeletorDataHora } from '@/components/SeletorDataHora'
 import { Text } from '@/components/Texto'
-import { dataBR, dataExtensaISO, hojeBrasilISO, removerHorariosPassados } from '@/lib/agenda'
+import { dataBR, hojeBrasilISO, removerHorariosPassados } from '@/lib/agenda'
 import {
   carregarAgendamento,
   horariosParaRemarcar,
@@ -21,8 +20,11 @@ import {
   type Slot,
 } from '@/lib/agendamentos'
 import { nomeDaLoja } from '@/lib/loja'
-import { colors, spacing, typography } from '@/theme/theme'
+import { colors, spacing } from '@/theme/theme'
 
+// Remarcar agendamento — a mesma janela do site (RemarcarModal em
+// petshop-app/src/components/lojista/RemarcarAgendamento.tsx): mesmos
+// textos, o calendário com os horários e os botões. Mudou lá, muda aqui.
 // Remarca o pedido inteiro (os serviços marcados juntos) — as regras
 // (loja fechada, conflito, TaxiDog, plano) são de fn_remarcar_agendamento.
 // A loja remarca Pendente ou Aceito; o cliente, o próprio agendamento só
@@ -71,7 +73,7 @@ export function TelaRemarcar({ modo }: { modo: 'loja' | 'cliente' }) {
   if (!ag) {
     return (
       <ScreenContainer scroll={false}>
-        <DetailHeader title="Remarcar" />
+        <DetailHeader title="Remarcar agendamento" junto />
         {erroCarga ? (
           <EmptyState icon="alert-circle-outline" ilustracao="nao-encontrado" title="Agendamento não encontrado" subtitle={erroCarga} />
         ) : (
@@ -105,79 +107,81 @@ export function TelaRemarcar({ modo }: { modo: 'loja' | 'cliente' }) {
     setFeito({ avisos: modo === 'loja' ? r.avisos ?? [] : [], whatsapp: modo === 'loja' ? whatsappRemarcado(a, loja, data, hora) : null })
   }
 
+  const cliente = modo === 'cliente'
+
   if (feito) {
     return (
       <ScreenContainer>
-        <DetailHeader title="Remarcar" />
-        <View style={{ gap: spacing.md }}>
-          <Aviso tipo="sucesso" texto={`Remarcado para ${dataBR(data)} às ${hora}.${modo === 'cliente' ? ' A loja vê a mudança no seu pedido.' : ''}`} />
+        <DetailHeader title="Remarcar agendamento" junto />
+        <View style={styles.corpo}>
+          <Aviso tipo="sucesso" texto={`Remarcado para ${dataBR(data)} às ${hora}.${cliente ? ' A loja vê a nova data no seu pedido.' : ''}`} />
           {feito.avisos.map((av, i) => <Aviso key={i} tipo="info" texto={av} />)}
+        </View>
+        <View style={styles.rodape}>
           {feito.whatsapp && (
-            <Botao
-              rotulo="Avisar o cliente no WhatsApp"
-              icone="logo-whatsapp"
-              variante="secundario"
-              onPress={() => Linking.openURL(feito.whatsapp!)}
-            />
+            <BotaoPequeno normal icone={IconWhatsapp} rotulo="Avisar o cliente no WhatsApp" onPress={() => Linking.openURL(feito.whatsapp!)} />
           )}
-          <Botao rotulo="Concluir" onPress={() => router.back()} />
+          <BotaoPequeno normal variante="primario" rotulo="Fechar" onPress={() => router.back()} />
         </View>
       </ScreenContainer>
     )
   }
 
+  const slotsDoDia = carregandoSlots ? null : slots
+
   return (
     <ScreenContainer>
-      <DetailHeader title="Remarcar" />
+      <DetailHeader title="Remarcar agendamento" junto />
 
-      <Card style={styles.resumo}>
-        <Text style={styles.resumoTitulo}>{a.pet?.nome ?? 'Pet'} — {a.servico?.nome ?? 'Serviço'}</Text>
-        <Text style={styles.resumoTexto}>
-          Hoje marcado para {dataExtensaISO(a.dt_agendamento).toLowerCase()}, às {a.hr_agendamento.slice(0, 5)}.
+      <View style={styles.corpo}>
+        {erro && <Aviso tipo="erro" texto={erro} />}
+        <Text style={styles.apoio}>
+          Marcado para {dataBR(a.dt_agendamento)} às {a.hr_agendamento.slice(0, 5)}.{' '}
+          {cliente
+            ? 'Se você marcou mais de um serviço juntos, todos mudam juntos, na mesma ordem.'
+            : 'Se o cliente marcou mais de um serviço juntos, todos mudam juntos, na mesma ordem.'}
         </Text>
-        <Text style={styles.resumoTexto}>Os serviços marcados juntos neste pedido mudam juntos.</Text>
-      </Card>
 
-      <Text style={styles.secao}>Nova data</Text>
-      <SeletorDia inicio={hoje} dias={90} valor={data} onChange={setData} />
-      <Text style={styles.dataEscolhida}>{dataExtensaISO(data)}</Text>
+        <View style={styles.grupo}>
+          <Text style={styles.rotulo}>Nova data e horário<Text style={styles.estrela}> *</Text></Text>
+          <SeletorDataHora
+            idLojista={a.id_lojista}
+            data={data}
+            onData={d => { setData(d); setHora('') }}
+            hora={hora}
+            onHora={setHora}
+            slots={slotsDoDia ? slotsDoDia.lista : null}
+            aviso={
+              slotsDoDia?.erro ? slotsDoDia.erro
+                : slotsDoDia && slotsDoDia.lista.length === 0
+                  ? (cliente ? 'Sem horário livre nesse dia. Escolha outra data.' : 'A loja não tem horário nesse dia. Escolha outra data.')
+                  : undefined
+            }
+            dataMin={hoje}
+            desativado={enviando}
+            rotulo="Remarcar para"
+          />
+        </View>
 
-      <Text style={styles.secao}>Novo horário</Text>
-      {slots?.erro && !carregandoSlots ? (
-        <Aviso tipo="erro" texto={slots.erro} />
-      ) : (
-        <GradeHorarios
-          slots={slots?.lista ?? []}
-          carregando={carregandoSlots}
-          valor={hora}
-          onChange={setHora}
-          vazio={modo === 'cliente' ? 'Nenhum horário neste dia. Escolha outra data.' : 'Nenhum horário neste dia — a loja não abre ou está fechada. Escolha outra data.'}
-        />
-      )}
+        <Campo rotulo="Motivo (opcional)" value={motivo} onChangeText={setMotivo} placeholder="Ex: cliente pediu outro dia" maxLength={300} editable={!enviando} />
+        {mesmoHorario && <Aviso tipo="info" texto="Este já é o horário atual do agendamento." />}
+      </View>
 
       <View style={styles.rodape}>
-        <Campo
-          rotulo="Motivo (opcional)"
-          value={motivo}
-          onChangeText={setMotivo}
-          placeholder={modo === 'cliente' ? 'Ex.: surgiu um compromisso' : 'Ex.: cliente pediu outro horário'}
-          maxLength={300}
-          multiline
-        />
-        {erro && <Aviso tipo="erro" texto={erro} />}
-        {mesmoHorario && <Aviso tipo="info" texto="Este já é o horário atual do agendamento." />}
-        <Botao rotulo="Remarcar" icone="calendar-outline" onPress={confirmar} carregando={enviando} desativado={!hora || mesmoHorario} />
+        <BotaoPequeno normal variante="primario" rotulo={enviando ? 'Remarcando...' : 'Remarcar'} desativado={enviando || !hora || mesmoHorario} onPress={confirmar} />
+        <BotaoPequeno normal variante="fantasma" rotulo="Cancelar" desativado={enviando} onPress={() => router.back()} />
       </View>
     </ScreenContainer>
   )
 }
 
+// Medidas da janela "Remarcar agendamento" do site em 375 de largura.
 const styles = StyleSheet.create({
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  resumo: { gap: 4 },
-  resumoTitulo: { ...typography.heading.sm, color: colors.text },
-  resumoTexto: { ...typography.body.md, color: colors.textMuted },
-  secao: { ...typography.heading.sm, color: colors.text, marginTop: spacing.xl, marginBottom: spacing.md },
-  dataEscolhida: { ...typography.body.md, color: colors.textMuted, marginTop: spacing.sm },
-  rodape: { marginTop: spacing.xl, gap: spacing.md },
+  corpo: { gap: 12 },
+  grupo: { gap: 4 },
+  rotulo: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.textDim },
+  estrela: { color: colors.dangerFg },
+  apoio: { fontSize: 14, lineHeight: 20, color: '#858d99' },
+  rodape: { gap: 8, marginTop: spacing.xl },
 })
