@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ActivityIndicator, Linking, StyleSheet, Switch, Text, View } from 'react-native'
+import { ActivityIndicator, Linking, StyleSheet, Text, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { Botao } from '@/components/Botao'
 import { Aviso } from '@/components/Aviso'
 import { Opcao } from '@/components/Opcao'
+import { Interruptor } from '@/components/Interruptor'
 import { supabase } from '@/lib/supabase'
 import { dataBR } from '@/lib/agenda'
 import { carregarAgendamento, editarAgendamento, whatsappAlterado } from '@/lib/agendamentos'
@@ -242,11 +243,9 @@ export function TelaEditarAgendamento({ modo }: { modo: 'loja' | 'cliente' }) {
                 {beneficio.quantidade - Number(beneficio.usados)} de {beneficio.quantidade} usos disponíveis — o serviço sai sem cobrança.
               </Text>
             </View>
-            <Switch
+            <Interruptor
               value={usarBeneficio}
               onValueChange={setUsarBeneficio}
-              trackColor={{ true: colors.primary500, false: colors.borderStrong }}
-              thumbColor={colors.white}
             />
           </Card>
         )}

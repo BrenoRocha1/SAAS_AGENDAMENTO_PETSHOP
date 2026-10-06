@@ -1,6 +1,6 @@
 import { useCallback, useState, type ComponentType } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { Linking, Pressable, Share, StyleSheet, Switch, Text, View } from 'react-native'
+import { Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
@@ -14,6 +14,7 @@ import { Folha } from '@/components/Folha'
 import { LinhaSwitch } from '@/components/LinhaSwitch'
 import { Segmentos } from '@/components/Opcao'
 import { SeletorDia } from '@/components/SeletorDia'
+import { Interruptor } from '@/components/Interruptor'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { acoesDisponiveis, chamarAcao, form } from '@/lib/acoes'
@@ -292,12 +293,10 @@ export default function ConfiguracoesScreen() {
               <Text style={styles.titulo}>Aceitar agendamento pelo site</Text>
               <Text style={styles.sub}>{online ? 'Clientes podem agendar sozinhos.' : 'Desligado — só a loja cria agendamentos.'}</Text>
             </View>
-            <Switch
+            <Interruptor
               value={online}
               disabled={!podeGravar || ocupado === 'online'}
               onValueChange={alternarOnline}
-              trackColor={{ true: colors.primary500, false: colors.borderStrong }}
-              thumbColor={colors.white}
               accessibilityLabel="Aceitar agendamento pelo site"
             />
           </View>
@@ -345,12 +344,10 @@ export default function ConfiguracoesScreen() {
                 {comSite ? ' · tocar para mudar' : ''}
               </Text>
             </Pressable>
-            <Switch
+            <Interruptor
               value={h.ativo}
               disabled={!podeGravar || ocupado === h.id_horario}
               onValueChange={v => alternarHorario(h, v)}
-              trackColor={{ true: colors.primary500, false: colors.borderStrong }}
-              thumbColor={colors.white}
               accessibilityLabel={`${h.dia_semana} aberto`}
             />
           </View>

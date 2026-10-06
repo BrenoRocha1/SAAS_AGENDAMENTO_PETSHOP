@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
@@ -12,6 +12,7 @@ import { Botao } from '@/components/Botao'
 import { Campo } from '@/components/Campo'
 import { Folha } from '@/components/Folha'
 import { Segmentos } from '@/components/Opcao'
+import { Interruptor } from '@/components/Interruptor'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { MSG_SEM_SITE, acoesDisponiveis, chamarAcao, form } from '@/lib/acoes'
@@ -218,12 +219,10 @@ export default function ServicosScreen() {
                   {formatarMoeda(s.preco)} · {s.duracao} min{s.status === 'Inativo' ? ' · Inativo' : ''}
                 </Text>
               </View>
-              <Switch
+              <Interruptor
                 value={s.status === 'Ativo'}
                 disabled={alterando === s.id_servico}
                 onValueChange={v => alternar(s, v)}
-                trackColor={{ true: colors.primary500, false: colors.borderStrong }}
-                thumbColor={colors.white}
                 accessibilityLabel={`${s.nome} ativo`}
               />
             </Card>

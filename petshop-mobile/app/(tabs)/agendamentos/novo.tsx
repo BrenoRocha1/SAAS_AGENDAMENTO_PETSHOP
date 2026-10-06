@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ActivityIndicator, StyleSheet, Switch, Text, View } from 'react-native'
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
@@ -12,6 +12,7 @@ import { SemPermissao } from '@/components/SemPermissao'
 import { SeletorDia } from '@/components/SeletorDia'
 import { GradeHorarios } from '@/components/GradeHorarios'
 import { Opcao, Segmentos } from '@/components/Opcao'
+import { Interruptor } from '@/components/Interruptor'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { dataBR, dataExtensaISO, hojeBrasilISO, removerHorariosPassados } from '@/lib/agenda'
@@ -344,11 +345,9 @@ export default function NovoAgendamentoScreen() {
                   {beneficio.quantidade - beneficio.usados} de {beneficio.quantidade} usos disponíveis — o serviço sai sem cobrança.
                 </Text>
               </View>
-              <Switch
+              <Interruptor
                 value={usarBeneficio}
                 onValueChange={setUsarBeneficio}
-                trackColor={{ true: colors.primary500, false: colors.borderStrong }}
-                thumbColor={colors.white}
               />
             </Card>
           )}

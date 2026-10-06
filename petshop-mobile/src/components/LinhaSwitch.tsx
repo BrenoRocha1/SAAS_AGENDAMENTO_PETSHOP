@@ -1,4 +1,5 @@
-import { StyleSheet, Switch, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
+import { Interruptor } from '@/components/Interruptor'
 import { colors, spacing, typography } from '@/theme/theme'
 
 interface Props {
@@ -17,12 +18,10 @@ export function LinhaSwitch({ titulo, detalhe, valor, onChange, desativado }: Pr
         <Text style={[styles.titulo, desativado && styles.apagado]}>{titulo}</Text>
         {detalhe ? <Text style={styles.detalhe}>{detalhe}</Text> : null}
       </View>
-      <Switch
+      <Interruptor
         value={valor}
         onValueChange={onChange}
         disabled={desativado}
-        trackColor={{ true: colors.primary500, false: colors.borderStrong }}
-        thumbColor={colors.white}
         accessibilityLabel={titulo}
       />
     </View>

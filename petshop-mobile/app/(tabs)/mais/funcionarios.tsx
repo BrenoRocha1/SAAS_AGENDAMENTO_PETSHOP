@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
 import * as Clipboard from 'expo-clipboard'
-import { StyleSheet, Switch, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
@@ -13,6 +13,7 @@ import { Botao } from '@/components/Botao'
 import { Campo } from '@/components/Campo'
 import { Folha } from '@/components/Folha'
 import { LinhaSwitch } from '@/components/LinhaSwitch'
+import { Interruptor } from '@/components/Interruptor'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { MSG_SEM_SITE, acoesDisponiveis, chamarAcao, form } from '@/lib/acoes'
@@ -288,12 +289,10 @@ export default function FuncionariosScreen() {
                     <Text style={styles.sub} numberOfLines={1}>{f.cargo || 'Equipe'}{f.ativo ? '' : ' · Desativado'}</Text>
                   </View>
                   {podeEditar(f) && (
-                    <Switch
+                    <Interruptor
                       value={f.ativo}
                       disabled={alterando === f.id_funcionario}
                       onValueChange={v => pedirAlternar(f, v)}
-                      trackColor={{ true: colors.primary500, false: colors.borderStrong }}
-                      thumbColor={colors.white}
                       accessibilityLabel={`Acesso de ${f.nome}`}
                     />
                   )}

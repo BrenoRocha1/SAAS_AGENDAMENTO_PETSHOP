@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
@@ -13,6 +13,7 @@ import { Campo } from '@/components/Campo'
 import { Folha } from '@/components/Folha'
 import { LinhaSwitch } from '@/components/LinhaSwitch'
 import { Opcao, Segmentos } from '@/components/Opcao'
+import { Interruptor } from '@/components/Interruptor'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { dataBR, hojeBrasilISO } from '@/lib/agenda'
@@ -273,12 +274,10 @@ export default function PlanosScreen() {
                       <Text style={[styles.titulo, !p.ativo && styles.apagado]}>{p.nome}</Text>
                       <Text style={styles.sub}>{formatarMoeda(p.valor)}{sufixoPeriodo(p.periodicidade, p.intervalo_dias)}{p.ativo ? '' : ' · Desativado'}</Text>
                     </Pressable>
-                    <Switch
+                    <Interruptor
                       value={p.ativo}
                       disabled={ocupado === p.id_plano}
                       onValueChange={v => alternarPlano(p, v)}
-                      trackColor={{ true: colors.primary500, false: colors.borderStrong }}
-                      thumbColor={colors.white}
                       accessibilityLabel={`${p.nome} ativo`}
                     />
                   </View>
