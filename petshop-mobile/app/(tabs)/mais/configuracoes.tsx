@@ -1,124 +1,70 @@
 import { useCallback, useState, type ComponentType } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { Linking, Pressable, Share, StyleSheet, View } from 'react-native'
-import { IconeApp } from '@/components/IconeApp'
+import { Linking, Pressable, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
-import { IconeCorridas, IconeDinheiro, IconeEscudo, IconePetshops, IconeSeta, type IconeAbaProps } from '@/components/IconesAbas'
-import { Card } from '@/components/Card'
+import {
+  IconBell,
+  IconCalendar,
+  IconCar,
+  IconChevronRight,
+  IconClock,
+  IconMoney,
+  IconShield,
+  IconStar,
+  IconStore,
+  type IconeProps,
+} from '@/components/IconesDoSite'
 import { SemPermissao } from '@/components/SemPermissao'
-import { Aviso } from '@/components/Aviso'
-import { Botao } from '@/components/Botao'
-import { Campo } from '@/components/Campo'
-import { Folha } from '@/components/Folha'
-import { LinhaSwitch } from '@/components/LinhaSwitch'
-import { Segmentos } from '@/components/Opcao'
-import { SeletorDia } from '@/components/SeletorDia'
-import { Interruptor } from '@/components/Interruptor'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
-import { acoesDisponiveis, chamarAcao, form } from '@/lib/acoes'
-import { dataBR, dataExtensaISO, hojeBrasilISO } from '@/lib/agenda'
-import { dialogo } from '@/lib/dialogo'
-import { faltaMigration, mensagemDoBanco } from '@/lib/erros'
-import { horaValida, mascaraHora, soDigitos } from '@/lib/mascaras'
 import { urlDoSite } from '@/lib/site'
-import { colors, spacing, typography } from '@/theme/theme'
+import { supabase } from '@/lib/supabase'
+import { colors } from '@/theme/theme'
 
-interface Horario {
-  id_horario: string
-  dia_semana: string
-  hr_inicio: string
-  hr_fim: string
+interface Selo {
+  texto: string
   ativo: boolean
 }
 
-// fn_bloqueios_da_loja (migration 066)
-interface Bloqueio {
-  id_bloqueio: string
-  dt_inicio: string
-  dt_fim: string
-  hr_inicio: string | null
-  hr_fim: string | null
-  motivo: string
-  agendamentos: { id_agendamento: string }[]
+interface Item {
+  icone: ComponentType<IconeProps>
+  titulo: string
+  descricao: string
+  // Tela do app; sem ela, o item abre a página do site (`noSite`).
+  rota?: string
+  noSite?: string
+  selos?: Selo[]
 }
 
-type Unidade = 'horas' | 'dias'
-interface Janela { minValor: string; minUnidade: Unidade; maxValor: string; maxUnidade: Unidade }
-
-const ORDEM_DIAS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
-
-function periodoDoBloqueio(b: Bloqueio): string {
-  const dias = b.dt_inicio === b.dt_fim ? dataBR(b.dt_inicio) : `${dataBR(b.dt_inicio)} a ${dataBR(b.dt_fim)}`
-  return b.hr_inicio && b.hr_fim ? `${dias}, das ${b.hr_inicio} às ${b.hr_fim}` : `${dias} — dia inteiro`
-}
-
-// Configurações da loja pelo celular: agendamento online (liga/desliga,
-// link, antecedência), horários de funcionamento e dias fechados. Formas
-// de pagamento e TaxiDog têm tela própria. Gravar passa pelas mesmas
-// actions do painel web — é lá que o administrador (funcionário com
-// acesso total) tem permissão de escrita; sem o site configurado, só o
-// dono da conta consegue mudar os interruptores (RLS).
+// Configurações da loja: o MESMO índice do site
+// (petshop-app/src/app/lojista/configuracoes/page.tsx) — mesmos grupos,
+// itens, ícones, textos e selos, na mesma ordem. Mudou lá, muda aqui. As
+// medidas vêm da página do site em largura de celular. Avaliações e
+// Notificações ainda não têm tela no app: abrem a do site.
 export default function ConfiguracoesScreen() {
   const { contexto } = useAuth()
   const router = useRouter()
   const idLojista = contexto?.idLojista
   const pode = !!contexto?.acessoTotal
-  const ehDono = contexto?.role === 'lojista'
-  const comSite = acoesDisponiveis()
-  const podeGravar = comSite || ehDono
-  const hoje = hojeBrasilISO()
 
-  const [online, setOnline] = useState<boolean | null>(null)
-  const [slug, setSlug] = useState<string | null>(null)
-  const [janela, setJanela] = useState<Janela | null>(null)
-  const [horarios, setHorarios] = useState<Horario[]>([])
-  const [bloqueios, setBloqueios] = useState<Bloqueio[] | null>(null)
+  const [kanban, setKanban] = useState(true)
+  const [online, setOnline] = useState(true)
+  // null = a loja não tem a tabela do TaxiDog: o selo some, como no site.
+  const [taxidog, setTaxidog] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(true)
-  const [erro, setErro] = useState<string | null>(null)
-  const [info, setInfo] = useState<string | null>(null)
-  const [ocupado, setOcupado] = useState<string | null>(null)
 
-  // Painéis (um por vez).
-  const [painel, setPainel] = useState<'bloqueio' | 'horario' | 'link' | 'janela' | null>(null)
-  const [erroPainel, setErroPainel] = useState<string | null>(null)
-  const [salvando, setSalvando] = useState(false)
-  // Fechar um dia
-  const [dtInicio, setDtInicio] = useState(hoje)
-  const [dtFim, setDtFim] = useState(hoje)
-  const [variosDias, setVariosDias] = useState(false)
-  const [soHoras, setSoHoras] = useState(false)
-  const [hrIni, setHrIni] = useState('')
-  const [hrFim, setHrFim] = useState('')
-  const [motivo, setMotivo] = useState('')
-  // Horário de um dia
-  const [dia, setDia] = useState('')
-  const [abre, setAbre] = useState('')
-  const [fecha, setFecha] = useState('')
-  // Link e antecedência
-  const [slugNovo, setSlugNovo] = useState('')
-  const [janelaNova, setJanelaNova] = useState<Janela>({ minValor: '0', minUnidade: 'horas', maxValor: '30', maxUnidade: 'dias' })
-
+  // Só para os selos (Ativado/Desativado); quem grava é a tela de cada item.
   const carregar = useCallback(async () => {
     if (!idLojista || !pode) return
-    // Cada grupo de colunas é de uma migration diferente: consultas
-    // separadas e tolerantes, como no painel web.
-    const [loja, slugRow, janelaRow, hrs, blq] = await Promise.all([
-      supabase.from('lojista').select('aceita_agendamento_online').eq('id_lojista', idLojista).maybeSingle(),
-      supabase.from('lojista').select('slug').eq('id_lojista', idLojista).maybeSingle(),
-      supabase.from('lojista').select('agendamento_min_valor, agendamento_min_unidade, agendamento_max_valor, agendamento_max_unidade').eq('id_lojista', idLojista).maybeSingle(),
-      supabase.from('horario').select('id_horario, dia_semana, hr_inicio, hr_fim, ativo').eq('id_lojista', idLojista),
-      supabase.rpc('fn_bloqueios_da_loja', { p_id_lojista: idLojista }),
+    const [loja, taxi] = await Promise.all([
+      supabase.from('lojista').select('kanban_ativo, aceita_agendamento_online').eq('id_lojista', idLojista).maybeSingle(),
+      supabase.from('taxidog_config').select('ativo').eq('id_lojista', idLojista).maybeSingle(),
     ])
-    setOnline(loja.error ? null : ((loja.data as { aceita_agendamento_online: boolean } | null)?.aceita_agendamento_online ?? null))
-    setSlug(slugRow.error ? null : ((slugRow.data as { slug: string | null } | null)?.slug ?? null))
-    const j = janelaRow.error ? null : (janelaRow.data as { agendamento_min_valor: number; agendamento_min_unidade: Unidade; agendamento_max_valor: number; agendamento_max_unidade: Unidade } | null)
-    setJanela(j ? { minValor: String(j.agendamento_min_valor), minUnidade: j.agendamento_min_unidade, maxValor: String(j.agendamento_max_valor), maxUnidade: j.agendamento_max_unidade } : null)
-    setHorarios(((hrs.data ?? []) as Horario[]).sort((a, b) => ORDEM_DIAS.indexOf(a.dia_semana) - ORDEM_DIAS.indexOf(b.dia_semana)))
-    setBloqueios(blq.error ? null : ((blq.data ?? []) as Bloqueio[]))
-    setErro(hrs.error ? 'Não foi possível carregar os horários.' : null)
+    const dados = loja.data as { kanban_ativo: boolean | null; aceita_agendamento_online: boolean | null } | null
+    setKanban(dados?.kanban_ativo ?? true)
+    setOnline(dados?.aceita_agendamento_online ?? true)
+    setTaxidog(taxi.error ? null : !!(taxi.data as { ativo: boolean } | null)?.ativo)
     setLoading(false)
   }, [idLojista, pode])
 
@@ -133,406 +79,138 @@ export default function ConfiguracoesScreen() {
     )
   }
 
-  const link = urlDoSite(`/agendamento/${slug ?? idLojista ?? ''}`)
-
-  async function alternarOnline(ativo: boolean) {
-    if (!idLojista) return
-    setErro(null)
-    setOcupado('online')
-    let falha: string | undefined
-    if (comSite) {
-      falha = (await chamarAcao('alternarAgendamentoOnlineAction', ativo)).error
-    } else {
-      const { data, error } = await supabase.from('lojista').update({ aceita_agendamento_online: ativo }).eq('id_lojista', idLojista).select('id_lojista')
-      if (error || !data || data.length === 0) falha = 'Não foi possível mudar o agendamento online.'
-    }
-    setOcupado(null)
-    if (falha) return setErro(falha)
-    setOnline(ativo)
-  }
-
-  async function alternarHorario(h: Horario, ativo: boolean) {
-    if (!idLojista) return
-    setErro(null)
-    setOcupado(h.id_horario)
-    let falha: string | undefined
-    if (comSite) {
-      falha = (await chamarAcao('toggleHorarioAction', h.id_horario, ativo)).error
-    } else {
-      const { data, error } = await supabase.from('horario').update({ ativo }).eq('id_horario', h.id_horario).eq('id_lojista', idLojista).select('id_horario')
-      if (error || !data || data.length === 0) falha = 'Não foi possível mudar esse dia.'
-    }
-    setOcupado(null)
-    if (falha) return setErro(falha)
-    setHorarios(lista => lista.map(x => (x.id_horario === h.id_horario ? { ...x, ativo } : x)))
-  }
-
-  function abrirHorario(diaSemana: string, h?: Horario) {
-    setDia(diaSemana)
-    setAbre(h ? h.hr_inicio.slice(0, 5) : '08:00')
-    setFecha(h ? h.hr_fim.slice(0, 5) : '18:00')
-    setErroPainel(null)
-    setPainel('horario')
-  }
-
-  async function salvarHorario() {
-    if (!horaValida(abre) || !horaValida(fecha)) return setErroPainel('Informe os horários no formato 08:00.')
-    if (fecha <= abre) return setErroPainel('O horário de fechar precisa ser depois do de abrir.')
-    setErroPainel(null)
-    setSalvando(true)
-    const r = await chamarAcao('salvarHorarioAction', form({ dia_semana: dia, hr_inicio: abre, hr_fim: fecha }))
-    setSalvando(false)
-    if (r.error) return setErroPainel(r.error)
-    setPainel(null)
-    carregar()
-  }
-
-  function abrirBloqueio() {
-    setDtInicio(hoje)
-    setDtFim(hoje)
-    setVariosDias(false)
-    setSoHoras(false)
-    setHrIni('')
-    setHrFim('')
-    setMotivo('')
-    setErroPainel(null)
-    setPainel('bloqueio')
-  }
-
-  async function fecharPeriodo() {
-    if (!idLojista) return
-    const texto = motivo.trim()
-    if (!texto) return setErroPainel('Informe o motivo (ex.: Feriado de Natal).')
-    const fim = variosDias ? (dtFim < dtInicio ? dtInicio : dtFim) : dtInicio
-    if (soHoras) {
-      if (!horaValida(hrIni) || !horaValida(hrFim)) return setErroPainel('Informe o horário de início e de fim (ex.: 12:00).')
-      if (hrFim <= hrIni) return setErroPainel('O horário final precisa ser depois do inicial.')
-    }
-    setErroPainel(null)
-    setSalvando(true)
-    const { error } = await supabase.rpc('fn_salvar_bloqueio', {
-      p_id_lojista: idLojista,
-      p_dt_inicio: dtInicio,
-      p_dt_fim: fim,
-      p_hr_inicio: soHoras ? hrIni : null,
-      p_hr_fim: soHoras ? hrFim : null,
-      p_motivo: texto,
-    })
-    setSalvando(false)
-    if (error) {
-      return setErroPainel(faltaMigration(error) ? 'Fechar dias ainda não foi ativado no sistema da loja.' : mensagemDoBanco(error, 'Não foi possível fechar esse período.'))
-    }
-    setPainel(null)
-    carregar()
-  }
-
-  function pedirReabrir(b: Bloqueio) {
-    dialogo('Reabrir', `${periodoDoBloqueio(b)} (${b.motivo}) volta a aceitar agendamentos. Continuar?`, [
-      { text: 'Voltar', style: 'cancel' },
-      {
-        text: 'Reabrir',
-        onPress: async () => {
-          setErro(null)
-          setOcupado(b.id_bloqueio)
-          const { error } = await supabase.rpc('fn_excluir_bloqueio', { p_id_bloqueio: b.id_bloqueio })
-          setOcupado(null)
-          if (error) setErro(mensagemDoBanco(error, 'Não foi possível reabrir esse período.'))
-          else carregar()
+  const grupos: { titulo: string; itens: Item[] }[] = [
+    {
+      titulo: 'Loja',
+      itens: [
+        { icone: IconStore, titulo: 'Dados da loja', descricao: 'Nome, telefone, endereço e demais informações públicas da loja', rota: '/mais/perfil-loja' },
+        { icone: IconClock, titulo: 'Horários de funcionamento', descricao: 'Configure os dias e horários de atendimento', rota: '/mais/horarios' },
+        { icone: IconMoney, titulo: 'Formas de pagamentos aceitas', descricao: 'Pix, dinheiro e cartões que a loja aceita nos agendamentos', rota: '/mais/pagamentos' },
+        { icone: IconStar, titulo: 'Avaliações', descricao: 'Veja o que seus clientes estão dizendo sobre sua loja.', noSite: '/lojista/configuracoes/avaliacoes' },
+      ],
+    },
+    {
+      titulo: 'Agendamentos',
+      itens: [
+        {
+          icone: IconCalendar,
+          titulo: 'Configurações de Agendamentos',
+          descricao: 'Kanban de atendimento, quantos agendamentos a loja aceita ao mesmo tempo e agendamento feito pelos próprios clientes',
+          rota: '/mais/config-agendamentos',
+          selos: [
+            { texto: `Kanban ${kanban ? 'Ativado' : 'Desativado'}`, ativo: kanban },
+            { texto: `Online ${online ? 'Ativado' : 'Desativado'}`, ativo: online },
+          ],
         },
-      },
-    ])
-  }
+      ],
+    },
+    {
+      titulo: 'Operação',
+      itens: [
+        { icone: IconShield, titulo: 'Usuários e Permissões', descricao: 'Cadastre membros da equipe e administradores, e gerencie as permissões de cada um', rota: '/mais/funcionarios' },
+        {
+          icone: IconCar,
+          titulo: 'TaxiDog',
+          descricao: 'Busca e entrega dos pets: preços, regiões atendidas e quem faz as corridas',
+          rota: '/mais/taxidog-config',
+          selos: taxidog === null ? undefined : [{ texto: taxidog ? 'Ativado' : 'Desativado', ativo: taxidog }],
+        },
+      ],
+    },
+    {
+      titulo: 'Sistema',
+      itens: [
+        { icone: IconBell, titulo: 'Notificações', descricao: 'Configure as notificações do sistema', noSite: '/lojista/configuracoes/notificacoes' },
+      ],
+    },
+  ]
 
-  async function salvarSlug() {
-    const valor = slugNovo.trim().toLowerCase()
-    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(valor) || valor.length < 3) {
-      return setErroPainel('Use só letras minúsculas, números e hífen (mínimo 3 letras) — sem espaços nem acentos.')
-    }
-    setErroPainel(null)
-    setSalvando(true)
-    const r = await chamarAcao('atualizarSlugLojistaAction', form({ slug: valor }))
-    setSalvando(false)
-    if (r.error) return setErroPainel(r.error)
-    setSlug(valor)
-    setPainel(null)
-    setInfo('Link de agendamento atualizado.')
+  function abrir(item: Item) {
+    if (item.rota) return router.push(item.rota as never)
+    const url = item.noSite ? urlDoSite(item.noSite) : null
+    if (url) Linking.openURL(url)
   }
-
-  async function salvarJanela() {
-    const min = Number(soDigitos(janelaNova.minValor) || '0')
-    const max = Number(soDigitos(janelaNova.maxValor) || '0')
-    if (max < 1) return setErroPainel('O prazo máximo precisa ser pelo menos 1.')
-    setErroPainel(null)
-    setSalvando(true)
-    const r = await chamarAcao('atualizarJanelaAgendamentoAction', form({ minValor: min, minUnidade: janelaNova.minUnidade, maxValor: max, maxUnidade: janelaNova.maxUnidade }))
-    setSalvando(false)
-    if (r.error) return setErroPainel(r.error)
-    setPainel(null)
-    setInfo('Antecedência do agendamento online atualizada.')
-    carregar()
-  }
-
-  const semHorario = ORDEM_DIAS.filter(d => !horarios.some(h => h.dia_semana === d))
-  const UNIDADES: { valor: Unidade; rotulo: string }[] = [{ valor: 'horas', rotulo: 'horas' }, { valor: 'dias', rotulo: 'dias' }]
 
   return (
     <ScreenContainer refreshing={loading} onRefresh={carregar}>
       <DetailHeader title="Configurações" />
 
-      {erro && <Aviso tipo="erro" texto={erro} style={styles.aviso} />}
-      {info && <Aviso tipo="sucesso" texto={info} style={styles.aviso} />}
-      {!podeGravar && (
-        <Aviso tipo="info" style={styles.aviso} texto="Sem o endereço do site configurado no app, só o responsável pela conta muda estas opções. Fechar dias você também pode." />
-      )}
-
-      {/* Agendamento online */}
-      <Text style={styles.secaoPrimeira}>Agendamento online</Text>
-      <Card style={{ gap: spacing.md }}>
-        {online !== null && (
-          <View style={styles.linha}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={styles.titulo}>Aceitar agendamento pelo site</Text>
-              <Text style={styles.sub}>{online ? 'Clientes podem agendar sozinhos.' : 'Desligado — só a loja cria agendamentos.'}</Text>
-            </View>
-            <Interruptor
-              value={online}
-              disabled={!podeGravar || ocupado === 'online'}
-              onValueChange={alternarOnline}
-              accessibilityLabel="Aceitar agendamento pelo site"
-            />
-          </View>
-        )}
-        {link && (
-          <View style={{ gap: spacing.sm }}>
-            <Text style={styles.sub}>Link para divulgar:</Text>
-            <Text style={styles.link} selectable>{link}</Text>
-            <View style={styles.duas}>
-              <Botao rotulo="Compartilhar" icone="share-social-outline" variante="secundario" compacto style={{ flex: 1 }} onPress={() => Share.share({ message: link })} />
-              {comSite && (
-                <Botao rotulo="Mudar o link" icone="create-outline" variante="secundario" compacto style={{ flex: 1 }} onPress={() => { setSlugNovo(slug ?? ''); setErroPainel(null); setPainel('link') }} />
-              )}
-            </View>
-          </View>
-        )}
-        {janela && (
-          <View style={styles.linha}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={styles.titulo}>Antecedência</Text>
-              <Text style={styles.sub}>
-                De {janela.minValor} {janela.minUnidade} até {janela.maxValor} {janela.maxUnidade} antes do horário.
-              </Text>
-            </View>
-            {comSite && <Botao rotulo="Mudar" variante="secundario" compacto onPress={() => { setJanelaNova(janela); setErroPainel(null); setPainel('janela') }} />}
-          </View>
-        )}
-      </Card>
-
-      {/* Horários */}
-      <Text style={styles.secao}>Horário de funcionamento</Text>
-      <Card style={{ gap: spacing.md }}>
-        {horarios.map(h => (
-          <View key={h.id_horario} style={styles.linha}>
-            <Pressable
-              style={{ flex: 1, gap: 2 }}
-              disabled={!comSite}
-              onPress={() => abrirHorario(h.dia_semana, h)}
-              accessibilityRole="button"
-              accessibilityLabel={`Mudar horário de ${h.dia_semana}`}
-            >
-              <Text style={[styles.titulo, !h.ativo && styles.apagado]}>{h.dia_semana}</Text>
-              <Text style={styles.sub}>
-                {h.ativo ? `${h.hr_inicio.slice(0, 5)} às ${h.hr_fim.slice(0, 5)}` : 'Fechado'}
-                {comSite ? ' · tocar para mudar' : ''}
-              </Text>
-            </Pressable>
-            <Interruptor
-              value={h.ativo}
-              disabled={!podeGravar || ocupado === h.id_horario}
-              onValueChange={v => alternarHorario(h, v)}
-              accessibilityLabel={`${h.dia_semana} aberto`}
-            />
+      <View style={styles.pilha}>
+        {grupos.map(grupo => (
+          <View key={grupo.titulo} style={styles.cartao}>
+            <Text style={styles.grupoTitulo}>{grupo.titulo}</Text>
+            {grupo.itens.map((item, i) => {
+              const Icone = item.icone
+              return (
+                <Pressable
+                  key={item.titulo}
+                  onPress={() => abrir(item)}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.titulo}
+                  style={({ pressed }) => [styles.item, i > 0 && styles.itemBorda, pressed && styles.itemPressionado]}
+                >
+                  <View style={styles.linha}>
+                    <View style={styles.icone}>
+                      <Icone size={18} color={colors.textDim} />
+                    </View>
+                    <View style={styles.textos}>
+                      <Text style={styles.titulo}>{item.titulo}</Text>
+                      <Text style={styles.descricao}>{item.descricao}</Text>
+                    </View>
+                    <IconChevronRight size={16} color={colors.textFaint} />
+                  </View>
+                  {item.selos && (
+                    <View style={styles.selos}>
+                      {item.selos.map(selo => (
+                        <View key={selo.texto} style={[styles.selo, selo.ativo ? styles.seloAtivo : styles.seloInativo]}>
+                          <Text style={[styles.seloTexto, { color: selo.ativo ? '#065f46' : colors.textMuted }]}>{selo.texto}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </Pressable>
+              )
+            })}
           </View>
         ))}
-        {comSite && semHorario.map(d => (
-          <View key={d} style={styles.linha}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={[styles.titulo, styles.apagado]}>{d}</Text>
-              <Text style={styles.sub}>Sem horário definido</Text>
-            </View>
-            <Botao rotulo="Definir" variante="secundario" compacto onPress={() => abrirHorario(d)} />
-          </View>
-        ))}
-        {horarios.length === 0 && !comSite && !loading && <Text style={styles.sub}>Nenhum horário de funcionamento cadastrado.</Text>}
-      </Card>
-
-      {/* Dias fechados */}
-      <Text style={styles.secao}>Dias fechados</Text>
-      {bloqueios === null ? (
-        <Aviso tipo="alerta" texto="Fechar dias (feriado, folga) ainda não foi ativado no sistema da loja." />
-      ) : (
-        <View style={{ gap: spacing.md }}>
-          {bloqueios.length === 0 && <Text style={styles.sub}>Nenhum dia fechado daqui pra frente.</Text>}
-          {bloqueios.map(b => (
-            <Card key={b.id_bloqueio} style={styles.linha}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={styles.titulo}>{b.motivo}</Text>
-                <Text style={styles.sub}>{periodoDoBloqueio(b)}</Text>
-                {b.agendamentos.length > 0 && (
-                  <Text style={styles.alerta}>
-                    {b.agendamentos.length} {b.agendamentos.length === 1 ? 'agendamento marcado' : 'agendamentos marcados'} nesse período — remarque ou cancele.
-                  </Text>
-                )}
-              </View>
-              <Pressable
-                onPress={() => pedirReabrir(b)}
-                disabled={ocupado === b.id_bloqueio}
-                hitSlop={10}
-                accessibilityRole="button"
-                accessibilityLabel={`Reabrir ${b.motivo}`}
-                style={styles.lixeira}
-              >
-                <IconeApp name="trash-outline" size={20} color={colors.dangerFg} />
-              </Pressable>
-            </Card>
-          ))}
-          <Botao rotulo="Fechar um dia ou horário" icone="add" variante="secundario" onPress={abrirBloqueio} />
-        </View>
-      )}
-
-      {/* Outras telas */}
-      <Text style={styles.secao}>Mais configurações</Text>
-      <View style={styles.menu}>
-        {/* Mesma ordem e mesmos ícones da tela Configurações do site. */}
-        <ItemMenu icone={IconePetshops} rotulo="Dados da loja" onPress={() => router.push('/mais/perfil-loja')} />
-        <ItemMenu icone={IconeDinheiro} rotulo="Formas de pagamento" onPress={() => router.push('/mais/pagamentos')} />
-        <ItemMenu icone={IconeEscudo} rotulo="Usuários e Permissões" onPress={() => router.push('/mais/funcionarios')} />
-        <ItemMenu icone={IconeCorridas} rotulo="TaxiDog" onPress={() => router.push('/mais/taxidog-config')} ultimo />
       </View>
-      {urlDoSite('/lojista/configuracoes') && (
-        <Botao
-          rotulo="Abrir o painel web"
-          icone="open-outline"
-          variante="secundario"
-          style={{ marginTop: spacing.md }}
-          onPress={() => Linking.openURL(urlDoSite('/lojista/configuracoes')!)}
-        />
-      )}
-
-      {/* Horário de um dia */}
-      <Folha visivel={painel === 'horario'} titulo={`Horário — ${dia}`} onFechar={() => setPainel(null)} ocupado={salvando}>
-        {erroPainel && <Aviso tipo="erro" texto={erroPainel} />}
-        <View style={styles.duas}>
-          <View style={{ flex: 1 }}>
-            <Campo rotulo="Abre às" value={abre} onChangeText={t => setAbre(mascaraHora(t))} keyboardType="number-pad" placeholder="08:00" maxLength={5} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Campo rotulo="Fecha às" value={fecha} onChangeText={t => setFecha(mascaraHora(t))} keyboardType="number-pad" placeholder="18:00" maxLength={5} />
-          </View>
-        </View>
-        <Botao rotulo="Salvar horário" onPress={salvarHorario} carregando={salvando} />
-      </Folha>
-
-      {/* Fechar um dia */}
-      <Folha visivel={painel === 'bloqueio'} titulo="Fechar um dia ou horário" onFechar={() => setPainel(null)} ocupado={salvando}>
-        {erroPainel && <Aviso tipo="erro" texto={erroPainel} />}
-        <Campo rotulo="Motivo" value={motivo} onChangeText={setMotivo} placeholder="Ex.: Feriado de Natal" maxLength={80} />
-
-        <Text style={styles.rotulo}>{variosDias ? 'Primeiro dia' : 'Dia'}</Text>
-        <SeletorDia inicio={hoje} dias={180} valor={dtInicio} onChange={d => { setDtInicio(d); if (dtFim < d) setDtFim(d) }} />
-        <Text style={styles.sub}>{dataExtensaISO(dtInicio)}</Text>
-
-        <LinhaSwitch titulo="Vários dias seguidos" valor={variosDias} onChange={v => { setVariosDias(v); if (v && dtFim < dtInicio) setDtFim(dtInicio) }} />
-        {variosDias && (
-          <>
-            <Text style={styles.rotulo}>Último dia</Text>
-            <SeletorDia inicio={dtInicio} dias={90} valor={dtFim < dtInicio ? dtInicio : dtFim} onChange={setDtFim} />
-            <Text style={styles.sub}>{dataExtensaISO(dtFim < dtInicio ? dtInicio : dtFim)}</Text>
-          </>
-        )}
-
-        <LinhaSwitch titulo="Só algumas horas" detalhe="Desligado, fecha o dia inteiro." valor={soHoras} onChange={setSoHoras} />
-        {soHoras && (
-          <View style={styles.duas}>
-            <View style={{ flex: 1 }}>
-              <Campo rotulo="Das" value={hrIni} onChangeText={t => setHrIni(mascaraHora(t))} keyboardType="number-pad" placeholder="12:00" maxLength={5} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Campo rotulo="Até" value={hrFim} onChangeText={t => setHrFim(mascaraHora(t))} keyboardType="number-pad" placeholder="14:00" maxLength={5} />
-            </View>
-          </View>
-        )}
-        <Botao rotulo="Fechar" onPress={fecharPeriodo} carregando={salvando} />
-      </Folha>
-
-      {/* Link */}
-      <Folha visivel={painel === 'link'} titulo="Link de agendamento" onFechar={() => setPainel(null)} ocupado={salvando}>
-        {erroPainel && <Aviso tipo="erro" texto={erroPainel} />}
-        <Campo
-          rotulo="Nome no link"
-          value={slugNovo}
-          onChangeText={t => setSlugNovo(t.toLowerCase())}
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="meu-petshop"
-          maxLength={60}
-          ajuda={`Fica assim: ${urlDoSite(`/agendamento/${slugNovo.trim() || 'meu-petshop'}`) ?? ''}`}
-        />
-        <Text style={styles.sub}>Quem já tem o link antigo salvo precisa receber o novo.</Text>
-        <Botao rotulo="Salvar link" onPress={salvarSlug} carregando={salvando} />
-      </Folha>
-
-      {/* Antecedência */}
-      <Folha visivel={painel === 'janela'} titulo="Antecedência do agendamento online" onFechar={() => setPainel(null)} ocupado={salvando}>
-        {erroPainel && <Aviso tipo="erro" texto={erroPainel} />}
-        <Text style={styles.sub}>Vale só para o que o cliente agenda sozinho. A loja agenda para qualquer dia.</Text>
-        <Campo
-          rotulo="Mínimo antes do horário"
-          value={janelaNova.minValor}
-          onChangeText={t => setJanelaNova(j => ({ ...j, minValor: soDigitos(t) }))}
-          keyboardType="number-pad"
-          maxLength={3}
-        />
-        <Segmentos valor={janelaNova.minUnidade} onChange={v => setJanelaNova(j => ({ ...j, minUnidade: v }))} opcoes={UNIDADES} />
-        <Campo
-          rotulo="Máximo antes do horário"
-          value={janelaNova.maxValor}
-          onChangeText={t => setJanelaNova(j => ({ ...j, maxValor: soDigitos(t) }))}
-          keyboardType="number-pad"
-          maxLength={3}
-        />
-        <Segmentos valor={janelaNova.maxUnidade} onChange={v => setJanelaNova(j => ({ ...j, maxUnidade: v }))} opcoes={UNIDADES} />
-        <Botao rotulo="Salvar" onPress={salvarJanela} carregando={salvando} />
-      </Folha>
     </ScreenContainer>
   )
 }
 
-function ItemMenu({ icone: Icone, rotulo, onPress, ultimo }: { icone: ComponentType<IconeAbaProps>; rotulo: string; onPress: () => void; ultimo?: boolean }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.item, !ultimo && styles.itemBorda, pressed && styles.itemPressionado]}>
-      <Icone size={19} color={colors.primary600} />
-      <Text style={styles.itemRotulo}>{rotulo}</Text>
-      <IconeSeta size={17} color={colors.textFaint} />
-    </Pressable>
-  )
-}
-
 const styles = StyleSheet.create({
-  aviso: { marginBottom: spacing.md },
-  secaoPrimeira: { ...typography.heading.sm, color: colors.text, marginBottom: spacing.md },
-  secao: { ...typography.heading.sm, color: colors.text, marginTop: spacing.xl, marginBottom: spacing.md },
-  linha: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  duas: { flexDirection: 'row', gap: spacing.md },
-  titulo: { ...typography.body.lg, fontWeight: '600', color: colors.text },
-  apagado: { color: colors.textMuted },
-  sub: { ...typography.body.md, color: colors.textMuted },
-  link: { ...typography.body.md, color: colors.primary700 },
-  rotulo: { ...typography.label.md, color: colors.textDim },
-  alerta: { ...typography.body.sm, color: colors.warningFg, marginTop: 2 },
-  lixeira: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  menu: { backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
-  item: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, minHeight: 54 },
-  itemBorda: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  pilha: { gap: 24 },
+  cartao: { backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16 },
+  grupoTitulo: {
+    fontSize: 12.8,
+    lineHeight: 20.5,
+    fontWeight: '700',
+    letterSpacing: 0.77,
+    textTransform: 'uppercase',
+    color: '#858d99',
+    marginBottom: 12,
+  },
+  item: { padding: 16, gap: 16, borderRadius: 6 },
+  itemBorda: { borderTopWidth: 1, borderTopColor: '#f3f4f6' },
   itemPressionado: { backgroundColor: colors.surfaceMuted },
-  itemRotulo: { flex: 1, ...typography.body.lg, fontWeight: '600', color: colors.text },
+  linha: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  icone: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textos: { flex: 1, minWidth: 0 },
+  titulo: { fontSize: 16, lineHeight: 25.6, fontWeight: '600', color: colors.text },
+  descricao: { fontSize: 13, lineHeight: 20.8, color: colors.textMuted, marginTop: 2 },
+  // Embaixo do texto, alinhados com ele (40 do ícone + 16 de vão).
+  selos: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingLeft: 56 },
+  selo: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1 },
+  seloAtivo: { backgroundColor: 'rgba(167,243,208,0.6)', borderColor: 'rgba(16,185,129,0.35)' },
+  seloInativo: { backgroundColor: colors.border, borderColor: colors.borderStrong },
+  seloTexto: { fontSize: 12, lineHeight: 19.2, fontWeight: '600', letterSpacing: 0.48, textTransform: 'uppercase' },
 })

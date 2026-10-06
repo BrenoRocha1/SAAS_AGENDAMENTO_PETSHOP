@@ -2,7 +2,7 @@ import { IconeApp } from '@/components/IconeApp'
 import { Text } from '@/components/Texto'
 import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, View } from 'react-native'
-import { colors, spacing, typography } from '@/theme/theme'
+import { colors, spacing } from '@/theme/theme'
 
 // `onVoltar`: pra tela que não tem "tela anterior" na própria pilha (o
 // menu, aberto pela barra do topo) dizer pra onde a seta leva.
@@ -28,10 +28,12 @@ export function DetailHeader({ title, onVoltar }: { title: string; onVoltar?: ()
 }
 
 const styles = StyleSheet.create({
-  // Sem padding horizontal: quem usa já está dentro do ScreenContainer,
-  // que aplica a margem lateral padrão da tela.
-  row: { flexDirection: 'row', alignItems: 'center', paddingBottom: spacing.lg, gap: spacing.sm },
+  // Mesma faixa do cabeçalho das telas de dentro do site no celular: 52 de
+  // altura a partir do topo e 20 até o conteúdo. Sem padding horizontal:
+  // quem usa já está dentro do ScreenContainer, que dá a margem lateral —
+  // e a margem de cima dele é devolvida aqui (marginTop negativo).
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 52, marginTop: -spacing.lg, marginBottom: 20 },
   voltar: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginLeft: -spacing.xs },
-  title: { flex: 1, ...typography.heading.md, color: colors.text },
+  title: { flex: 1, fontSize: 18, lineHeight: 28.8, fontWeight: '700', color: colors.text },
   spacer: { width: 32 },
 })
