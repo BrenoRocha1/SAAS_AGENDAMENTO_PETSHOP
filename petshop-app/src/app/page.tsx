@@ -214,17 +214,6 @@ export default function LandingPage() {
               </Link>
             </div>
           </div>
-          <span className="sidebar-logo-text">
-            SA<span>IP</span>
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href="/login" className="btn btn-ghost btn-sm">
-            Entrar
-          </Link>
-          <Link href="/cadastro" className="btn btn-primary btn-sm">
-            Criar Conta
-          </Link>
         </div>
       </nav>
 
