@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import CenaCelular from '@/components/landing/CenaCelular'
 import './landing.css'
 
 /* ------------------------------------------------------------------ *
@@ -70,37 +71,6 @@ function useCounter(end: number, duration: number = 1500, suffix: string = '') {
   }, [end, duration])
 
   return { nodeRef: ref, value: `${value}${suffix}` }
-}
-
-/* ------------------------------------------------------------------ *
- * 3D TILT HOOK
- * ------------------------------------------------------------------ */
-function use3DTilt(maxDeg: number = 8) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [style, setStyle] = useState<React.CSSProperties>({})
-
-  const handleMove = useCallback((e: MouseEvent) => {
-    const el = ref.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    const centerX = rect.width / 2
-    const centerY = rect.height / 2
-    const rotateX = ((y - centerY) / centerY) * -maxDeg
-    const rotateY = ((x - centerX) / centerX) * maxDeg
-    setStyle({
-      transform: `perspective(1200px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`,
-    })
-  }, [maxDeg])
-
-  const handleLeave = useCallback(() => {
-    setStyle({
-      transform: 'perspective(1200px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
-    })
-  }, [])
-
-  return { nodeRef: ref, style, handleMove, handleLeave }
 }
 
 /* ------------------------------------------------------------------ *
@@ -202,7 +172,6 @@ function CursorGlow() {
  * ================================================================== */
 export default function LandingPage() {
   const revealRef = useScrollReveal()
-  const { nodeRef: tiltRef, style: tiltStyle } = use3DTilt(6)
 
   // Animated counters
   const { nodeRef: counter1Ref, value: counter1Value } = useCounter(180, 1800, '+')
@@ -291,73 +260,10 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Right — 3D App Preview */}
-            <div className="lp-hero-visual lp-reveal-right lp-delay-2" ref={tiltRef}>
-              <div className="lp-app-3d-wrapper" style={tiltStyle}>
-                {/* Floating badges */}
-                <div className="lp-float-badge lp-float-badge--top">
-                  <div className="lp-float-icon lp-float-icon--indigo">📅</div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--lp-primary)', fontFamily: 'var(--lp-font-mono)', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>
-                      Novo Agendamento
-                    </div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700 }}>Thor • Banho &amp; Tosa</div>
-                  </div>
-                </div>
-
-                <div className="lp-float-badge lp-float-badge--bottom">
-                  <div className="lp-float-icon lp-float-icon--green">📈</div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: '#047857', fontFamily: 'var(--lp-font-mono)', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>
-                      Taxa de Ocupação
-                    </div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700 }}>94.8% da capacidade</div>
-                  </div>
-                </div>
-
-                <div className="lp-app-frame">
-                  <div className="lp-app-bar">
-                    <span className="lp-app-dot" />
-                    <span className="lp-app-dot" />
-                    <span className="lp-app-dot" />
-                    <span className="lp-app-url">saip.app/painel — Centro de Comando</span>
-                  </div>
-                  <div className="lp-app-body">
-                    <div className="lp-app-body-header">
-                      <h4>Quinta-feira • 18 Atendimentos</h4>
-                      <span className="lp-app-status">
-                        <span className="lp-dot-live" />
-                        3 em andamento
-                      </span>
-                    </div>
-
-                    <div className="lp-schedule-item">
-                      <span className="lp-schedule-time">14:00</span>
-                      <div>
-                        <div className="lp-schedule-name">Thor — Golden Retriever</div>
-                        <div className="lp-schedule-detail">Banho Terapêutico + Tosa Higiênica • Lucas M.</div>
-                        <span className="lp-schedule-alert">⚠ Alergia a perfumes cítricos</span>
-                      </div>
-                    </div>
-
-                    <div className="lp-schedule-item">
-                      <span className="lp-schedule-time">14:30</span>
-                      <div>
-                        <div className="lp-schedule-name">Mel — Shih Tzu</div>
-                        <div className="lp-schedule-detail">Tosa Bebê Tesoura + Hidratação • Beatriz S.</div>
-                      </div>
-                    </div>
-
-                    <div className="lp-schedule-item">
-                      <span className="lp-schedule-time">15:30</span>
-                      <div>
-                        <div className="lp-schedule-name">Pipoca — Spitz Alemão</div>
-                        <div className="lp-schedule-detail">Desembolo + Banho de Hidratação • Lucas M.</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {/* Right — o celular 3D (ver components/landing/CenaCelular) */}
+            {/* minWidth 0: o palco de 420px não pode alargar a coluna no celular */}
+            <div className="lp-hero-visual lp-reveal-right lp-delay-2" style={{ minWidth: 0 }}>
+              <CenaCelular />
             </div>
           </div>
 

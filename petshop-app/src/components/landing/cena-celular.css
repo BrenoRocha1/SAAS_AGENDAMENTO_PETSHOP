@@ -1,0 +1,313 @@
+/* ==================================================================
+ * CENA DO CELULAR — o celular 3D do redesenho da landing (commit
+ * a10683d, do Breno), trazido para a landing atual a pedido do Pedro.
+ * O CSS é o daquele redesenho; só mudou o prefixo, de .lp- para .lpc-,
+ * porque a landing atual já usa .lp-float e o keyframe lp-pulse com
+ * outro papel. 3D em CSS puro (perspective / preserve-3d); o palco
+ * inclina pelas variáveis --rx/--ry, escritas pelo componente
+ * CenaCelular.
+ * ================================================================== */
+
+.lpc-scene {
+  --ink: #1b1535;
+  --ink-soft: #5a5576;
+  --line: #ece6f5;
+  --violet: #5b4bdb;
+  --violet-2: #7c6cf0;
+  --violet-soft: #efecff;
+  --coral: #ff7a59;
+  --coral-soft: #ffe9e2;
+  --sun-soft: #fff3d6;
+  --mint: #2ec4a0;
+  --mint-soft: #dcf7ef;
+
+  position: relative;
+  height: 420px;
+  display: grid;
+  place-items: start center;
+  /* O palco tem 420px fixos e é reduzido por escala: em tela estreita ele
+     é mais largo que a coluna. Centraliza a faixa inteira (sobra igual
+     dos dois lados) em vez de deixá-la colada à esquerda. */
+  justify-content: center;
+  min-width: 0;
+  perspective: 1500px;
+  touch-action: pan-y;
+}
+.lpc-stage {
+  --sc: 0.74;
+  transform-style: preserve-3d;
+  transform: scale(var(--sc)) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.18s ease-out;
+  transform-origin: top center;
+  will-change: transform;
+}
+.lpc-float {
+  position: relative;
+  width: 420px;
+  height: 540px;
+  transform-style: preserve-3d;
+  animation: lpc-bob 7s ease-in-out infinite;
+}
+@keyframes lpc-bob {
+  0%, 100% { transform: translateY(0) rotateY(-4deg); }
+  50% { transform: translateY(-14px) rotateY(4deg); }
+}
+
+.lpc-orb {
+  position: absolute;
+  border-radius: 50%;
+  transform: translateZ(-140px);
+}
+.lpc-orb--a {
+  width: 360px; height: 360px;
+  left: 30px; top: 70px;
+  background: radial-gradient(circle at 30% 30%, #b9afff, #7c6cf0 60%, #5b4bdb);
+  opacity: 0.9;
+  filter: blur(2px);
+}
+.lpc-orb--b {
+  width: 150px; height: 150px;
+  right: -10px; bottom: 30px;
+  background: radial-gradient(circle at 30% 30%, #ffd2bf, #ff7a59);
+  transform: translateZ(-60px);
+  animation: lpc-pulse 5s ease-in-out infinite;
+}
+@keyframes lpc-pulse {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.1; }
+}
+.lpc-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px dashed rgba(91, 75, 219, 0.35);
+}
+.lpc-ring--1 {
+  width: 440px; height: 440px;
+  left: -10px; top: 50px;
+  transform: translateZ(-70px) rotateX(70deg);
+  animation: lpc-spin-z 22s linear infinite;
+}
+.lpc-ring--2 {
+  width: 330px; height: 330px;
+  left: 45px; top: 105px;
+  border-color: rgba(255, 122, 89, 0.45);
+  transform: translateZ(-30px) rotateX(70deg);
+  animation: lpc-spin-z 16s linear infinite reverse;
+}
+@keyframes lpc-spin-z {
+  to { rotate: 360deg; }
+}
+
+/* celular */
+.lpc-phone {
+  position: absolute;
+  left: 85px; top: 20px;
+  width: 250px; height: 500px;
+  padding: 10px;
+  border-radius: 38px;
+  background: linear-gradient(160deg, #2a2250, #14102b);
+  box-shadow: 0 40px 70px -20px rgba(40, 25, 110, 0.65), inset 0 0 0 2px rgba(255, 255, 255, 0.08);
+  transform: translateZ(10px);
+}
+.lpc-phone-notch {
+  position: absolute;
+  left: 50%; top: 14px;
+  width: 78px; height: 20px;
+  margin-left: -39px;
+  border-radius: 12px;
+  background: #0e0b20;
+  z-index: 3;
+}
+.lpc-phone-screen {
+  position: relative;
+  height: 100%;
+  padding: 44px 14px 14px;
+  border-radius: 30px;
+  background: #fbfaff;
+  color: var(--ink);
+  overflow: hidden;
+  font-size: 0.74rem;
+}
+.lpc-ph-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.lpc-ph-head strong { display: block; font-size: 0.84rem; line-height: 1.2; }
+.lpc-ph-head small { color: var(--ink-soft); font-size: 0.66rem; }
+.lpc-ph-logo {
+  display: grid; place-items: center;
+  width: 34px; height: 34px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, var(--violet), var(--violet-2));
+}
+.lpc-ph-label { margin: 11px 0 6px; font-weight: 700; font-size: 0.68rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.05em; }
+.lpc-ph-pets, .lpc-ph-slots { display: flex; gap: 6px; flex-wrap: wrap; }
+.lpc-ph-pets span, .lpc-ph-slots span {
+  padding: 7px 11px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  font-weight: 700;
+}
+.lpc-ph-pets span.is-on { background: var(--violet-soft); border-color: var(--violet-2); color: var(--violet); }
+.lpc-ph-service {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  font-weight: 700;
+}
+.lpc-ph-service b { color: var(--violet); }
+.lpc-ph-slots span { animation: lpc-slot 8s infinite; }
+.lpc-ph-slots span:nth-child(1) { animation-delay: 0s; }
+.lpc-ph-slots span:nth-child(2) { animation-delay: 2s; }
+.lpc-ph-slots span:nth-child(3) { animation-delay: 4s; }
+.lpc-ph-slots span:nth-child(4) { animation-delay: 6s; }
+@keyframes lpc-slot {
+  0%, 22% { background: var(--violet); color: #fff; border-color: var(--violet); transform: translateY(-2px); }
+  28%, 100% { background: #fff; color: var(--ink); border-color: var(--line); transform: none; }
+}
+.lpc-ph-btn {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 14px;
+  text-align: center;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, var(--violet), var(--violet-2));
+  animation: lpc-press 8s infinite;
+}
+@keyframes lpc-press {
+  0%, 70%, 100% { transform: scale(1); }
+  74% { transform: scale(0.94); }
+  78% { transform: scale(1); }
+}
+.lpc-ph-toast {
+  position: absolute;
+  left: 12px; right: 12px; bottom: 14px;
+  padding: 11px 12px;
+  border-radius: 14px;
+  background: var(--mint);
+  color: #053d30;
+  font-weight: 800;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(16px);
+  animation: lpc-toast 8s infinite;
+}
+@keyframes lpc-toast {
+  0%, 74% { opacity: 0; transform: translateY(16px); }
+  80%, 95% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(16px); }
+}
+
+/* cartões flutuantes */
+.lpc-chip {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px 11px 12px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 22px 40px -16px rgba(40, 25, 110, 0.5);
+  white-space: nowrap;
+}
+.lpc-chip b { display: block; font-size: 0.8rem; line-height: 1.2; }
+.lpc-chip small { color: var(--ink-soft); font-size: 0.7rem; }
+.lpc-chip-ico {
+  display: grid; place-items: center;
+  width: 36px; height: 36px;
+  border-radius: 12px;
+  font-weight: 800;
+}
+.lpc-chip-ico--mint { background: var(--mint-soft); color: #0b8a6c; }
+.lpc-chip-ico--sun { background: var(--sun-soft); }
+.lpc-chip-ico--coral { background: var(--coral-soft); color: var(--coral); }
+.lpc-chip--1 { left: -22px; top: 92px; transform: translateZ(110px); animation: lpc-chip-a 6s ease-in-out infinite; }
+.lpc-chip--2 { right: -26px; top: 270px; transform: translateZ(90px); animation: lpc-chip-b 7s ease-in-out infinite; }
+.lpc-chip--3 { left: 4px; bottom: 56px; transform: translateZ(130px); animation: lpc-chip-a 8s ease-in-out infinite reverse; }
+@keyframes lpc-chip-a {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -12px; }
+}
+@keyframes lpc-chip-b {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 12px; }
+}
+
+/* cubo 3D */
+.lpc-cube {
+  position: absolute;
+  right: 18px; top: 14px;
+  width: 64px; height: 64px;
+  transform-style: preserve-3d;
+  transform: translateZ(70px);
+  animation: lpc-cube 14s linear infinite;
+}
+.lpc-cube i {
+  position: absolute;
+  inset: 0;
+  display: grid; place-items: center;
+  font-style: normal;
+  font-size: 1.7rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  backface-visibility: visible;
+}
+.lpc-cube i:nth-child(1) { transform: translateZ(32px); }
+.lpc-cube i:nth-child(2) { transform: rotateY(180deg) translateZ(32px); }
+.lpc-cube i:nth-child(3) { transform: rotateY(90deg) translateZ(32px); }
+.lpc-cube i:nth-child(4) { transform: rotateY(-90deg) translateZ(32px); }
+.lpc-cube i:nth-child(5) { transform: rotateX(90deg) translateZ(32px); }
+.lpc-cube i:nth-child(6) { transform: rotateX(-90deg) translateZ(32px); }
+@keyframes lpc-cube {
+  from { transform: translateZ(70px) rotateX(-20deg) rotateY(0deg); }
+  to { transform: translateZ(70px) rotateX(-20deg) rotateY(360deg); }
+}
+
+/* Texto da cena: independe da tipografia da seção onde ela entra. */
+.lpc-scene,
+.lpc-scene * {
+  box-sizing: border-box;
+}
+.lpc-scene {
+  font-family: var(--font-body, 'Inter', system-ui, sans-serif);
+  font-style: normal;
+  line-height: 1.6;
+  letter-spacing: normal;
+  text-transform: none;
+  text-align: left;
+  color: var(--ink);
+}
+
+/* Tela estreita: um pouco menor, pros cartões não encostarem na borda. */
+@media (max-width: 420px) {
+  .lpc-scene { height: 380px; }
+  .lpc-stage { --sc: 0.66; }
+}
+
+@media (min-width: 640px) {
+  .lpc-scene { height: 480px; }
+  .lpc-stage { --sc: 0.86; }
+}
+
+@media (min-width: 900px) {
+  .lpc-scene { height: 590px; place-items: center; }
+  .lpc-stage { --sc: 1; transform-origin: center center; }
+}
+
+/* Duas colunas ainda estreitas (notebook pequeno): o palco em tamanho
+   cheio passaria da coluna e os cartões encostariam na borda. */
+@media (min-width: 900px) and (max-width: 1099px) {
+  .lpc-scene { height: 520px; }
+  .lpc-stage { --sc: 0.86; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lpc-scene *,
+  .lpc-scene *::before,
+  .lpc-scene *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
