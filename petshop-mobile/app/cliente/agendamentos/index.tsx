@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { BarraTopo } from '@/components/BarraTopo'
 import { Card } from '@/components/Card'
@@ -286,7 +286,7 @@ export default function AgendamentosClienteScreen() {
           </View>
           <View style={{ alignItems: 'flex-end', gap: 4 }}>
             <Text style={styles.valor}>{formatarMoeda(v.valor)}</Text>
-            {!emDestaque && <Ionicons name={aberta ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textFaint} />}
+            {!emDestaque && <IconeApp name={aberta ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textFaint} />}
           </View>
         </Pressable>
         {aberta && renderDetalhes(v)}
@@ -308,7 +308,7 @@ export default function AgendamentosClienteScreen() {
           accessibilityLabel="Novo agendamento"
           style={({ pressed }) => [styles.novo, pressed && { opacity: 0.8 }]}
         >
-          <Ionicons name="add" size={18} color={colors.white} />
+          <IconeApp name="add" size={18} color={colors.white} />
           <Text style={styles.novoTexto}>Novo</Text>
         </Pressable>
       </View>
@@ -379,7 +379,7 @@ export default function AgendamentosClienteScreen() {
               accessibilityState={{ selected: nota === n }}
               style={styles.estrelaBotao}
             >
-              <Ionicons name={n <= nota ? 'star' : 'star-outline'} size={34} color={n <= nota ? colors.accent500 : colors.textFaint} />
+              <IconeApp name={n <= nota ? 'star' : 'star-outline'} size={34} color={n <= nota ? colors.accent500 : colors.textFaint} />
             </Pressable>
           ))}
         </View>
@@ -394,7 +394,7 @@ function Estrelas({ nota }: { nota: number }) {
   return (
     <View style={{ flexDirection: 'row', gap: 1 }} accessibilityLabel={`${nota} de 5 estrelas`}>
       {[1, 2, 3, 4, 5].map(n => (
-        <Ionicons key={n} name={n <= nota ? 'star' : 'star-outline'} size={14} color={n <= nota ? colors.accent500 : colors.textFaint} />
+        <IconeApp key={n} name={n <= nota ? 'star' : 'star-outline'} size={14} color={n <= nota ? colors.accent500 : colors.textFaint} />
       ))}
     </View>
   )

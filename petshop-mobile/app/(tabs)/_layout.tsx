@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { Tabs } from 'expo-router/js-tabs'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -50,7 +50,7 @@ function BloqueioAcesso({ titulo, mensagem, onSignOut }: { titulo: string; mensa
   return (
     <SafeAreaView style={styles.bloqueioSafe}>
       <View style={styles.bloqueioContent}>
-        <Ionicons name="lock-closed-outline" size={32} color={colors.textFaint} />
+        <IconeApp name="lock-closed-outline" size={32} color={colors.textFaint} />
         <Text style={styles.bloqueioTitulo}>{titulo}</Text>
         <Text style={styles.bloqueioMensagem}>{mensagem}</Text>
         <Pressable style={styles.bloqueioBotao} onPress={onSignOut}>

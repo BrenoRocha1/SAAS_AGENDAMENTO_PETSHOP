@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
@@ -311,7 +311,7 @@ export default function TaxiDogConfigScreen() {
 function Remover({ rotulo, onPress }: { rotulo: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" style={styles.remover}>
-      <Ionicons name="trash-outline" size={17} color={colors.dangerFg} />
+      <IconeApp name="trash-outline" size={17} color={colors.dangerFg} />
       <Text style={styles.removerTexto}>{rotulo}</Text>
     </Pressable>
   )

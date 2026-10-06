@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BarraTopo } from '@/components/BarraTopo'
 import { AppointmentRow } from '@/components/AppointmentRow'
@@ -49,7 +49,7 @@ export default function AgendamentosScreen() {
             accessibilityLabel="Novo agendamento"
             style={({ pressed }) => [styles.novo, pressed && styles.pressionado]}
           >
-            <Ionicons name="add" size={18} color={colors.white} />
+            <IconeApp name="add" size={18} color={colors.white} />
             <Text style={styles.novoTexto}>Novo</Text>
           </Pressable>
         </View>
@@ -62,7 +62,7 @@ export default function AgendamentosScreen() {
             accessibilityLabel="Dia anterior"
             style={styles.seta}
           >
-            <Ionicons name="chevron-back" size={20} color={colors.text} />
+            <IconeApp name="chevron-back" size={20} color={colors.text} />
           </Pressable>
           <View style={styles.diaTexto}>
             <Text style={styles.dia} numberOfLines={1}>{dataExtensaISO(data)}</Text>
@@ -81,7 +81,7 @@ export default function AgendamentosScreen() {
             accessibilityLabel="Próximo dia"
             style={styles.seta}
           >
-            <Ionicons name="chevron-forward" size={20} color={colors.text} />
+            <IconeApp name="chevron-forward" size={20} color={colors.text} />
           </Pressable>
         </View>
       </View>

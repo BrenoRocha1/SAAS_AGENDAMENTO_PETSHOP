@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { BarraTopo } from '@/components/BarraTopo'
 import { Card } from '@/components/Card'
@@ -59,7 +59,7 @@ export default function PetsClienteScreen() {
           accessibilityLabel="Novo pet"
           style={({ pressed }) => [styles.novo, pressed && { opacity: 0.8 }]}
         >
-          <Ionicons name="add" size={18} color={colors.white} />
+          <IconeApp name="add" size={18} color={colors.white} />
           <Text style={styles.novoTexto}>Novo</Text>
         </Pressable>
       </View>
@@ -77,7 +77,7 @@ export default function PetsClienteScreen() {
                 <Text style={styles.nome} numberOfLines={1}>{p.nome}</Text>
                 <Text style={styles.sub} numberOfLines={1}>{[p.especie, p.raca, p.porte].filter(Boolean).join(' • ')}</Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+              <IconeApp name="chevron-forward" size={18} color={colors.textFaint} />
             </Card>
           ))}
         </View>

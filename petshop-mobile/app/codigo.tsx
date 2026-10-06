@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ilustracao } from '@/components/Ilustracao'
@@ -82,7 +82,7 @@ export default function CodigoScreen() {
 
           {erro && (
             <View style={styles.alerta} accessibilityRole="alert">
-              <Ionicons name="alert-circle" size={16} color={colors.dangerFg} />
+              <IconeApp name="alert-circle" size={16} color={colors.dangerFg} />
               <Text style={styles.alertaTexto}>{erro}</Text>
             </View>
           )}

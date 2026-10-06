@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Avatar } from './Avatar'
 import { Botao } from './Botao'
@@ -78,7 +78,7 @@ export function TrocarFoto({ nome, fotoUrl, enviar, remover, onMudou, rotulo = '
       >
         <Avatar nome={nome} fotoUrl={fotoUrl} size={84} />
         <View style={styles.selo}>
-          <Ionicons name="camera" size={14} color={colors.white} />
+          <IconeApp name="camera" size={14} color={colors.white} />
         </View>
       </Pressable>
       <View style={styles.botoes}>

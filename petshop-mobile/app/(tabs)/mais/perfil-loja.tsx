@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Avatar } from '@/components/Avatar'
@@ -242,7 +243,7 @@ export default function PerfilLojaScreen() {
 function InfoRow({ icon, label, valor }: { icon: keyof typeof Ionicons.glyphMap; label: string; valor: string }) {
   return (
     <View style={styles.infoRow}>
-      <Ionicons name={icon} size={16} color={colors.textFaint} />
+      <IconeApp name={icon} size={16} color={colors.textFaint} />
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValor}>{valor}</Text>
     </View>

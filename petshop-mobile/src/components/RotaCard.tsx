@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { hojeBrasilISO } from '@/lib/agenda'
@@ -45,7 +45,7 @@ export function RotaCard({ rota: r, onPress }: { rota: Rota; onPress: () => void
       </Text>
       {trajeto && (
         <View style={styles.trajeto}>
-          <Ionicons name="navigate-outline" size={14} color={colors.textMuted} />
+          <IconeApp name="navigate-outline" size={14} color={colors.textMuted} />
           <Text style={styles.linha}>{trajeto}</Text>
         </View>
       )}

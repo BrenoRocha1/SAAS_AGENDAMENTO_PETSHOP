@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { EmptyState } from '@/components/EmptyState'
@@ -115,7 +115,7 @@ export default function MontarRotaScreen() {
         onPress={() => alternar(t)}
         style={[styles.trecho, marcado && styles.trechoMarcado, aguardandoAceite && { opacity: 0.55 }]}
       >
-        <Ionicons name={marcado ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={marcado ? colors.primary600 : colors.textFaint} />
+        <IconeApp name={marcado ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={marcado ? colors.primary600 : colors.textFaint} />
         <View style={{ flex: 1 }}>
           <View style={styles.trechoTopo}>
             <Text style={styles.trechoPet}>{t.pet_nome}</Text>
@@ -146,7 +146,7 @@ export default function MontarRotaScreen() {
 
       {erro && (
         <View style={styles.alertaErro}>
-          <Ionicons name="alert-circle" size={16} color={colors.dangerFg} />
+          <IconeApp name="alert-circle" size={16} color={colors.dangerFg} />
           <Text style={styles.alertaErroTexto}>{erro}</Text>
         </View>
       )}

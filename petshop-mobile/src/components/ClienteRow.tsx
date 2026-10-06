@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { StyleSheet, Text, View } from 'react-native'
 import { Card } from './Card'
 import { Avatar } from './Avatar'
@@ -19,10 +19,10 @@ export function ClienteRow({ cliente, onPress }: { cliente: ClienteLinha; onPres
         </Text>
       </View>
       <View style={styles.petsBadge}>
-        <Ionicons name="paw-outline" size={13} color={colors.textMuted} />
+        <IconeApp name="paw-outline" size={13} color={colors.textMuted} />
         <Text style={styles.petsTexto}>{cliente.qtd_pets}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+      <IconeApp name="chevron-forward" size={18} color={colors.textFaint} />
     </Card>
   )
 }

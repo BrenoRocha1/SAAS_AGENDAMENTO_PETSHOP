@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { format, subDays } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { BarraTopo } from '@/components/BarraTopo'
@@ -82,11 +82,11 @@ export default function InicioTaxiDogScreen() {
         <>
           {avulsas.disponiveis > 0 && (
             <Pressable style={styles.disponiveis} onPress={() => router.push('/taxidog/corridas' as never)}>
-              <Ionicons name="hand-right-outline" size={20} color={colors.primary600} />
+              <IconeApp name="hand-right-outline" size={20} color={colors.primary600} />
               <Text style={styles.disponiveisTexto}>
                 {avulsas.disponiveis === 1 ? '1 corrida disponível para pegar hoje' : `${avulsas.disponiveis} corridas disponíveis para pegar hoje`}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.primary600} />
+              <IconeApp name="chevron-forward" size={16} color={colors.primary600} />
             </Pressable>
           )}
 
@@ -123,9 +123,9 @@ export default function InicioTaxiDogScreen() {
           )}
 
           <Pressable style={styles.ctaTodas} onPress={() => router.push('/taxidog/rotas' as never)}>
-            <Ionicons name="map-outline" size={18} color={colors.primary600} />
+            <IconeApp name="map-outline" size={18} color={colors.primary600} />
             <Text style={styles.ctaTexto}>Ver todas as rotas</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.primary600} />
+            <IconeApp name="chevron-forward" size={16} color={colors.primary600} />
           </Pressable>
         </>
       )}
@@ -149,7 +149,7 @@ function RotaDestaque({ rota: r, onAbrir }: { rota: Rota; onAbrir: () => void })
       </Text>
       {proxima && (
         <View style={styles.destaqueProxima}>
-          <Ionicons name={proxima.local === 'loja' ? 'storefront-outline' : 'location-outline'} size={16} color={colors.primary600} />
+          <IconeApp name={proxima.local === 'loja' ? 'storefront-outline' : 'location-outline'} size={16} color={colors.primary600} />
           <Text style={styles.destaqueProximaTexto} numberOfLines={1}>
             {andamento ? 'Próxima parada: ' : 'Primeira parada: '}{tituloParada(proxima)}
           </Text>

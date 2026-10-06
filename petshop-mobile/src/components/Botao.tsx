@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { ActivityIndicator, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
@@ -45,7 +46,7 @@ export function Botao({ rotulo, onPress, variante = 'primario', icone, carregand
         <ActivityIndicator color={cor.texto} />
       ) : (
         <>
-          {icone && <Ionicons name={icone} size={compacto ? 16 : 18} color={cor.texto} />}
+          {icone && <IconeApp name={icone} size={compacto ? 16 : 18} color={cor.texto} />}
           <Text style={[compacto ? styles.textoCompacto : styles.texto, { color: cor.texto }]} numberOfLines={1}>
             {rotulo}
           </Text>

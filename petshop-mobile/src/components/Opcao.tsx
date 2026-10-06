@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
@@ -23,7 +23,7 @@ export function Opcao({ titulo, detalhe, lateral, selecionada, onPress, desativa
       accessibilityState={{ selected: selecionada, disabled: !!desativada }}
       style={({ pressed }) => [styles.linha, selecionada && styles.selecionada, (pressed || desativada) && styles.apagada]}
     >
-      <Ionicons
+      <IconeApp
         name={selecionada ? 'radio-button-on' : 'radio-button-off'}
         size={20}
         color={selecionada ? colors.primary600 : colors.textFaint}

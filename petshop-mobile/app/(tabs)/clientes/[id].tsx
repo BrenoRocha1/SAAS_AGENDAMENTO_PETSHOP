@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Avatar } from '@/components/Avatar'
@@ -133,14 +134,14 @@ export default function ClienteDetalheScreen() {
 
       <View style={styles.acoes}>
         <Pressable style={styles.acaoBotao} onPress={() => Linking.openURL(`tel:${cliente.telefone}`)}>
-          <Ionicons name="call-outline" size={18} color={colors.primary600} />
+          <IconeApp name="call-outline" size={18} color={colors.primary600} />
           <Text style={styles.acaoTexto}>Ligar</Text>
         </Pressable>
         <Pressable
           style={styles.acaoBotao}
           onPress={() => Linking.openURL(`https://wa.me/55${cliente.telefone.replace(/\D/g, '')}`)}
         >
-          <Ionicons name="logo-whatsapp" size={18} color={colors.primary600} />
+          <IconeApp name="logo-whatsapp" size={18} color={colors.primary600} />
           <Text style={styles.acaoTexto}>WhatsApp</Text>
         </Pressable>
       </View>
@@ -186,7 +187,7 @@ export default function ClienteDetalheScreen() {
                 <Text style={styles.petNome}>{pet.nome}</Text>
                 <Text style={styles.petRaca}>{pet.raca}</Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+              <IconeApp name="chevron-forward" size={18} color={colors.textFaint} />
             </Card>
           ))}
         </View>
@@ -206,7 +207,7 @@ export default function ClienteDetalheScreen() {
 function InfoRow({ icon, label, valor }: { icon: keyof typeof Ionicons.glyphMap; label: string; valor: string }) {
   return (
     <View style={styles.infoRow}>
-      <Ionicons name={icon} size={16} color={colors.textFaint} />
+      <IconeApp name={icon} size={16} color={colors.textFaint} />
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValor} numberOfLines={1}>
         {valor}

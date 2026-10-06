@@ -11,7 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ilustracao } from '@/components/Ilustracao'
@@ -77,14 +77,14 @@ export default function LoginScreen() {
 
           {erro && (
             <View style={styles.alerta}>
-              <Ionicons name="alert-circle" size={16} color={colors.dangerFg} />
+              <IconeApp name="alert-circle" size={16} color={colors.dangerFg} />
               <Text style={styles.alertaTexto}>{erro}</Text>
             </View>
           )}
 
           {info && (
             <View style={[styles.alerta, styles.alertaInfo]}>
-              <Ionicons name="information-circle" size={16} color={colors.infoFg} />
+              <IconeApp name="information-circle" size={16} color={colors.infoFg} />
               <Text style={[styles.alertaTexto, { color: colors.infoFg }]}>{info}</Text>
             </View>
           )}
@@ -116,7 +116,7 @@ export default function LoginScreen() {
                 style={[styles.input, styles.senhaInput]}
               />
               <Pressable onPress={() => setMostrarSenha(v => !v)} hitSlop={8} style={styles.olho}>
-                <Ionicons name={mostrarSenha ? 'eye-off-outline' : 'eye-outline'} size={19} color={colors.textMuted} />
+                <IconeApp name={mostrarSenha ? 'eye-off-outline' : 'eye-outline'} size={19} color={colors.textMuted} />
               </Pressable>
             </View>
           </View>
@@ -150,7 +150,7 @@ export default function LoginScreen() {
               <ActivityIndicator color={colors.text} />
             ) : (
               <>
-                <Ionicons name="logo-google" size={18} color={colors.text} />
+                <IconeApp name="logo-google" size={18} color={colors.text} />
                 <Text style={styles.botaoGoogleTexto}>Entrar com Google</Text>
               </>
             )}

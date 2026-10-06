@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { StyleSheet, Text, View } from 'react-native'
 import { Ilustracao, type NomeIlustracao } from '@/components/Ilustracao'
 import { colors, spacing, typography } from '@/theme/theme'
@@ -18,7 +19,7 @@ export function EmptyState({ icon, title, subtitle, ilustracao }: Props) {
         <Ilustracao nome={ilustracao} altura={120} style={styles.ilustracao} />
       ) : (
         <View style={styles.iconWrap}>
-          <Ionicons name={icon} size={26} color={colors.textFaint} />
+          <IconeApp name={icon} size={26} color={colors.textFaint} />
         </View>
       )}
       <Text style={styles.title}>{title}</Text>

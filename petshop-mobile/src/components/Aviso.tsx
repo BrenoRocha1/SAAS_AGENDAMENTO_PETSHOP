@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
@@ -16,7 +17,7 @@ export function Aviso({ tipo = 'info', texto, style }: { tipo?: Tipo; texto: str
   const e = ESTILO[tipo]
   return (
     <View style={[styles.caixa, { backgroundColor: e.fundo }, style]} accessibilityRole={tipo === 'erro' ? 'alert' : undefined}>
-      <Ionicons name={e.icone} size={17} color={e.texto} style={styles.icone} />
+      <IconeApp name={e.icone} size={17} color={e.texto} style={styles.icone} />
       <Text style={[styles.texto, { color: e.texto }]}>{texto}</Text>
     </View>
   )

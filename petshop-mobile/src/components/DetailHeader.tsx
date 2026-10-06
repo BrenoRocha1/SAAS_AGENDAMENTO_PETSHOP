@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, spacing, typography } from '@/theme/theme'
@@ -16,7 +16,7 @@ export function DetailHeader({ title, onVoltar }: { title: string; onVoltar?: ()
         accessibilityLabel="Voltar"
         style={styles.voltar}
       >
-        <Ionicons name="chevron-back" size={22} color={colors.text} />
+        <IconeApp name="chevron-back" size={22} color={colors.text} />
       </Pressable>
       <Text style={styles.title} numberOfLines={1}>
         {title}

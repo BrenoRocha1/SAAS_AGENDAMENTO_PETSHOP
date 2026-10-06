@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { usePathname, useRouter } from 'expo-router'
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -139,7 +139,7 @@ export function MenuLateral({ visivel, onFechar }: Props) {
                 <Pressable onPress={() => trocarArea('taxidog')} accessibilityRole="button" style={({ pressed }) => [styles.item, pressed && styles.pressionado]}>
                   <IconeCorridas size={20} color={colors.textMuted} />
                   <Text style={styles.itemLabel} numberOfLines={1}>Área do TaxiDog</Text>
-                  <Ionicons name="swap-horizontal" size={16} color={colors.textFaint} />
+                  <IconeApp name="swap-horizontal" size={16} color={colors.textFaint} />
                 </Pressable>
               </>
             )}
@@ -149,7 +149,7 @@ export function MenuLateral({ visivel, onFechar }: Props) {
                 <Pressable onPress={() => trocarArea('loja')} accessibilityRole="button" style={({ pressed }) => [styles.item, pressed && styles.pressionado]}>
                   <IconePetshops size={20} color={colors.textMuted} />
                   <Text style={styles.itemLabel} numberOfLines={1}>Painel da loja</Text>
-                  <Ionicons name="swap-horizontal" size={16} color={colors.textFaint} />
+                  <IconeApp name="swap-horizontal" size={16} color={colors.textFaint} />
                 </Pressable>
               </>
             )}

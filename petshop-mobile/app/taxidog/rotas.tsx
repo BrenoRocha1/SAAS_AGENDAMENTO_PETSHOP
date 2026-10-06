@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { format, subDays } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { BarraTopo } from '@/components/BarraTopo'
@@ -44,7 +44,7 @@ export default function RotasScreen() {
       <Text style={styles.subtitle}>Só as de hoje</Text>
 
       <Pressable style={styles.montar} onPress={() => router.push('/taxidog/montar-rota' as never)}>
-        <Ionicons name="add-circle" size={20} color={colors.white} />
+        <IconeApp name="add-circle" size={20} color={colors.white} />
         <Text style={styles.montarTexto}>Montar rota</Text>
       </Pressable>
 

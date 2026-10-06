@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { StyleSheet, Text, View } from 'react-native'
 import { Card } from './Card'
 import { Avatar } from './Avatar'
@@ -52,7 +52,7 @@ export function CorridaCard({ corrida: c, rota, onPress }: { corrida: Corrida; r
         </View>
         <Text style={styles.linha} numberOfLines={1}>{c.cliente_nome}</Text>
         <View style={styles.metaRow}>
-          <Ionicons name="location-outline" size={13} color={colors.textFaint} />
+          <IconeApp name="location-outline" size={13} color={colors.textFaint} />
           <Text style={styles.meta} numberOfLines={1}>{c.logradouro}, {c.numero} · {c.bairro}</Text>
         </View>
         <View style={styles.rodape}>

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ScreenContainer } from '@/components/ScreenContainer'
@@ -151,7 +152,7 @@ export default function PetDetalheScreen() {
           <Card style={styles.tutorCard} onPress={() => router.push(`/clientes/${pet.cliente!.id_cliente}`)}>
             <Avatar nome={pet.cliente.nome} size={40} />
             <Text style={styles.tutorNome}>{pet.cliente.nome}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+            <IconeApp name="chevron-forward" size={18} color={colors.textFaint} />
           </Card>
         </>
       )}
@@ -170,7 +171,7 @@ function safeFormatDate(iso: string): string {
 function InfoRow({ icon, label, valor }: { icon: keyof typeof Ionicons.glyphMap; label: string; valor: string }) {
   return (
     <View style={styles.infoRow}>
-      <Ionicons name={icon} size={16} color={colors.textFaint} />
+      <IconeApp name={icon} size={16} color={colors.textFaint} />
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValor} numberOfLines={1}>
         {valor}

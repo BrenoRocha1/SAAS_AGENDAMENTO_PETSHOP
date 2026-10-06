@@ -3,6 +3,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { supabase } from '@/lib/supabase'
 import { assinarComSessao } from '@/lib/realtime'
 import { hojeBrasilISO } from '@/lib/agenda'
@@ -235,13 +236,13 @@ export function TaxiDogProvider({ children }: { children: ReactNode }) {
         <Animated.View pointerEvents="box-none" style={[styles.avisoWrap, { top: insets.top + spacing.sm, opacity: opacidade }]}>
           <Pressable onPress={abrirAviso} style={styles.aviso}>
             <View style={styles.avisoIcone}>
-              <Ionicons name={aviso.icone} size={18} color={colors.white} />
+              <IconeApp name={aviso.icone} size={18} color={colors.white} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.avisoTitulo}>{aviso.titulo}</Text>
               <Text style={styles.avisoMensagem} numberOfLines={2}>{aviso.mensagem}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.white} />
+            <IconeApp name="chevron-forward" size={18} color={colors.white} />
           </Pressable>
         </Animated.View>
       )}

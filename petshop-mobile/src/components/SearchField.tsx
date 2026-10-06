@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { StyleSheet, TextInput, View } from 'react-native'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
@@ -11,7 +11,7 @@ interface Props {
 export function SearchField({ value, onChangeText, placeholder = 'Buscar...' }: Props) {
   return (
     <View style={styles.wrap}>
-      <Ionicons name="search" size={18} color={colors.textFaint} style={styles.icon} />
+      <IconeApp name="search" size={18} color={colors.textFaint} style={styles.icon} />
       <TextInput
         value={value}
         onChangeText={onChangeText}

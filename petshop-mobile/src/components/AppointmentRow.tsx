@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { StyleSheet, Text, View } from 'react-native'
 import { Card } from './Card'
 import { StatusBadge } from './StatusBadge'
@@ -28,14 +28,14 @@ export function AppointmentRow({ item, onPress, atrasado }: { item: Agendamento;
           {item.cliente?.nome ?? '—'}
         </Text>
         <View style={styles.metaRow}>
-          <Ionicons name="cut-outline" size={13} color={colors.textFaint} />
+          <IconeApp name="cut-outline" size={13} color={colors.textFaint} />
           <Text style={styles.meta} numberOfLines={1}>
             {item.servico?.nome ?? 'Serviço'}
           </Text>
         </View>
         {item.funcionario?.nome && (
           <View style={styles.metaRow}>
-            <Ionicons name="person-outline" size={13} color={colors.textFaint} />
+            <IconeApp name="person-outline" size={13} color={colors.textFaint} />
             <Text style={styles.meta} numberOfLines={1}>
               {item.funcionario.nome}
             </Text>

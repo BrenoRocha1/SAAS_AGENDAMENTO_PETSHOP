@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
@@ -44,7 +44,7 @@ export default function MaisTaxiDogScreen() {
             <Text style={styles.itemLabel}>Painel da loja</Text>
             <Text style={styles.itemDesc}>Agendamentos, clientes e pets</Text>
           </View>
-          <Ionicons name="swap-horizontal" size={18} color={colors.textFaint} />
+          <IconeApp name="swap-horizontal" size={18} color={colors.textFaint} />
         </Pressable>
       )}
 

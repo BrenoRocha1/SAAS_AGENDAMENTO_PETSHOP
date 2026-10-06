@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { format, parseISO } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
@@ -136,7 +137,7 @@ export default function CorridaDetalheScreen() {
 
       {c.status === 'pronto_entrega' && (
         <View style={styles.bannerPronto}>
-          <Ionicons name="checkmark-done-circle" size={22} color={colors.successFg} />
+          <IconeApp name="checkmark-done-circle" size={22} color={colors.successFg} />
           <View style={{ flex: 1 }}>
             <Text style={styles.bannerTitulo}>{c.pet_nome} está pronto para entrega.</Text>
             <Text style={styles.bannerTexto}>Endereço: {c.logradouro}, {c.numero}</Text>
@@ -155,19 +156,19 @@ export default function CorridaDetalheScreen() {
 
       {erro && (
         <View style={styles.alertaErro}>
-          <Ionicons name="alert-circle" size={16} color={colors.dangerFg} />
+          <IconeApp name="alert-circle" size={16} color={colors.dangerFg} />
           <Text style={styles.alertaErroTexto}>{erro}</Text>
         </View>
       )}
 
       {rota && (
         <Pressable style={styles.bannerRota} onPress={() => router.push(`/taxidog/rota/${rota.id_rota}` as never)}>
-          <Ionicons name="map" size={20} color={colors.primary600} />
+          <IconeApp name="map" size={20} color={colors.primary600} />
           <View style={{ flex: 1 }}>
             <Text style={styles.bannerRotaTitulo}>Esta corrida está na Rota #{rota.numero}</Text>
             <Text style={styles.bannerRotaTexto}>As etapas dela são feitas pela tela da rota.</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.primary600} />
+          <IconeApp name="chevron-forward" size={18} color={colors.primary600} />
         </Pressable>
       )}
 
@@ -175,7 +176,7 @@ export default function CorridaDetalheScreen() {
       <View style={styles.acoes}>
         {!aguardandoServico && c.status !== 'concluida' && c.status !== 'cancelada' && (
           <Pressable style={styles.botaoRota} onPress={() => abrirMapa(destino)}>
-            <Ionicons name="navigate" size={18} color={colors.primary600} />
+            <IconeApp name="navigate" size={18} color={colors.primary600} />
             <Text style={styles.botaoRotaTexto}>{indoParaLoja ? 'Abrir rota até a loja' : 'Abrir rota'}</Text>
           </Pressable>
         )}
@@ -190,7 +191,7 @@ export default function CorridaDetalheScreen() {
         )}
         {aguardandoAceite && (
           <View style={styles.aguardando}>
-            <Ionicons name="hourglass-outline" size={18} color={colors.warningFg} />
+            <IconeApp name="hourglass-outline" size={18} color={colors.warningFg} />
             <Text style={styles.aguardandoTexto}>
               {semTaxiDog
                 ? 'Aguardando aceite da loja. Assim que ela aceitar, você pode pegar esta corrida.'
@@ -209,7 +210,7 @@ export default function CorridaDetalheScreen() {
         )}
         {aguardandoServico && !rota && (
           <View style={styles.aguardando}>
-            <Ionicons name="hourglass-outline" size={18} color={colors.warningFg} />
+            <IconeApp name="hourglass-outline" size={18} color={colors.warningFg} />
             <Text style={styles.aguardandoTexto}>
               {c.status === 'entregue_loja'
                 ? 'Pet na loja. Você recebe um aviso quando o serviço terminar e ele estiver pronto para entrega.'
@@ -222,17 +223,17 @@ export default function CorridaDetalheScreen() {
       <Card style={styles.infoCard}>
         <InfoRow icon="person-outline" label="Tutor" valor={c.cliente_nome} />
         <View style={styles.infoRow}>
-          <Ionicons name="call-outline" size={16} color={colors.textFaint} />
+          <IconeApp name="call-outline" size={16} color={colors.textFaint} />
           <Text style={styles.infoLabel}>Telefone</Text>
           <Text style={styles.infoValor}>{formatarTelefone(c.cliente_telefone)}</Text>
         </View>
         <View style={styles.contatoRow}>
           <Pressable style={styles.contatoBotao} onPress={() => Linking.openURL(`tel:${telefone}`)}>
-            <Ionicons name="call" size={16} color={colors.primary600} />
+            <IconeApp name="call" size={16} color={colors.primary600} />
             <Text style={styles.contatoTexto}>Ligar</Text>
           </Pressable>
           <Pressable style={styles.contatoBotao} onPress={() => Linking.openURL(`https://wa.me/55${telefone}`)}>
-            <Ionicons name="logo-whatsapp" size={16} color={colors.primary600} />
+            <IconeApp name="logo-whatsapp" size={16} color={colors.primary600} />
             <Text style={styles.contatoTexto}>WhatsApp</Text>
           </Pressable>
         </View>
@@ -279,7 +280,7 @@ export default function CorridaDetalheScreen() {
 function InfoRow({ icon, label, valor }: { icon: keyof typeof Ionicons.glyphMap; label: string; valor: string }) {
   return (
     <View style={styles.infoRow}>
-      <Ionicons name={icon} size={16} color={colors.textFaint} />
+      <IconeApp name={icon} size={16} color={colors.textFaint} />
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValor}>{valor}</Text>
     </View>

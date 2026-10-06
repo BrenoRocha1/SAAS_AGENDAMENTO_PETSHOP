@@ -1,7 +1,7 @@
 import { useCallback, useState, type ComponentType } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { IconeCorridas, IconeDinheiro, IconeEscudo, IconePetshops, IconeSeta, type IconeAbaProps } from '@/components/IconesAbas'
@@ -390,7 +390,7 @@ export default function ConfiguracoesScreen() {
                 accessibilityLabel={`Reabrir ${b.motivo}`}
                 style={styles.lixeira}
               >
-                <Ionicons name="trash-outline" size={20} color={colors.dangerFg} />
+                <IconeApp name="trash-outline" size={20} color={colors.dangerFg} />
               </Pressable>
             </Card>
           ))}

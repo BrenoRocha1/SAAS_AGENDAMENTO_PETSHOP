@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
@@ -392,11 +392,11 @@ export default function PlanosScreen() {
             <View key={s.id_servico} style={styles.servico}>
               <Text style={[styles.servicoNome, qtd === 0 && styles.apagado]} numberOfLines={2}>{s.nome}</Text>
               <Pressable onPress={() => mudarQuantidade(s.id_servico, -1)} disabled={qtd === 0} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Menos ${s.nome}`} style={styles.passo}>
-                <Ionicons name="remove" size={18} color={qtd === 0 ? colors.textFaint : colors.text} />
+                <IconeApp name="remove" size={18} color={qtd === 0 ? colors.textFaint : colors.text} />
               </Pressable>
               <Text style={styles.qtd}>{qtd}</Text>
               <Pressable onPress={() => mudarQuantidade(s.id_servico, 1)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Mais ${s.nome}`} style={styles.passo}>
-                <Ionicons name="add" size={18} color={colors.text} />
+                <IconeApp name="add" size={18} color={colors.text} />
               </Pressable>
             </View>
           )

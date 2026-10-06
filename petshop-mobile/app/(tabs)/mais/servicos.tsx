@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
@@ -260,7 +260,7 @@ export default function ServicosScreen() {
                   </Text>
                   <Text style={styles.variacaoPreco}>{formatarMoeda(v.preco)}</Text>
                   <Pressable onPress={() => removerVariacao(v)} disabled={salvando} hitSlop={10} accessibilityRole="button" accessibilityLabel="Remover faixa">
-                    <Ionicons name="trash-outline" size={19} color={colors.dangerFg} />
+                    <IconeApp name="trash-outline" size={19} color={colors.dangerFg} />
                   </Pressable>
                 </View>
               ))

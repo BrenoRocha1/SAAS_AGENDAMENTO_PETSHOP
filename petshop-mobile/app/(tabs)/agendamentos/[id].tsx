@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
@@ -437,7 +438,7 @@ export default function AgendamentoDetalheScreen() {
 function Linha({ icone, rotulo, valor, forte }: { icone: keyof typeof Ionicons.glyphMap; rotulo: string; valor: string; forte?: boolean }) {
   return (
     <View style={styles.linha}>
-      <Ionicons name={icone} size={16} color={colors.textFaint} style={{ marginTop: 3 }} />
+      <IconeApp name={icone} size={16} color={colors.textFaint} style={{ marginTop: 3 }} />
       <Text style={styles.linhaRotulo}>{rotulo}</Text>
       <Text style={[styles.linhaValor, forte && styles.linhaForte]}>{valor}</Text>
     </View>

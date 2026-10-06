@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors, radius, spacing, typography } from '@/theme/theme'
@@ -26,7 +26,7 @@ export function Folha({ visivel, titulo, onFechar, children, ocupado }: Props) {
           <View style={styles.cabecalho}>
             <Text style={styles.titulo} numberOfLines={1}>{titulo}</Text>
             <Pressable onPress={fechar} hitSlop={10} accessibilityRole="button" accessibilityLabel="Fechar">
-              <Ionicons name="close" size={22} color={colors.textMuted} />
+              <IconeApp name="close" size={22} color={colors.textMuted} />
             </Pressable>
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.conteudo}>

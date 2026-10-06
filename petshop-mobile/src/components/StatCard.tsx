@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { StyleSheet, Text, View } from 'react-native'
 import type { IconeAbaProps } from '@/components/IconesAbas'
 import { colors, radius, spacing, typography } from '@/theme/theme'
@@ -18,7 +19,7 @@ export function StatCard({ icon: Icone, value, label, tint = colors.primary600 }
   return (
     <View style={styles.card}>
       <View style={[styles.iconWrap, { backgroundColor: `${tint}1a` }]}>
-        {typeof Icone === 'string' ? <Ionicons name={Icone} size={18} color={tint} /> : <Icone size={18} color={tint} />}
+        {typeof Icone === 'string' ? <IconeApp name={Icone} size={18} color={tint} /> : <Icone size={18} color={tint} />}
       </View>
       <Text style={styles.value}>{value}</Text>
       <Text style={styles.label}>{label}</Text>

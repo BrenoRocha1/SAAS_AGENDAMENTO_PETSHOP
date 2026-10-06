@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons'
+import { IconeApp } from '@/components/IconeApp'
 import { StyleSheet, Text, View } from 'react-native'
 import { Card } from './Card'
 import { Avatar } from './Avatar'
@@ -19,14 +19,14 @@ export function PetRow({ pet, onPress }: { pet: PetLinha; onPress: () => void })
           {detalhes || (pet.especie ?? 'Pet')}
         </Text>
         <View style={styles.tutorRow}>
-          <Ionicons name="person-outline" size={12} color={colors.textFaint} />
+          <IconeApp name="person-outline" size={12} color={colors.textFaint} />
           <Text style={styles.tutor} numberOfLines={1}>
             {pet.nome_cliente}
           </Text>
         </View>
       </View>
-      <Ionicons name={pet.especie === 'Gato' ? 'logo-octocat' : 'paw-outline'} size={16} color={colors.textFaint} />
-      <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+      <IconeApp name={pet.especie === 'Gato' ? 'logo-octocat' : 'paw-outline'} size={16} color={colors.textFaint} />
+      <IconeApp name="chevron-forward" size={18} color={colors.textFaint} />
     </Card>
   )
 }
