@@ -12,6 +12,7 @@ import { Aviso } from '@/components/Aviso'
 import { Botao } from '@/components/Botao'
 import { Campo } from '@/components/Campo'
 import { Folha } from '@/components/Folha'
+import { FolhaConfirmar } from '@/components/FolhaConfirmar'
 import { LinhaSwitch } from '@/components/LinhaSwitch'
 import { Interruptor } from '@/components/Interruptor'
 import { Text } from '@/components/Texto'
@@ -80,6 +81,8 @@ export default function FuncionariosScreen() {
   const [cargo, setCargo] = useState('')
   const [perm, setPerm] = useState<Permissoes>(PERMISSOES_NOVAS)
   const [erroPainel, setErroPainel] = useState<string | null>(null)
+  // Funcionário esperando o "sim" da janela de exclusão.
+  const [excluir, setExcluir] = useState<Funcionario | null>(null)
   const [salvando, setSalvando] = useState(false)
 
   // Código de acesso rápido (6 dígitos, 1 minuto, uso único) de um
@@ -242,22 +245,15 @@ export default function FuncionariosScreen() {
     ])
   }
 
-  function pedirExclusao(f: Funcionario) {
-    dialogo('Excluir da equipe', `Excluir ${f.nome}? A conta é apagada de vez. Os atendimentos que fez continuam no histórico, sem o nome.`, [
-      { text: 'Voltar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: async () => {
-          setSalvando(true)
-          const r = await chamarAcao('excluirFuncionarioAction', f.id_funcionario)
-          setSalvando(false)
-          if (r.error) return setErroPainel(r.error)
-          setPainel(false)
-          carregar()
-        },
-      },
-    ])
+  async function confirmarExclusao() {
+    if (!excluir) return
+    setSalvando(true)
+    const r = await chamarAcao('excluirFuncionarioAction', excluir.id_funcionario)
+    setSalvando(false)
+    setExcluir(null)
+    if (r.error) return setErroPainel(r.error)
+    setPainel(false)
+    carregar()
   }
 
   const marcar = (chave: keyof Permissoes) => (v: boolean) => setPerm(p => ({ ...p, [chave]: v }))
@@ -326,14 +322,16 @@ export default function FuncionariosScreen() {
       <Folha visivel={painel} titulo={editando ? 'Editar funcionário' : 'Cadastrar funcionário'} onFechar={() => setPainel(false)} ocupado={salvando}>
         {erroPainel && <Aviso tipo="erro" texto={erroPainel} />}
         <Campo
-          rotulo="Nome"
+          rotulo="Nome completo"
+          obrigatorio
           value={nome}
           onChangeText={setNome}
+          placeholder="Maria Silva"
           maxLength={120}
           autoCapitalize="words"
-          ajuda={editando ? undefined : 'Só o nome basta: a pessoa entra com o código de acesso rápido que você gera.'}
+          ajuda={editando ? undefined : 'Só o nome basta: a pessoa entra com o código de acesso rápido que você gera na tela dela.'}
         />
-        <Campo rotulo="Cargo (opcional)" value={cargo} onChangeText={setCargo} placeholder="Ex.: Tosador" maxLength={100} />
+        <Campo rotulo="Cargo" value={cargo} onChangeText={setCargo} placeholder="Tosador(a), Banhista..." maxLength={100} />
 
         <Text style={styles.secao}>O que pode fazer</Text>
         {ehDono && (
@@ -349,8 +347,24 @@ export default function FuncionariosScreen() {
         )}
         <LinhaSwitch titulo="TaxiDog" detalhe="Recebe corridas e rotas no app." valor={perm.taxidog} onChange={marcar('taxidog')} />
 
-        <Botao rotulo={editando ? 'Salvar' : 'Cadastrar'} onPress={salvar} carregando={salvando} />
-        {editando && <Botao rotulo="Excluir da equipe" icone="trash-outline" variante="perigo" onPress={() => pedirExclusao(editando)} desativado={salvando} />}
+        <Botao rotulo={salvando ? (editando ? 'Salvando...' : 'Cadastrando...') : (editando ? 'Salvar' : 'Cadastrar')} onPress={salvar} desativado={salvando} />
+        {editando && (ehDono || !editando.acesso_total) && (
+          <Botao rotulo="Excluir da equipe" icone="trash-outline" variante="perigo" onPress={() => setExcluir(editando)} desativado={salvando} />
+        )}
+
+        {/* A pergunta abre por cima da janela de edição, como no site. */}
+        <FolhaConfirmar
+          visivel={!!excluir}
+          titulo="Excluir membro"
+          nome={excluir?.nome}
+          aspas={false}
+          depoisDoNome=" da equipe?"
+          ocupado={salvando}
+          onConfirmar={confirmarExclusao}
+          onFechar={() => setExcluir(null)}
+        >
+          Essa ação não pode ser desfeita — a pessoa perde o acesso ao sistema imediatamente. O histórico de agendamentos já realizados por ela é mantido.
+        </FolhaConfirmar>
       </Folha>
 
       <Folha visivel={!!codigoDe} titulo="Código de acesso rápido" onFechar={fecharCodigo}>
@@ -389,7 +403,8 @@ const styles = StyleSheet.create({
   nome: { ...typography.cartao.titulo, color: colors.text },
   apagado: { color: colors.textMuted },
   sub: { ...typography.cartao.sub, color: colors.textMuted },
-  secao: { ...typography.heading.sm, color: colors.text, marginTop: spacing.sm },
+  // `.secao-app` do site: 15 em negrito, linha de 24.
+  secao: { fontSize: 15, lineHeight: 24, fontWeight: '600', color: colors.text, marginTop: spacing.sm },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   tag: { backgroundColor: colors.primary50, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: 4 },
   tagTexto: { ...typography.label.md, color: colors.primary700, fontSize: 12 },
