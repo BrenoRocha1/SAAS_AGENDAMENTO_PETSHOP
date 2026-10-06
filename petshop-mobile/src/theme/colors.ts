@@ -52,9 +52,10 @@ export const colors = {
 // (globals.css --status-*). Chave é o STATUS DO BANCO, não o rótulo
 // (ver src/lib/statusAgendamento.ts para o rótulo em pt-BR).
 export const statusColors = {
-  Pendente: { bg: '#fde68a99', fg: '#92400e', solid: '#f59e0b' },
-  Confirmado: { bg: '#bfdbfe99', fg: '#1e40af', solid: '#3b82f6' },
-  'Em andamento': { bg: '#ddd6fe99', fg: '#5b21b6', solid: '#8b5cf6' },
-  'Concluído': { bg: '#a7f3d099', fg: '#065f46', solid: '#10b981' },
-  Cancelado: { bg: '#fecaca99', fg: '#991b1b', solid: '#ef4444' },
+  // `ring` = o contorno do selo (--status-*-ring).
+  Pendente: { bg: '#fde68a99', fg: '#92400e', solid: '#f59e0b', ring: 'rgba(245,158,11,0.35)' },
+  Confirmado: { bg: '#bfdbfe99', fg: '#1e40af', solid: '#3b82f6', ring: 'rgba(59,130,246,0.35)' },
+  'Em andamento': { bg: '#ddd6fe99', fg: '#5b21b6', solid: '#8b5cf6', ring: 'rgba(139,92,246,0.35)' },
+  'Concluído': { bg: '#a7f3d099', fg: '#065f46', solid: '#10b981', ring: 'rgba(16,185,129,0.35)' },
+  Cancelado: { bg: '#fecaca99', fg: '#991b1b', solid: '#ef4444', ring: 'rgba(239,68,68,0.35)' },
 } as const

@@ -38,5 +38,5 @@ const styles = StyleSheet.create({
   item: { flex: 1, alignItems: 'center', gap: 2 },
   ponto: { width: 6, height: 6, borderRadius: 3, marginBottom: 2 },
   valor: { ...typography.heading.md, color: colors.text },
-  label: { ...typography.body.sm, color: colors.textMuted, fontSize: 11 },
+  label: { fontSize: 11, lineHeight: 17.6, color: colors.textMuted },
 })

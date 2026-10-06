@@ -312,7 +312,7 @@ export default function FuncionariosScreen() {
                 {/* O titular gera pra qualquer um; um administrador, só pra
                     funcionário comum (a mesma regra do painel e do banco). */}
                 {podeEditar(f) && f.ativo && (
-                  <Botao rotulo="Código de acesso" icone="keypad-outline" variante="secundario" compacto onPress={() => abrirCodigo(f)} />
+                  <Botao rotulo="Código de acesso" icone="lock-closed-outline" variante="secundario" compacto onPress={() => abrirCodigo(f)} />
                 )}
                 {podeEditar(f) && (
                   <Botao rotulo="Editar dados e permissões" icone="create-outline" variante="secundario" compacto onPress={() => abrir(f)} />
@@ -386,9 +386,9 @@ export default function FuncionariosScreen() {
 
 const styles = StyleSheet.create({
   topo: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  nome: { ...typography.body.lg, fontWeight: '700', color: colors.text },
+  nome: { ...typography.cartao.titulo, color: colors.text },
   apagado: { color: colors.textMuted },
-  sub: { ...typography.body.md, color: colors.textMuted },
+  sub: { ...typography.cartao.sub, color: colors.textMuted },
   secao: { ...typography.heading.sm, color: colors.text, marginTop: spacing.sm },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   tag: { backgroundColor: colors.primary50, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: 4 },

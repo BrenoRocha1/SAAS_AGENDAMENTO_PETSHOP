@@ -20,7 +20,7 @@ export function ClienteRow({ cliente, onPress }: { cliente: ClienteLinha; onPres
         </Text>
       </View>
       <View style={styles.petsBadge}>
-        <IconeApp name="paw-outline" size={13} color={colors.textMuted} />
+        <IconeApp name="paw-outline" size={13} color={colors.textDim} />
         <Text style={styles.petsTexto}>{cliente.qtd_pets}</Text>
       </View>
       <IconeApp name="chevron-forward" size={18} color={colors.textFaint} />

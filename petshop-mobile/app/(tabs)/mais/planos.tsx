@@ -36,7 +36,22 @@ import {
 } from '@/lib/planos'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
-type Aba = 'planos' | 'assinaturas' | 'cobrancas'
+type Aba = 'planos' | 'assinaturas' | 'cobrancas' | 'historico'
+
+// fn_historico_planos: planos, assinaturas, renovações, cobranças e usos.
+interface ItemHistorico {
+  tipo: string
+  descricao: string
+  em: string
+  pet?: string | null
+  cliente?: string | null
+}
+
+function dataHora(iso: string): string {
+  const d = new Date(iso)
+  const dois = (n: number) => String(n).padStart(2, '0')
+  return Number.isNaN(d.getTime()) ? '' : `${dois(d.getDate())}/${dois(d.getMonth() + 1)}/${d.getFullYear()}, ${dois(d.getHours())}:${dois(d.getMinutes())}`
+}
 type FiltroCobranca = 'pendentes' | 'vencidas' | 'pagas' | 'todas'
 
 interface ServicoLoja { id_servico: string; nome: string; status: string }
@@ -64,6 +79,7 @@ export default function PlanosScreen() {
   const [planos, setPlanos] = useState<Plano[]>([])
   const [servicos, setServicos] = useState<ServicoLoja[]>([])
   const [assinaturas, setAssinaturas] = useState<Assinatura[]>([])
+  const [historico, setHistorico] = useState<ItemHistorico[]>([])
   const [cobrancas, setCobrancas] = useState<CobrancaDaLoja[]>([])
   const [formas, setFormas] = useState<FormaPagamento[]>([])
   const [loading, setLoading] = useState(true)
@@ -102,7 +118,9 @@ export default function PlanosScreen() {
         ? supabase.from('servico').select('id_servico, nome, status').eq('id_lojista', idLojista).is('excluido_em', null).order('nome')
         : aba === 'assinaturas'
           ? supabase.rpc('fn_assinaturas_da_loja', { p_id_cliente: null, p_detalhes: false })
-          : Promise.all([
+          : aba === 'historico'
+            ? supabase.rpc('fn_historico_planos', { p_limite: 150 })
+            : Promise.all([
               supabase.rpc('fn_cobrancas_planos', { p_filtro: filtro, p_data_ini: null, p_data_fim: null }),
               supabase.rpc('fn_formas_pagamento_loja', { p_id_lojista: idLojista }),
             ]),
@@ -120,6 +138,8 @@ export default function PlanosScreen() {
       setFormas(formasAtivas(normalizarFormasLoja(formasLoja.data)))
     } else if (aba === 'planos') {
       setServicos((extra.data ?? []) as ServicoLoja[])
+    } else if (aba === 'historico') {
+      setHistorico((extra.data ?? []) as ItemHistorico[])
     } else {
       setAssinaturas(((extra.data ?? []) as Assinatura[]).map(a => ({ ...a, valor: Number(a.valor) })))
     }
@@ -254,7 +274,12 @@ export default function PlanosScreen() {
       <Segmentos
         valor={aba}
         onChange={setAba}
-        opcoes={[{ valor: 'planos', rotulo: 'Planos' }, { valor: 'assinaturas', rotulo: 'Assinaturas' }, { valor: 'cobrancas', rotulo: 'Cobranças' }]}
+        opcoes={[
+          { valor: 'planos', rotulo: 'Planos' },
+          { valor: 'assinaturas', rotulo: 'Assinaturas' },
+          { valor: 'cobrancas', rotulo: 'Cobranças' },
+          { valor: 'historico', rotulo: 'Histórico' },
+        ]}
       />
 
       <View style={styles.corpo}>
@@ -291,6 +316,25 @@ export default function PlanosScreen() {
             )}
             <Aviso tipo="info" texto="Para vincular um plano a um pet, abra a ficha do pet e toque em Vincular plano." />
           </>
+        )}
+
+        {/* ── Histórico ── */}
+        {aba === 'historico' && erro !== MSG_SEM_PLANOS && (
+          !loading && historico.length === 0 ? (
+            <EmptyState icon="time-outline" title="Nada registrado ainda" />
+          ) : (
+            <Card style={styles.historico}>
+              {historico.map((h, i) => (
+                <View key={`${h.em}-${i}`} style={[styles.historicoItem, i === historico.length - 1 && styles.historicoUltimo]}>
+                  <Text style={styles.historicoData}>{dataHora(h.em)}</Text>
+                  <Text style={styles.historicoTexto}>
+                    {h.pet ? <Text style={{ fontWeight: '700' }}>{h.pet}{h.cliente ? ` (${h.cliente})` : ''}: </Text> : null}
+                    {h.descricao}
+                  </Text>
+                </View>
+              ))}
+            </Card>
+          )
         )}
 
         {/* ── Assinaturas ── */}
@@ -475,9 +519,15 @@ export default function PlanosScreen() {
 const styles = StyleSheet.create({
   corpo: { marginTop: spacing.lg, gap: spacing.md },
   linha: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  titulo: { ...typography.body.lg, fontWeight: '700', color: colors.text },
+  titulo: { ...typography.cartao.titulo, color: colors.text },
   apagado: { color: colors.textMuted },
-  sub: { ...typography.body.md, color: colors.textMuted },
+  sub: { ...typography.cartao.sub, color: colors.textMuted },
+  // Histórico — a lista `.plano-historico` do site.
+  historico: { gap: spacing.sm },
+  historicoItem: { gap: 2, paddingBottom: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  historicoUltimo: { borderBottomWidth: 0 },
+  historicoData: { fontSize: 12, color: '#858d99' },
+  historicoTexto: { fontSize: 14, color: colors.textDim },
   rotulo: { ...typography.label.md, color: colors.textDim },
   valor: { ...typography.label.md, color: colors.text },
   selo: { borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 3 },

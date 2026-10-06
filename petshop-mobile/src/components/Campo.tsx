@@ -38,5 +38,6 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   multilinha: { minHeight: 84, paddingTop: spacing.md, paddingBottom: spacing.md, textAlignVertical: 'top' },
-  ajuda: { ...typography.body.sm, color: colors.textMuted },
+  // `.form-hint` do site no celular.
+  ajuda: { fontSize: 13, lineHeight: 20.8, color: '#858d99' },
 })

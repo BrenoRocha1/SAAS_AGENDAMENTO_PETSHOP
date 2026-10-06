@@ -88,7 +88,9 @@ export default function ClientesScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.md, gap: spacing.md },
+  // 16 em cima e embaixo, 12 entre o título e o que vem depois — as medidas
+  // da tela do site no celular (.app-content, .tela-app-titulo, .tela-app-busca).
+  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md },
   title: { ...typography.heading.xl, color: colors.text },
   tituloLinha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   novo: {

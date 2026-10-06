@@ -13,6 +13,12 @@ import { FONTE_TITULO, arquivoDaFonte } from '@/theme/fontes'
 // Plus Jakarta Sans quando o estilo pede `fontFamily: FONTE_TITULO`). As
 // telas importam daqui em vez de 'react-native' e continuam escrevendo
 // `fontWeight` normalmente — aqui ele vira o arquivo do peso certo.
+//
+// O texto também nasce com a altura de linha do site: lá o `body` tem
+// `line-height: 1.6` e tudo herda, a não ser que a regra diga outra coisa.
+// Aqui é igual — sem `lineHeight` no estilo, vale 1,6 × o tamanho da letra.
+const ALTURA_DE_LINHA = 1.6
+const TAMANHO_PADRAO = 14
 
 // Fonte do texto de fora, pra o texto de dentro herdar (`SA<Text>IP</Text>`).
 const FonteDeFora = createContext<string | null>(null)
@@ -29,10 +35,13 @@ function fonteDoEstilo(estilo: TextStyle, deFora: string | null): { base: string
 
 export function Text({ style, ...resto }: TextProps & { ref?: Ref<TextoRN> }) {
   const deFora = useContext(FonteDeFora)
-  const { base, estilo } = fonteDoEstilo((StyleSheet.flatten(style) ?? {}) as TextStyle, deFora)
+  const plano = (StyleSheet.flatten(style) ?? {}) as TextStyle
+  const { base, estilo } = fonteDoEstilo(plano, deFora)
+  // Texto dentro de texto fica na linha do de fora.
+  const linha = deFora || plano.lineHeight != null ? null : { lineHeight: (plano.fontSize ?? TAMANHO_PADRAO) * ALTURA_DE_LINHA }
   return (
     <FonteDeFora.Provider value={base}>
-      <TextoRN {...resto} style={estilo ? [style, estilo] : style} />
+      <TextoRN {...resto} style={[style, estilo, linha]} />
     </FonteDeFora.Provider>
   )
 }

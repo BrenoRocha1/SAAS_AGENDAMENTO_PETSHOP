@@ -126,7 +126,7 @@ export default function ClienteDetalheScreen() {
 
   return (
     <ScreenContainer>
-      <DetailHeader title={cliente.nome} />
+      <DetailHeader title={cliente.nome} junto />
 
       <View style={styles.perfil}>
         <Avatar nome={cliente.nome} size={72} />
@@ -219,8 +219,9 @@ function InfoRow({ icon, label, valor }: { icon: keyof typeof Ionicons.glyphMap;
 
 const styles = StyleSheet.create({
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  perfil: { alignItems: 'center', marginBottom: spacing.lg, gap: spacing.sm },
-  nome: { ...typography.heading.lg, color: colors.text, textAlign: 'center' },
+  perfil: { alignItems: 'center', marginBottom: spacing.lg, gap: 4 },
+  // `.tela-app-perfil strong` do site: 22 com a altura de linha do texto (1,6).
+  nome: { fontSize: 22, lineHeight: 35.2, fontWeight: '700', letterSpacing: -0.2, color: colors.text, textAlign: 'center', marginTop: 4 },
   acoes: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
   acaoBotao: {
     flex: 1,
@@ -233,7 +234,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   acaoTexto: { ...typography.label.md, color: colors.primary600 },
-  infoCard: { gap: spacing.md, marginBottom: spacing['2xl'] },
+  infoCard: { gap: spacing.md, marginBottom: spacing.lg },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   infoLabel: { ...typography.body.sm, color: colors.textMuted, width: 70 },
   infoValor: { ...typography.body.lg, color: colors.text, flex: 1 },

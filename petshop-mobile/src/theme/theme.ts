@@ -61,6 +61,12 @@ export const typography = {
     md: { fontSize: 14, lineHeight: 22.4, fontWeight: '400' as const },
     sm: { fontSize: 12.5, lineHeight: 20, fontWeight: '400' as const },
   },
+  // Par título/sub dos cartões de lista — `.titulo-app` e `.sub-app` do site
+  // (linhas mais juntas que o texto corrido).
+  cartao: {
+    titulo: { fontSize: 16, lineHeight: 21.6, fontWeight: '700' as const },
+    sub: { fontSize: 14, lineHeight: 19.6, fontWeight: '400' as const },
+  },
   label: {
     md: { fontSize: 13, fontWeight: '600' as const },
     sm: { fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.4 },

@@ -17,7 +17,7 @@ export function EmptyState({ icon, title, subtitle, ilustracao }: Props) {
   return (
     <View style={styles.container}>
       {ilustracao ? (
-        <Ilustracao nome={ilustracao} altura={120} style={styles.ilustracao} />
+        <Ilustracao nome={ilustracao} altura={110} />
       ) : (
         <View style={styles.iconWrap}>
           <IconeApp name={icon} size={26} color={colors.textFaint} />
@@ -30,7 +30,9 @@ export function EmptyState({ icon, title, subtitle, ilustracao }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { alignItems: 'center', paddingVertical: spacing['2xl'], paddingHorizontal: spacing.lg },
+  // Medidas do `.dash-app-vazio` do site: coluna com 4 de vão, desenho de
+  // 110, título 8 abaixo dele.
+  container: { alignItems: 'center', gap: 4, paddingVertical: spacing['2xl'], paddingHorizontal: spacing.lg },
   iconWrap: {
     width: 56,
     height: 56,
@@ -38,9 +40,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
   },
-  ilustracao: { marginBottom: spacing.md },
-  title: { ...typography.heading.sm, color: colors.text, textAlign: 'center' },
-  subtitle: { ...typography.body.md, color: colors.textMuted, textAlign: 'center', marginTop: spacing.xs },
+  title: { fontSize: 15, lineHeight: 24, fontWeight: '600', color: colors.text, textAlign: 'center', marginTop: spacing.sm },
+  subtitle: { ...typography.body.md, color: colors.textMuted, textAlign: 'center' },
 })

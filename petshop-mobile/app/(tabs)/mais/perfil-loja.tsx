@@ -254,7 +254,8 @@ function InfoRow({ icon, label, valor }: { icon: keyof typeof Ionicons.glyphMap;
 const styles = StyleSheet.create({
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   perfil: { alignItems: 'center', marginBottom: spacing.lg, gap: spacing.sm },
-  nome: { ...typography.heading.lg, color: colors.text, textAlign: 'center' },
+  // `.tela-app-perfil strong` do site: 22 com a altura de linha do texto (1,6).
+  nome: { fontSize: 22, lineHeight: 35.2, fontWeight: '700', letterSpacing: -0.2, color: colors.text, textAlign: 'center', marginTop: 4 },
   descricao: { ...typography.body.md, color: colors.textMuted, textAlign: 'center' },
   secao: { ...typography.heading.sm, color: colors.text, marginTop: spacing.sm },
   duas: { flexDirection: 'row', gap: spacing.md },

@@ -31,6 +31,7 @@ const DO_SITE: Partial<Record<NomeIcone, DoSite>> = {
   search: { desenho: S.IconSearch },
   'grid-outline': { desenho: S.IconGrid },
   'list-outline': { desenho: S.IconList },
+  'options-outline': { desenho: S.IconSliders },
   'calendar-outline': { desenho: S.IconCalendar },
   'time-outline': { desenho: S.IconClock },
   'paw-outline': { desenho: S.IconPaw },

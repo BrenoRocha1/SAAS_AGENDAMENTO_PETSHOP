@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useMemo } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { FlatList, Pressable, StyleSheet, View } from 'react-native'
 import { IconeApp } from '@/components/IconeApp'
@@ -18,7 +18,10 @@ export default function AgendamentosScreen() {
   const router = useRouter()
   const hoje = hojeBrasilISO()
   const [data, setData] = useState(hoje)
-  const { agendamentos, loading, erro, recarregar } = useAgendamentosDoDia(contexto?.idLojista, data)
+  const { agendamentos: doDia, loading, erro, recarregar } = useAgendamentosDoDia(contexto?.idLojista, data)
+  // Cancelado não aparece na agenda — como no site, que nem busca esses
+  // (o histórico do cliente e os relatórios continuam mostrando).
+  const agendamentos = useMemo(() => doDia.filter(a => a.status !== 'Cancelado'), [doDia])
 
   // Voltando de um agendamento (aceito, remarcado, cancelado…), a lista
   // já aparece atualizada mesmo se o aviso ao vivo não chegar.
@@ -116,7 +119,9 @@ export default function AgendamentosScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.md, gap: spacing.md },
+  // 16 em cima e embaixo, 12 entre o título e o que vem depois — as medidas
+  // da tela do site no celular (.app-content, .tela-app-titulo, .tela-app-busca).
+  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md },
   tituloLinha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   title: { ...typography.heading.xl, color: colors.text, flexShrink: 1 },
   novo: {
@@ -142,7 +147,7 @@ const styles = StyleSheet.create({
   },
   seta: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   diaTexto: { flex: 1, alignItems: 'center', gap: 2 },
-  dia: { ...typography.heading.sm, color: colors.text },
+  dia: { ...typography.heading.sm, lineHeight: 24, color: colors.text },
   hoje: { ...typography.body.sm, color: colors.textMuted },
   voltarHoje: { ...typography.label.md, color: colors.primary600 },
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing['3xl'], flexGrow: 1 },

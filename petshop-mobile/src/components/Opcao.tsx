@@ -81,10 +81,10 @@ const styles = StyleSheet.create({
   detalhe: { ...typography.body.sm, color: colors.textMuted },
   lateral: { ...typography.label.md, color: colors.text },
   segmentos: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  // `.segmento-app` do site: 38 de altura, sem respiro em cima e embaixo.
   segmento: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    minHeight: 38,
+    height: 38,
     justifyContent: 'center',
     borderRadius: radius.full,
     borderWidth: 1,

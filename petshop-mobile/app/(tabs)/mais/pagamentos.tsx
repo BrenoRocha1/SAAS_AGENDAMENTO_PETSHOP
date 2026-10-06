@@ -1,20 +1,31 @@
 import { useCallback, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
-import { ActivityIndicator, StyleSheet, View } from 'react-native'
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
-import { Card } from '@/components/Card'
 import { SemPermissao } from '@/components/SemPermissao'
 import { Aviso } from '@/components/Aviso'
-import { Botao } from '@/components/Botao'
 import { Campo } from '@/components/Campo'
-import { LinhaSwitch } from '@/components/LinhaSwitch'
+import { IconCheck } from '@/components/IconesDoSite'
+import { Interruptor } from '@/components/Interruptor'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { faltaMigration, mensagemDoBanco } from '@/lib/erros'
-import { FORMAS_LOJA_PADRAO, normalizarFormasLoja, type FormasLoja } from '@/lib/pagamento'
-import { colors, spacing, typography } from '@/theme/theme'
+import { FORMAS_LOJA_PADRAO, ROTULO_FORMA_PAGAMENTO, normalizarFormasLoja, type FormasLoja } from '@/lib/pagamento'
+import { colors, spacing } from '@/theme/theme'
+
+type Forma = 'pix' | 'dinheiro' | 'cartao_credito' | 'cartao_debito'
+
+// Ordem e textos da mesma tela no site (FormasPagamentoForm) — Pix primeiro,
+// que tem campos.
+const ORDEM: Forma[] = ['pix', 'dinheiro', 'cartao_credito', 'cartao_debito']
+const DESCRICAO: Record<Forma, string> = {
+  pix: 'O cliente vê a chave e o nome para conferir antes de pagar.',
+  dinheiro: 'Pagamento em espécie na loja ou na entrega.',
+  cartao_credito: 'Na maquininha da loja.',
+  cartao_debito: 'Na maquininha da loja.',
+}
 
 // Formas de pagamento que a loja aceita (migration 057). As regras (Pix
 // com chave e nome, ao menos uma forma ligada, quem pode mudar) estão em
@@ -48,14 +59,15 @@ export default function PagamentosScreen() {
   if (!pode) {
     return (
       <ScreenContainer scroll={false}>
-        <DetailHeader title="Formas de pagamento" />
+        <DetailHeader title="Formas de pagamentos aceitas" />
         <SemPermissao area="mudar as formas de pagamento" />
       </ScreenContainer>
     )
   }
 
-  const marcar = (campo: 'pix' | 'dinheiro' | 'cartao_credito' | 'cartao_debito') => (v: boolean) => {
+  const marcar = (campo: Forma) => (v: boolean) => {
     setSalvo(false)
+    setErro(null)
     setFormas(f => ({ ...f, [campo]: v }))
   }
 
@@ -81,49 +93,100 @@ export default function PagamentosScreen() {
 
   return (
     <ScreenContainer>
-      <DetailHeader title="Formas de pagamento" />
+      <DetailHeader title="Formas de pagamentos aceitas" />
 
       {loading ? (
         <ActivityIndicator color={colors.primary600} />
       ) : semMigration ? (
         <Aviso tipo="alerta" texto="As formas de pagamento ainda não foram ativadas no sistema da loja." />
       ) : (
-        <View style={{ gap: spacing.md }}>
-          <Text style={styles.sub}>
-            O cliente escolhe uma destas ao agendar. Escolher a forma não é pagar: a loja marca "pago" quando receber.
-          </Text>
+        <View style={styles.pilha}>
+          {!formas.configurado && (
+            <Aviso tipo="info" texto="Sua loja ainda não configurou: por enquanto valem Dinheiro, Cartão de crédito e Cartão de débito." />
+          )}
 
-          <Card style={{ gap: spacing.md }}>
-            <LinhaSwitch titulo="Pix" detalhe="O cliente vê a chave para pagar." valor={formas.pix} onChange={marcar('pix')} />
-            {formas.pix && (
-              <>
-                <Campo rotulo="Chave Pix" value={chave} onChangeText={t => { setChave(t); setSalvo(false) }} autoCapitalize="none" autoCorrect={false} maxLength={140} />
-                <Campo
-                  rotulo="Nome de quem recebe"
-                  value={nome}
-                  onChangeText={t => { setNome(t); setSalvo(false) }}
-                  maxLength={100}
-                  ajuda="Aparece para o cliente conferir antes de pagar."
-                />
-              </>
-            )}
-          </Card>
+          <View style={styles.cartao}>
+            {ORDEM.map((forma, i) => (
+              <View key={forma} style={[styles.linha, i > 0 && styles.linhaBorda]}>
+                <View style={styles.topo}>
+                  <View style={styles.textos}>
+                    <Text style={styles.titulo}>{ROTULO_FORMA_PAGAMENTO[forma]}</Text>
+                    <Text style={styles.descricao}>{DESCRICAO[forma]}</Text>
+                  </View>
+                  <Interruptor value={formas[forma]} onValueChange={marcar(forma)} accessibilityLabel={ROTULO_FORMA_PAGAMENTO[forma]} />
+                </View>
 
-          <Card style={{ gap: spacing.md }}>
-            <LinhaSwitch titulo="Dinheiro" valor={formas.dinheiro} onChange={marcar('dinheiro')} />
-            <LinhaSwitch titulo="Cartão de crédito" valor={formas.cartao_credito} onChange={marcar('cartao_credito')} />
-            <LinhaSwitch titulo="Cartão de débito" valor={formas.cartao_debito} onChange={marcar('cartao_debito')} />
-          </Card>
+                {forma === 'pix' && formas.pix && (
+                  <View style={styles.pix}>
+                    <Campo
+                      rotulo="Chave Pix"
+                      value={chave}
+                      onChangeText={v => { setChave(v); setSalvo(false) }}
+                      placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      maxLength={140}
+                    />
+                    <Campo
+                      rotulo="Nome de identificação"
+                      value={nome}
+                      onChangeText={v => { setNome(v); setSalvo(false) }}
+                      placeholder="Ex.: Pet Shop SAIP"
+                      maxLength={100}
+                      ajuda="O nome que aparece no Pix — o cliente confere se está pagando para a loja certa."
+                    />
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
 
           {erro && <Aviso tipo="erro" texto={erro} />}
-          {salvo && <Aviso tipo="sucesso" texto="Formas de pagamento salvas." />}
-          <Botao rotulo="Salvar" onPress={salvar} carregando={salvando} />
+
+          <View style={styles.rodape}>
+            {salvo && (
+              <View style={styles.salvo}>
+                <IconCheck size={14} color={colors.successFg} />
+                <Text style={styles.salvoTexto}>Salvo</Text>
+              </View>
+            )}
+            <Pressable
+              onPress={salvar}
+              disabled={salvando}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.salvar, (pressed || salvando) && { opacity: 0.8 }]}
+            >
+              {salvando ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.salvarTexto}>Salvar</Text>}
+            </Pressable>
+          </View>
         </View>
       )}
     </ScreenContainer>
   )
 }
 
+// Medidas da página do site em largura de celular (FormasPagamentoForm).
 const styles = StyleSheet.create({
-  sub: { ...typography.body.md, color: colors.textMuted },
+  pilha: { gap: spacing.lg },
+  cartao: { backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
+  linha: { paddingVertical: spacing.lg, paddingHorizontal: spacing.xl, gap: spacing.lg },
+  linhaBorda: { borderTopWidth: 1, borderTopColor: colors.border },
+  topo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+  textos: { flex: 1, minWidth: 0 },
+  titulo: { fontSize: 16, lineHeight: 25.6, fontWeight: '600', color: colors.text },
+  descricao: { fontSize: 14, lineHeight: 20, color: '#858d99' },
+  pix: { gap: spacing.md, padding: spacing.lg, borderRadius: 6, backgroundColor: colors.surfaceMuted },
+  rodape: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: spacing.md },
+  salvo: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  salvoTexto: { fontSize: 14, color: colors.successFg },
+  salvar: {
+    minWidth: 88,
+    height: 46,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 10,
+    backgroundColor: colors.primary600,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  salvarTexto: { fontSize: 15, lineHeight: 15, fontWeight: '600', color: colors.white },
 })

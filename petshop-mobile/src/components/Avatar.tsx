@@ -20,7 +20,7 @@ export function Avatar({ nome, fotoUrl, size = 44 }: Props) {
 
   return (
     <View style={[styles.fallback, dimensao]}>
-      <Text style={[styles.iniciais, { fontSize: size * 0.36 }]}>{iniciais(nome)}</Text>
+      <Text style={[styles.iniciais, { fontSize: Math.round(size * 0.36) }]}>{iniciais(nome)}</Text>
     </View>
   )
 }

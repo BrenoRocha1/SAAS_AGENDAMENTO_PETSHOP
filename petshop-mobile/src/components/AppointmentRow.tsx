@@ -44,7 +44,7 @@ export function AppointmentRow({ item, onPress, atrasado }: { item: Agendamento;
         )}
       </View>
 
-      <StatusBadge status={item.status} />
+      <StatusBadge status={item.status} style={styles.selo} />
     </Card>
   )
 }
@@ -52,9 +52,11 @@ export function AppointmentRow({ item, onPress, atrasado }: { item: Agendamento;
 const styles = StyleSheet.create({
   card: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   horaCol: { width: 48 },
-  hora: { ...typography.heading.sm, color: colors.text },
+  hora: { ...typography.heading.sm, lineHeight: 24, color: colors.text },
   atrasado: { fontSize: 10.5, fontWeight: '600', color: colors.dangerFg, marginTop: 1 },
   divider: { width: 1, alignSelf: 'stretch', backgroundColor: colors.border },
+  // No meio da linha, como no site.
+  selo: { alignSelf: 'center' },
   info: { flex: 1, gap: 2 },
   pet: { ...typography.body.lg, fontWeight: '700', color: colors.text },
   linha: { ...typography.body.sm, color: colors.textMuted },

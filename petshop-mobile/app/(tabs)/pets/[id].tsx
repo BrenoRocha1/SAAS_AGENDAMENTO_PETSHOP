@@ -99,7 +99,7 @@ export default function PetDetalheScreen() {
 
   return (
     <ScreenContainer>
-      <DetailHeader title={pet.nome} />
+      <DetailHeader title={pet.nome} junto />
 
       <View style={styles.perfil}>
         {podeTrocarFoto ? (
@@ -120,10 +120,11 @@ export default function PetDetalheScreen() {
       </View>
 
       <Card style={styles.infoCard}>
-        <InfoRow icon="male-female-outline" label="Sexo" valor={pet.sexo} />
-        <InfoRow icon="resize-outline" label="Porte" valor={pet.porte ?? '—'} />
+        {/* Os mesmos ícones da ficha do pet no site. */}
+        <InfoRow icon="people-outline" label="Sexo" valor={pet.sexo} />
+        <InfoRow icon="options-outline" label="Porte" valor={pet.porte ?? '—'} />
         <InfoRow icon="calendar-outline" label="Nascimento" valor={nascimento} />
-        <InfoRow icon="scale-outline" label="Peso" valor={pet.peso ? `${pet.peso} kg` : '—'} />
+        <InfoRow icon="cube-outline" label="Peso" valor={pet.peso ? `${pet.peso} kg` : '—'} />
       </Card>
 
       {pet.obs && (
@@ -184,14 +185,15 @@ function InfoRow({ icon, label, valor }: { icon: keyof typeof Ionicons.glyphMap;
 const styles = StyleSheet.create({
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   perfil: { alignItems: 'center', marginBottom: spacing.lg, gap: 4 },
-  nome: { ...typography.heading.lg, color: colors.text, textAlign: 'center' },
+  // `.tela-app-perfil strong` do site: 22 com a altura de linha do texto (1,6).
+  nome: { fontSize: 22, lineHeight: 35.2, fontWeight: '700', letterSpacing: -0.2, color: colors.text, textAlign: 'center', marginTop: 4 },
   subtitulo: { ...typography.body.lg, color: colors.textMuted },
   infoCard: { gap: spacing.md, marginBottom: spacing.lg },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   infoLabel: { ...typography.body.sm, color: colors.textMuted, width: 90 },
   infoValor: { ...typography.body.lg, color: colors.text, flex: 1 },
   obsCard: { marginBottom: spacing.lg },
-  obsLabel: { ...typography.label.md, color: colors.textDim, marginBottom: 4 },
+  obsLabel: { ...typography.label.md, color: colors.textDim, marginBottom: spacing.md },
   obsTexto: { ...typography.body.lg, color: colors.text },
   secaoTitulo: { ...typography.heading.sm, color: colors.text, marginBottom: spacing.md },
   tutorCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
