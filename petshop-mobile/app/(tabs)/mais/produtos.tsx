@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
-import { StyleSheet, View } from 'react-native'
+import { Image, Platform, Pressable, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
@@ -9,16 +9,22 @@ import { SemPermissao } from '@/components/SemPermissao'
 import { SearchField } from '@/components/SearchField'
 import { Aviso } from '@/components/Aviso'
 import { Botao } from '@/components/Botao'
+import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { Campo } from '@/components/Campo'
-import { Folha } from '@/components/Folha'
-import { LinhaSwitch } from '@/components/LinhaSwitch'
+import { CampoQuantidade, quantidadeBase } from '@/components/CampoQuantidade'
+import { Folha, depoisDeFechar } from '@/components/Folha'
+import { FolhaConfirmar } from '@/components/FolhaConfirmar'
+import { IconCheck, IconClose, IconImage, IconPencil, IconPlus, IconTrash } from '@/components/IconesDoSite'
+import { Interruptor } from '@/components/Interruptor'
 import { Segmentos } from '@/components/Opcao'
-import { Text } from '@/components/Texto'
+import { Seletor } from '@/components/Seletor'
+import { Text, TextInput } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { chamarAcao, form } from '@/lib/acoes'
+import { chamarAcao, form, type Arquivo } from '@/lib/acoes'
 import { dialogo } from '@/lib/dialogo'
 import { mensagemDoBanco } from '@/lib/erros'
+import { escolherImagem } from '@/lib/imagem'
 import { formatarMoeda } from '@/lib/format'
 import { numeroParaCampo, paraNumero } from '@/lib/mascaras'
 import {
@@ -44,6 +50,7 @@ interface Produto {
   estoque_atual: number
   estoque_minimo: number
   status: 'Ativo' | 'Inativo'
+  foto_url?: string | null
   disponivel_agendamento_online?: boolean
 }
 
@@ -58,10 +65,17 @@ const COR_ESTOQUE: Record<StatusEstoque, { fundo: string; texto: string }> = {
 type Filtro = 'todos' | 'baixo' | 'inativos'
 type Aba = 'estoque' | 'dados'
 
+// "32,5% (R$ 6,40 por unidade)" — margem sobre o preço de venda.
+function textoMargem(preco: number, custo: number): string | null {
+  if (!(preco > 0) || !Number.isFinite(custo)) return null
+  const lucro = preco - custo
+  return `${((lucro / preco) * 100).toFixed(1).replace('.', ',')}% (R$ ${lucro.toFixed(2).replace('.', ',')} por unidade)`
+}
+
 // Catálogo e estoque da loja (tabela `produto`, migration 037): consultar,
 // cadastrar e editar, dar entrada/saída de estoque (fn_movimentar_estoque)
 // e ativar/desativar. Cadastro e edição passam pelas mesmas actions do
-// painel web. Foto e renomear categorias ficam no painel.
+// painel web, a foto também (atualizarFotoProdutoAction).
 export default function ProdutosScreen() {
   const { contexto } = useAuth()
   const idLojista = contexto?.idLojista
@@ -94,6 +108,21 @@ export default function ProdutosScreen() {
   const [estoqueInicial, setEstoqueInicial] = useState('')
   const [estoqueMinimo, setEstoqueMinimo] = useState('')
   const [online, setOnline] = useState(false)
+  // Estoque digitado em g/ml (produto vendido por kg/litro).
+  const [minimoSub, setMinimoSub] = useState(false)
+  const [inicialSub, setInicialSub] = useState(false)
+  // Foto: a escolhida só sobe junto com o "Salvar Produto".
+  const [fotoPendente, setFotoPendente] = useState<{ arquivo: Arquivo; uri: string } | null>(null)
+  const [removerFoto, setRemoverFoto] = useState(false)
+  // Produto esperando o "sim" da janela de exclusão.
+  const [excluir, setExcluir] = useState<Produto | null>(null)
+  // Janela "Categorias de produto".
+  const [gerenciar, setGerenciar] = useState(false)
+  const [erroCategoria, setErroCategoria] = useState<string | null>(null)
+  const [novaCategoria, setNovaCategoria] = useState('')
+  const [renomeando, setRenomeando] = useState<string | null>(null)
+  const [nomeRenomeado, setNomeRenomeado] = useState('')
+  const [ocupadoCategoria, setOcupadoCategoria] = useState(false)
 
   const carregar = useCallback(async () => {
     if (!idLojista || !pode) return
@@ -157,8 +186,12 @@ export default function ProdutosScreen() {
     setPreco(p ? numeroParaCampo(p.preco_venda) : '')
     setCusto(p && custos?.has(p.id_produto) ? numeroParaCampo(custos.get(p.id_produto)) : '')
     setEstoqueInicial('')
-    setEstoqueMinimo(p && p.estoque_minimo > 0 ? formatarQuantidade(p.estoque_minimo) : '')
+    setEstoqueMinimo(p ? formatarQuantidade(p.estoque_minimo) : '0')
     setOnline(!!p?.disponivel_agendamento_online)
+    setMinimoSub(false)
+    setInicialSub(false)
+    setFotoPendente(null)
+    setRemoverFoto(false)
     setPainel(true)
   }
 
@@ -186,11 +219,12 @@ export default function ProdutosScreen() {
     const valor = paraNumero(preco)
     if (nome.trim().length < 2) return setErroPainel('Dê um nome ao produto.')
     if (!idCategoria) return setErroPainel('Escolha a categoria.')
-    if (!Number.isFinite(valor) || valor < 0) return setErroPainel('Informe o preço de venda.')
-    const minimo = estoqueMinimo.trim() ? paraNumero(estoqueMinimo) : 0
-    const inicial = estoqueInicial.trim() ? paraNumero(estoqueInicial) : 0
+    if (!preco.trim() || !Number.isFinite(valor) || valor < 0) return setErroPainel('Informe o preço de venda.')
+    const minimo = quantidadeBase(estoqueMinimo, unidade, minimoSub)
+    const inicial = quantidadeBase(estoqueInicial, unidade, inicialSub)
     if (!Number.isFinite(minimo) || minimo < 0) return setErroPainel('Estoque mínimo inválido.')
-    if (!Number.isFinite(inicial) || inicial < 0) return setErroPainel('Estoque inicial inválido.')
+    if (!aberto && !estoqueInicial.trim()) return setErroPainel('Informe o estoque atual.')
+    if (!Number.isFinite(inicial) || inicial < 0) return setErroPainel('Estoque atual inválido.')
     setErroPainel(null)
     setEnviando(true)
     const campos = {
@@ -201,16 +235,112 @@ export default function ProdutosScreen() {
       estoque_minimo: minimo,
       disponivel_agendamento_online: online,
       // Só vai quando o custo existe no banco (migration 062).
-      ...(custos ? { custo_unitario: custo.trim() } : {}),
+      ...(custos ? { custo_unitario: custo.trim() ? String(paraNumero(custo)) : '' } : {}),
     }
     const r = aberto
-      ? await chamarAcao('editarProdutoAction', aberto.id_produto, form(campos))
-      : await chamarAcao('criarProdutoAction', form({ ...campos, estoque_atual: inicial }))
+      ? await chamarAcao<{ produto: { id_produto: string } }>('editarProdutoAction', aberto.id_produto, form(campos))
+      : await chamarAcao<{ produto: { id_produto: string } }>('criarProdutoAction', form({ ...campos, estoque_atual: inicial }))
+    if (r.error || !r.produto) {
+      setEnviando(false)
+      return setErroPainel(r.error ?? 'Erro ao salvar produto.')
+    }
+
+    // A foto sobe depois, já com o id do produto (como no site).
+    let aviso = r.aviso ?? null
+    if (fotoPendente) {
+      const foto = await chamarAcao<{ url: string }>('atualizarFotoProdutoAction', r.produto.id_produto, form({ foto: fotoPendente.arquivo }))
+      if (foto.error) aviso = `Produto salvo, mas a foto não pôde ser enviada: ${foto.error}`
+    } else if (removerFoto) {
+      await chamarAcao('removerFotoProdutoAction', r.produto.id_produto)
+    }
     setEnviando(false)
-    if (r.error) return setErroPainel(r.error)
     setPainel(false)
     carregar()
-    if (r.aviso) setErro(r.aviso)
+    if (aviso) setErro(aviso)
+  }
+
+  // ── Foto ──
+  async function escolherFoto(origem: 'galeria' | 'camera') {
+    setErroPainel(null)
+    const escolhida = await escolherImagem(origem)
+    if (!escolhida) return
+    if ('erro' in escolhida) return setErroPainel(escolhida.erro)
+    setFotoPendente(escolhida)
+    setRemoverFoto(false)
+  }
+
+  function pedirFoto() {
+    // No navegador só existe o seletor de arquivos.
+    if (Platform.OS === 'web') return void escolherFoto('galeria')
+    dialogo('Foto do produto', 'De onde vem a imagem?', [
+      { text: 'Voltar', style: 'cancel' },
+      { text: 'Tirar foto', onPress: () => escolherFoto('camera') },
+      { text: 'Escolher das fotos', onPress: () => escolherFoto('galeria') },
+    ])
+  }
+
+  function tirarFoto() {
+    if (fotoPendente) setFotoPendente(null)
+    else if (aberto?.foto_url) setRemoverFoto(true)
+  }
+
+  // ── Categorias ──
+  async function criarCategoria() {
+    const novo = novaCategoria.trim()
+    if (!novo || !idLojista) return
+    if (novo.length < 2) return setErroCategoria('Nome muito curto')
+    setErroCategoria(null)
+    setOcupadoCategoria(true)
+    const { data, error } = await supabase
+      .from('categoria_produto')
+      .insert({ id_lojista: idLojista, nome: novo })
+      .select('id_categoria, nome')
+      .single()
+    setOcupadoCategoria(false)
+    if (error || !data) return setErroCategoria(error?.code === '23505' ? 'Já existe uma categoria com esse nome.' : 'Erro ao criar categoria.')
+    const criada = data as Categoria
+    setCategorias(lista => [...lista, criada].sort((a, b) => a.nome.localeCompare(b.nome)))
+    if (!idCategoria) setIdCategoria(criada.id_categoria)
+    setNovaCategoria('')
+  }
+
+  async function salvarRenomeio(id: string) {
+    const novo = nomeRenomeado.trim()
+    if (!novo || !idLojista) return
+    if (novo.length < 2) return setErroCategoria('Nome muito curto')
+    setErroCategoria(null)
+    setOcupadoCategoria(true)
+    const { data, error } = await supabase
+      .from('categoria_produto')
+      .update({ nome: novo })
+      .eq('id_categoria', id)
+      .eq('id_lojista', idLojista)
+      .select('id_categoria')
+    setOcupadoCategoria(false)
+    if (error) return setErroCategoria(error.code === '23505' ? 'Já existe uma categoria com esse nome.' : 'Erro ao renomear categoria.')
+    if (!data || data.length === 0) return setErroCategoria('Você não tem permissão para gerenciar produtos.')
+    setCategorias(lista => lista.map(c => (c.id_categoria === id ? { ...c, nome: novo } : c)).sort((a, b) => a.nome.localeCompare(b.nome)))
+    setRenomeando(null)
+  }
+
+  // Apagar a categoria não apaga os produtos dela: ficam "sem categoria".
+  async function excluirCategoria(id: string) {
+    if (!idLojista) return
+    setErroCategoria(null)
+    setOcupadoCategoria(true)
+    const { data, error } = await supabase
+      .from('categoria_produto')
+      .delete()
+      .eq('id_categoria', id)
+      .eq('id_lojista', idLojista)
+      .select('id_categoria')
+    setOcupadoCategoria(false)
+    if (error) return setErroCategoria('Erro ao excluir categoria.')
+    if (!data || data.length === 0) return setErroCategoria('Você não tem permissão para gerenciar produtos.')
+    const restantes = categorias.filter(c => c.id_categoria !== id)
+    setCategorias(restantes)
+    setProdutos(lista => lista.map(p => (p.id_categoria === id ? { ...p, id_categoria: null } : p)))
+    if (idCategoria === id) setIdCategoria(restantes[0]?.id_categoria ?? '')
   }
 
   async function alternarStatus(p: Produto) {
@@ -239,25 +369,25 @@ export default function ProdutosScreen() {
     ])
   }
 
+  // Como no site: a janela do produto fecha e a pergunta abre no lugar.
   function pedirExclusao(p: Produto) {
-    dialogo('Excluir produto', `Excluir "${p.nome}"? Produto que já foi vendido não pode ser excluído — nesse caso, desative.`, [
-      { text: 'Voltar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: async () => {
-          setEnviando(true)
-          const r = await chamarAcao('excluirProdutoAction', p.id_produto)
-          setEnviando(false)
-          if (r.error) return setErroPainel(r.error)
-          setPainel(false)
-          carregar()
-        },
-      },
-    ])
+    setPainel(false)
+    setErro(null)
+    depoisDeFechar(() => setExcluir(p))
   }
 
-  const fracionavel = unidadeFracionavel(unidade)
+  async function confirmarExclusao() {
+    if (!excluir) return
+    setEnviando(true)
+    const r = await chamarAcao('excluirProdutoAction', excluir.id_produto)
+    setEnviando(false)
+    setExcluir(null)
+    if (r.error) return setErro(r.error)
+    carregar()
+  }
+
+  const fotoParaExibir = fotoPendente?.uri ?? (!removerFoto ? aberto?.foto_url : null) ?? null
+  const margem = custo.trim() ? textoMargem(paraNumero(preco), paraNumero(custo)) : null
 
   return (
     <ScreenContainer refreshing={loading} onRefresh={carregar}>
@@ -320,7 +450,7 @@ export default function ProdutosScreen() {
 
         {aberto && aba === 'estoque' ? (
           <>
-            <Text style={styles.sub}>
+            <Text style={styles.subFolha}>
               Em estoque: {rotuloEstoque(aberto.estoque_atual, aberto.unidade_venda)}
               {aberto.estoque_minimo > 0 ? ` · mínimo ${rotuloEstoque(aberto.estoque_minimo, aberto.unidade_venda)}` : ''}
             </Text>
@@ -344,60 +474,146 @@ export default function ProdutosScreen() {
           </>
         ) : (
           <>
-            <Campo rotulo="Nome" value={nome} onChangeText={setNome} placeholder="Ex.: Shampoo neutro 500 ml" maxLength={100} />
-            <Text style={styles.rotulo}>Categoria</Text>
-            {categorias.length === 0 ? (
-              <Text style={styles.sub}>Nenhuma categoria — crie uma em Produtos no painel web.</Text>
-            ) : (
-              <Segmentos valor={idCategoria} onChange={setIdCategoria} opcoes={categorias.map(c => ({ valor: c.id_categoria, rotulo: c.nome }))} />
-            )}
-            <Text style={styles.rotulo}>Vendido por</Text>
-            <Segmentos valor={unidade} onChange={setUnidade} opcoes={UNIDADES_VENDA.map(u => ({ valor: u.value, rotulo: u.label }))} />
-            <View style={styles.duas}>
-              <View style={{ flex: 1 }}>
-                <Campo rotulo="Preço de venda (R$)" value={preco} onChangeText={setPreco} keyboardType="decimal-pad" placeholder="0,00" maxLength={10} />
-              </View>
-              {custos && (
-                <View style={{ flex: 1 }}>
-                  <Campo rotulo="Custo (R$, opcional)" value={custo} onChangeText={setCusto} keyboardType="decimal-pad" placeholder="0,00" maxLength={10} />
+            {/* A mesma janela de produto do site (ProdutosList). */}
+            <View style={styles.grupo}>
+              <Text style={styles.rotulo}>Foto do produto</Text>
+              <View style={styles.fotoLinha}>
+                <View style={styles.fotoCaixa}>
+                  {fotoParaExibir
+                    ? <Image source={{ uri: fotoParaExibir }} style={styles.fotoImagem} />
+                    : <IconImage size={22} color={colors.textFaint} />}
                 </View>
-              )}
-            </View>
-            <View style={styles.duas}>
-              {!aberto && (
-                <View style={{ flex: 1 }}>
-                  <Campo
-                    rotulo="Estoque inicial"
-                    value={estoqueInicial}
-                    onChangeText={setEstoqueInicial}
-                    keyboardType={fracionavel ? 'decimal-pad' : 'number-pad'}
-                    placeholder="0"
-                    maxLength={10}
-                  />
+                <View style={styles.fotoBotoes}>
+                  <BotaoPequeno rotulo={fotoParaExibir ? 'Alterar foto' : 'Adicionar foto'} icone={IconPlus} desativado={enviando} onPress={pedirFoto} />
+                  {fotoParaExibir && <BotaoPequeno variante="fantasma" rotulo="Remover" icone={IconTrash} desativado={enviando} onPress={tirarFoto} />}
                 </View>
-              )}
-              <View style={{ flex: 1 }}>
-                <Campo
-                  rotulo="Estoque mínimo"
-                  value={estoqueMinimo}
-                  onChangeText={setEstoqueMinimo}
-                  keyboardType={fracionavel ? 'decimal-pad' : 'number-pad'}
-                  placeholder="0"
-                  maxLength={10}
-                />
               </View>
             </View>
-            <LinhaSwitch
-              titulo="Vender no agendamento online"
-              detalhe="O cliente pode comprar junto com o serviço."
-              valor={online}
-              onChange={setOnline}
+
+            <Campo rotulo="Nome do Produto" obrigatorio value={nome} onChangeText={setNome} placeholder="Ex: Ração Premier Adulto" maxLength={100} />
+
+            <View style={styles.grupo}>
+              <Text style={styles.rotulo}>Categoria<Text style={styles.estrela}> *</Text></Text>
+              <Seletor titulo="Categoria" valor={idCategoria} opcoes={categorias.map(c => ({ valor: c.id_categoria, rotulo: c.nome }))} onChange={setIdCategoria} />
+              {/* No celular as categorias se gerenciam daqui. */}
+              <Pressable onPress={() => { setErroCategoria(null); setRenomeando(null); setGerenciar(true) }} accessibilityRole="button">
+                <Text style={styles.link}>Gerenciar categorias</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.grupo}>
+              <Text style={styles.rotulo}>Unidade de venda<Text style={styles.estrela}> *</Text></Text>
+              <Seletor titulo="Unidade de venda" valor={unidade} opcoes={UNIDADES_VENDA.map(u => ({ valor: u.value, rotulo: u.label }))} onChange={setUnidade} />
+            </View>
+
+            <Campo rotulo="Preço de venda (R$)" obrigatorio value={preco} onChangeText={setPreco} keyboardType="decimal-pad" placeholder="18.90" maxLength={10} />
+            <CampoQuantidade
+              rotulo="Estoque mínimo"
+              unidade={unidade}
+              valor={estoqueMinimo}
+              onChange={setEstoqueMinimo}
+              usarSub={minimoSub}
+              onUsarSub={setMinimoSub}
+              nota={'Abaixo disso, o produto aparece como "Baixo" na tela de Estoque. Deixe 0 pra não alertar.'}
             />
-            <Botao rotulo={aberto ? 'Salvar produto' : 'Cadastrar produto'} onPress={salvarDados} carregando={enviando} />
-            {aberto && <Botao rotulo="Excluir produto" icone="trash-outline" variante="perigo" onPress={() => pedirExclusao(aberto)} desativado={enviando} />}
+
+            {custos && (
+              <Campo
+                rotulo={`Custo por ${rotuloUnidade(unidade).toLowerCase()} (R$)`}
+                value={custo}
+                onChangeText={setCusto}
+                keyboardType="decimal-pad"
+                placeholder="Ex: 12.50"
+                maxLength={10}
+                nota={<>
+                  Quanto a loja paga por unidade (CMV) — entra no faturamento líquido do Relatório de Vendas. Só a equipe vê.
+                  {margem && <> Margem: <Text style={styles.forte}>{margem}</Text>.</>}
+                </>}
+              />
+            )}
+
+            {!aberto && (
+              <CampoQuantidade
+                rotulo="Estoque atual"
+                obrigatorio
+                unidade={unidade}
+                valor={estoqueInicial}
+                onChange={setEstoqueInicial}
+                usarSub={inicialSub}
+                onUsarSub={setInicialSub}
+                nota="Quanto a loja já tem hoje. Depois de cadastrado, o estoque muda clicando no produto na listagem (entrada, saída ou ajuste)."
+              />
+            )}
+
+            <View style={styles.online}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.onlineTitulo}>Vender no Agendamento Online</Text>
+                <Text style={styles.nota}>O cliente poderá adicionar este produto ao agendar pelo link da loja ou pela própria conta.</Text>
+              </View>
+              <Interruptor value={online} onValueChange={setOnline} accessibilityLabel="Vender no Agendamento Online" />
+            </View>
+
+            {/* `.modal-footer` no celular: salvar e, ao editar, excluir. */}
+            <View style={styles.rodape}>
+              <BotaoPequeno normal variante="primario" rotulo={enviando ? 'Salvando...' : 'Salvar Produto'} desativado={enviando} onPress={salvarDados} />
+              {aberto && <BotaoPequeno normal variante="perigoClaro" icone={IconTrash} rotulo="Excluir produto" desativado={enviando} onPress={() => pedirExclusao(aberto)} />}
+            </View>
+
+            {/* Categorias de produto — abre por cima, como no site. */}
+            <Folha visivel={gerenciar} titulo="Categorias de produto" onFechar={() => setGerenciar(false)} ocupado={ocupadoCategoria}>
+              {erroCategoria && <Aviso tipo="erro" texto={erroCategoria} />}
+              <View style={{ gap: 8 }}>
+                {categorias.map(c => (
+                  <View key={c.id_categoria} style={styles.categoria}>
+                    {renomeando === c.id_categoria ? (
+                      <>
+                        <TextInput value={nomeRenomeado} onChangeText={setNomeRenomeado} autoFocus maxLength={50} accessibilityLabel="Nome da categoria" style={styles.categoriaCampo} />
+                        <Pressable onPress={() => salvarRenomeio(c.id_categoria)} disabled={ocupadoCategoria} accessibilityRole="button" accessibilityLabel="Salvar" style={styles.categoriaBotao}>
+                          <IconCheck size={14} color={colors.textMuted} />
+                        </Pressable>
+                        <Pressable onPress={() => setRenomeando(null)} accessibilityRole="button" accessibilityLabel="Cancelar" style={styles.categoriaBotao}>
+                          <IconClose size={14} color={colors.textMuted} />
+                        </Pressable>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.categoriaNome}>{c.nome}</Text>
+                        <Pressable onPress={() => { setRenomeando(c.id_categoria); setNomeRenomeado(c.nome) }} accessibilityRole="button" accessibilityLabel="Renomear" style={styles.categoriaBotao}>
+                          <IconPencil size={14} color={colors.textMuted} />
+                        </Pressable>
+                        <Pressable onPress={() => excluirCategoria(c.id_categoria)} disabled={ocupadoCategoria} accessibilityRole="button" accessibilityLabel="Excluir" style={styles.categoriaBotao}>
+                          <IconTrash size={14} color={colors.textMuted} />
+                        </Pressable>
+                      </>
+                    )}
+                  </View>
+                ))}
+                {categorias.length === 0 && <Text style={styles.semCategoria}>Nenhuma categoria cadastrada ainda.</Text>}
+              </View>
+              <View style={styles.novaCategoria}>
+                <TextInput
+                  value={novaCategoria}
+                  onChangeText={setNovaCategoria}
+                  onSubmitEditing={criarCategoria}
+                  placeholder="Nova categoria"
+                  placeholderTextColor={colors.textFaint}
+                  maxLength={50}
+                  accessibilityLabel="Nova categoria"
+                  style={[styles.categoriaCampo, { height: 48 }]}
+                />
+                <BotaoPequeno rotulo="Adicionar" icone={IconPlus} desativado={ocupadoCategoria || !novaCategoria.trim()} style={{ height: 48 }} onPress={criarCategoria} />
+              </View>
+              <View style={styles.rodape}>
+                <BotaoPequeno normal rotulo="Fechar" onPress={() => setGerenciar(false)} />
+              </View>
+            </Folha>
           </>
         )}
       </Folha>
+
+      <FolhaConfirmar visivel={!!excluir} titulo="Excluir produto" nome={excluir?.nome} ocupado={enviando} onConfirmar={confirmarExclusao} onFechar={() => setExcluir(null)}>
+        Essa ação não pode ser desfeita.
+      </FolhaConfirmar>
     </ScreenContainer>
   )
 }
@@ -408,8 +624,67 @@ const styles = StyleSheet.create({
   nome: { ...typography.body.lg, fontWeight: '700', color: colors.text },
   inativo: { color: colors.textMuted },
   sub: { ...typography.body.md, color: colors.textMuted },
+  // `.sub-app` da folha de estoque do site.
+  subFolha: { ...typography.cartao.sub, color: colors.textMuted },
   rotulo: { ...typography.label.md, color: colors.textDim },
-  duas: { flexDirection: 'row', gap: spacing.md },
+  // Janela do produto, medida no site em 375 de largura.
+  grupo: { gap: 4 },
+  estrela: { color: colors.dangerFg },
+  nota: { fontSize: 12, lineHeight: 16, color: '#858d99' },
+  forte: { fontWeight: '700' },
+  link: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.primary600 },
+  fotoLinha: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  fotoCaixa: {
+    width: 64,
+    height: 64,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  fotoImagem: { width: '100%', height: '100%' },
+  fotoBotoes: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  online: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 6,
+    backgroundColor: colors.surfaceMuted,
+  },
+  onlineTitulo: { fontSize: 15, lineHeight: 24, fontWeight: '600', color: colors.text },
+  // A Folha deixa 24 no fim; janela com botões no pé (`.modal-footer`) deixa 16.
+  rodape: { gap: 8, marginTop: 8, marginBottom: -8 },
+  categoria: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+  },
+  categoriaNome: { flex: 1, fontSize: 14, lineHeight: 20, color: colors.text },
+  categoriaBotao: { width: 40, height: 42, alignItems: 'center', justifyContent: 'center' },
+  categoriaCampo: {
+    flex: 1,
+    minWidth: 0,
+    height: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    color: colors.text,
+  },
+  semCategoria: { fontSize: 14, lineHeight: 20, color: '#858d99' },
+  novaCategoria: { flexDirection: 'row', gap: 8, marginTop: 16 },
   estoqueCol: { alignItems: 'flex-end', gap: 4 },
   estoque: { ...typography.label.md, color: colors.text },
   selo: { borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 3 },

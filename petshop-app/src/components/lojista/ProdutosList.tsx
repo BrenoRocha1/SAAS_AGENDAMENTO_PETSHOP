@@ -1041,7 +1041,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                   maxLength={50}
                 />
                 <button type="button" className="btn btn-secondary btn-sm" onClick={criarCategoria} disabled={isPendingCategoria || !novaCategoriaNome.trim()}>
-                  <IconPlus style={{ width: 14, height: 14 }} /> Adicionar
+                  <IconPlus style={{ width: 14, height: 14, flexShrink: 0 }} /> Adicionar
                 </button>
               </div>
             </div>

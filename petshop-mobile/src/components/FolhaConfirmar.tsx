@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { Folha } from '@/components/Folha'
@@ -9,7 +9,9 @@ import { colors } from '@/theme/theme'
 interface Props {
   visivel: boolean
   titulo: string
-  // A pergunta. O nome do que vai ser apagado vai dentro de <Forte>.
+  // Nome do que vai ser apagado: entra na pergunta, entre aspas e em negrito.
+  nome?: string | null
+  // O resto da frase, depois de "Tem certeza que deseja excluir "X"?".
   children: ReactNode
   rotulo?: string
   rotuloOcupado?: string
@@ -20,14 +22,20 @@ interface Props {
 
 // Janela de confirmação de exclusão do site no celular: a bolinha vermelha
 // com o alerta, a pergunta ao lado e os botões "Excluir" e "Cancelar".
-export function FolhaConfirmar({ visivel, titulo, children, rotulo = 'Excluir', rotuloOcupado = 'Excluindo...', ocupado, onConfirmar, onFechar }: Props) {
+export function FolhaConfirmar({ visivel, titulo, nome, children, rotulo = 'Excluir', rotuloOcupado = 'Excluindo...', ocupado, onConfirmar, onFechar }: Props) {
+  // Quem chama zera o item ao fechar; o nome fica guardado para a pergunta
+  // não aparecer vazia enquanto a folha desce.
+  const [mostrado, setMostrado] = useState(nome ?? '')
+  if (nome && nome !== mostrado) setMostrado(nome)
   return (
     <Folha visivel={visivel} titulo={titulo} onFechar={onFechar} ocupado={ocupado}>
       <View style={styles.linha}>
         <View style={styles.bola}>
           <IconAlert size={18} color={colors.dangerFg} />
         </View>
-        <Text style={styles.texto}>{children}</Text>
+        <Text style={styles.texto}>
+          Tem certeza que deseja excluir <Text style={styles.forte}>&quot;{mostrado}&quot;</Text>? {children}
+        </Text>
       </View>
       <View style={styles.rodape}>
         <BotaoPequeno normal variante="perigo" rotulo={ocupado ? rotuloOcupado : rotulo} desativado={ocupado} onPress={onConfirmar} />
@@ -35,10 +43,6 @@ export function FolhaConfirmar({ visivel, titulo, children, rotulo = 'Excluir', 
       </View>
     </Folha>
   )
-}
-
-export function Forte({ children }: { children: ReactNode }) {
-  return <Text style={styles.forte}>{children}</Text>
 }
 
 const styles = StyleSheet.create({

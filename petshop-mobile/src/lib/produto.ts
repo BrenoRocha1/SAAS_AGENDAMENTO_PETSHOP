@@ -15,6 +15,13 @@ export function rotuloUnidade(unidade: string): string {
   return UNIDADES_VENDA.find(u => u.value === unidade)?.label ?? unidade
 }
 
+// Quem vende por kg/litro às vezes prefere digitar em g/ml. O valor fica
+// guardado só na unidade base — a conversão acontece no formulário.
+export const SUBUNIDADE: Partial<Record<UnidadeVenda, { label: string; fator: number }>> = {
+  kg: { label: 'g', fator: 0.001 },
+  litro: { label: 'ml', fator: 0.001 },
+}
+
 // Só kg e litro têm fração; unidade, caixa e pacote se contam inteiros.
 export function unidadeFracionavel(unidade: string): boolean {
   return unidade === 'kg' || unidade === 'litro'

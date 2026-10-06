@@ -10,8 +10,8 @@ import { Aviso } from '@/components/Aviso'
 import { Botao } from '@/components/Botao'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { Campo } from '@/components/Campo'
-import { Folha } from '@/components/Folha'
-import { FolhaConfirmar, Forte } from '@/components/FolhaConfirmar'
+import { Folha, depoisDeFechar } from '@/components/Folha'
+import { FolhaConfirmar } from '@/components/FolhaConfirmar'
 import { IconPlus, IconSliders, IconTrash } from '@/components/IconesDoSite'
 import { Seletor } from '@/components/Seletor'
 import { Interruptor } from '@/components/Interruptor'
@@ -186,7 +186,7 @@ export default function ServicosScreen() {
   function pedirExclusao(s: Servico) {
     setPainel(false)
     setErro(null)
-    setExcluir(s)
+    depoisDeFechar(() => setExcluir(s))
   }
 
   async function confirmarExclusao() {
@@ -372,8 +372,8 @@ export default function ServicosScreen() {
         </View>
       </Folha>
 
-      <FolhaConfirmar visivel={!!excluir} titulo="Excluir serviço" ocupado={salvando} onConfirmar={confirmarExclusao} onFechar={() => setExcluir(null)}>
-        Tem certeza que deseja excluir <Forte>&quot;{excluir?.nome}&quot;</Forte>? Ele sai da lista e não pode mais ser agendado. Os atendimentos já feitos continuam no relatório de vendas, e o que já está marcado com ele continua valendo. Essa ação não pode ser desfeita.
+      <FolhaConfirmar visivel={!!excluir} titulo="Excluir serviço" nome={excluir?.nome} ocupado={salvando} onConfirmar={confirmarExclusao} onFechar={() => setExcluir(null)}>
+        Ele sai da lista e não pode mais ser agendado. Os atendimentos já feitos continuam no relatório de vendas, e o que já está marcado com ele continua valendo. Essa ação não pode ser desfeita.
       </FolhaConfirmar>
     </ScreenContainer>
   )

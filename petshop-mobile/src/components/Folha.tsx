@@ -14,6 +14,14 @@ interface Props {
   ocupado?: boolean
 }
 
+// Fecha uma folha e abre outra no lugar (a pergunta de exclusão depois da
+// janela de edição). No iPhone, abrir enquanto a anterior ainda desce faz
+// a nova não aparecer — por isso a espera.
+export function depoisDeFechar(abrir: () => void) {
+  if (Platform.OS === 'ios') setTimeout(abrir, 500)
+  else abrir()
+}
+
 // Painel que sobe de baixo (o "modal" do web no celular): motivo do
 // cancelamento, forma de pagamento, escolha de profissional...
 export function Folha({ visivel, titulo, onFechar, children, ocupado }: Props) {
