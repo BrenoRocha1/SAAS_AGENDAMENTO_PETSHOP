@@ -282,7 +282,52 @@ export default function TaxiDogConfigForm({ inicial, taxidogs }: { inicial: Taxi
               {modo === 'personalizado' && ' Endereços fora dessas regiões usam as faixas de distância abaixo.'}
             </p>
             {regioes.length === 0 && <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-3)' }}>Nenhuma região cadastrada.</p>}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            {/* Celular: um bloco por região, com os campos empilhados. */}
+            <div className="so-celular">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                {regioes.map((r, i) => (
+                  <div key={i} className="taxidog-bloco" style={{ opacity: r.ativo ? 1 : 0.6 }}>
+                    <div className="taxidog-bloco-cidade">
+                      <div className="form-group">
+                        <label className="form-label">Cidade</label>
+                        <input className="form-input" placeholder="Mauá" value={r.cidade} onChange={e => atualizarRegiao(i, 'cidade', e.target.value)} maxLength={80} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">UF</label>
+                        <input className="form-input" placeholder="SP" value={r.uf} onChange={e => atualizarRegiao(i, 'uf', e.target.value.toUpperCase().slice(0, 2))} maxLength={2} />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Bairro <span className="text-muted">(opcional)</span></label>
+                      <input className="form-input" placeholder="Centro" value={r.bairro} onChange={e => atualizarRegiao(i, 'bairro', e.target.value)} maxLength={80} />
+                    </div>
+                    <div className="taxidog-bloco-duas">
+                      <CampoValor rotulo="Buscar ou entregar" valor={r.valor_trecho} onChange={v => atualizarRegiao(i, 'valor_trecho', v)} />
+                      <CampoValor rotulo="Buscar e entregar" valor={r.valor_ida_volta} placeholder={valido(r.valor_trecho) ? `${txt(num(r.valor_trecho) * 2)}` : ''} onChange={v => atualizarRegiao(i, 'valor_ida_volta', v)} />
+                    </div>
+                    <div className="taxidog-bloco-pe">
+                      <label>
+                        <button
+                          type="button"
+                          className={`switch ${r.ativo ? 'switch-on' : ''}`}
+                          onClick={() => atualizarRegiao(i, 'ativo', !r.ativo)}
+                          role="switch"
+                          aria-checked={r.ativo}
+                          aria-label={r.ativo ? 'Desativar região' : 'Ativar região'}
+                        >
+                          <span className="switch-thumb" />
+                        </button>
+                        Ativa
+                      </label>
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setRegioes(prev => prev.filter((_, j) => j !== i)); marcarAlterado() }}>
+                        <IconTrash style={{ width: 14, height: 14 }} /> Remover
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="so-desktop" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               {regioes.length > 0 && (
                 <div className="text-xs text-muted" style={{ display: 'grid', gridTemplateColumns: '1.3fr 1.3fr 60px 110px 110px 44px 36px', gap: 'var(--space-2)' }}>
                   <span>Bairro (opcional)</span><span>Cidade</span><span>UF</span><span>Buscar ou entregar</span><span>Buscar e entregar</span><span>Ativa</span><span />
@@ -324,7 +369,32 @@ export default function TaxiDogConfigForm({ inicial, taxidogs }: { inicial: Taxi
               Cada faixa vai até a distância informada, começando onde a anterior termina. Deixe &quot;buscar e entregar&quot; vazio para cobrar o dobro do trecho.
             </p>
             {faixas.length === 0 && <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-3)' }}>Nenhuma faixa cadastrada.</p>}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            {/* Celular: um bloco por faixa. */}
+            <div className="so-celular">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                {faixas.map((f, i) => {
+                  const anterior = i === 0 ? '0' : faixas[i - 1].km_ate || '?'
+                  return (
+                    <div key={i} className="taxidog-bloco">
+                      <div className="form-group">
+                        <label className="form-label">De {anterior} km até (km)</label>
+                        <input className="form-input" inputMode="decimal" value={f.km_ate} onChange={e => atualizarFaixa(i, 'km_ate', e.target.value)} />
+                      </div>
+                      <div className="taxidog-bloco-duas">
+                        <CampoValor rotulo="Buscar ou entregar" valor={f.valor_trecho} onChange={v => atualizarFaixa(i, 'valor_trecho', v)} />
+                        <CampoValor rotulo="Buscar e entregar" valor={f.valor_ida_volta} placeholder={valido(f.valor_trecho) ? `${txt(num(f.valor_trecho) * 2)}` : ''} onChange={v => atualizarFaixa(i, 'valor_ida_volta', v)} />
+                      </div>
+                      <div className="taxidog-bloco-pe" style={{ justifyContent: 'flex-end' }}>
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setFaixas(prev => prev.filter((_, j) => j !== i)); marcarAlterado() }}>
+                          <IconTrash style={{ width: 14, height: 14 }} /> Remover
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="so-desktop" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               {faixas.length > 0 && (
                 <div className="text-xs text-muted" style={{ display: 'grid', gridTemplateColumns: '90px 110px 130px 130px 36px', gap: 'var(--space-2)' }}>
                   <span>De</span><span>Até (km)</span><span>Buscar ou entregar</span><span>Buscar e entregar</span><span />
@@ -458,11 +528,11 @@ function InputMoeda({ valor, onChange, placeholder }: { valor: string; onChange:
   )
 }
 
-function CampoValor({ rotulo, valor, onChange }: { rotulo: string; valor: string; onChange: (v: string) => void }) {
+function CampoValor({ rotulo, valor, onChange, placeholder }: { rotulo: string; valor: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <div className="form-group" style={{ marginBottom: 0 }}>
       <label className="form-label">{rotulo}</label>
-      <InputMoeda valor={valor} onChange={onChange} />
+      <InputMoeda valor={valor} onChange={onChange} placeholder={placeholder} />
     </div>
   )
 }

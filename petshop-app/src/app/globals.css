@@ -1636,10 +1636,19 @@ a:hover { color: var(--primary-300); }
   font-size: 0.875rem;
 }
 .dash-detail-row:last-of-type { border-bottom: none; }
-.dash-detail-row span:first-child { color: var(--gray-500); }
+/* O rótulo não encolhe: com um valor comprido ao lado ele quebrava no meio da palavra. */
+.dash-detail-row span:first-child { color: var(--gray-500); flex-shrink: 0; }
 .dash-detail-row span:last-child { color: var(--gray-100); font-weight: 600; text-align: right; min-width: 0; overflow-wrap: anywhere; }
 
 .dash-detail-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
+
+/* TaxiDog (configuração) no celular: cada região ou faixa vira um bloco com os
+   campos empilhados — a tabela de várias colunas não cabe na tela. */
+.taxidog-bloco { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--gray-700); border-radius: var(--radius-md); background: var(--gray-850); }
+.taxidog-bloco-duas { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); }
+.taxidog-bloco-cidade { display: grid; grid-template-columns: minmax(0, 1fr) 72px; gap: var(--space-3); }
+.taxidog-bloco-pe { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.taxidog-bloco-pe label { display: flex; align-items: center; gap: var(--space-2); font-size: 0.875rem; color: var(--gray-100); }
 
 .queue-item {
   display: flex;
