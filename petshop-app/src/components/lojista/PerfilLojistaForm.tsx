@@ -133,7 +133,7 @@ export default function PerfilLojistaForm({ lojista }: Props) {
 
       <form onSubmit={handleSubmit}>
         {/* Identificação */}
-        <div style={{ marginBottom: 'var(--space-6)' }}>
+        <div className="form-secao" style={{ marginBottom: 'var(--space-6)' }}>
           <h4 style={{ marginBottom: 'var(--space-4)', color: 'var(--gray-300)', fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Identificação
           </h4>
@@ -180,7 +180,7 @@ export default function PerfilLojistaForm({ lojista }: Props) {
         </div>
 
         {/* Endereço */}
-        <div style={{ borderTop: '1px solid var(--gray-800)', paddingTop: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
+        <div className="form-secao" style={{ borderTop: '1px solid var(--gray-800)', paddingTop: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
           <h4 style={{ marginBottom: 'var(--space-4)', color: 'var(--gray-300)', fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Endereço
           </h4>
@@ -231,7 +231,7 @@ export default function PerfilLojistaForm({ lojista }: Props) {
             </div>
           </div>
           {numeroNaRua && (
-            <p className="form-hint" style={{ marginTop: 'calc(-1 * var(--space-2))', marginBottom: 'var(--space-4)' }}>
+            <p className="form-hint" style={{ marginTop: 'calc(-1 * var(--space-2))', marginBottom: 0 }}>
               Parece que o número está junto da rua — tire ele de lá e coloque no campo Número.
             </p>
           )}

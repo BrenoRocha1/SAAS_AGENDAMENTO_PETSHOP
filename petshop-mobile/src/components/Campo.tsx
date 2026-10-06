@@ -8,6 +8,8 @@ interface Props extends TextInputProps {
   ajuda?: string
   // O " *" vermelho do `.form-label-required` do site.
   obrigatorio?: boolean
+  // " (opcional)" apagado depois do rótulo.
+  opcional?: boolean
   // À direita do rótulo (a troca kg/g do estoque).
   lateral?: ReactNode
   // Explicação em letra miúda embaixo (`.text-xs.text-muted` do site).
@@ -15,16 +17,17 @@ interface Props extends TextInputProps {
 }
 
 // Campo de texto com rótulo em cima (mesmo desenho do login).
-export function Campo({ rotulo, ajuda, obrigatorio, lateral, nota, style, multiline, ...resto }: Props) {
+export function Campo({ rotulo, ajuda, obrigatorio, opcional, lateral, nota, style, multiline, ...resto }: Props) {
+  const depois = obrigatorio ? <Text style={styles.estrela}> *</Text> : opcional ? <Text style={styles.opcional}> (opcional)</Text> : null
   return (
     <View style={styles.campo}>
       {lateral ? (
         <View style={styles.topo}>
-          <Text style={styles.rotulo}>{rotulo}{obrigatorio && <Text style={styles.estrela}> *</Text>}</Text>
+          <Text style={styles.rotulo}>{rotulo}{depois}</Text>
           {lateral}
         </View>
       ) : (
-        <Text style={styles.rotulo}>{rotulo}{obrigatorio && <Text style={styles.estrela}> *</Text>}</Text>
+        <Text style={styles.rotulo}>{rotulo}{depois}</Text>
       )}
       <TextInput
         placeholderTextColor={colors.textFaint}
@@ -44,6 +47,7 @@ const styles = StyleSheet.create({
   topo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   rotulo: { ...typography.label.md, color: colors.textDim },
   estrela: { color: colors.dangerFg },
+  opcional: { color: '#858d99' },
   input: {
     backgroundColor: colors.surface,
     borderWidth: 1,

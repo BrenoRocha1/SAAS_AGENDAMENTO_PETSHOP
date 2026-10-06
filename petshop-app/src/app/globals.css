@@ -631,6 +631,11 @@ a:hover { color: var(--primary-300); }
 .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-4); }
 
+/* Seção de formulário (título + campos): o mesmo respiro das grades entre um
+   bloco e o seguinte — sem isto um rótulo encostava no campo de cima. */
+.form-secao > * + * { margin-top: var(--space-4); }
+.form-secao > h4 + * { margin-top: 0; }
+
 /* ============================================================
    BADGES / STATUS
    ============================================================ */
@@ -4125,6 +4130,8 @@ div.plano-assinatura:not(.card) { padding: var(--space-3); border: 1px solid var
   .lojista-shell .form-group, .cliente-shell .form-group, .modal .form-group { gap: var(--space-1); }
   .lojista-shell .form-grid-2, .lojista-shell .form-grid-3, .cliente-shell .form-grid-2, .cliente-shell .form-grid-3,
   .modal .form-grid-2, .modal .form-grid-3 { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+  .lojista-shell .form-secao > * + *, .cliente-shell .form-secao > * + * { margin-top: var(--space-3); }
+  .lojista-shell .form-secao > h4 + *, .cliente-shell .form-secao > h4 + * { margin-top: 0; }
 
   /* Aviso: faixa sem borda. */
   .lojista-shell .alert, .cliente-shell .alert, .modal .alert { gap: var(--space-2); padding: var(--space-3); border: 0; border-radius: 10px; font-size: 0.875rem; font-weight: 400; }

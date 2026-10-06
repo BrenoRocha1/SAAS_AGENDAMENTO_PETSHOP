@@ -15,8 +15,10 @@ interface Props {
   aspas?: boolean
   // O que fecha a pergunta depois do nome (" da equipe?").
   depoisDoNome?: string
+  // Pergunta inteira, quando não é a de excluir algo com nome.
+  pergunta?: string
   // O resto da frase, depois de "Tem certeza que deseja excluir "X"?".
-  children: ReactNode
+  children?: ReactNode
   rotulo?: string
   rotuloOcupado?: string
   ocupado?: boolean
@@ -26,7 +28,7 @@ interface Props {
 
 // Janela de confirmação de exclusão do site no celular: a bolinha vermelha
 // com o alerta, a pergunta ao lado e os botões "Excluir" e "Cancelar".
-export function FolhaConfirmar({ visivel, titulo, nome, aspas = true, depoisDoNome = '?', children, rotulo = 'Excluir', rotuloOcupado = 'Excluindo...', ocupado, onConfirmar, onFechar }: Props) {
+export function FolhaConfirmar({ visivel, titulo, nome, aspas = true, depoisDoNome = '?', pergunta, children, rotulo = 'Excluir', rotuloOcupado = 'Excluindo...', ocupado, onConfirmar, onFechar }: Props) {
   // Quem chama zera o item ao fechar; o nome fica guardado para a pergunta
   // não aparecer vazia enquanto a folha desce.
   const [mostrado, setMostrado] = useState(nome ?? '')
@@ -37,9 +39,13 @@ export function FolhaConfirmar({ visivel, titulo, nome, aspas = true, depoisDoNo
         <View style={styles.bola}>
           <IconAlert size={18} color={colors.dangerFg} />
         </View>
-        <Text style={styles.texto}>
-          Tem certeza que deseja excluir <Text style={styles.forte}>{aspas ? `"${mostrado}"` : mostrado}</Text>{depoisDoNome} {children}
-        </Text>
+        {pergunta ? (
+          <Text style={styles.texto}>{pergunta}</Text>
+        ) : (
+          <Text style={styles.texto}>
+            Tem certeza que deseja excluir <Text style={styles.forte}>{aspas ? `"${mostrado}"` : mostrado}</Text>{depoisDoNome} {children}
+          </Text>
+        )}
       </View>
       <View style={styles.rodape}>
         <BotaoPequeno normal variante="perigo" rotulo={ocupado ? rotuloOcupado : rotulo} desativado={ocupado} onPress={onConfirmar} />
