@@ -23,6 +23,14 @@ interface Props {
   idLojista: string
   valor: EstadoTransporte
   onChange: Dispatch<SetStateAction<EstadoTransporte>>
+  // Quando é a LOJA mexendo no transporte de um agendamento (detalhe do
+  // agendamento): cota pela action da loja, com os textos do painel, e pode
+  // limitar o que dá para pedir (pet já na loja: só a entrega).
+  loja?: {
+    idCliente?: string | null
+    modalidades?: readonly ModalidadeTaxiDog[]
+    rotuloLevar?: string
+  }
 }
 
 type RespostaCotacao = {
@@ -34,7 +42,9 @@ type RespostaCotacao = {
 // (buscar, entregar ou os dois) informando o endereço. A taxa vem da
 // cotação do servidor (cotarTaxiDogAction) assim que o endereço fica
 // completo, e é calculada de novo na hora de agendar.
-export function EtapaTransporte({ idLojista, valor, onChange }: Props) {
+export function EtapaTransporte({ idLojista, valor, onChange, loja }: Props) {
+  const modoLoja = !!loja
+  const idClienteDaLoja = loja?.idCliente ?? null
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [erroCep, setErroCep] = useState<string | null>(null)
   const [cotando, setCotando] = useState(false)
@@ -46,10 +56,14 @@ export function EtapaTransporte({ idLojista, valor, onChange }: Props) {
   // novo (a RLS já limita às corridas dele).
   useEffect(() => {
     if (jaPreencheu.current || valor.endereco.cep) return
+    // Pela loja, só o último endereço DESTE cliente (a loja enxerga todos).
+    if (modoLoja && !idClienteDaLoja) return
     jaPreencheu.current = true
-    supabase
+    let consulta = supabase
       .from('taxidog_corrida')
       .select('cep, logradouro, numero, complemento, bairro, cidade, uf')
+    if (modoLoja && idClienteDaLoja) consulta = consulta.eq('id_cliente', idClienteDaLoja)
+    consulta
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -62,7 +76,7 @@ export function EtapaTransporte({ idLojista, valor, onChange }: Props) {
           cotacoes: null,
         })
       })
-  }, [valor.endereco.cep, onChange])
+  }, [valor.endereco.cep, onChange, modoLoja, idClienteDaLoja])
 
   const chaveEndereco = valor.opcao === 'taxidog' && enderecoCompleto(valor.endereco) ? JSON.stringify(valor.endereco) : ''
   const temCotacao = !!valor.cotacoes
@@ -76,7 +90,9 @@ export function EtapaTransporte({ idLojista, valor, onChange }: Props) {
     const timer = setTimeout(async () => {
       setCotando(true)
       setErroCotacao(null)
-      const r = await chamarAcao<RespostaCotacao>('cotarTaxiDogAction', idLojista, endereco)
+      const r = modoLoja
+        ? await chamarAcao<RespostaCotacao>('cotarTaxiDogLojaAction', endereco)
+        : await chamarAcao<RespostaCotacao>('cotarTaxiDogAction', idLojista, endereco)
       setCotando(false)
       if (chaveAtual.current !== chaveEndereco) return
       if (r.error || !r.cotacoes) {
@@ -87,7 +103,7 @@ export function EtapaTransporte({ idLojista, valor, onChange }: Props) {
       onChange(prev => ({ ...prev, cotacoes, precisao: r.precisao ?? null }))
     }, 600)
     return () => clearTimeout(timer)
-  }, [chaveEndereco, temCotacao, idLojista, onChange])
+  }, [chaveEndereco, temCotacao, idLojista, onChange, modoLoja])
 
   function atualizar(campo: keyof EnderecoTaxiDog, texto: string) {
     setErroCotacao(null)
@@ -132,13 +148,13 @@ export function EtapaTransporte({ idLojista, valor, onChange }: Props) {
     <View style={{ gap: spacing.md }}>
       <View style={{ gap: spacing.sm }}>
         <Opcao
-          titulo="Vou levar o pet até a loja"
+          titulo={loja?.rotuloLevar ?? (modoLoja ? 'O cliente leva o pet até a loja' : 'Vou levar o pet até a loja')}
           detalhe="Sem taxa de transporte"
           selecionada={valor.opcao === 'levar'}
           onPress={() => onChange(prev => ({ ...prev, opcao: 'levar' }))}
         />
         <Opcao
-          titulo="Quero utilizar o TaxiDog"
+          titulo={modoLoja ? 'Usar o TaxiDog' : 'Quero utilizar o TaxiDog'}
           detalhe="Busca e/ou entrega do pet · taxa calculada pelo endereço"
           selecionada={valor.opcao === 'taxidog'}
           onPress={() => onChange(prev => ({ ...prev, opcao: 'taxidog' }))}
@@ -147,9 +163,9 @@ export function EtapaTransporte({ idLojista, valor, onChange }: Props) {
 
       {valor.opcao === 'taxidog' && (
         <>
-          <Text style={styles.rotulo}>O que você precisa?</Text>
+          <Text style={styles.rotulo}>{modoLoja ? 'O que o cliente precisa?' : 'O que você precisa?'}</Text>
           <View style={{ gap: spacing.sm }}>
-            {MODALIDADES.map(m => {
+            {(loja?.modalidades ?? MODALIDADES).map(m => {
               const cot = valor.cotacoes?.[m]
               return (
                 <Opcao

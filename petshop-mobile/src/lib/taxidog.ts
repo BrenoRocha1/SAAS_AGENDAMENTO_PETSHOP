@@ -23,6 +23,20 @@ export const ROTULO_MODALIDADE: Record<ModalidadeTaxiDog, string> = {
   buscar_entregar: 'Buscar e entregar',
 }
 
+// Situação do transporte como a LOJA vê no detalhe do agendamento — o
+// mesmo texto do site (rotuloTransporte, lib/taxidog-rotas).
+export function rotuloTransporte(t: { status: string; naRota: boolean; temTaxiDog?: boolean }): string {
+  switch (t.status) {
+    case 'cancelada': return 'Cancelada'
+    case 'concluida': return 'Concluída'
+    case 'entregue_loja': return 'Em andamento · pet na loja'
+    case 'pronto_entrega':
+      return t.naRota ? 'Na rota · pronto para entrega' : t.temTaxiDog ? 'Com TaxiDog · pronto para entrega' : 'Pendente · pronto para entrega'
+    case 'agendada': return t.naRota ? 'Na rota' : t.temTaxiDog ? 'Com TaxiDog' : 'Pendente'
+    default: return 'Em andamento'
+  }
+}
+
 // Rótulos do ponto de vista do TaxiDog: corrida sem TaxiDog (migration
 // 046) é "Disponível para atribuição" — ou "Aguardando aceite da loja"
 // enquanto o agendamento está Pendente.

@@ -5,11 +5,13 @@ import { Text } from '@/components/Texto'
 
 // Selo de status — o `.badge` do site: letra de 12 em maiúsculas, 4×10 de
 // respiro, cantos redondos e contorno fino na cor do status.
-export function StatusBadge({ status, style }: { status: string; style?: StyleProp<ViewStyle> }) {
+// `rotulo` troca o texto mantendo as cores do status (ex.: "Pago" no verde
+// de Finalizado).
+export function StatusBadge({ status, style, rotulo }: { status: string; style?: StyleProp<ViewStyle>; rotulo?: string }) {
   const cor = coresStatus(status)
   return (
     <View style={[styles.badge, { backgroundColor: cor.bg, borderColor: cor.ring }, style]}>
-      <Text style={[styles.text, { color: cor.fg }]}>{rotuloStatus(status)}</Text>
+      <Text style={[styles.text, { color: cor.fg }]}>{rotulo ?? rotuloStatus(status)}</Text>
     </View>
   )
 }

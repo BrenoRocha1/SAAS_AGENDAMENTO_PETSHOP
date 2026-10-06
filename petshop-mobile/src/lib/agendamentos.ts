@@ -19,8 +19,19 @@ export interface TransporteDaVisita {
   status: string
   modalidade: ModalidadeTaxiDog
   valor: number
+  // Em uma linha, como o site escreve (rua, número · complemento · bairro · cidade - UF).
   endereco: string
+  // Os campos, para reabrir o endereço na troca do transporte.
+  enderecoCampos: { cep: string; logradouro: string; numero: string; complemento: string; bairro: string; cidade: string; uf: string }
   temTaxiDog: boolean
+  // O próximo trecho (busca ou entrega) já está numa rota.
+  naRota: boolean
+}
+
+// fn_beneficio_do_agendamento: o serviço no plano do pet.
+export interface BeneficioDoAgendamento {
+  usado: { id_utilizacao: string; plano: string; valor_abatido: number; em: string } | null
+  disponivel: { id_assinatura: string; plano: string; quantidade: number; usados: number } | null
 }
 
 export interface ProdutoDoAgendamento {
@@ -55,6 +66,10 @@ export interface AgendamentoDetalhe {
   produtos: ProdutoDoAgendamento[]
   // Benefício do plano usado neste agendamento (migration 060).
   plano: string | null
+  // O bloco "Plano" inteiro: usado ou ainda disponível no período.
+  beneficio: BeneficioDoAgendamento | null
+  // De onde veio o pedido (migration 049) — null se a coluna não existe.
+  origem: 'loja' | 'online' | null
 }
 
 export async function carregarAgendamento(id: string): Promise<{ dados?: AgendamentoDetalhe; erro?: string }> {
@@ -72,18 +87,20 @@ export async function carregarAgendamento(id: string): Promise<{ dados?: Agendam
     .maybeSingle()
   if (error) return { erro: 'Não foi possível carregar este agendamento.' }
   if (!data) return { erro: 'Agendamento não encontrado.' }
-  const base = data as unknown as Omit<AgendamentoDetalhe, 'forma_pagamento' | 'status_pagamento' | 'transporte' | 'produtos' | 'plano'>
+  const base = data as unknown as Omit<AgendamentoDetalhe, 'forma_pagamento' | 'status_pagamento' | 'transporte' | 'produtos' | 'plano' | 'beneficio' | 'origem'>
 
   // O resto é tolerante: cada parte depende de uma migration diferente e
   // nenhuma pode derrubar a tela.
-  const [pagamento, transporte, produtos, plano] = await Promise.all([
+  const [pagamento, transporte, produtos, plano, origem] = await Promise.all([
     supabase.from('agendamento').select('forma_pagamento, status_pagamento').eq('id_agendamento', id).maybeSingle(),
     carregarTransporteDaVisita(base),
     carregarProdutos(id),
     supabase.rpc('fn_beneficio_do_agendamento', { p_id_agendamento: id }),
+    supabase.from('agendamento').select('origem').eq('id_agendamento', id).maybeSingle(),
   ])
   const pg = pagamento.error ? null : (pagamento.data as { forma_pagamento: string | null; status_pagamento: string | null } | null)
-  const beneficio = plano.error ? null : (plano.data as { usado?: { plano: string } | null } | null)
+  const beneficio = plano.error || !plano.data ? null : (plano.data as BeneficioDoAgendamento)
+  const og = origem.error ? null : ((origem.data as { origem: string | null } | null)?.origem ?? null)
 
   return {
     dados: {
@@ -94,6 +111,8 @@ export async function carregarAgendamento(id: string): Promise<{ dados?: Agendam
       transporte,
       produtos,
       plano: beneficio?.usado?.plano ?? null,
+      beneficio,
+      origem: og === 'loja' || og === 'online' ? og : null,
     },
   }
 }
@@ -112,25 +131,40 @@ async function carregarTransporteDaVisita(a: { id_agendamento: string; id_lojist
   if (ids.length === 0) return null
   const { data, error } = await supabase
     .from('taxidog_corrida')
-    .select('id_corrida, id_agendamento, status, modalidade, valor, logradouro, numero, bairro, cidade, uf, id_funcionario')
+    .select('id_corrida, id_agendamento, status, modalidade, valor, cep, logradouro, numero, complemento, bairro, cidade, uf, id_funcionario')
     .in('id_agendamento', ids)
     .neq('status', 'cancelada')
     .order('created_at')
   if (error || !data || data.length === 0) return null
   const linhas = data as {
     id_corrida: string; id_agendamento: string; status: string; modalidade: ModalidadeTaxiDog; valor: number
-    logradouro: string; numero: string; bairro: string; cidade: string; uf: string; id_funcionario: string | null
+    cep: string | null; logradouro: string; numero: string; complemento: string | null; bairro: string; cidade: string; uf: string
+    id_funcionario: string | null
   }[]
   // A deste agendamento primeiro; senão, a da visita.
   const c = linhas.find(l => l.id_agendamento === a.id_agendamento) ?? linhas[0]
+  // Na rota = tem parada ainda por fazer (tolerante: sem a tabela, não está).
+  const { data: itens } = await supabase.from('taxidog_parada_item').select('id_corrida').eq('feito', false).eq('id_corrida', c.id_corrida).limit(1)
+  const rua = [c.logradouro, c.numero].filter(Boolean).join(', ')
+  const cidade = [c.cidade, c.uf].filter(Boolean).join(' - ')
   return {
     id_corrida: c.id_corrida,
     id_agendamento: c.id_agendamento,
     status: c.status,
     modalidade: c.modalidade,
     valor: Number(c.valor ?? 0),
-    endereco: `${c.logradouro}, ${c.numero} · ${c.bairro} · ${c.cidade} - ${c.uf}`,
+    endereco: [rua, c.complemento, c.bairro, cidade].filter(Boolean).join(' · '),
+    enderecoCampos: {
+      cep: c.cep ?? '',
+      logradouro: c.logradouro ?? '',
+      numero: c.numero ?? '',
+      complemento: c.complemento ?? '',
+      bairro: c.bairro ?? '',
+      cidade: c.cidade ?? '',
+      uf: c.uf ?? '',
+    },
     temTaxiDog: !!c.id_funcionario,
+    naRota: !!itens && itens.length > 0,
   }
 }
 

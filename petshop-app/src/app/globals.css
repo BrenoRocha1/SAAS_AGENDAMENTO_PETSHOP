@@ -4335,6 +4335,11 @@ a.linha-app, a.linha-app:hover { color: inherit; text-decoration: none; }
   /* Liga/desliga na cor do app (índigo). */
   .lojista-shell .switch.switch-on, .cliente-shell .switch.switch-on { background: var(--primary-500); }
 
+  /* Botões do detalhe do agendamento: com `flex: 1` os quatro ficavam com
+     80px e o texto era cortado ("Iniciar atendimento"). Aqui cada um ocupa
+     o que precisa, divide a sobra e desce de linha quando não cabe. */
+  .dash-detail-actions > .btn { flex: 1 1 auto !important; }
+
   /* Planos: as abas viram os Segmentos do app. */
   .planos-abas { flex-wrap: wrap; gap: var(--space-2); width: auto; padding: 0; margin-bottom: var(--space-4); border-radius: 0; background: none; overflow: visible; }
   .planos-abas a {
