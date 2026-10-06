@@ -1,21 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native'
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
-import { Card } from '@/components/Card'
 import { EmptyState } from '@/components/EmptyState'
-import { Botao } from '@/components/Botao'
+import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { Aviso } from '@/components/Aviso'
-import { Opcao } from '@/components/Opcao'
-import { Interruptor } from '@/components/Interruptor'
+import { IconCheck, IconWhatsapp } from '@/components/IconesDoSite'
+import { Seletor } from '@/components/Seletor'
 import { Text } from '@/components/Texto'
 import { supabase } from '@/lib/supabase'
 import { dataBR } from '@/lib/agenda'
 import { carregarAgendamento, editarAgendamento, whatsappAlterado } from '@/lib/agendamentos'
 import { formatarMoeda } from '@/lib/format'
 import { nomeDaLoja } from '@/lib/loja'
-import { colors, spacing, typography } from '@/theme/theme'
+import { colors, spacing } from '@/theme/theme'
 
 interface Dados {
   idLojista: string
@@ -24,6 +23,8 @@ interface Dados {
   dt: string
   hr: string
   valor: number
+  // Serviços marcados juntos (mesmo pet, dia e pedido) ainda por fazer.
+  noPedido: number
   servicos: { id_servico: string; nome: string; duracao: number }[]
   pets: { id_pet: string; nome: string; raca: string | null }[]
 }
@@ -34,6 +35,16 @@ interface PlanoDoPet {
   beneficios: { id_servico: string; quantidade: number; usados: number }[]
 }
 
+function horaMais(hhmm: string, minutos: number) {
+  const [h, m] = hhmm.split(':').map(Number)
+  const total = h * 60 + m + minutos
+  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
+
+// Alterar agendamento — a mesma janela do site (EditarModal em
+// petshop-app/src/components/EditarAgendamento.tsx): resumo numa linha,
+// Serviço e Pet em campos de escolha, o preço novo e os botões. Mudou lá,
+// muda aqui.
 // Troca o serviço e/ou o pet (do mesmo cliente) — regras em
 // fn_editar_agendamento (migration 070): a loja altera Pendente ou Aceito;
 // o cliente, o próprio agendamento só enquanto Pendente.
@@ -57,18 +68,21 @@ export function TelaEditarAgendamento({ modo }: { modo: 'loja' | 'cliente' }) {
     ;(async () => {
       const { data: ag } = await supabase
         .from('agendamento')
-        .select('id_lojista, id_cliente, id_pet, id_servico, dt_agendamento, hr_agendamento, valor')
+        .select('id_lojista, id_cliente, id_pet, id_servico, dt_agendamento, hr_agendamento, valor, created_at')
         .eq('id_agendamento', id)
         .maybeSingle()
       if (!ag) {
         if (!cancelado) setErroCarga('Agendamento não encontrado.')
         return
       }
-      const [{ data: servicos }, { data: pets }] = await Promise.all([
+      const [{ data: servicos }, { data: pets }, { count }] = await Promise.all([
         supabase.from('servico').select('id_servico, nome, duracao').eq('id_lojista', ag.id_lojista).eq('status', 'Ativo').order('nome'),
         ag.id_cliente
           ? supabase.from('pet').select('id_pet, nome, raca').eq('id_cliente', ag.id_cliente).eq('ativo', true).order('nome')
           : Promise.resolve({ data: [] }),
+        supabase.from('agendamento').select('id_agendamento', { count: 'exact', head: true })
+          .eq('id_lojista', ag.id_lojista).eq('id_pet', ag.id_pet).eq('dt_agendamento', ag.dt_agendamento)
+          .eq('created_at', ag.created_at).in('status', ['Pendente', 'Confirmado']),
       ])
       if (cancelado) return
       const lista = (servicos ?? []) as Dados['servicos']
@@ -85,6 +99,7 @@ export function TelaEditarAgendamento({ modo }: { modo: 'loja' | 'cliente' }) {
         dt: ag.dt_agendamento,
         hr: (ag.hr_agendamento as string).slice(0, 5),
         valor: Number(ag.valor),
+        noPedido: count ?? 1,
         servicos: lista,
         pets: (pets ?? []) as Dados['pets'],
       })
@@ -120,7 +135,7 @@ export function TelaEditarAgendamento({ modo }: { modo: 'loja' | 'cliente' }) {
   if (!dados) {
     return (
       <ScreenContainer scroll={false}>
-        <DetailHeader title="Alterar agendamento" />
+        <DetailHeader title="Alterar agendamento" junto />
         {erroCarga ? (
           <EmptyState icon="alert-circle-outline" ilustracao="nao-encontrado" title="Agendamento não encontrado" subtitle={erroCarga} />
         ) : (
@@ -174,111 +189,122 @@ export function TelaEditarAgendamento({ modo }: { modo: 'loja' | 'cliente' }) {
   if (feito) {
     return (
       <ScreenContainer>
-        <DetailHeader title="Alterar agendamento" />
-        <View style={{ gap: spacing.md }}>
+        <DetailHeader title="Alterar agendamento" junto />
+        <View style={styles.corpo}>
           <Aviso
             tipo="sucesso"
             texto={`Agendamento alterado. Valor: ${formatarMoeda(feito.anterior)} → ${formatarMoeda(feito.novo)}.${modo === 'cliente' ? ' A loja vê a mudança no seu pedido.' : ''}`}
           />
           {feito.avisos.map((av, i) => <Aviso key={i} tipo="info" texto={av} />)}
+        </View>
+        <View style={styles.rodape}>
           {feito.whatsapp && (
-            <Botao
-              rotulo="Avisar o cliente no WhatsApp"
-              icone="logo-whatsapp"
-              variante="secundario"
-              onPress={() => Linking.openURL(feito.whatsapp!)}
-            />
+            <BotaoPequeno normal icone={IconWhatsapp} rotulo="Avisar o cliente no WhatsApp" onPress={() => Linking.openURL(feito.whatsapp!)} />
           )}
-          <Botao rotulo="Concluir" onPress={() => router.back()} />
+          <BotaoPequeno normal variante="primario" rotulo="Fechar" onPress={() => router.back()} />
         </View>
       </ScreenContainer>
     )
   }
 
+  const servico = d.servicos.find(s => s.id_servico === idServico) ?? null
+  const petNovo = d.pets.find(p => p.id_pet === idPet) ?? null
+
   return (
     <ScreenContainer>
-      <DetailHeader title="Alterar agendamento" />
+      <DetailHeader title="Alterar agendamento" junto />
 
-      <Card style={styles.resumo}>
-        <Text style={styles.resumoTitulo}>{petAtual?.nome ?? 'Pet'} — {servicoAtual?.nome ?? 'Serviço'}</Text>
-        <Text style={styles.resumoTexto}>{dataBR(d.dt)} às {d.hr} · {formatarMoeda(d.valor)}</Text>
-        <Text style={styles.resumoTexto}>A data e o horário não mudam aqui — para isso, use Remarcar.</Text>
-      </Card>
+      <View style={styles.corpo}>
+        {erro && <Aviso tipo="erro" texto={erro} />}
+        <Text style={styles.apoio}>
+          {dataBR(d.dt)} às {d.hr} · {servicoAtual?.nome ?? 'Serviço'} · {petAtual?.nome ?? 'Pet'} · {formatarMoeda(d.valor)}
+        </Text>
 
-      <Text style={styles.secao}>Serviço</Text>
-      <View style={{ gap: spacing.sm }}>
-        {d.servicos.map(s => (
-          <Opcao
-            key={s.id_servico}
-            titulo={s.nome}
-            detalhe={`${s.duracao} min${s.id_servico === d.idServico ? ' · atual' : ''}`}
-            selecionada={idServico === s.id_servico}
-            onPress={() => setIdServico(s.id_servico)}
+        <View style={styles.grupo}>
+          <Text style={styles.rotulo}>Serviço</Text>
+          <Seletor
+            titulo="Serviço"
+            valor={idServico}
+            desativado={enviando}
+            opcoes={d.servicos.map(s => ({ valor: s.id_servico, rotulo: `${s.nome} · ${s.duracao} min` }))}
+            onChange={setIdServico}
           />
-        ))}
-      </View>
+          {mudaServico && servico && servicoAtual && servico.duracao !== servicoAtual.duracao && (
+            <Text style={styles.dica}>{servico.duracao} min — vai das {d.hr} às {horaMais(d.hr, servico.duracao)}.</Text>
+          )}
+        </View>
 
-      {d.pets.length > 1 && (
-        <>
-          <Text style={styles.secao}>Pet</Text>
-          <View style={{ gap: spacing.sm }}>
-            {d.pets.map(p => (
-              <Opcao
-                key={p.id_pet}
-                titulo={p.nome}
-                detalhe={`${p.raca ?? ''}${p.id_pet === d.idPet ? `${p.raca ? ' · ' : ''}atual` : ''}`}
-                selecionada={idPet === p.id_pet}
-                onPress={() => setIdPet(p.id_pet)}
-              />
-            ))}
-          </View>
-        </>
-      )}
-
-      <View style={styles.rodape}>
-        {beneficio && (
-          <Card style={styles.beneficio}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={styles.beneficioTitulo}>Usar o plano {beneficio.plano}</Text>
-              <Text style={styles.resumoTexto}>
-                {beneficio.quantidade - Number(beneficio.usados)} de {beneficio.quantidade} usos disponíveis — o serviço sai sem cobrança.
-              </Text>
-            </View>
-            <Interruptor
-              value={usarBeneficio}
-              onValueChange={setUsarBeneficio}
+        {d.pets.length > 0 && (
+          <View style={styles.grupo}>
+            <Text style={styles.rotulo}>Pet</Text>
+            <Seletor
+              titulo="Pet"
+              valor={idPet}
+              desativado={enviando}
+              opcoes={d.pets.map(p => ({ valor: p.id_pet, rotulo: `${p.nome}${p.raca ? ` · ${p.raca}` : ''}` }))}
+              onChange={setIdPet}
             />
-          </Card>
+            {mudaPet && d.noPedido > 1 && (
+              <Text style={styles.dica}>Os {d.noPedido} serviços marcados juntos passam para {petNovo?.nome ?? 'o novo pet'}.</Text>
+            )}
+          </View>
         )}
 
         {(mudaServico || mudaPet) && (
-          <Aviso
-            tipo="info"
-            texto={
-              vaiUsarBeneficio
-                ? 'Serviço coberto pelo plano — o valor do serviço fica R$ 0,00.'
-                : precoNovo === undefined
-                  ? 'Calculando o novo valor do serviço…'
-                  : precoNovo === null
-                    ? 'O novo valor aparece depois de salvar.'
-                    : `Novo valor do serviço: ${formatarMoeda(precoNovo)} (produtos e TaxiDog, se houver, continuam somados).`
-            }
-          />
+          <Text style={styles.texto}>
+            Preço do serviço{petNovo ? ` para ${petNovo.nome}` : ''}:{' '}
+            <Text style={styles.forte}>{precoNovo === undefined ? '...' : precoNovo === null ? '—' : formatarMoeda(precoNovo)}</Text>
+            <Text style={styles.dica}> (TaxiDog e produtos continuam no agendamento)</Text>
+          </Text>
         )}
-        {erro && <Aviso tipo="erro" texto={erro} />}
-        <Botao rotulo="Salvar alteração" icone="checkmark" onPress={salvar} carregando={enviando} desativado={!mudaServico && !mudaPet} />
+
+        {(mudaServico || mudaPet) && beneficio && (
+          <Pressable
+            onPress={() => setUsarBeneficio(v => !v)}
+            disabled={enviando}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: usarBeneficio }}
+            style={styles.marcar}
+          >
+            <View style={[styles.caixinha, usarBeneficio && styles.caixinhaMarcada]}>
+              {usarBeneficio && <IconCheck size={11} color={colors.white} />}
+            </View>
+            <Text style={styles.texto}>
+              Usar o plano {beneficio.plano} ({beneficio.quantidade - Number(beneficio.usados)} de {beneficio.quantidade} restantes) — o serviço não é cobrado
+            </Text>
+          </Pressable>
+        )}
+      </View>
+
+      <View style={styles.rodape}>
+        <BotaoPequeno normal variante="primario" rotulo={enviando ? 'Salvando...' : 'Salvar alteração'} desativado={enviando || (!mudaServico && !mudaPet)} onPress={salvar} />
+        <BotaoPequeno normal variante="fantasma" rotulo="Cancelar" desativado={enviando} onPress={() => router.back()} />
       </View>
     </ScreenContainer>
   )
 }
 
+// Medidas da janela "Alterar agendamento" do site em 375 de largura.
 const styles = StyleSheet.create({
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  resumo: { gap: 4 },
-  resumoTitulo: { ...typography.heading.sm, color: colors.text },
-  resumoTexto: { ...typography.body.md, color: colors.textMuted },
-  secao: { ...typography.heading.sm, color: colors.text, marginTop: spacing.xl, marginBottom: spacing.md },
-  rodape: { marginTop: spacing.xl, gap: spacing.md },
-  beneficio: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  beneficioTitulo: { ...typography.body.lg, fontWeight: '600', color: colors.text },
+  corpo: { gap: 12 },
+  grupo: { gap: 4 },
+  rotulo: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.textDim },
+  apoio: { fontSize: 14, lineHeight: 20, color: '#858d99' },
+  dica: { fontSize: 12, lineHeight: 16, fontWeight: '400', color: '#858d99' },
+  texto: { flexShrink: 1, fontSize: 14, lineHeight: 20, color: colors.text },
+  forte: { fontWeight: '700' },
+  marcar: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  caixinha: {
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: colors.textMuted,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  caixinhaMarcada: { backgroundColor: colors.primary500, borderColor: colors.primary500 },
+  rodape: { gap: 8, marginTop: spacing.xl },
 })
