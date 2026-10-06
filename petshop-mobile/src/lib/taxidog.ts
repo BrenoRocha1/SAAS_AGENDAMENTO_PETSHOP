@@ -98,8 +98,12 @@ export function trechoAtual(c: { status: string; modalidade: string }): 'busca' 
   return 'busca'
 }
 
+// "R$ 1.234,50" — com o ponto de milhar, como no site.
 export function formatarReais(valor: number | string | null | undefined): string {
-  return `R$ ${Number(valor ?? 0).toFixed(2).replace('.', ',')}`
+  const n = Number(valor ?? 0)
+  const [inteiro, centavos] = Math.abs(n).toFixed(2).split('.')
+  const comPontos = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return `${n < 0 ? '-' : ''}R$ ${comPontos},${centavos}`
 }
 
 export function formatarKm(km: number | null | undefined): string {
