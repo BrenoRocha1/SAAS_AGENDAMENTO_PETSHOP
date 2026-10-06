@@ -31,6 +31,12 @@ export function ehEtapaAtiva(status: string): boolean {
   return status === 'Pendente' || status === 'Confirmado' || status === 'Em andamento'
 }
 
+// Passou do horário e o atendimento nem começou (pendente ou aceito). Só
+// vale para o dia de hoje; `agora` e `hora` em 'HH:MM' no fuso da loja.
+export function ehAtrasado(status: string, hora: string, agora: string): boolean {
+  return (status === 'Pendente' || status === 'Confirmado') && hora.slice(0, 5) < agora
+}
+
 // A etapa seguinte de cada uma, e o verbo do botão que leva até ela.
 // `null` = fim da linha (Finalizado e Cancelado não avançam).
 export const PROXIMA_ETAPA: Record<StatusAgendamento, { status: StatusAgendamento; acao: string } | null> = {

@@ -13,7 +13,7 @@ import { SemPermissao } from '@/components/SemPermissao'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAgendamentosHoje } from '@/hooks/useAgendamentosHoje'
 import { dataExtensaBrasil, saudacao, agoraBrasilHHMM } from '@/lib/agenda'
-import { ehEtapaAtiva } from '@/lib/statusAgendamento'
+import { ehAtrasado, ehEtapaAtiva } from '@/lib/statusAgendamento'
 import { colors, spacing, typography } from '@/theme/theme'
 
 const MAX_PROXIMOS = 4
@@ -29,14 +29,19 @@ export default function InicioScreen() {
   const resumo = useMemo(() => {
     const agora = agoraBrasilHHMM()
     const naLoja = agendamentos.filter(a => a.status === 'Em andamento').length
-    const proximos = agendamentos
-      .filter(a => ehEtapaAtiva(a.status) && a.hr_agendamento.slice(0, 5) >= agora)
-      .slice(0, MAX_PROXIMOS)
+    // Tudo de hoje que ainda está em aberto, inclusive o que já passou do
+    // horário: é o que a loja ainda precisa resolver. Cortar pelo horário
+    // escondia o agendamento atrasado e a tela dizia "Nada pendente" com o
+    // contador ao lado marcando 1.
+    const proximos = agendamentos.filter(a => ehEtapaAtiva(a.status)).slice(0, MAX_PROXIMOS)
     const porStatus = agendamentos.reduce<Record<string, number>>((acc, a) => {
       acc[a.status] = (acc[a.status] ?? 0) + 1
       return acc
     }, {})
-    return { total: agendamentos.length, naLoja, proximos, porStatus }
+    // Cancelado não conta como agendamento do dia — mesma conta do site
+    // (fn_metricas_lojista).
+    const total = agendamentos.filter(a => a.status !== 'Cancelado').length
+    return { total, naLoja, proximos, porStatus, agora }
   }, [agendamentos])
 
   return (
@@ -84,7 +89,12 @@ export default function InicioScreen() {
             ) : (
               <View style={{ gap: spacing.md }}>
                 {resumo.proximos.map(item => (
-                  <AppointmentRow key={item.id_agendamento} item={item} onPress={() => router.push(`/agendamentos/${item.id_agendamento}`)} />
+                  <AppointmentRow
+                    key={item.id_agendamento}
+                    item={item}
+                    atrasado={ehAtrasado(item.status, item.hr_agendamento, resumo.agora)}
+                    onPress={() => router.push(`/agendamentos/${item.id_agendamento}`)}
+                  />
                 ))}
               </View>
             )}

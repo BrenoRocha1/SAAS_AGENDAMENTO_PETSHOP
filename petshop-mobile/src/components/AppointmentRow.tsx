@@ -8,12 +8,14 @@ import type { Agendamento } from '@/types/database'
 // Linha de agendamento — horário em destaque à esquerda, dados do
 // atendimento no meio, status à direita. Usada tanto no resumo da tela
 // Início quanto na lista completa de Agendamentos. Com `onPress`, abre o
-// agendamento (aceitar, iniciar, remarcar…).
-export function AppointmentRow({ item, onPress }: { item: Agendamento; onPress?: () => void }) {
+// agendamento (aceitar, iniciar, remarcar…). `atrasado` avisa, embaixo do
+// horário, que a hora passou e o atendimento ainda não começou.
+export function AppointmentRow({ item, onPress, atrasado }: { item: Agendamento; onPress?: () => void; atrasado?: boolean }) {
   return (
     <Card style={styles.card} onPress={onPress}>
       <View style={styles.horaCol}>
         <Text style={styles.hora}>{item.hr_agendamento.slice(0, 5)}</Text>
+        {atrasado && <Text style={styles.atrasado}>atrasado</Text>}
       </View>
 
       <View style={styles.divider} />
@@ -50,6 +52,7 @@ const styles = StyleSheet.create({
   card: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   horaCol: { width: 48 },
   hora: { ...typography.heading.sm, color: colors.text },
+  atrasado: { fontSize: 10.5, fontWeight: '600', color: colors.dangerFg, marginTop: 1 },
   divider: { width: 1, alignSelf: 'stretch', backgroundColor: colors.border },
   info: { flex: 1, gap: 2 },
   pet: { ...typography.body.lg, fontWeight: '700', color: colors.text },

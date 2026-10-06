@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
-import { classeBadgeStatus, corSolidaStatus, ehEtapaAtiva, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
+import { classeBadgeStatus, corSolidaStatus, ehAtrasado, ehEtapaAtiva, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
 import { agoraBrasilHHMM } from '@/lib/agenda'
 import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
 import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
@@ -328,9 +328,11 @@ export default function DashboardClient({
     acc[a.status] = (acc[a.status] ?? 0) + 1
     return acc
   }, {})
-  const proximosDoApp = agenda
-    .filter(a => ehEtapaAtiva(a.status) && (!isSelectedToday || a.hr_agendamento.slice(0, 5) >= agoraHHMM))
-    .slice(0, MAX_PROXIMOS_APP)
+  // Tudo do dia que ainda está em aberto, inclusive o que já passou do
+  // horário: é o que a loja ainda precisa resolver. Cortar pelo horário
+  // escondia o agendamento atrasado e a tela dizia "Nada pendente" com o
+  // contador ao lado marcando 1 (mesma regra do app).
+  const proximosDoApp = agenda.filter(a => ehEtapaAtiva(a.status)).slice(0, MAX_PROXIMOS_APP)
 
   const avisosDeAcao = (
     <>
@@ -421,7 +423,10 @@ export default function DashboardClient({
                   className="dash-app-linha"
                   onClick={() => setSelecionado({ tipo: 'agenda', item })}
                 >
-                  <span className="dash-app-linha-hora">{item.hr_agendamento.slice(0, 5)}</span>
+                  <span className="dash-app-linha-hora">
+                    {item.hr_agendamento.slice(0, 5)}
+                    {isSelectedToday && ehAtrasado(item.status, item.hr_agendamento, agoraHHMM) && <small>atrasado</small>}
+                  </span>
                   <span className="dash-app-linha-divisor" />
                   <span className="dash-app-linha-info">
                     <span className="dash-app-linha-pet">{item.nome_pet}</span>

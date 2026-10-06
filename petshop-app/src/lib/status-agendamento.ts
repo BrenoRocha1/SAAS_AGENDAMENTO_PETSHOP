@@ -112,3 +112,9 @@ export function etapaEncerrada(status: string): boolean {
 export function ehEtapaAtiva(status: string): boolean {
   return status === 'Pendente' || status === 'Confirmado' || status === 'Em andamento'
 }
+
+// Passou do horário e o atendimento nem começou (pendente ou aceito). Só
+// vale para o dia de hoje; `agora` e `hora` em 'HH:MM' no fuso da loja.
+export function ehAtrasado(status: string, hora: string, agora: string): boolean {
+  return (status === 'Pendente' || status === 'Confirmado') && hora.slice(0, 5) < agora
+}

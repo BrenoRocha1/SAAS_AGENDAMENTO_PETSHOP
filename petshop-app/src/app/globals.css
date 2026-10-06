@@ -2274,6 +2274,7 @@ svg.is-da-visita { opacity: 0.45; }
 }
 .dash-app-linha:active { background: var(--gray-850); }
 .dash-app-linha-hora { width: 48px; flex-shrink: 0; font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
+.dash-app-linha-hora small { display: block; margin-top: 1px; font-size: 0.656rem; font-weight: 600; color: var(--danger-400); }
 .dash-app-linha-divisor { width: 1px; align-self: stretch; background: var(--gray-800); }
 .dash-app-linha-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .dash-app-linha-pet { font-size: 1rem; font-weight: 700; color: var(--gray-100); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
