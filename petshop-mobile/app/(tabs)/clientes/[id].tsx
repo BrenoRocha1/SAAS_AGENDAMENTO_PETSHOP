@@ -9,14 +9,11 @@ import { Avatar } from '@/components/Avatar'
 import { Card } from '@/components/Card'
 import { EmptyState } from '@/components/EmptyState'
 import { Botao } from '@/components/Botao'
-import { Aviso } from '@/components/Aviso'
-import { Campo } from '@/components/Campo'
-import { Folha } from '@/components/Folha'
+import { FolhaCliente } from '@/components/FolhaCliente'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { acoesDisponiveis, chamarAcao, form } from '@/lib/acoes'
-import { mascaraTelefone, soDigitos } from '@/lib/mascaras'
+import { acoesDisponiveis } from '@/lib/acoes'
 import { formatarTelefone } from '@/lib/format'
 import { colors, spacing, typography } from '@/theme/theme'
 
@@ -45,10 +42,6 @@ export default function ClienteDetalheScreen() {
   const [erro, setErro] = useState<string | null>(null)
   // Editar nome/telefone (fn_editar_cliente_lojista, migration 019).
   const [painel, setPainel] = useState(false)
-  const [nome, setNome] = useState('')
-  const [telefone, setTelefone] = useState('')
-  const [erroPainel, setErroPainel] = useState<string | null>(null)
-  const [salvando, setSalvando] = useState(false)
 
   useFocusEffect(
     useCallback(() => {
@@ -104,26 +97,6 @@ export default function ClienteDetalheScreen() {
   const c = cliente
   const comSite = acoesDisponiveis()
 
-  function abrirEdicao() {
-    setNome(c.nome)
-    setTelefone(mascaraTelefone(c.telefone))
-    setErroPainel(null)
-    setPainel(true)
-  }
-
-  async function salvarEdicao() {
-    if (nome.trim().length < 2) return setErroPainel('Informe o nome.')
-    const tel = soDigitos(telefone)
-    if (tel.length < 10) return setErroPainel('Informe o telefone com DDD.')
-    setErroPainel(null)
-    setSalvando(true)
-    const r = await chamarAcao('editarClienteLojistaAction', c.id_cliente, form({ nome: nome.trim(), telefone: tel }))
-    setSalvando(false)
-    if (r.error) return setErroPainel(r.error)
-    setCliente({ ...c, nome: nome.trim(), telefone: tel })
-    setPainel(false)
-  }
-
   return (
     <ScreenContainer>
       <DetailHeader title={cliente.nome} junto />
@@ -162,7 +135,7 @@ export default function ClienteDetalheScreen() {
       </Card>
 
       {comSite && contexto?.acessoTotal && (
-        <Botao rotulo="Editar nome e telefone" icone="create-outline" variante="secundario" style={{ marginBottom: spacing.lg }} onPress={abrirEdicao} />
+        <Botao rotulo="Editar nome e telefone" icone="create-outline" variante="secundario" style={{ marginBottom: spacing.lg }} onPress={() => setPainel(true)} />
       )}
 
       <View style={styles.secaoLinha}>
@@ -194,13 +167,15 @@ export default function ClienteDetalheScreen() {
         </View>
       )}
 
-      <Folha visivel={painel} titulo="Editar cliente" onFechar={() => setPainel(false)} ocupado={salvando}>
-        {erroPainel && <Aviso tipo="erro" texto={erroPainel} />}
-        <Campo rotulo="Nome" value={nome} onChangeText={setNome} maxLength={120} autoCapitalize="words" />
-        <Campo rotulo="Telefone" value={telefone} onChangeText={t => setTelefone(mascaraTelefone(t))} keyboardType="phone-pad" maxLength={15} />
-        <Text style={styles.petRaca}>O e-mail é o login do cliente e o CPF é documento — nenhum dos dois muda por aqui.</Text>
-        <Botao rotulo="Salvar" onPress={salvarEdicao} carregando={salvando} />
-      </Folha>
+      <FolhaCliente
+        visivel={painel}
+        cliente={c}
+        onFechar={() => setPainel(false)}
+        onSalvo={dados => {
+          if (dados) setCliente({ ...c, ...dados })
+          setPainel(false)
+        }}
+      />
     </ScreenContainer>
   )
 }

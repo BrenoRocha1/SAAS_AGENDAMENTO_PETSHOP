@@ -7,6 +7,7 @@ import { BarraTopo } from '@/components/BarraTopo'
 import { SearchField } from '@/components/SearchField'
 import { ClienteRow } from '@/components/ClienteRow'
 import { EmptyState } from '@/components/EmptyState'
+import { FolhaCliente } from '@/components/FolhaCliente'
 import { SemPermissao } from '@/components/SemPermissao'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
@@ -18,6 +19,7 @@ export default function ClientesScreen() {
   const { contexto } = useAuth()
   const router = useRouter()
   const [busca, setBusca] = useState('')
+  const [novo, setNovo] = useState(false)
   const { clientes, loading, loadingMais, erro, temMais, carregarMais, recarregar } = useClientesLojista(
     contexto?.idLojista,
     busca
@@ -43,7 +45,7 @@ export default function ClientesScreen() {
           <Text style={styles.title}>Clientes</Text>
           {contexto.acessoTotal && acoesDisponiveis() && (
             <Pressable
-              onPress={() => router.push('/clientes/novo')}
+              onPress={() => setNovo(true)}
               accessibilityRole="button"
               accessibilityLabel="Novo cliente"
               style={({ pressed }) => [styles.novo, pressed && { opacity: 0.8 }]}
@@ -82,6 +84,8 @@ export default function ClientesScreen() {
           )
         }
       />
+
+      <FolhaCliente visivel={novo} onFechar={() => setNovo(false)} onSalvo={() => { setNovo(false); recarregar() }} />
     </SafeAreaView>
   )
 }

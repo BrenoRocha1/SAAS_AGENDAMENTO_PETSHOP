@@ -1,5 +1,6 @@
-import { ReactNode } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 import { IconeApp } from '@/components/IconeApp'
+import type { IconeProps } from '@/components/IconesDoSite'
 import { Text } from '@/components/Texto'
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -8,6 +9,8 @@ import { colors, radius, spacing, typography } from '@/theme/theme'
 interface Props {
   visivel: boolean
   titulo: string
+  // Desenho do site antes do título (os usuários em "Novo Cliente").
+  icone?: ComponentType<IconeProps>
   onFechar: () => void
   children: ReactNode
   // Enquanto salva, tocar fora ou no X não fecha.
@@ -24,7 +27,7 @@ export function depoisDeFechar(abrir: () => void) {
 
 // Painel que sobe de baixo (o "modal" do web no celular): motivo do
 // cancelamento, forma de pagamento, escolha de profissional...
-export function Folha({ visivel, titulo, onFechar, children, ocupado }: Props) {
+export function Folha({ visivel, titulo, icone: Icone, onFechar, children, ocupado }: Props) {
   const insets = useSafeAreaInsets()
   const fechar = () => { if (!ocupado) onFechar() }
   return (
@@ -33,6 +36,7 @@ export function Folha({ visivel, titulo, onFechar, children, ocupado }: Props) {
         <Pressable style={styles.fora} onPress={fechar} accessibilityLabel="Fechar" />
         <View style={[styles.painel, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
           <View style={styles.cabecalho}>
+            {Icone && <Icone size={17} color={colors.text} style={styles.icone} />}
             <Text style={styles.titulo} numberOfLines={1}>{titulo}</Text>
             <Pressable onPress={fechar} hitSlop={10} accessibilityRole="button" accessibilityLabel="Fechar" style={styles.fechar}>
               <IconeApp name="close" size={15} color={colors.textMuted} />
@@ -65,6 +69,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   titulo: { flex: 1, ...typography.heading.md, color: colors.text },
+  // O título vem 8 depois do desenho (o cabeçalho separa por 12).
+  icone: { marginRight: -4 },
   // `.modal-close` do site: 32 de área com o "X" de 15.
   fechar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   conteudo: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.md },
