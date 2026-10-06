@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { Aviso } from './Aviso'
 import { Campo } from './Campo'
+import { IconCar, IconStore } from './IconesDoSite'
+import { ItemEscolha } from './ItemEscolha'
 import { Opcao } from './Opcao'
 import { Text } from '@/components/Texto'
 import { supabase } from '@/lib/supabase'
@@ -147,16 +149,23 @@ export function EtapaTransporte({ idLojista, valor, onChange, loja }: Props) {
   return (
     <View style={{ gap: spacing.md }}>
       <View style={{ gap: spacing.sm }}>
-        <Opcao
+        {/* Os dois cartões com ícone da etapa de transporte do site (TaxiDogCampos). */}
+        <ItemEscolha
+          grande
+          icone={IconStore}
+          tamanhoDoIcone={20}
           titulo={loja?.rotuloLevar ?? (modoLoja ? 'O cliente leva o pet até a loja' : 'Vou levar o pet até a loja')}
           detalhe="Sem taxa de transporte"
-          selecionada={valor.opcao === 'levar'}
+          selecionado={valor.opcao === 'levar'}
           onPress={() => onChange(prev => ({ ...prev, opcao: 'levar' }))}
         />
-        <Opcao
+        <ItemEscolha
+          grande
+          icone={IconCar}
+          tamanhoDoIcone={20}
           titulo={modoLoja ? 'Usar o TaxiDog' : 'Quero utilizar o TaxiDog'}
           detalhe="Busca e/ou entrega do pet · taxa calculada pelo endereço"
-          selecionada={valor.opcao === 'taxidog'}
+          selecionado={valor.opcao === 'taxidog'}
           onPress={() => onChange(prev => ({ ...prev, opcao: 'taxidog' }))}
         />
       </View>

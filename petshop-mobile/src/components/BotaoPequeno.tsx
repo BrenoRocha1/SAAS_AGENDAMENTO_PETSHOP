@@ -12,6 +12,8 @@ interface Props {
   variante?: Variante
   // Um dos desenhos do site (components/IconesDoSite), à esquerda do texto.
   icone?: ComponentType<IconeProps>
+  // Tamanho do `.btn` comum (46 de altura, letra de 15) em vez do `.btn-sm`.
+  normal?: boolean
   desativado?: boolean
   carregando?: boolean
   style?: StyleProp<ViewStyle>
@@ -30,7 +32,7 @@ const CORES: Record<Variante, { fundo: string; borda: string; texto: string }> =
 
 // Botão pequeno das janelas de detalhe (ações do agendamento, "Adicionar
 // TaxiDog", "Salvar transporte"). Para o botão grande de tela, ver Botao.
-export function BotaoPequeno({ rotulo, onPress, variante = 'secundario', icone: Icone, desativado, carregando, style }: Props) {
+export function BotaoPequeno({ rotulo, onPress, variante = 'secundario', icone: Icone, normal, desativado, carregando, style }: Props) {
   const cor = CORES[variante]
   const parado = desativado || carregando
   return (
@@ -41,6 +43,7 @@ export function BotaoPequeno({ rotulo, onPress, variante = 'secundario', icone: 
       accessibilityState={{ disabled: !!parado }}
       style={({ pressed }) => [
         styles.botao,
+        normal && styles.normal,
         { backgroundColor: cor.fundo, borderColor: cor.borda },
         (pressed || parado) && styles.apagado,
         style,
@@ -51,7 +54,7 @@ export function BotaoPequeno({ rotulo, onPress, variante = 'secundario', icone: 
       ) : (
         <>
           {Icone && <Icone size={14} color={cor.texto} />}
-          <Text style={[styles.texto, { color: cor.texto }]} numberOfLines={1}>{rotulo}</Text>
+          <Text style={[styles.texto, normal && styles.textoNormal, { color: cor.texto }]} numberOfLines={1}>{rotulo}</Text>
         </>
       )}
     </Pressable>
@@ -69,6 +72,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
+  normal: { height: 46, paddingHorizontal: 20 },
   apagado: { opacity: 0.6 },
   texto: { fontSize: 13, lineHeight: 13, fontWeight: '600' },
+  textoNormal: { fontSize: 15, lineHeight: 15 },
 })
