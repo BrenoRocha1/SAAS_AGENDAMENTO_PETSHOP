@@ -9,10 +9,12 @@ import { EmptyState } from '@/components/EmptyState'
 import { SemPermissao } from '@/components/SemPermissao'
 import { Aviso } from '@/components/Aviso'
 import { Botao } from '@/components/Botao'
+import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { Campo } from '@/components/Campo'
 import { Folha } from '@/components/Folha'
 import { LinhaSwitch } from '@/components/LinhaSwitch'
 import { Opcao, Segmentos } from '@/components/Opcao'
+import { Seletor } from '@/components/Seletor'
 import { Interruptor } from '@/components/Interruptor'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
@@ -54,7 +56,7 @@ function dataHora(iso: string): string {
 }
 type FiltroCobranca = 'pendentes' | 'vencidas' | 'pagas' | 'todas'
 
-interface ServicoLoja { id_servico: string; nome: string; status: string }
+interface ServicoLoja { id_servico: string; nome: string; preco: number; status: string }
 
 const COR_COBRANCA: Record<StatusCobrancaExibido, { fundo: string; texto: string }> = {
   pendente: { fundo: colors.warningBg, texto: colors.warningFg },
@@ -115,7 +117,7 @@ export default function PlanosScreen() {
     const [planosRes, extra] = await Promise.all([
       supabase.rpc('fn_planos_da_loja'),
       aba === 'planos'
-        ? supabase.from('servico').select('id_servico, nome, status').eq('id_lojista', idLojista).is('excluido_em', null).order('nome')
+        ? supabase.from('servico').select('id_servico, nome, preco, status').eq('id_lojista', idLojista).is('excluido_em', null).order('nome')
         : aba === 'assinaturas'
           ? supabase.rpc('fn_assinaturas_da_loja', { p_id_cliente: null, p_detalhes: false })
           : aba === 'historico'
@@ -137,7 +139,7 @@ export default function PlanosScreen() {
       setCobrancas(((cob.data ?? []) as CobrancaDaLoja[]).map(c => ({ ...c, valor: Number(c.valor) })))
       setFormas(formasAtivas(normalizarFormasLoja(formasLoja.data)))
     } else if (aba === 'planos') {
-      setServicos((extra.data ?? []) as ServicoLoja[])
+      setServicos(((extra.data ?? []) as ServicoLoja[]).map(s => ({ ...s, preco: Number(s.preco) })))
     } else if (aba === 'historico') {
       setHistorico((extra.data ?? []) as ItemHistorico[])
     } else {
@@ -163,7 +165,7 @@ export default function PlanosScreen() {
     setDescricao(p?.descricao ?? '')
     setValor(p ? numeroParaCampo(p.valor) : '')
     setPeriodicidade(p?.periodicidade ?? 'mensal')
-    setIntervalo(p?.intervalo_dias ? String(p.intervalo_dias) : '')
+    setIntervalo(p?.intervalo_dias ? String(p.intervalo_dias) : '30')
     setIncluidos(Object.fromEntries((p?.servicos ?? []).map(s => [s.id_servico, s.quantidade])))
     setErroPainel(null)
     setPainel('plano')
@@ -266,6 +268,8 @@ export default function PlanosScreen() {
   }
 
   const servicosAtivos = servicos.filter(s => s.status === 'Ativo' || incluidos[s.id_servico])
+  // Quanto os serviços do plano custariam avulsos, no período.
+  const valorAvulso = Object.entries(incluidos).reduce((soma, [id, q]) => soma + (servicos.find(s => s.id_servico === id)?.preco ?? 0) * q, 0)
 
   return (
     <ScreenContainer refreshing={loading} onRefresh={carregar}>
@@ -419,38 +423,66 @@ export default function PlanosScreen() {
         )}
       </View>
 
-      {/* Plano */}
+      {/* Plano — a mesma janela "Novo plano / Editar plano" do site (PlanosLista). */}
       <Folha visivel={painel === 'plano'} titulo={editando ? 'Editar plano' : 'Novo plano'} onFechar={() => setPainel(null)} ocupado={salvando}>
         {erroPainel && <Aviso tipo="erro" texto={erroPainel} />}
-        <Campo rotulo="Nome do plano" value={nome} onChangeText={setNome} placeholder="Ex.: Banho mensal" maxLength={100} />
-        <Campo rotulo="Valor (R$)" value={valor} onChangeText={setValor} keyboardType="decimal-pad" placeholder="0,00" maxLength={10} />
-        <Text style={styles.rotulo}>Cobrança</Text>
-        <Segmentos valor={periodicidade} onChange={setPeriodicidade} opcoes={PERIODICIDADES} />
-        {periodicidade === 'personalizado' && (
-          <Campo rotulo="A cada quantos dias" value={intervalo} onChangeText={t => setIntervalo(soDigitos(t))} keyboardType="number-pad" maxLength={3} />
-        )}
-        <Text style={styles.rotulo}>Serviços incluídos por período</Text>
-        {servicosAtivos.length === 0 && <Text style={styles.sub}>Nenhum serviço ativo — cadastre em Serviços.</Text>}
-        {servicosAtivos.map(s => {
-          const qtd = incluidos[s.id_servico] ?? 0
-          return (
-            <View key={s.id_servico} style={styles.servico}>
-              <Text style={[styles.servicoNome, qtd === 0 && styles.apagado]} numberOfLines={2}>{s.nome}</Text>
-              <Pressable onPress={() => mudarQuantidade(s.id_servico, -1)} disabled={qtd === 0} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Menos ${s.nome}`} style={styles.passo}>
-                <IconeApp name="remove" size={18} color={qtd === 0 ? colors.textFaint : colors.text} />
-              </Pressable>
-              <Text style={styles.qtd}>{qtd}</Text>
-              <Pressable onPress={() => mudarQuantidade(s.id_servico, 1)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Mais ${s.nome}`} style={styles.passo}>
-                <IconeApp name="add" size={18} color={colors.text} />
-              </Pressable>
+        <Campo rotulo="Nome do plano" obrigatorio value={nome} onChangeText={setNome} placeholder="Ex: Banho Premium" maxLength={100} />
+
+        <View style={styles.grupo}>
+          <Text style={styles.rotulo}>Serviços incluídos e quantidade por período<Text style={styles.estrela}> *</Text></Text>
+          {servicosAtivos.length === 0 ? (
+            <Text style={styles.semServico}>Cadastre serviços em Serviços antes de criar um plano.</Text>
+          ) : (
+            <View>
+              {servicosAtivos.map(s => {
+                const qtd = incluidos[s.id_servico] ?? 0
+                return (
+                  <View key={s.id_servico} style={styles.servico}>
+                    <Text style={[styles.servicoNome, qtd === 0 && styles.apagado]} numberOfLines={2}>{s.nome}</Text>
+                    <Pressable onPress={() => mudarQuantidade(s.id_servico, -1)} disabled={qtd === 0} hitSlop={4} accessibilityRole="button" accessibilityLabel={`Menos ${s.nome}`} style={styles.passo}>
+                      <IconeApp name="remove" size={18} color={qtd === 0 ? colors.textFaint : colors.text} />
+                    </Pressable>
+                    <Text style={styles.qtd}>{qtd}</Text>
+                    <Pressable onPress={() => mudarQuantidade(s.id_servico, 1)} hitSlop={4} accessibilityRole="button" accessibilityLabel={`Mais ${s.nome}`} style={styles.passo}>
+                      <IconeApp name="add" size={18} color={colors.text} />
+                    </Pressable>
+                  </View>
+                )
+              })}
             </View>
-          )
-        })}
-        <Campo rotulo="Descrição (opcional)" value={descricao} onChangeText={setDescricao} maxLength={500} multiline />
-        {editando && editando.assinaturas_ativas > 0 && (
-          <Aviso tipo="info" texto="Quem já assinou continua pagando o valor da assinatura. Os serviços novos valem a partir do próximo período de cada assinatura." />
+          )}
+        </View>
+
+        <View style={styles.grupo}>
+          <Campo rotulo="Valor (R$)" obrigatorio value={valor} onChangeText={setValor} keyboardType="decimal-pad" placeholder="149.90" maxLength={10} />
+          {valorAvulso > 0 && <Text style={styles.nota}>Avulso esses serviços dariam {formatarMoeda(valorAvulso)} por período.</Text>}
+        </View>
+
+        <View style={styles.grupo}>
+          <Text style={styles.rotulo}>Período de cobrança<Text style={styles.estrela}> *</Text></Text>
+          <Seletor titulo="Período de cobrança" valor={periodicidade} opcoes={PERIODICIDADES} onChange={setPeriodicidade} />
+        </View>
+        {periodicidade === 'personalizado' && (
+          <Campo rotulo="Cobrar a cada quantos dias" obrigatorio value={intervalo} onChangeText={t => setIntervalo(soDigitos(t))} keyboardType="number-pad" maxLength={3} />
         )}
-        <Botao rotulo={editando ? 'Salvar plano' : 'Criar plano'} onPress={salvarPlano} carregando={salvando} />
+
+        <Campo rotulo="Descrição (opcional)" value={descricao} onChangeText={setDescricao} placeholder="O que o cliente ganha com o plano" maxLength={500} multiline />
+        {editando && editando.assinaturas_ativas > 0 && (
+          <Text style={styles.nota}>
+            Quem já assinou continua pagando o valor da assinatura. Os serviços novos valem a partir do próximo período de cada assinatura.
+          </Text>
+        )}
+
+        {/* `.modal-footer` no celular: só o "Salvar plano" (o "Cancelar" é da tela grande). */}
+        <View style={styles.rodape}>
+          <BotaoPequeno
+            normal
+            variante="primario"
+            rotulo={salvando ? 'Salvando...' : 'Salvar plano'}
+            desativado={salvando || Object.keys(incluidos).length === 0}
+            onPress={salvarPlano}
+          />
+        </View>
       </Folha>
 
       {/* Cancelar assinatura */}
@@ -529,11 +561,18 @@ const styles = StyleSheet.create({
   historicoData: { fontSize: 12, color: '#858d99' },
   historicoTexto: { fontSize: 14, color: colors.textDim },
   rotulo: { ...typography.label.md, color: colors.textDim },
+  // Janela do plano, medida no site em 375 de largura.
+  grupo: { gap: 4 },
+  estrela: { color: colors.dangerFg },
+  semServico: { fontSize: 14, lineHeight: 20, color: '#858d99' },
+  nota: { fontSize: 12, lineHeight: 16, color: '#858d99' },
+  // A Folha deixa 24 no fim; janela com botões no pé (`.modal-footer`) deixa 16.
+  rodape: { gap: 8, marginTop: 8, marginBottom: -8 },
   valor: { ...typography.label.md, color: colors.text },
   selo: { borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 3 },
   seloTexto: { fontSize: 11, fontWeight: '700' },
   servico: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44 },
-  servicoNome: { ...typography.body.lg, color: colors.text, flex: 1 },
+  servicoNome: { fontSize: 16, lineHeight: 25.6, color: colors.text, flex: 1 },
   passo: {
     width: 36,
     height: 36,
@@ -544,5 +583,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.surface,
   },
-  qtd: { ...typography.heading.sm, color: colors.text, minWidth: 24, textAlign: 'center' },
+  qtd: { fontSize: 15, lineHeight: 24, fontWeight: '600', color: colors.text, minWidth: 24, textAlign: 'center' },
 })
