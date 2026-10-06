@@ -128,6 +128,11 @@ export default function PetsList({
       <div className="so-celular tela-app">
         <div className="tela-app-titulo">
           <h1>Pets</h1>
+          {podeEditar && (
+            <button type="button" className="tela-app-novo" onClick={abrirNovo}>
+              <IconPlus style={{ width: 18, height: 18 }} /> Novo
+            </button>
+          )}
         </div>
         <div className="tela-app-busca">
           <IconSearch />

@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/contexts/AuthContext'
 import { barraDeAbas, opcoesTabBar, tabIcon } from '@/components/tabBar'
+import { IconeAgenda, IconeClientes, IconeInicio, IconePets } from '@/components/IconesAbas'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 export default function TabsLayout() {
@@ -35,13 +36,10 @@ export default function TabsLayout() {
 
   return (
     <Tabs screenOptions={opcoesTabBar} tabBar={barraDeAbas}>
-      <Tabs.Screen name="index" options={{ title: 'Início', tabBarIcon: tabIcon('home', 'home-outline') }} />
-      <Tabs.Screen
-        name="agendamentos"
-        options={{ title: 'Agendamentos', tabBarIcon: tabIcon('calendar', 'calendar-outline') }}
-      />
-      <Tabs.Screen name="clientes" options={{ title: 'Clientes', tabBarIcon: tabIcon('people', 'people-outline') }} />
-      <Tabs.Screen name="pets" options={{ title: 'Pets', tabBarIcon: tabIcon('paw', 'paw-outline') }} />
+      <Tabs.Screen name="index" options={{ title: 'Início', tabBarIcon: tabIcon(IconeInicio) }} />
+      <Tabs.Screen name="agendamentos" options={{ title: 'Agendamentos', tabBarIcon: tabIcon(IconeAgenda) }} />
+      <Tabs.Screen name="clientes" options={{ title: 'Clientes', tabBarIcon: tabIcon(IconeClientes) }} />
+      <Tabs.Screen name="pets" options={{ title: 'Pets', tabBarIcon: tabIcon(IconePets) }} />
       {/* O menu da loja não é aba: abre pela barra do topo da Início. */}
       <Tabs.Screen name="mais" options={{ href: null }} />
     </Tabs>

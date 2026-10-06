@@ -1,16 +1,17 @@
-import { Ionicons } from '@expo/vector-icons'
+import type { ComponentType } from 'react'
 import type { ColorValue } from 'react-native'
 import type { BottomTabBarProps } from 'expo-router/js-tabs'
 import { BarraNavegacao } from './BarraNavegacao'
+import type { IconeAbaProps } from './IconesAbas'
 
-// Barra inferior compartilhada pelas duas áreas do app (equipe e TaxiDog)
-// — mesma aparência (BarraNavegacao, a "pílula"), só as abas mudam.
+// Barra inferior compartilhada pelas três áreas do app (equipe, cliente e
+// TaxiDog) — mesma aparência (BarraNavegacao, a "pílula"), só as abas mudam.
 
-type IconName = keyof typeof Ionicons.glyphMap
-
-export function tabIcon(nomeAtivo: IconName, nomeInativo: IconName) {
-  return ({ focused, color, size }: { focused: boolean; color: ColorValue; size?: number }) => (
-    <Ionicons name={focused ? nomeAtivo : nomeInativo} size={size ?? 22} color={color} />
+// O ícone é o mesmo com a aba aberta ou fechada (como na barra do site no
+// celular): só a cor muda, e quem escolhe a cor é a barra.
+export function tabIcon(Icone: ComponentType<IconeAbaProps>) {
+  return ({ color, size }: { focused: boolean; color: ColorValue; size?: number }) => (
+    <Icone color={color} size={size ?? 22} />
   )
 }
 

@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { useRouter } from 'expo-router'
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useFocusEffect, useRouter } from 'expo-router'
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BarraTopo } from '@/components/BarraTopo'
 import { SearchField } from '@/components/SearchField'
@@ -9,7 +10,8 @@ import { EmptyState } from '@/components/EmptyState'
 import { SemPermissao } from '@/components/SemPermissao'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePetsLojista } from '@/hooks/usePetsLojista'
-import { colors, spacing, typography } from '@/theme/theme'
+import { acoesDisponiveis } from '@/lib/acoes'
+import { colors, radius, spacing, typography } from '@/theme/theme'
 
 export default function PetsScreen() {
   const { contexto } = useAuth()
@@ -19,6 +21,16 @@ export default function PetsScreen() {
     contexto?.idLojista,
     busca
   )
+
+  // Voltando pra lista (depois de cadastrar ou editar um pet), ela é
+  // recarregada — na primeira vez quem carrega é o próprio hook.
+  const recarregarAtual = useRef(recarregar)
+  useEffect(() => { recarregarAtual.current = recarregar })
+  const jaAbriu = useRef(false)
+  useFocusEffect(useCallback(() => {
+    if (!jaAbriu.current) { jaAbriu.current = true; return }
+    recarregarAtual.current()
+  }, []))
 
   if (!contexto?.podeGerenciarClientesPets) {
     return (
@@ -36,7 +48,21 @@ export default function PetsScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <BarraTopo />
       <View style={styles.header}>
-        <Text style={styles.title}>Pets</Text>
+        <View style={styles.tituloLinha}>
+          <Text style={styles.title}>Pets</Text>
+          {/* Mesma regra do "Novo pet" da ficha do cliente (o servidor exige a agenda). */}
+          {contexto.podeGerenciarAgenda && acoesDisponiveis() && (
+            <Pressable
+              onPress={() => router.push('/pets/novo')}
+              accessibilityRole="button"
+              accessibilityLabel="Novo pet"
+              style={({ pressed }) => [styles.novo, pressed && { opacity: 0.8 }]}
+            >
+              <Ionicons name="add" size={18} color={colors.white} />
+              <Text style={styles.novoTexto}>Novo</Text>
+            </Pressable>
+          )}
+        </View>
         <SearchField value={busca} onChangeText={setBusca} placeholder="Buscar pet, raça ou tutor..." />
       </View>
 
@@ -72,5 +98,16 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.md, gap: spacing.md },
   title: { ...typography.heading.xl, color: colors.text },
+  tituloLinha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+  novo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary600,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    minHeight: 40,
+  },
+  novoTexto: { ...typography.label.md, color: colors.white },
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing['3xl'], flexGrow: 1 },
 })
