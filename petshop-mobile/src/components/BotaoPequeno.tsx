@@ -4,7 +4,7 @@ import type { IconeProps } from '@/components/IconesDoSite'
 import { Text } from '@/components/Texto'
 import { colors } from '@/theme/theme'
 
-type Variante = 'primario' | 'secundario' | 'sucesso' | 'perigo' | 'fantasma'
+type Variante = 'primario' | 'secundario' | 'sucesso' | 'perigo' | 'perigoClaro' | 'fantasma'
 
 interface Props {
   rotulo: string
@@ -27,6 +27,8 @@ const CORES: Record<Variante, { fundo: string; borda: string; texto: string }> =
   secundario: { fundo: colors.border, borda: colors.borderStrong, texto: colors.text },
   sucesso: { fundo: 'rgba(16,185,129,0.15)', borda: 'rgba(16,185,129,0.3)', texto: colors.successFg },
   perigo: { fundo: 'rgba(239,68,68,0.15)', borda: 'rgba(239,68,68,0.3)', texto: colors.dangerFg },
+  // `.tela-app-perigo`: "Excluir" no pé das janelas.
+  perigoClaro: { fundo: colors.surface, borda: '#fecaca', texto: colors.dangerFg },
   fantasma: { fundo: 'transparent', borda: 'transparent', texto: colors.textMuted },
 }
 
@@ -53,7 +55,7 @@ export function BotaoPequeno({ rotulo, onPress, variante = 'secundario', icone: 
         <ActivityIndicator size="small" color={cor.texto} />
       ) : (
         <>
-          {Icone && <Icone size={14} color={cor.texto} />}
+          {Icone && <Icone size={normal ? 15 : 14} color={cor.texto} />}
           <Text style={[styles.texto, normal && styles.textoNormal, { color: cor.texto }]} numberOfLines={1}>{rotulo}</Text>
         </>
       )}

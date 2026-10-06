@@ -1678,12 +1678,14 @@ a:hover { color: var(--primary-300); }
   cursor: pointer;
   transition: all var(--transition-fast);
   text-align: left;
+  /* <button> não herda a fonte: sem isto o item sai em Arial. */
+  font-family: inherit;
 }
 .picker-item:hover { border-color: var(--gray-600); }
 .picker-item.is-selected { border-color: var(--primary-500); background: var(--slot-hover-bg); }
 .picker-item-main { flex: 1; min-width: 0; }
-.picker-item-title { font-weight: 600; color: var(--gray-100); font-size: 0.9375rem; }
-.picker-item-sub { font-size: 0.8125rem; color: var(--gray-500); }
+.picker-item-title { font-weight: 600; color: var(--gray-100); font-size: 0.9375rem; line-height: 17px; }
+.picker-item-sub { font-size: 0.8125rem; color: var(--gray-500); line-height: 16px; }
 .picker-item svg.picker-check { width: 18px; height: 18px; color: var(--primary-400); flex-shrink: 0; }
 
 /* ============================================================

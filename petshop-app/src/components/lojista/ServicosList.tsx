@@ -574,7 +574,7 @@ function PrecosVariacoes({
 
           {erro && (
             <div className="alert alert-error">
-              <IconAlert style={{ width: 15, height: 15, flexShrink: 0, marginTop: 2 }} />
+              <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
               <span>{erro}</span>
             </div>
           )}

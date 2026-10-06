@@ -7,10 +7,11 @@ import { colors, radius, spacing, typography } from '@/theme/theme'
 type Tipo = 'erro' | 'sucesso' | 'info' | 'alerta'
 
 const ESTILO: Record<Tipo, { fundo: string; texto: string; icone: keyof typeof Ionicons.glyphMap }> = {
-  erro: { fundo: colors.dangerBg, texto: colors.dangerFg, icone: 'alert-circle' },
-  sucesso: { fundo: colors.successBg, texto: colors.successFg, icone: 'checkmark-circle' },
-  info: { fundo: colors.infoBg, texto: colors.infoFg, icone: 'information-circle' },
-  alerta: { fundo: colors.warningBg, texto: colors.warningFg, icone: 'warning' },
+  // Fundos do `.alert-*` do site: a cor do status a 10%.
+  erro: { fundo: 'rgba(239,68,68,0.1)', texto: colors.dangerFg, icone: 'alert-circle' },
+  sucesso: { fundo: 'rgba(16,185,129,0.1)', texto: colors.successFg, icone: 'checkmark-circle' },
+  info: { fundo: 'rgba(59,130,246,0.1)', texto: colors.infoFg, icone: 'information-circle' },
+  alerta: { fundo: 'rgba(245,158,11,0.1)', texto: colors.warningFg, icone: 'warning' },
 }
 
 // Faixa de mensagem (mesma ideia do .alert do web).
@@ -18,7 +19,7 @@ export function Aviso({ tipo = 'info', texto, style }: { tipo?: Tipo; texto: str
   const e = ESTILO[tipo]
   return (
     <View style={[styles.caixa, { backgroundColor: e.fundo }, style]} accessibilityRole={tipo === 'erro' ? 'alert' : undefined}>
-      <IconeApp name={e.icone} size={17} color={e.texto} style={styles.icone} />
+      <IconeApp name={e.icone} size={16} color={e.texto} style={styles.icone} />
       <Text style={[styles.texto, { color: e.texto }]}>{texto}</Text>
     </View>
   )
@@ -26,6 +27,6 @@ export function Aviso({ tipo = 'info', texto, style }: { tipo?: Tipo; texto: str
 
 const styles = StyleSheet.create({
   caixa: { flexDirection: 'row', gap: spacing.sm, borderRadius: radius.md, padding: spacing.md },
-  icone: { marginTop: 1 },
+  icone: { marginTop: 2 },
   texto: { ...typography.body.md, flex: 1 },
 })

@@ -5,13 +5,15 @@ import { Text, TextInput } from '@/components/Texto'
 interface Props extends TextInputProps {
   rotulo: string
   ajuda?: string
+  // O " *" vermelho do `.form-label-required` do site.
+  obrigatorio?: boolean
 }
 
 // Campo de texto com rótulo em cima (mesmo desenho do login).
-export function Campo({ rotulo, ajuda, style, multiline, ...resto }: Props) {
+export function Campo({ rotulo, ajuda, obrigatorio, style, multiline, ...resto }: Props) {
   return (
     <View style={styles.campo}>
-      <Text style={styles.rotulo}>{rotulo}</Text>
+      <Text style={styles.rotulo}>{rotulo}{obrigatorio && <Text style={styles.estrela}> *</Text>}</Text>
       <TextInput
         placeholderTextColor={colors.textFaint}
         multiline={multiline}
@@ -27,6 +29,7 @@ export function Campo({ rotulo, ajuda, style, multiline, ...resto }: Props) {
 const styles = StyleSheet.create({
   campo: { gap: spacing.xs },
   rotulo: { ...typography.label.md, color: colors.textDim },
+  estrela: { color: colors.dangerFg },
   input: {
     backgroundColor: colors.surface,
     borderWidth: 1,

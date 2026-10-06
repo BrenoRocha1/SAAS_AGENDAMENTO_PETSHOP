@@ -26,8 +26,8 @@ export function Folha({ visivel, titulo, onFechar, children, ocupado }: Props) {
         <View style={[styles.painel, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
           <View style={styles.cabecalho}>
             <Text style={styles.titulo} numberOfLines={1}>{titulo}</Text>
-            <Pressable onPress={fechar} hitSlop={10} accessibilityRole="button" accessibilityLabel="Fechar">
-              <IconeApp name="close" size={22} color={colors.textMuted} />
+            <Pressable onPress={fechar} hitSlop={10} accessibilityRole="button" accessibilityLabel="Fechar" style={styles.fechar}>
+              <IconeApp name="close" size={15} color={colors.textMuted} />
             </Pressable>
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.conteudo}>
@@ -57,5 +57,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   titulo: { flex: 1, ...typography.heading.md, color: colors.text },
+  // `.modal-close` do site: 32 de área com o "X" de 15.
+  fechar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   conteudo: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.md },
 })
