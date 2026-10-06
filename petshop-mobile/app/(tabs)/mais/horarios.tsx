@@ -1,6 +1,6 @@
-import { TelaConfigLoja } from '@/telas/TelaConfigLoja'
+import { TelaHorarios } from '@/telas/TelaHorarios'
 
 // Configurações → Horários de funcionamento.
 export default function HorariosScreen() {
-  return <TelaConfigLoja parte="horarios" />
+  return <TelaHorarios />
 }

@@ -197,11 +197,11 @@ export default function BloqueiosManager({ bloqueios, hojeISO, semMigration }: {
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
-                style={{ padding: 0 }}
+                style={{ padding: 0, maxWidth: '100%', whiteSpace: 'normal', textAlign: 'left', lineHeight: 1.3 }}
                 onClick={() => setVerFeriados(v => !v)}
                 aria-expanded={verFeriados}
               >
-                <IconCalendar style={{ width: 14, height: 14 }} />
+                <IconCalendar style={{ width: 14, height: 14, flexShrink: 0 }} />
                 {verFeriados ? 'Esconder feriados nacionais' : `Ver feriados nacionais (${feriados.length} nos próximos 12 meses)`}
               </button>
               {verFeriados && (
