@@ -1,6 +1,6 @@
 ================================================================================
-  PETSHOP AGENDA - DOCUMENTACAO COMPLETA DO PROJETO
-  SaaS de Agendamento para PetShops | Next.js 16 + Supabase + Vercel
+  SAIP - DOCUMENTACAO COMPLETA DO PROJETO
+  Sistema de agendamento inteligente para petshop | Next.js 16 + Supabase + Vercel
 ================================================================================
 Gerado em: 2026-08-11 | Versao: 1.0.0
 
@@ -909,7 +909,7 @@ JORNADA DO CLIENTE:
      Pode cancelar agendamentos Pendentes ou Confirmados
 
 ================================================================================
-  FIM DA DOCUMENTACAO - PETSHOP AGENDA SAAS
+  FIM DA DOCUMENTACAO - SAIP
 ================================================================================
 
 ================================================================================

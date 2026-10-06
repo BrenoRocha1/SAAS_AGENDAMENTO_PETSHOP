@@ -6,7 +6,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: {
-    default: 'SAIP — Sistema de Agendamento para Pet Shops',
+    default: 'SAIP — Sistema de agendamento inteligente para petshop',
     template: '%s | SAIP',
   },
   description:

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { loginAction, getGoogleOAuthUrlAction } from '@/lib/actions'
 import Ilustracao from '@/components/Ilustracao'
+import MarcaSaip from '@/components/MarcaSaip'
 
 /* ------------------------------------------------------------------ *
  * Ícones — line icons em SVG inline (sem biblioteca externa).
@@ -17,16 +18,6 @@ const stroke = {
   strokeLinejoin: 'round' as const,
 }
 
-function IconPaw() {
-  return (
-    <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
-      <circle cx="7" cy="9.5" r="1.6" />
-      <circle cx="12" cy="7" r="1.7" />
-      <circle cx="17" cy="9.5" r="1.6" />
-      <path d="M8 15c1-1.8 2.4-2.8 4-2.8s3 1 4 2.8c1 1.8-.4 3.4-2.4 3.4-.9 0-1.1-.4-1.6-.4s-.7.4-1.6.4C8 18.4 7 16.8 8 15Z" />
-    </svg>
-  )
-}
 function IconMail() {
   return (
     <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
@@ -334,12 +325,7 @@ function LoginFormPane() {
 
   return (
     <div className="login-form-inner">
-      <div className="login-brand">
-        <span className="login-brand-mark">
-          <IconPaw />
-        </span>
-        <span className="login-brand-name">PetShop Agenda</span>
-      </div>
+      <MarcaSaip />
 
       {/* Só no celular: no computador o painel ao lado já faz esse papel. */}
       <div className="so-celular"><Ilustracao nome="login" altura={110} /></div>
@@ -475,12 +461,7 @@ function LoginFormPane() {
 function LoginFormFallback() {
   return (
     <div className="login-form-inner">
-      <div className="login-brand">
-        <span className="login-brand-mark">
-          <IconPaw />
-        </span>
-        <span className="login-brand-name">PetShop Agenda</span>
-      </div>
+      <MarcaSaip />
       <div className="so-celular"><Ilustracao nome="login" altura={110} /></div>
       <h1 className="login-heading">Entrar</h1>
       <p className="login-sub">Agende serviços para o seu pet.</p>

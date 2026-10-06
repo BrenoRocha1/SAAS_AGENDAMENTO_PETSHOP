@@ -2582,13 +2582,20 @@ a.tela-app-novo, a.tela-app-novo:hover { color: #fff; text-decoration: none; }
 
 .login-brand-mark svg { width: 18px; height: 18px; }
 
+/* Nome e slogan, um embaixo do outro, ao lado do selo (MarcaSaip). */
+.login-brand-texto { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+
 .login-brand-name {
   font-family: var(--font-heading);
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.125rem;
+  line-height: 1.2;
   letter-spacing: -0.01em;
   color: var(--lg-ink);
 }
+.login-brand-name span { color: var(--primary-600); }
+
+.login-brand-slogan { font-size: 0.75rem; line-height: 1.35; color: var(--lg-ink-mute); }
 
 .login-heading {
   font-family: var(--font-heading);

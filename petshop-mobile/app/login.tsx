@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ilustracao } from '@/components/Ilustracao'
+import { MarcaSaip } from '@/components/MarcaSaip'
 import { useAuth } from '@/contexts/AuthContext'
 import { urlDoSite } from '@/lib/site'
 import { colors, radius, spacing, typography } from '@/theme/theme'
@@ -67,14 +68,7 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.brand}>
-            <View style={styles.logoBox}>
-              <Ionicons name="paw" size={24} color={colors.white} />
-            </View>
-            <Text style={styles.brandText}>
-              SA<Text style={{ color: colors.primary600 }}>IP</Text>
-            </Text>
-          </View>
+          <MarcaSaip />
 
           <Ilustracao nome="login" altura={120} style={styles.ilustracao} />
 
@@ -189,17 +183,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing['2xl'] },
-  brand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginBottom: spacing.xl },
   ilustracao: { marginBottom: spacing.xl },
-  logoBox: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary600,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandText: { ...typography.heading.lg, color: colors.text },
   title: { ...typography.heading.xl, color: colors.text, marginBottom: 4 },
   subtitle: { ...typography.body.lg, color: colors.textMuted, marginBottom: spacing['2xl'] },
   alerta: {

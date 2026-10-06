@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { completarCadastroLojistaGoogleAction } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
 import { IconMapPin, IconPhone, IconStore } from '@/components/icons'
+import MarcaSaip from '@/components/MarcaSaip'
 
 const UF = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
 
@@ -16,16 +17,6 @@ const stroke = {
   strokeLinejoin: 'round' as const,
 }
 
-function IconPaw() {
-  return (
-    <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
-      <circle cx="7" cy="9.5" r="1.6" />
-      <circle cx="12" cy="7" r="1.7" />
-      <circle cx="17" cy="9.5" r="1.6" />
-      <path d="M8 15c1-1.8 2.4-2.8 4-2.8s3 1 4 2.8c1 1.8-.4 3.4-2.4 3.4-.9 0-1.1-.4-1.6-.4s-.7.4-1.6.4C8 18.4 7 16.8 8 15Z" />
-    </svg>
-  )
-}
 function IconAlert() {
   return (
     <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
@@ -94,12 +85,7 @@ export default function CompletarCadastroLojistaPage() {
     <div className="login-shell" style={{ gridTemplateColumns: '1fr' }}>
       <div className="login-form-pane">
         <div className="login-form-inner" style={{ maxWidth: 520 }}>
-          <div className="login-brand">
-            <span className="login-brand-mark">
-              <IconPaw />
-            </span>
-            <span className="login-brand-name">PetShop Agenda</span>
-          </div>
+          <MarcaSaip />
 
           <h1 className="login-heading">Completar cadastro do petshop</h1>
           <p className="login-sub">
