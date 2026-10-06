@@ -121,7 +121,7 @@ export default function LinkAgendamentoOnline({ idLojista, slugAtual }: Props) {
               onChange={e => setSlug(e.target.value.toLowerCase())}
               placeholder="petshopbacanadopedro"
               maxLength={60}
-              style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, padding: 'var(--space-3) var(--space-3) var(--space-3) 2px', minWidth: 0 }}
+              style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, padding: 'var(--space-3) var(--space-3) var(--space-3) 2px', minWidth: 0, font: 'inherit', fontSize: '0.875rem', color: 'var(--gray-100)' }}
             />
           </div>
           <button
