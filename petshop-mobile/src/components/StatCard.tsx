@@ -1,8 +1,9 @@
 import type { ComponentType } from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import { IconeApp } from '@/components/IconeApp'
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import type { IconeAbaProps } from '@/components/IconesAbas'
+import { Text } from '@/components/Texto'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 interface Props {

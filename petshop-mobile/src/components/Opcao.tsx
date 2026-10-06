@@ -1,5 +1,6 @@
 import { IconeApp } from '@/components/IconeApp'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Text } from '@/components/Texto'
+import { Pressable, StyleSheet, View } from 'react-native'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 interface Props {

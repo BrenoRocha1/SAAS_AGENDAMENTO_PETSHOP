@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
 import { colors, spacing, typography } from '@/theme/theme'
+import { Text } from '@/components/Texto'
 
 interface Props {
   title: string

@@ -6,8 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native'
 import { IconeApp } from '@/components/IconeApp'
@@ -15,6 +13,7 @@ import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ilustracao } from '@/components/Ilustracao'
 import { MarcaSaip } from '@/components/MarcaSaip'
+import { Text, TextInput } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 

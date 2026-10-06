@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Animated, Pressable, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -9,6 +9,7 @@ import { assinarComSessao } from '@/lib/realtime'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { normalizarCorrida, trechoAtual } from '@/lib/taxidog'
 import { useAuth } from './AuthContext'
+import { Text } from '@/components/Texto'
 import { colors, radius, shadow, spacing, typography } from '@/theme/theme'
 
 // ============================================================

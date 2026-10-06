@@ -1,6 +1,7 @@
 import { ReactNode } from 'react'
 import { IconeApp } from '@/components/IconeApp'
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Text } from '@/components/Texto'
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 

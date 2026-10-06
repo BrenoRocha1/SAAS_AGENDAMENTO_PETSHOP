@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons'
 import { IconeApp } from '@/components/IconeApp'
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import { Ilustracao, type NomeIlustracao } from '@/components/Ilustracao'
+import { Text } from '@/components/Texto'
 import { colors, spacing, typography } from '@/theme/theme'
 
 interface Props {

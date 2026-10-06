@@ -1,6 +1,7 @@
-import { Image, StyleSheet, Text, View } from 'react-native'
+import { Image, StyleSheet, View } from 'react-native'
 import { colors } from '@/theme/theme'
 import { iniciais } from '@/lib/format'
+import { Text } from '@/components/Texto'
 
 interface Props {
   nome: string

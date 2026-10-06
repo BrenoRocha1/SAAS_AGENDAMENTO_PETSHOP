@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
-import { colors, radius, shadow, spacing } from '@/theme/theme'
+import { colors, radius, spacing } from '@/theme/theme'
 
 interface Props {
   children: ReactNode
@@ -8,8 +8,9 @@ interface Props {
   onPress?: () => void
 }
 
-// Card branco padrão (mesma linguagem visual do .card do web: fundo
-// branco, borda suave, cantos arredondados, sombra bem discreta).
+// Card branco padrão — o cartão das telas do site no celular
+// (.dash-app-linha): fundo branco, borda suave, cantos arredondados e sem
+// sombra.
 export function Card({ children, style, onPress }: Props) {
   if (onPress) {
     return (
@@ -31,7 +32,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.lg,
-    ...shadow.sm,
   },
   pressed: { opacity: 0.7 },
 })

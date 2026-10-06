@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useFonts } from 'expo-font'
 import { Stack } from 'expo-router'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -7,6 +8,7 @@ import * as SplashScreen from 'expo-splash-screen'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { TaxiDogProvider } from '@/contexts/TaxiDogContext'
 import { DialogoHost } from '@/components/DialogoHost'
+import { FONTES } from '@/theme/fontes'
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
 
@@ -35,12 +37,16 @@ export default function RootLayout() {
 // desativado é resolvido dentro de (tabs)/_layout.
 function RootNavigator() {
   const { loading, session, modo } = useAuth()
+  // As fontes do site (Inter e Plus Jakarta Sans). Se o carregamento
+  // falhar, o app abre assim mesmo, com a fonte do aparelho.
+  const [fontesProntas, erroNasFontes] = useFonts(FONTES)
+  const esperando = loading || (!fontesProntas && !erroNasFontes)
 
   useEffect(() => {
-    if (!loading) SplashScreen.hideAsync().catch(() => {})
-  }, [loading])
+    if (!esperando) SplashScreen.hideAsync().catch(() => {})
+  }, [esperando])
 
-  if (loading) return null
+  if (esperando) return null
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

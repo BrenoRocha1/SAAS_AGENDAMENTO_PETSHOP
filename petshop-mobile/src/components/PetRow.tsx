@@ -1,7 +1,8 @@
 import { IconeApp } from '@/components/IconeApp'
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import { Card } from './Card'
 import { Avatar } from './Avatar'
+import { Text } from '@/components/Texto'
 import { colors, spacing, typography } from '@/theme/theme'
 import type { PetLinha } from '@/types/database'
 

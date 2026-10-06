@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Animated, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Animated, Keyboard, Platform, Pressable, StyleSheet, View } from 'react-native'
 import type { BottomTabBarProps } from 'expo-router/js-tabs'
 import { colors, radius, shadow, spacing } from '@/theme/theme'
+import { Text } from '@/components/Texto'
 
 // Barra inferior em "pílula": só ícones, e a aba aberta se estica pra
 // mostrar o nome. Mesma barra nas duas áreas do app (equipe e TaxiDog) —

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ActivityIndicator, Linking, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
@@ -10,6 +10,7 @@ import { Aviso } from '@/components/Aviso'
 import { Campo } from '@/components/Campo'
 import { SeletorDia } from '@/components/SeletorDia'
 import { GradeHorarios } from '@/components/GradeHorarios'
+import { Text } from '@/components/Texto'
 import { dataBR, dataExtensaISO, hojeBrasilISO, removerHorariosPassados } from '@/lib/agenda'
 import {
   carregarAgendamento,

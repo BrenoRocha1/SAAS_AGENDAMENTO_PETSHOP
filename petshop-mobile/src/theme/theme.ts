@@ -1,4 +1,5 @@
 import { colors } from './colors'
+import { FONTE_TITULO } from './fontes'
 
 export { colors, statusColors } from './colors'
 
@@ -48,15 +49,17 @@ export const shadow = {
 // limpa por padrão. A hierarquia vem de peso/tamanho/cor, não da fonte.
 export const typography = {
   heading: {
-    xl: { fontSize: 28, fontWeight: '700' as const, letterSpacing: -0.3 },
-    lg: { fontSize: 22, fontWeight: '700' as const, letterSpacing: -0.2 },
-    md: { fontSize: 18, fontWeight: '700' as const },
-    sm: { fontSize: 15, fontWeight: '600' as const },
+    // Título de página: a única faixa em Plus Jakarta Sans, como no site.
+    xl: { fontSize: 28, lineHeight: 33.6, fontWeight: '700' as const, letterSpacing: -0.3, fontFamily: FONTE_TITULO },
+    lg: { fontSize: 22, lineHeight: 26.4, fontWeight: '700' as const, letterSpacing: -0.2 },
+    md: { fontSize: 18, lineHeight: 23.4, fontWeight: '700' as const },
+    sm: { fontSize: 15, lineHeight: 18.75, fontWeight: '600' as const },
   },
   body: {
-    lg: { fontSize: 16, fontWeight: '400' as const },
-    md: { fontSize: 14, fontWeight: '400' as const },
-    sm: { fontSize: 12.5, fontWeight: '400' as const },
+    // Altura de linha de 1,6 — a do texto corrido do site (body).
+    lg: { fontSize: 16, lineHeight: 25.6, fontWeight: '400' as const },
+    md: { fontSize: 14, lineHeight: 22.4, fontWeight: '400' as const },
+    sm: { fontSize: 12.5, lineHeight: 20, fontWeight: '400' as const },
   },
   label: {
     md: { fontSize: 13, fontWeight: '600' as const },

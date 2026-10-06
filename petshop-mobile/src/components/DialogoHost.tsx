@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native'
 import { registrarDialogo, type BotaoDialogo, type PedidoDialogo } from '@/lib/dialogo'
 import { colors, radius, shadow, spacing, typography } from '@/theme/theme'
+import { Text } from '@/components/Texto'
 
 // Desenha as perguntas de confirmação quando o app roda no navegador (no
 // celular quem pergunta é o Alert nativo — ver lib/dialogo). Fica montado

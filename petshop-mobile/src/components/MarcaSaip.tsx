@@ -1,5 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import { IconePets } from '@/components/IconesAbas'
+import { Text } from '@/components/Texto'
+import { FONTE_TITULO } from '@/theme/fontes'
 import { colors, radius, spacing } from '@/theme/theme'
 
 export const SLOGAN_SAIP = 'Sistema de agendamento inteligente para petshop'
@@ -36,6 +38,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   texto: { flex: 1, gap: 1 },
-  nome: { fontSize: 18, lineHeight: 22, fontWeight: '700', letterSpacing: -0.2, color: colors.text },
+  nome: { fontSize: 18, lineHeight: 22, fontWeight: '700', letterSpacing: -0.2, fontFamily: FONTE_TITULO, color: colors.text },
   slogan: { fontSize: 12, lineHeight: 16, color: colors.textMuted },
 })

@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
 import { IconeApp } from '@/components/IconeApp'
+import { Text } from '@/components/Texto'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { hojeBrasilISO } from '@/lib/agenda'

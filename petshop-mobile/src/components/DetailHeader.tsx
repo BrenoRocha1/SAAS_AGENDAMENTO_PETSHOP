@@ -1,6 +1,7 @@
 import { IconeApp } from '@/components/IconeApp'
+import { Text } from '@/components/Texto'
 import { useRouter } from 'expo-router'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
 import { colors, spacing, typography } from '@/theme/theme'
 
 // `onVoltar`: pra tela que não tem "tela anterior" na própria pilha (o

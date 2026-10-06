@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { BarraTopo } from '@/components/BarraTopo'
 import { IconeAgenda, IconeMais, IconePets, IconeSeta } from '@/components/IconesAbas'
@@ -10,6 +10,7 @@ import { AppointmentRow } from '@/components/AppointmentRow'
 import { ResumoStatus } from '@/components/ResumoStatus'
 import { EmptyState } from '@/components/EmptyState'
 import { SemPermissao } from '@/components/SemPermissao'
+import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAgendamentosHoje } from '@/hooks/useAgendamentosHoje'
 import { dataExtensaBrasil, saudacao, agoraBrasilHHMM } from '@/lib/agenda'
@@ -119,7 +120,7 @@ export default function InicioScreen() {
 const styles = StyleSheet.create({
   header: { marginBottom: spacing.xl },
   saudacao: { ...typography.heading.xl, color: colors.text },
-  data: { ...typography.body.lg, color: colors.textMuted, marginTop: 2, textTransform: 'capitalize' },
+  data: { ...typography.body.lg, color: colors.textMuted, marginTop: 2 },
   statsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
   resumoWrap: { marginBottom: spacing['2xl'] },
   section: { marginBottom: spacing.lg },

@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import { radius, spacing } from '@/theme/theme'
 import { coresStatus, rotuloStatus } from '@/lib/statusAgendamento'
+import { Text } from '@/components/Texto'
 
 export function StatusBadge({ status }: { status: string }) {
   const cor = coresStatus(status)

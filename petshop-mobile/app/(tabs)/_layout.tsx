@@ -1,10 +1,11 @@
 import { IconeApp } from '@/components/IconeApp'
 import { Tabs } from 'expo-router/js-tabs'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/contexts/AuthContext'
 import { barraDeAbas, opcoesTabBar, tabIcon } from '@/components/tabBar'
 import { IconeAgenda, IconeClientes, IconeInicio, IconePets } from '@/components/IconesAbas'
+import { Text } from '@/components/Texto'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 export default function TabsLayout() {

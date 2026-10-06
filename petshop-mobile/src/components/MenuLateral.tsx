@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { IconeApp } from '@/components/IconeApp'
 import { usePathname, useRouter } from 'expo-router'
-import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Avatar } from '@/components/Avatar'
 import { IconeCorridas, IconeFechar, IconePets, IconePetshops, IconeSair } from '@/components/IconesAbas'
+import { Text } from '@/components/Texto'
 import { useAuth, type ModoApp } from '@/contexts/AuthContext'
 import { dialogo } from '@/lib/dialogo'
 import { ehEmailInterno } from '@/lib/emailInterno'
 import { MENU_DA_AREA, itensDoMenu, rotaAtiva, type ItemMenu } from '@/lib/menuDoApp'
+import { FONTE_TITULO } from '@/theme/fontes'
 import { colors, radius, spacing } from '@/theme/theme'
 
 const LARGURA_MAXIMA = 300
@@ -190,12 +192,12 @@ const styles = StyleSheet.create({
   logo: {
     width: 28,
     height: 28,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     backgroundColor: colors.primary600,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  marca: { flex: 1, fontSize: 18, fontWeight: '800', letterSpacing: -0.3, color: colors.text },
+  marca: { flex: 1, fontSize: 18, fontWeight: '800', letterSpacing: -0.36, fontFamily: FONTE_TITULO, color: colors.text },
   fechar: { width: 32, height: 32, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   lista: { flex: 1 },
   listaConteudo: { paddingHorizontal: spacing.sm, paddingBottom: spacing.sm, gap: 2 },

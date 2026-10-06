@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
-import { FlatList, Pressable, StyleSheet, Text } from 'react-native'
+import { FlatList, Pressable, StyleSheet } from 'react-native'
 import { diaSemanaCurto, somarDiasISO } from '@/lib/agenda'
 import { colors, radius, spacing, typography } from '@/theme/theme'
+import { Text } from '@/components/Texto'
 
 interface Props {
   // Primeiro dia da faixa ('yyyy-MM-dd') e quantos dias mostrar.

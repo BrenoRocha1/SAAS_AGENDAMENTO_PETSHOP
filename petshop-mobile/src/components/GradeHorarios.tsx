@@ -1,5 +1,6 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native'
 import { colors, radius, spacing, typography } from '@/theme/theme'
+import { Text } from '@/components/Texto'
 
 interface Props {
   slots: { hr_slot: string; disponivel: boolean }[]

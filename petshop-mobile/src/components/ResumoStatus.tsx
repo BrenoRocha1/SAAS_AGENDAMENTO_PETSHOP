@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import { coresStatus, rotuloStatus, type StatusAgendamento } from '@/lib/statusAgendamento'
 import { colors, radius, spacing, typography } from '@/theme/theme'
+import { Text } from '@/components/Texto'
 
 // As 4 etapas do atendimento (Cancelado fica de fora: é desvio do fluxo,
 // não uma etapa do dia). Mesma ordem do Kanban do dashboard web.

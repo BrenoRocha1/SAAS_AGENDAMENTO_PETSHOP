@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { IconeApp } from '@/components/IconeApp'
-import { ActivityIndicator, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native'
+import { Text } from '@/components/Texto'
+import { ActivityIndicator, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 type Variante = 'primario' | 'secundario' | 'perigo' | 'sucesso'

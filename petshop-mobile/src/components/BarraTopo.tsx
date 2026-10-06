@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
 import { IconeMenu, IconePets } from '@/components/IconesAbas'
 import { MenuLateral } from '@/components/MenuLateral'
-import { colors, radius, spacing, typography } from '@/theme/theme'
+import { Text } from '@/components/Texto'
+import { FONTE_TITULO } from '@/theme/fontes'
+import { colors, radius, spacing } from '@/theme/theme'
 
 interface Props {
   rotuloMenu?: string
@@ -48,8 +50,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    // 52 de altura, como a barra do site no celular (--menu-mobile-altura).
+    height: 52,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -58,12 +61,12 @@ const styles = StyleSheet.create({
   logo: {
     width: 28,
     height: 28,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     backgroundColor: colors.primary600,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nome: { ...typography.heading.md, color: colors.text },
+  nome: { fontSize: 18, fontWeight: '800', letterSpacing: -0.36, fontFamily: FONTE_TITULO, color: colors.text },
   menu: {
     width: 40,
     height: 40,

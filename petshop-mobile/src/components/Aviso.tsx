@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { IconeApp } from '@/components/IconeApp'
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
+import { Text } from '@/components/Texto'
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 type Tipo = 'erro' | 'sucesso' | 'info' | 'alerta'

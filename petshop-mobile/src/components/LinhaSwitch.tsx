@@ -1,5 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import { Interruptor } from '@/components/Interruptor'
+import { Text } from '@/components/Texto'
 import { colors, spacing, typography } from '@/theme/theme'
 
 interface Props {
