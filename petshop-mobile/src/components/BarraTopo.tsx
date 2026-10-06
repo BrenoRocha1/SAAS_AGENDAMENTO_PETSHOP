@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Ionicons } from '@expo/vector-icons'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { IconeMenu, IconePets } from '@/components/IconesAbas'
 import { MenuLateral } from '@/components/MenuLateral'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
@@ -26,12 +26,12 @@ export function BarraTopo({ rotuloMenu = 'Abrir menu' }: Props) {
         accessibilityLabel={rotuloMenu}
         style={({ pressed }) => [styles.menu, pressed && styles.menuPressionado]}
       >
-        <Ionicons name="menu" size={22} color={colors.text} />
+        <IconeMenu size={22} color={colors.text} />
       </Pressable>
 
       <View style={styles.marca}>
         <View style={styles.logo}>
-          <Ionicons name="paw" size={15} color={colors.white} />
+          <IconePets size={16} color={colors.white} />
         </View>
         <Text style={styles.nome}>
           SA<Text style={{ color: colors.primary600 }}>IP</Text>

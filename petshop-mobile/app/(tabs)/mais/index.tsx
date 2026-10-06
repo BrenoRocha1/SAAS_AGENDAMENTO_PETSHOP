@@ -5,29 +5,17 @@ import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
 import { Avatar } from '@/components/Avatar'
+import { IconeCorridas, IconeSair, IconeSeta } from '@/components/IconesAbas'
 import { useAuth } from '@/contexts/AuthContext'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 import { dialogo } from '@/lib/dialogo'
-
-interface ItemMenu {
-  icone: keyof typeof Ionicons.glyphMap
-  label: string
-  rota: string
-}
-
-const ITENS: ItemMenu[] = [
-  { icone: 'cut-outline', label: 'Serviços', rota: '/mais/servicos' },
-  { icone: 'ribbon-outline', label: 'Planos', rota: '/mais/planos' },
-  { icone: 'people-circle-outline', label: 'Funcionários', rota: '/mais/funcionarios' },
-  { icone: 'cube-outline', label: 'Produtos', rota: '/mais/produtos' },
-  { icone: 'bar-chart-outline', label: 'Relatórios', rota: '/mais/relatorios' },
-  { icone: 'settings-outline', label: 'Configurações', rota: '/mais/configuracoes' },
-  { icone: 'storefront-outline', label: 'Dados da loja', rota: '/mais/perfil-loja' },
-]
+import { itensDoMenu } from '@/lib/menuDoApp'
 
 export default function MaisScreen() {
   const { contexto, signOut, setModo } = useAuth()
   const router = useRouter()
+  // Os mesmos itens, ícones e ordem do menu lateral (e do site).
+  const itens = itensDoMenu('loja', contexto)
 
   function confirmarSaida() {
     dialogo('Sair da conta', 'Você precisará entrar de novo para acessar o painel.', [
@@ -59,7 +47,7 @@ export default function MaisScreen() {
           style={({ pressed }) => [styles.menu, styles.item, pressed && styles.itemPressionado]}
         >
           <View style={styles.itemIcone}>
-            <Ionicons name="car-outline" size={19} color={colors.primary600} />
+            <IconeCorridas size={19} color={colors.primary600} />
           </View>
           <Text style={styles.itemLabel}>Área do TaxiDog</Text>
           <Ionicons name="swap-horizontal" size={18} color={colors.textFaint} />
@@ -67,23 +55,27 @@ export default function MaisScreen() {
       )}
 
       <View style={styles.menu}>
-        {ITENS.map((item, i) => (
-          <Pressable
-            key={item.rota}
-            onPress={() => router.push(item.rota as never)}
-            style={({ pressed }) => [styles.item, i < ITENS.length - 1 && styles.itemBorda, pressed && styles.itemPressionado]}
-          >
-            <View style={styles.itemIcone}>
-              <Ionicons name={item.icone} size={19} color={colors.primary600} />
-            </View>
-            <Text style={styles.itemLabel}>{item.label}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
-          </Pressable>
-        ))}
+        {itens.map((item, i) => {
+          const Icone = item.icone
+          return (
+            <Pressable
+              key={item.rota}
+              onPress={() => (item.aba ? router.navigate(item.rota as never) : router.push(item.rota as never))}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.item, i < itens.length - 1 && styles.itemBorda, pressed && styles.itemPressionado]}
+            >
+              <View style={styles.itemIcone}>
+                <Icone size={19} color={colors.primary600} />
+              </View>
+              <Text style={styles.itemLabel}>{item.label}</Text>
+              <IconeSeta size={17} color={colors.textFaint} />
+            </Pressable>
+          )
+        })}
       </View>
 
       <Pressable onPress={confirmarSaida} style={({ pressed }) => [styles.sair, pressed && styles.itemPressionado]}>
-        <Ionicons name="log-out-outline" size={19} color={colors.dangerFg} />
+        <IconeSair size={19} color={colors.dangerFg} />
         <Text style={styles.sairTexto}>Sair</Text>
       </Pressable>
     </ScreenContainer>

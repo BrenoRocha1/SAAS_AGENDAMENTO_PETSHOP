@@ -1,24 +1,17 @@
 import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
 import { Avatar } from '@/components/Avatar'
+import { IconeSair, IconeSeta } from '@/components/IconesAbas'
 import { useAuth } from '@/contexts/AuthContext'
 import { dialogo } from '@/lib/dialogo'
+import { itensDoMenu } from '@/lib/menuDoApp'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
-interface ItemMenu {
-  icone: keyof typeof Ionicons.glyphMap
-  label: string
-  rota: string
-}
-
-const ITENS: ItemMenu[] = [
-  { icone: 'ribbon-outline', label: 'Meus planos', rota: '/cliente/menu/planos' },
-  { icone: 'person-outline', label: 'Meu perfil', rota: '/cliente/menu/perfil' },
-]
+// Os mesmos itens, ícones e ordem do menu lateral (e do site).
+const ITENS = itensDoMenu('cliente', null)
 
 // Menu do cliente — aberto pela barra do topo da Início.
 export default function MenuClienteScreen() {
@@ -46,24 +39,27 @@ export default function MenuClienteScreen() {
       </Card>
 
       <View style={styles.menu}>
-        {ITENS.map((item, i) => (
-          <Pressable
-            key={item.rota}
-            onPress={() => router.push(item.rota as never)}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.item, i < ITENS.length - 1 && styles.itemBorda, pressed && styles.pressionado]}
-          >
-            <View style={styles.itemIcone}>
-              <Ionicons name={item.icone} size={19} color={colors.primary600} />
-            </View>
-            <Text style={styles.itemLabel}>{item.label}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
-          </Pressable>
-        ))}
+        {ITENS.map((item, i) => {
+          const Icone = item.icone
+          return (
+            <Pressable
+              key={item.rota}
+              onPress={() => (item.aba ? router.navigate(item.rota as never) : router.push(item.rota as never))}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.item, i < ITENS.length - 1 && styles.itemBorda, pressed && styles.pressionado]}
+            >
+              <View style={styles.itemIcone}>
+                <Icone size={19} color={colors.primary600} />
+              </View>
+              <Text style={styles.itemLabel}>{item.label}</Text>
+              <IconeSeta size={17} color={colors.textFaint} />
+            </Pressable>
+          )
+        })}
       </View>
 
       <Pressable onPress={confirmarSaida} accessibilityRole="button" style={({ pressed }) => [styles.sair, pressed && styles.pressionado]}>
-        <Ionicons name="log-out-outline" size={19} color={colors.dangerFg} />
+        <IconeSair size={19} color={colors.dangerFg} />
         <Text style={styles.sairTexto}>Sair</Text>
       </Pressable>
     </ScreenContainer>

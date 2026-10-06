@@ -1,9 +1,10 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, type ComponentType } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Linking, Pressable, Share, StyleSheet, Switch, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
+import { IconeCorridas, IconeDinheiro, IconeEscudo, IconePetshops, IconeSeta, type IconeAbaProps } from '@/components/IconesAbas'
 import { Card } from '@/components/Card'
 import { SemPermissao } from '@/components/SemPermissao'
 import { Aviso } from '@/components/Aviso'
@@ -403,9 +404,11 @@ export default function ConfiguracoesScreen() {
       {/* Outras telas */}
       <Text style={styles.secao}>Mais configurações</Text>
       <View style={styles.menu}>
-        <ItemMenu icone="card-outline" rotulo="Formas de pagamento" onPress={() => router.push('/mais/pagamentos')} />
-        <ItemMenu icone="car-outline" rotulo="TaxiDog" onPress={() => router.push('/mais/taxidog-config')} />
-        <ItemMenu icone="storefront-outline" rotulo="Dados da loja" onPress={() => router.push('/mais/perfil-loja')} ultimo />
+        {/* Mesma ordem e mesmos ícones da tela Configurações do site. */}
+        <ItemMenu icone={IconePetshops} rotulo="Dados da loja" onPress={() => router.push('/mais/perfil-loja')} />
+        <ItemMenu icone={IconeDinheiro} rotulo="Formas de pagamento" onPress={() => router.push('/mais/pagamentos')} />
+        <ItemMenu icone={IconeEscudo} rotulo="Usuários e Permissões" onPress={() => router.push('/mais/funcionarios')} />
+        <ItemMenu icone={IconeCorridas} rotulo="TaxiDog" onPress={() => router.push('/mais/taxidog-config')} ultimo />
       </View>
       {urlDoSite('/lojista/configuracoes') && (
         <Botao
@@ -506,12 +509,12 @@ export default function ConfiguracoesScreen() {
   )
 }
 
-function ItemMenu({ icone, rotulo, onPress, ultimo }: { icone: keyof typeof Ionicons.glyphMap; rotulo: string; onPress: () => void; ultimo?: boolean }) {
+function ItemMenu({ icone: Icone, rotulo, onPress, ultimo }: { icone: ComponentType<IconeAbaProps>; rotulo: string; onPress: () => void; ultimo?: boolean }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.item, !ultimo && styles.itemBorda, pressed && styles.itemPressionado]}>
-      <Ionicons name={icone} size={19} color={colors.primary600} />
+      <Icone size={19} color={colors.primary600} />
       <Text style={styles.itemRotulo}>{rotulo}</Text>
-      <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+      <IconeSeta size={17} color={colors.textFaint} />
     </Pressable>
   )
 }

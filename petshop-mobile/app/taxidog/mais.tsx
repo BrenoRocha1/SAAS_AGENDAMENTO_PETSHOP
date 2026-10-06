@@ -5,6 +5,7 @@ import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
 import { Avatar } from '@/components/Avatar'
+import { IconeCorridas, IconePetshops, IconeSair } from '@/components/IconesAbas'
 import { useAuth } from '@/contexts/AuthContext'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 import { dialogo } from '@/lib/dialogo'
@@ -30,7 +31,7 @@ export default function MaisTaxiDogScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.perfilNome} numberOfLines={1}>{contexto?.nome}</Text>
           <View style={styles.papel}>
-            <Ionicons name="car" size={12} color={colors.primary600} />
+            <IconeCorridas size={13} color={colors.primary600} />
             <Text style={styles.papelTexto}>TaxiDog</Text>
           </View>
         </View>
@@ -38,7 +39,7 @@ export default function MaisTaxiDogScreen() {
 
       {temAcessoLoja && (
         <Pressable onPress={() => setModo('loja')} style={({ pressed }) => [styles.item, pressed && styles.pressionado]}>
-          <View style={styles.itemIcone}><Ionicons name="storefront-outline" size={19} color={colors.primary600} /></View>
+          <View style={styles.itemIcone}><IconePetshops size={19} color={colors.primary600} /></View>
           <View style={{ flex: 1 }}>
             <Text style={styles.itemLabel}>Painel da loja</Text>
             <Text style={styles.itemDesc}>Agendamentos, clientes e pets</Text>
@@ -48,7 +49,7 @@ export default function MaisTaxiDogScreen() {
       )}
 
       <Pressable onPress={confirmarSaida} style={({ pressed }) => [styles.sair, pressed && styles.pressionado]}>
-        <Ionicons name="log-out-outline" size={19} color={colors.dangerFg} />
+        <IconeSair size={19} color={colors.dangerFg} />
         <Text style={styles.sairTexto}>Sair</Text>
       </Pressable>
     </ScreenContainer>

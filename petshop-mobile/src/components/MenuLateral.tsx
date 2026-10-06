@@ -4,63 +4,12 @@ import { usePathname, useRouter } from 'expo-router'
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Avatar } from '@/components/Avatar'
+import { IconeCorridas, IconeFechar, IconePets, IconePetshops, IconeSair } from '@/components/IconesAbas'
 import { useAuth, type ModoApp } from '@/contexts/AuthContext'
 import { dialogo } from '@/lib/dialogo'
 import { ehEmailInterno } from '@/lib/emailInterno'
+import { MENU_DA_AREA, itensDoMenu, rotaAtiva, type ItemMenu } from '@/lib/menuDoApp'
 import { colors, radius, spacing } from '@/theme/theme'
-
-type Icone = keyof typeof Ionicons.glyphMap
-
-interface ItemMenu {
-  icone: Icone
-  label: string
-  rota: string
-  // Aba da área (troca de aba) — as demais são telas abertas por cima.
-  aba?: boolean
-}
-
-// O mesmo menu do site (barra lateral), por área do app.
-const MENUS: Record<ModoApp, { secao: string; inicio: string; itens: ItemMenu[] }> = {
-  loja: {
-    secao: 'Gestão',
-    inicio: '/',
-    itens: [
-      { icone: 'grid-outline', label: 'Início', rota: '/', aba: true },
-      { icone: 'calendar-outline', label: 'Agendamentos', rota: '/agendamentos', aba: true },
-      { icone: 'people-outline', label: 'Clientes', rota: '/clientes', aba: true },
-      { icone: 'paw-outline', label: 'Pets', rota: '/pets', aba: true },
-      { icone: 'cut-outline', label: 'Serviços', rota: '/mais/servicos' },
-      { icone: 'ribbon-outline', label: 'Planos', rota: '/mais/planos' },
-      { icone: 'cube-outline', label: 'Produtos', rota: '/mais/produtos' },
-      { icone: 'people-circle-outline', label: 'Funcionários', rota: '/mais/funcionarios' },
-      { icone: 'bar-chart-outline', label: 'Relatórios', rota: '/mais/relatorios' },
-      { icone: 'settings-outline', label: 'Configurações', rota: '/mais/configuracoes' },
-      { icone: 'storefront-outline', label: 'Dados da loja', rota: '/mais/perfil-loja' },
-    ],
-  },
-  taxidog: {
-    secao: 'TaxiDog',
-    inicio: '/taxidog',
-    itens: [
-      { icone: 'grid-outline', label: 'Início', rota: '/taxidog', aba: true },
-      { icone: 'car-outline', label: 'Corridas', rota: '/taxidog/corridas', aba: true },
-      { icone: 'map-outline', label: 'Rotas', rota: '/taxidog/rotas', aba: true },
-      { icone: 'time-outline', label: 'Histórico', rota: '/taxidog/historico', aba: true },
-    ],
-  },
-  cliente: {
-    secao: 'Menu',
-    inicio: '/cliente',
-    itens: [
-      { icone: 'grid-outline', label: 'Início', rota: '/cliente', aba: true },
-      { icone: 'calendar-outline', label: 'Meus agendamentos', rota: '/cliente/agendamentos', aba: true },
-      { icone: 'paw-outline', label: 'Meus pets', rota: '/cliente/pets', aba: true },
-      { icone: 'storefront-outline', label: 'Petshops', rota: '/cliente/petshops', aba: true },
-      { icone: 'ribbon-outline', label: 'Meus planos', rota: '/cliente/menu/planos' },
-      { icone: 'person-outline', label: 'Meu perfil', rota: '/cliente/menu/perfil' },
-    ],
-  },
-}
 
 const LARGURA_MAXIMA = 300
 
@@ -71,7 +20,8 @@ interface Props {
 
 // Menu lateral do app: abre pelos três tracinhos da barra do topo, com a
 // mesma cara da barra lateral do site (marca em cima, itens com ícone, o
-// item da tela atual destacado em índigo, usuário e "Sair" no rodapé).
+// item da tela atual destacado em índigo, usuário e "Sair" no rodapé). Os
+// itens, os ícones e a ordem vêm de lib/menuDoApp — os mesmos do site.
 export function MenuLateral({ visivel, onFechar }: Props) {
   const { modo, contexto, user, temAcessoLoja, setModo, signOut } = useAuth()
   const router = useRouter()
@@ -96,7 +46,9 @@ export function MenuLateral({ visivel, onFechar }: Props) {
     })
   }, [visivel, progresso])
 
-  const menu = MENUS[modo]
+  const menu = MENU_DA_AREA[modo]
+  const itens = itensDoMenu(modo, contexto)
+  const atual = rotaAtiva(itens, pathname, menu.inicio)
   const nome = contexto?.nome
     ?? (user?.user_metadata?.nome as string | undefined)
     ?? (ehEmailInterno(user?.email) ? undefined : user?.email)
@@ -105,11 +57,6 @@ export function MenuLateral({ visivel, onFechar }: Props) {
     : modo === 'taxidog' ? 'TaxiDog'
     : contexto?.role === 'lojista' ? 'Lojista'
     : contexto?.acessoTotal ? 'Administrador' : 'Funcionário'
-
-  function ativo(item: ItemMenu) {
-    if (item.rota === menu.inicio) return pathname === item.rota
-    return pathname === item.rota || pathname.startsWith(`${item.rota}/`)
-  }
 
   function abrir(item: ItemMenu) {
     onFechar()
@@ -150,7 +97,7 @@ export function MenuLateral({ visivel, onFechar }: Props) {
         >
           <View style={styles.cabecalho}>
             <View style={styles.logo}>
-              <Ionicons name="paw" size={15} color={colors.white} />
+              <IconePets size={16} color={colors.white} />
             </View>
             <Text style={styles.marca}>
               SA<Text style={{ color: colors.primary600 }}>IP</Text>
@@ -162,24 +109,25 @@ export function MenuLateral({ visivel, onFechar }: Props) {
               accessibilityLabel="Fechar menu"
               style={({ pressed }) => [styles.fechar, pressed && styles.pressionado]}
             >
-              <Ionicons name="close" size={19} color={colors.textMuted} />
+              <IconeFechar size={19} color={colors.textMuted} />
             </Pressable>
           </View>
 
           <ScrollView style={styles.lista} contentContainerStyle={styles.listaConteudo} showsVerticalScrollIndicator={false}>
             <Text style={styles.secao}>{menu.secao}</Text>
-            {menu.itens.map(item => {
-              const atual = ativo(item)
+            {itens.map(item => {
+              const ativo = item.rota === atual
+              const Icone = item.icone
               return (
                 <Pressable
                   key={item.rota}
                   onPress={() => abrir(item)}
                   accessibilityRole="button"
-                  accessibilityState={{ selected: atual }}
-                  style={({ pressed }) => [styles.item, atual && styles.itemAtivo, pressed && !atual && styles.pressionado]}
+                  accessibilityState={{ selected: ativo }}
+                  style={({ pressed }) => [styles.item, ativo && styles.itemAtivo, pressed && !ativo && styles.pressionado]}
                 >
-                  <Ionicons name={item.icone} size={20} color={atual ? colors.primary700 : colors.textMuted} />
-                  <Text style={[styles.itemLabel, atual && styles.itemLabelAtivo]} numberOfLines={1}>{item.label}</Text>
+                  <Icone size={20} color={ativo ? colors.primary700 : colors.textMuted} />
+                  <Text style={[styles.itemLabel, ativo && styles.itemLabelAtivo]} numberOfLines={1}>{item.label}</Text>
                 </Pressable>
               )
             })}
@@ -189,7 +137,7 @@ export function MenuLateral({ visivel, onFechar }: Props) {
               <>
                 <View style={styles.divisor} />
                 <Pressable onPress={() => trocarArea('taxidog')} accessibilityRole="button" style={({ pressed }) => [styles.item, pressed && styles.pressionado]}>
-                  <Ionicons name="car-outline" size={20} color={colors.textMuted} />
+                  <IconeCorridas size={20} color={colors.textMuted} />
                   <Text style={styles.itemLabel} numberOfLines={1}>Área do TaxiDog</Text>
                   <Ionicons name="swap-horizontal" size={16} color={colors.textFaint} />
                 </Pressable>
@@ -199,7 +147,7 @@ export function MenuLateral({ visivel, onFechar }: Props) {
               <>
                 <View style={styles.divisor} />
                 <Pressable onPress={() => trocarArea('loja')} accessibilityRole="button" style={({ pressed }) => [styles.item, pressed && styles.pressionado]}>
-                  <Ionicons name="storefront-outline" size={20} color={colors.textMuted} />
+                  <IconePetshops size={20} color={colors.textMuted} />
                   <Text style={styles.itemLabel} numberOfLines={1}>Painel da loja</Text>
                   <Ionicons name="swap-horizontal" size={16} color={colors.textFaint} />
                 </Pressable>
@@ -216,7 +164,7 @@ export function MenuLateral({ visivel, onFechar }: Props) {
               </View>
             </View>
             <Pressable onPress={sair} accessibilityRole="button" style={({ pressed }) => [styles.item, pressed && styles.pressionado]}>
-              <Ionicons name="log-out-outline" size={20} color={colors.textMuted} />
+              <IconeSair size={20} color={colors.textMuted} />
               <Text style={styles.itemLabel}>Sair</Text>
             </Pressable>
           </View>

@@ -1,9 +1,9 @@
 import { useCallback, useMemo } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { BarraTopo } from '@/components/BarraTopo'
+import { IconeAgenda, IconeMais, IconePets, IconeSeta } from '@/components/IconesAbas'
 import { StatCard } from '@/components/StatCard'
 import { SectionHeader } from '@/components/SectionHeader'
 import { AppointmentRow } from '@/components/AppointmentRow'
@@ -62,8 +62,8 @@ export default function InicioScreen() {
       ) : (
         <>
           <View style={styles.statsRow}>
-            <StatCard icon="calendar-outline" value={resumo.total} label="Agendamentos hoje" />
-            <StatCard icon="paw-outline" value={resumo.naLoja} label="Pets na loja agora" tint={colors.accent600} />
+            <StatCard icon={IconeAgenda} value={resumo.total} label="Agendamentos hoje" />
+            <StatCard icon={IconePets} value={resumo.naLoja} label="Pets na loja agora" tint={colors.accent600} />
           </View>
 
           <View style={styles.resumoWrap}>
@@ -101,14 +101,14 @@ export default function InicioScreen() {
           </View>
 
           <Pressable style={[styles.ctaTodos, styles.ctaNovo]} onPress={() => router.push('/agendamentos/novo')} accessibilityRole="button">
-            <Ionicons name="add" size={18} color={colors.white} />
+            <IconeMais size={18} color={colors.white} />
             <Text style={[styles.ctaTexto, { color: colors.white }]}>Novo agendamento</Text>
           </Pressable>
 
           <Pressable style={styles.ctaTodos} onPress={() => router.push('/agendamentos')}>
-            <Ionicons name="list-outline" size={18} color={colors.primary600} />
+            <IconeAgenda size={18} color={colors.primary600} />
             <Text style={styles.ctaTexto}>Ver todos os agendamentos de hoje</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.primary600} />
+            <IconeSeta size={16} color={colors.primary600} />
           </Pressable>
         </>
       )}
