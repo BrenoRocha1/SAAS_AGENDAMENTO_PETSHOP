@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Platform, StyleSheet, Text, View } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Avatar } from './Avatar'
 import { Botao } from './Botao'
 import { Aviso } from './Aviso'
@@ -67,7 +68,19 @@ export function TrocarFoto({ nome, fotoUrl, enviar, remover, onMudou, rotulo = '
 
   return (
     <View style={styles.caixa}>
-      <Avatar nome={nome} fotoUrl={fotoUrl} size={84} />
+      {/* A foto também abre a troca — é nela que a pessoa toca primeiro. */}
+      <Pressable
+        onPress={pedirOrigem}
+        disabled={ocupado}
+        accessibilityRole="button"
+        accessibilityLabel={fotoUrl ? `Trocar ${rotulo}` : `Adicionar ${rotulo}`}
+        style={({ pressed }) => [pressed && styles.pressionada]}
+      >
+        <Avatar nome={nome} fotoUrl={fotoUrl} size={84} />
+        <View style={styles.selo}>
+          <Ionicons name="camera" size={14} color={colors.white} />
+        </View>
+      </Pressable>
       <View style={styles.botoes}>
         <Botao rotulo={fotoUrl ? `Trocar ${rotulo}` : `Adicionar ${rotulo}`} icone="camera-outline" variante="secundario" compacto onPress={pedirOrigem} carregando={ocupado} />
         {fotoUrl && <Botao rotulo="Remover" variante="perigo" compacto onPress={pedirRemover} desativado={ocupado} />}
@@ -91,6 +104,20 @@ export const acoesLogoLoja = {
 
 const styles = StyleSheet.create({
   caixa: { alignItems: 'center', gap: spacing.md },
+  pressionada: { opacity: 0.8 },
+  selo: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary600,
+    borderWidth: 2,
+    borderColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   botoes: { flexDirection: 'row', gap: spacing.md, flexWrap: 'wrap', justifyContent: 'center' },
   ajuda: { ...typography.body.sm, color: colors.textMuted },
 })

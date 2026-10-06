@@ -122,28 +122,51 @@ export default function PetFotoUpload({ idPet, fotoUrlInicial }: Props) {
       )}
 
       <div className="flex items-center gap-4" style={{ flexWrap: 'wrap' }}>
-        <div
-          style={{
-            width: 96,
-            height: 96,
-            borderRadius: 'var(--radius-full)',
-            border: '1px solid var(--gray-800)',
-            background: 'var(--gray-850)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            flexShrink: 0,
-          }}
-        >
-          {pendente ? (
-            // eslint-disable-next-line @next/next/no-img-element -- preview local (blob:), não é um asset servido pelo Next
-            <img src={pendente.preview} alt="Prévia da nova foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : fotoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
-            <img src={fotoUrl} alt="Foto do pet" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <IconCamera style={{ width: 26, height: 26, color: 'var(--gray-600)' }} />
+        {/* O círculo da foto também abre a escolha da imagem — no celular é
+            nele que a pessoa toca, não no botão ao lado. */}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={isPendingQualquer}
+            aria-label={fotoUrl || pendente ? 'Alterar foto do pet' : 'Adicionar foto do pet'}
+            title={fotoUrl || pendente ? 'Alterar foto' : 'Adicionar foto'}
+            style={{
+              width: 96,
+              height: 96,
+              padding: 0,
+              borderRadius: 'var(--radius-full)',
+              border: '1px solid var(--gray-800)',
+              background: 'var(--gray-850)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+              cursor: isPendingQualquer ? 'default' : 'pointer',
+            }}
+          >
+            {pendente ? (
+              // eslint-disable-next-line @next/next/no-img-element -- preview local (blob:), não é um asset servido pelo Next
+              <img src={pendente.preview} alt="Prévia da nova foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : fotoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+              <img src={fotoUrl} alt="Foto do pet" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <IconCamera style={{ width: 26, height: 26, color: 'var(--gray-600)' }} />
+            )}
+          </button>
+          {/* Selo de câmera quando já há foto: avisa que dá para tocar e trocar. */}
+          {(fotoUrl || pendente) && (
+            <span
+              aria-hidden="true"
+              style={{
+                position: 'absolute', right: -2, bottom: -2, width: 30, height: 30,
+                borderRadius: 'var(--radius-full)', background: 'var(--primary-600)', color: '#fff',
+                border: '2px solid var(--gray-900)', display: 'grid', placeItems: 'center', pointerEvents: 'none',
+              }}
+            >
+              <IconCamera style={{ width: 15, height: 15 }} />
+            </span>
           )}
         </div>
 
