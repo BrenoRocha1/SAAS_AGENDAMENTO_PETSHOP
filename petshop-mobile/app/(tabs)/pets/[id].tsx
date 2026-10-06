@@ -11,6 +11,7 @@ import { Avatar } from '@/components/Avatar'
 import { Card } from '@/components/Card'
 import { EmptyState } from '@/components/EmptyState'
 import { Botao } from '@/components/Botao'
+import { FolhaPet } from '@/components/FolhaPet'
 import { TrocarFoto, acoesFotoPet } from '@/components/TrocarFoto'
 import { PlanosDoPet } from '@/components/PlanosDoPet'
 import { Text } from '@/components/Texto'
@@ -40,12 +41,15 @@ export default function PetDetalheScreen() {
   const [pet, setPet] = useState<PetDetalhe | null>(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const [editando, setEditando] = useState(false)
+  // Muda quando o pet é editado aqui: recarrega a ficha sem sair dela.
+  const [versao, setVersao] = useState(0)
 
   useFocusEffect(
     useCallback(() => {
       let ativo = true
       async function carregar() {
-        setLoading(true)
+        if (versao === 0) setLoading(true)
         setErro(null)
         const { data, error } = await supabase
           .from('pet')
@@ -67,7 +71,7 @@ export default function PetDetalheScreen() {
       return () => {
         ativo = false
       }
-    }, [id])
+    }, [id, versao])
   )
 
   if (loading) {
@@ -140,7 +144,7 @@ export default function PetDetalheScreen() {
           icone="create-outline"
           variante="secundario"
           style={{ marginBottom: spacing.lg }}
-          onPress={() => router.push({ pathname: '/pets/editar', params: { id: pet.id_pet } })}
+          onPress={() => setEditando(true)}
         />
       )}
 
@@ -157,6 +161,18 @@ export default function PetDetalheScreen() {
             <IconeApp name="chevron-forward" size={18} color={colors.textFaint} />
           </Card>
         </>
+      )}
+
+      {contexto && pet.cliente && (
+        <FolhaPet
+          visivel={editando}
+          idLojista={contexto.idLojista}
+          pet={{ ...pet, id_cliente: pet.cliente.id_cliente }}
+          podeTrocarFoto={podeTrocarFoto}
+          onFoto={url => setPet({ ...pet, foto_url: url })}
+          onFechar={() => setEditando(false)}
+          onSalvo={() => { setEditando(false); setVersao(v => v + 1) }}
+        />
       )}
     </ScreenContainer>
   )

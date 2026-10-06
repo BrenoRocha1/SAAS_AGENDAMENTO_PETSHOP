@@ -5,6 +5,17 @@
 
 export type ModalidadeTaxiDog = 'buscar' | 'entregar' | 'buscar_entregar'
 
+// Etiquetas de comportamento do perfil do pet (as mesmas do site).
+export const COMPORTAMENTOS_SUGERIDOS = [
+  'Tranquilo',
+  'Agitado',
+  'Medo de secador',
+  'Não gosta de outros animais',
+  'Precisa de atenção especial',
+  'Morde',
+  'Idoso',
+]
+
 export type StatusCorrida =
   | 'agendada'
   | 'a_caminho_cliente'

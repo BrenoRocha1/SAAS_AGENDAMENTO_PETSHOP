@@ -10,6 +10,7 @@ import { Card } from '@/components/Card'
 import { EmptyState } from '@/components/EmptyState'
 import { Botao } from '@/components/Botao'
 import { FolhaCliente } from '@/components/FolhaCliente'
+import { FolhaPet } from '@/components/FolhaPet'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -42,12 +43,15 @@ export default function ClienteDetalheScreen() {
   const [erro, setErro] = useState<string | null>(null)
   // Editar nome/telefone (fn_editar_cliente_lojista, migration 019).
   const [painel, setPainel] = useState(false)
+  const [novoPet, setNovoPet] = useState(false)
+  // Muda quando um pet é cadastrado aqui: recarrega a ficha sem sair dela.
+  const [versao, setVersao] = useState(0)
 
   useFocusEffect(
     useCallback(() => {
       let ativo = true
       async function carregar() {
-        setLoading(true)
+        if (versao === 0) setLoading(true)
         setErro(null)
         const [clienteRes, petsRes] = await Promise.all([
           supabase.from('cliente').select('id_cliente, nome, telefone, email').eq('id_cliente', id).maybeSingle(),
@@ -71,7 +75,7 @@ export default function ClienteDetalheScreen() {
       return () => {
         ativo = false
       }
-    }, [id])
+    }, [id, versao])
   )
 
   if (loading) {
@@ -146,7 +150,7 @@ export default function ClienteDetalheScreen() {
             icone="add"
             variante="secundario"
             compacto
-            onPress={() => router.push({ pathname: '/pets/novo', params: { cliente: c.id_cliente } })}
+            onPress={() => setNovoPet(true)}
           />
         )}
       </View>
@@ -167,6 +171,15 @@ export default function ClienteDetalheScreen() {
         </View>
       )}
 
+      {contexto && (
+        <FolhaPet
+          visivel={novoPet}
+          idLojista={contexto.idLojista}
+          clienteFixo={c}
+          onFechar={() => setNovoPet(false)}
+          onSalvo={() => { setNovoPet(false); setVersao(v => v + 1) }}
+        />
+      )}
       <FolhaCliente
         visivel={painel}
         cliente={c}

@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { criarPetLojistaAction, editarPetLojistaAction } from '@/lib/actions'
 import { salvarPerfilPetAction } from '@/lib/actions-taxidog'
 import { createClient } from '@/lib/supabase/client'
+import { formatarTelefone } from '@/lib/format'
 import { IconAlert, IconCheck, IconClose, IconDog, IconSearch } from '@/components/icons'
 import PetFotoUpload from '@/components/cliente/PetFotoUpload'
 import PerfilPetCampos, { PERFIL_PET_VAZIO, perfilPetParaAction, type PerfilPet } from './PerfilPetCampos'
@@ -170,7 +171,7 @@ export default function PetFormModal({ pet, clientes, clienteFixo, onClose, onSa
                 >
                   <div className="picker-item-main">
                     <div className="picker-item-title">{clienteSel.nome}</div>
-                    <div className="picker-item-sub">{clienteSel.telefone}{clienteFixo ? '' : ' · toque para trocar'}</div>
+                    <div className="picker-item-sub">{formatarTelefone(clienteSel.telefone)}{clienteFixo ? '' : ' · toque para trocar'}</div>
                   </div>
                   <IconCheck className="picker-check" />
                 </button>
@@ -196,7 +197,7 @@ export default function PetFormModal({ pet, clientes, clienteFixo, onClose, onSa
                       >
                         <div className="picker-item-main">
                           <div className="picker-item-title">{c.nome}</div>
-                          <div className="picker-item-sub">{c.telefone}</div>
+                          <div className="picker-item-sub">{formatarTelefone(c.telefone)}</div>
                         </div>
                         {clienteId === c.id_cliente && <IconCheck className="picker-check" />}
                       </button>

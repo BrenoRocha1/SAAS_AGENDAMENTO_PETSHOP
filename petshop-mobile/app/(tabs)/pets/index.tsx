@@ -7,6 +7,7 @@ import { BarraTopo } from '@/components/BarraTopo'
 import { SearchField } from '@/components/SearchField'
 import { PetRow } from '@/components/PetRow'
 import { EmptyState } from '@/components/EmptyState'
+import { FolhaPet } from '@/components/FolhaPet'
 import { SemPermissao } from '@/components/SemPermissao'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
@@ -18,6 +19,7 @@ export default function PetsScreen() {
   const { contexto } = useAuth()
   const router = useRouter()
   const [busca, setBusca] = useState('')
+  const [novo, setNovo] = useState(false)
   const { pets, loading, loadingMais, erro, temMais, carregarMais, recarregar } = usePetsLojista(
     contexto?.idLojista,
     busca
@@ -54,7 +56,7 @@ export default function PetsScreen() {
           {/* Mesma regra do "Novo pet" da ficha do cliente (o servidor exige a agenda). */}
           {contexto.podeGerenciarAgenda && acoesDisponiveis() && (
             <Pressable
-              onPress={() => router.push('/pets/novo')}
+              onPress={() => setNovo(true)}
               accessibilityRole="button"
               accessibilityLabel="Novo pet"
               style={({ pressed }) => [styles.novo, pressed && { opacity: 0.8 }]}
@@ -91,6 +93,8 @@ export default function PetsScreen() {
           )
         }
       />
+
+      <FolhaPet visivel={novo} idLojista={contexto.idLojista} onFechar={() => setNovo(false)} onSalvo={() => { setNovo(false); recarregar() }} />
     </SafeAreaView>
   )
 }

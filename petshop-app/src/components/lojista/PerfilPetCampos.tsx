@@ -70,13 +70,18 @@ export default function PerfilPetCampos({ valor, onChange, disabled }: Props) {
         className="flex items-center gap-2"
         style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', color: 'var(--gray-200)' }}
       >
-        <IconChevronRight style={{ width: 14, height: 14, transform: aberto ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
-        <span className="font-semibold">Mais informações</span>
-        <span className="text-xs text-muted">opcional · pelagem e comportamento</span>
+        <IconChevronRight style={{ width: 14, height: 14, flexShrink: 0, transform: aberto ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
+        {/* Em tela estreita o "opcional…" desce para baixo do título, em vez
+            de espremer os dois em duas linhas cada. */}
+        <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 'var(--space-2)', textAlign: 'left' }}>
+          <span className="font-semibold">Mais informações</span>
+          <span className="text-xs text-muted">opcional · pelagem e comportamento</span>
+        </span>
       </button>
 
       {aberto && (
-        <div style={{ marginTop: 'var(--space-4)' }}>
+        // Em coluna com respiro: os campos ficavam colados um no outro.
+        <div style={{ marginTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           <div className="form-grid-2">
             <div className="form-group">
               <label className="form-label">Tipo de pelagem</label>
@@ -144,7 +149,7 @@ export default function PerfilPetCampos({ valor, onChange, disabled }: Props) {
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); adicionarTag() } }}
               />
               <button type="button" className="btn btn-secondary btn-sm" onClick={adicionarTag} disabled={disabled || !novoTag.trim()}>
-                <IconPlus style={{ width: 13, height: 13 }} />
+                <IconPlus style={{ width: 13, height: 13, flexShrink: 0 }} />
               </button>
             </div>
           </div>
