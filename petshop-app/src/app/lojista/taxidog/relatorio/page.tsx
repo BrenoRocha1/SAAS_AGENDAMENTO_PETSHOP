@@ -18,6 +18,7 @@ import PeriodoRelatorioTaxiDog from '@/components/lojista/PeriodoRelatorioTaxiDo
 import { GradeIndicadores, Indicador } from '@/components/relatorio/Indicador'
 import { Pilha, Secao, SecaoVazia } from '@/components/relatorio/Secao'
 import { Ranking } from '@/components/relatorio/Ranking'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Relatório de corridas — TaxiDog' }
 
@@ -67,7 +68,7 @@ export default async function RelatorioCorridasPage({ searchParams }: Props) {
       <>
         {cabecalho}
         <div className="empty-state card">
-          <IconCar style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="sem-permissao" />
           <div className="empty-state-title">Sem permissão para ver as corridas</div>
           <p>Fale com o responsável pelo petshop para liberar o acesso.</p>
         </div>

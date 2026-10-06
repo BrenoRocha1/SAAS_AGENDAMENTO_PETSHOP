@@ -7,11 +7,11 @@ import { agoraBrasil } from '@/lib/agenda'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import AgendaCalendar, { type AgendamentoCalendario, type FuncionarioFiltro } from '@/components/lojista/AgendaCalendar'
 import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/DashboardClient'
-import { IconCalendar } from '@/components/icons'
 import { carregarTransportePorVisita } from '@/lib/taxidog-visita'
 import { carregarPagamentos } from '@/lib/pagamento-servidor'
 import { idsAlteradosPeloCliente } from '@/lib/alteracoes-servidor'
 import { normalizarBloqueios } from '@/lib/bloqueios'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Agendamentos' }
 
@@ -34,7 +34,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
   if (!contexto.podeGerenciarAgenda) {
     return (
       <div className="empty-state card">
-        <IconCalendar style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+        <Ilustracao nome="sem-permissao" />
         <div className="empty-state-title">Sem permissão para gerenciar a agenda</div>
         <p>Fale com o responsável pelo petshop para liberar esse acesso.</p>
       </div>

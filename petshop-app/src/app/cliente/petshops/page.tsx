@@ -14,6 +14,7 @@ import {
   IconArrowRight,
   IconScissors,
 } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Petshops — SAIP' }
 
@@ -156,7 +157,7 @@ export default async function MarketplacePage() {
       {/* Grid de cards */}
       {cards.length === 0 ? (
         <div className="empty-state">
-          <IconStore style={{ width: 36, height: 36, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="loja" />
           <div className="empty-state-title">Nenhum petshop disponível</div>
           <p>Em breve novos petshops estarão disponíveis na plataforma.</p>
         </div>

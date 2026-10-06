@@ -24,7 +24,6 @@ import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/Dashboar
 import type { FormaPagamento } from '@/lib/pagamento'
 import {
   IconAlert,
-  IconCalendar,
   IconCheck,
   IconChevronLeft,
   IconChevronRight,
@@ -33,6 +32,7 @@ import {
   IconPlus,
   IconUserBadge,
 } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 // As quatro etapas do atendimento (Pendente → Aceito → Em andamento →
 // Finalizado) reaproveitam o status_agendamento existente — ver
@@ -381,7 +381,7 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
 
       {itens.length === 0 ? (
         <div className="empty-state card">
-          <IconCalendar style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="agendar" />
           <div className="empty-state-title">Sem agendamentos neste dia</div>
           <p>Escolha outro dia ou crie um agendamento na agenda.</p>
         </div>

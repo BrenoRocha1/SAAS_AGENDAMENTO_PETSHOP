@@ -5,6 +5,7 @@ import { IconAlert } from '@/components/icons'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import PetsList, { type PetLinha } from '@/components/lojista/PetsList'
 import type { ClienteBasico, PetParaEditar } from '@/components/lojista/PetFormModal'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Pets — Lojista' }
 
@@ -33,7 +34,7 @@ export default async function PetsLojistaPage({ searchParams }: Props) {
   if (!contexto.podeGerenciarClientesPets) {
     return (
       <div className="empty-state card">
-        <IconAlert style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+        <Ilustracao nome="sem-permissao" />
         <div className="empty-state-title">Sem permissão para ver pets</div>
         <p>Fale com o responsável pelo petshop para liberar esse acesso.</p>
       </div>

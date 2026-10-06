@@ -43,7 +43,7 @@ export default function PlanosClienteScreen() {
       <DetailHeader title="Meus planos" />
       {erro && <Aviso tipo="alerta" texto={erro} />}
       {!loading && !erro && planos.length === 0 ? (
-        <EmptyState icon="ribbon-outline" title="Você ainda não tem plano" subtitle="Os planos são contratados na loja. Quando um pet seu tiver plano, ele aparece aqui." />
+        <EmptyState icon="ribbon-outline" ilustracao="planos" title="Você ainda não tem plano" subtitle="Os planos são contratados na loja. Quando um pet seu tiver plano, ele aparece aqui." />
       ) : (
         <View style={{ gap: spacing.md }}>
           {planos.map(a => <PlanoCard key={a.id_assinatura} a={a} hoje={hoje} />)}

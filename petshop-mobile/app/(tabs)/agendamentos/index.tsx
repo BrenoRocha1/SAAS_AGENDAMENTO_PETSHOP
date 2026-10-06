@@ -102,6 +102,7 @@ export default function AgendamentosScreen() {
           ) : (
             <EmptyState
               icon="calendar-outline"
+              ilustracao="agendar"
               title={ehHoje ? 'Nenhum agendamento hoje' : 'Nenhum agendamento neste dia'}
               subtitle="Os agendamentos do dia aparecem aqui, organizados por horário."
             />

@@ -42,6 +42,7 @@ import {
   IconSliders,
   IconTrash,
 } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 interface Categoria {
   id_categoria: string
@@ -480,7 +481,9 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
       <div className="so-celular">
         {produtosCelular.length === 0 ? (
           <div className="dash-app-vazio">
-            <span className="dash-app-vazio-icone"><IconPackage style={{ width: 26, height: 26 }} /></span>
+            {produtos.length === 0
+              ? <Ilustracao nome="produtos" altura={110} style={{ marginBottom: 0 }} />
+              : <span className="dash-app-vazio-icone"><IconPackage style={{ width: 26, height: 26 }} /></span>}
             <strong>{produtos.length === 0 ? 'Nenhum produto cadastrado' : 'Nenhum produto encontrado'}</strong>
             <span>{produtos.length === 0 ? 'Cadastre o primeiro produto em "Novo produto".' : 'Tente outro nome ou outro filtro.'}</span>
           </div>
@@ -518,7 +521,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
       <div className="so-desktop">
       {produtos.length === 0 ? (
         <div className="empty-state card">
-          <IconPackage style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="produtos" />
           <div className="empty-state-title">Nenhum produto cadastrado</div>
           <p style={{ marginBottom: 'var(--space-4)' }}>Cadastre os produtos que seu petshop vende, como ração, brinquedos e itens de higiene</p>
           <button className="btn btn-primary" onClick={abrirNovo}>Cadastrar primeiro produto</button>

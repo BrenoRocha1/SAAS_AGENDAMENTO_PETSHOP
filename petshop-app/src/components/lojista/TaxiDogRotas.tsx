@@ -35,7 +35,8 @@ import {
   type TrechoPendente,
 } from '@/lib/taxidog-rotas'
 import { useRecalculoRotas } from '@/lib/useRecalculoRotas'
-import { IconAlert, IconCar, IconChevronLeft, IconChevronRight, IconClose, IconRoute, IconStore } from '@/components/icons'
+import { IconAlert, IconChevronLeft, IconChevronRight, IconClose, IconRoute, IconStore } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 // Página "Rotas" do TaxiDog (migration 053), em dois perfis:
 //   • 'gestor' — dono, administrador ou gestão de agendamentos: monta rotas
@@ -260,7 +261,7 @@ export default function TaxiDogRotas({ perfil, precisaAprovacao, data, hojeISO, 
         <section className="tdr-coluna">
           {visiveis.length === 0 ? (
             <div className="empty-state card">
-              <IconCar style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+              <Ilustracao nome="taxidog" />
               <div className="empty-state-title">{perfil === 'taxidog' ? 'Nenhuma rota sua neste dia' : 'Nenhuma rota neste dia'}</div>
               <p>Marque as corridas ao lado e monte uma rota.</p>
             </div>

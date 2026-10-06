@@ -51,6 +51,7 @@ import {
 import NovoAgendamentoModal from './NovoAgendamentoModal'
 import BotaoCopiarLinkAgendamento from './BotaoCopiarLinkAgendamento'
 import { formatarReais } from '@/lib/taxidog'
+import Ilustracao from '@/components/Ilustracao'
 
 // ============================================================
 // Tipos — refletem o retorno das RPCs/queries existentes
@@ -407,7 +408,7 @@ export default function DashboardClient({
           </div>
           {proximosDoApp.length === 0 ? (
             <div className="dash-app-vazio">
-              <IconCheck style={{ width: 28, height: 28 }} />
+              <Ilustracao nome="tudo-em-dia" altura={110} style={{ marginBottom: 0 }} />
               <strong>Nada pendente por agora</strong>
               <span>Os próximos agendamentos de hoje aparecem aqui.</span>
             </div>
@@ -603,7 +604,9 @@ export default function DashboardClient({
           {viewMode === 'dia' ? (
             agendaFiltrada.length === 0 ? (
               <div className="empty-state">
-                <IconCalendar style={{ width: 40, height: 40, color: 'var(--gray-700)', margin: '0 auto var(--space-4)' }} />
+                {busca
+                  ? <IconCalendar style={{ width: 40, height: 40, color: 'var(--gray-700)', margin: '0 auto var(--space-4)' }} />
+                  : <Ilustracao nome="agendar" />}
                 <div className="empty-state-title">
                   {busca ? 'Nenhum resultado para essa busca' : 'Sem agendamentos neste dia'}
                 </div>

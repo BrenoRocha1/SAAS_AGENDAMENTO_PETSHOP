@@ -29,6 +29,7 @@ export default async function DetalhePetPage({ params }: Props) {
   if (!contexto.podeGerenciarClientesPets) {
     return (
       <div className="empty-state card">
+        <Ilustracao nome="sem-permissao" />
         <div className="empty-state-title">Sem permissão para ver pets</div>
         <p>Fale com o responsável pelo petshop para liberar esse acesso.</p>
       </div>

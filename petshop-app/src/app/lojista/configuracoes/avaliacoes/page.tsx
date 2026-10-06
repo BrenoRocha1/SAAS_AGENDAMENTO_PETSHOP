@@ -4,8 +4,9 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import { calcularPeriodo, type PeriodoPreset, type Periodo } from '@/lib/relatorios'
-import { IconAlert, IconChevronLeft, IconStar } from '@/components/icons'
+import { IconAlert, IconChevronLeft } from '@/components/icons'
 import AvaliacoesClient, { type LinhaAvaliacao, type ResumoAvaliacoes } from '@/components/lojista/AvaliacoesClient'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Avaliações — Configurações' }
 
@@ -37,7 +38,7 @@ export default async function AvaliacoesPage({ searchParams }: Props) {
   if (!contexto.acessoTotal) {
     return (
       <div className="empty-state card">
-        <IconStar style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+        <Ilustracao nome="sem-permissao" />
         <div className="empty-state-title">Sem permissão para ver as avaliações</div>
         <p>Fale com o responsável pelo petshop para liberar esse acesso.</p>
       </div>

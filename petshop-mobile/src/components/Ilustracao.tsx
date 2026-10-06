@@ -1,7 +1,10 @@
 import { Image, type ImageStyle, type StyleProp } from 'react-native'
 
-// Ilustrações do app, do unDraw (undraw.co — uso livre, sem crédito), já na
-// cor da marca. Entram só onde a tela está vazia ou é uma porta de entrada
+// Ilustrações do app, já na cor da marca. As primeiras são do unDraw
+// (undraw.co — uso livre, sem crédito); as de tema próprio (tudo-em-dia,
+// taxidog, loja, servicos, relatorios, planos, produtos, sem-permissao)
+// foram desenhadas aqui, com o cachorro de pets.svg e formas simples na
+// mesma paleta. Entram só onde a tela está vazia ou é uma porta de entrada
 // (login, código, cadastro); nunca no meio de uma lista com conteúdo, nem
 // no resultado de uma busca.
 //
@@ -21,6 +24,14 @@ const FONTES = {
   pets: require('../../assets/ilustracoes/pets.png'),
   clientes: require('../../assets/ilustracoes/clientes.png'),
   equipe: require('../../assets/ilustracoes/equipe.png'),
+  'tudo-em-dia': require('../../assets/ilustracoes/tudo-em-dia.png'),
+  taxidog: require('../../assets/ilustracoes/taxidog.png'),
+  loja: require('../../assets/ilustracoes/loja.png'),
+  servicos: require('../../assets/ilustracoes/servicos.png'),
+  relatorios: require('../../assets/ilustracoes/relatorios.png'),
+  planos: require('../../assets/ilustracoes/planos.png'),
+  produtos: require('../../assets/ilustracoes/produtos.png'),
+  'sem-permissao': require('../../assets/ilustracoes/sem-permissao.png'),
 } as const
 
 export type NomeIlustracao = keyof typeof FONTES

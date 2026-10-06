@@ -54,6 +54,7 @@ export default function CorridasScreen() {
       ) : !loading && secoes.length === 0 ? (
         <EmptyState
           icon="car-outline"
+          ilustracao="taxidog"
           title="Nenhuma corrida por enquanto"
           subtitle="Quando a loja atribuir uma corrida a você, ela aparece aqui e você recebe um aviso."
         />

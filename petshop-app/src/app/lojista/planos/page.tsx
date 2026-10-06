@@ -9,6 +9,7 @@ import type { Assinatura, CobrancaDaLoja, HistoricoPlano, Plano } from '@/lib/pl
 import PlanosLista, { type ServicoOpcao } from '@/components/lojista/planos/PlanosLista'
 import { AssinaturasLista, CobrancasLista, HistoricoPlanosLista } from '@/components/lojista/planos/PlanosListas'
 import { IconAlert } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Planos — Lojista' }
 
@@ -31,6 +32,7 @@ export default async function PlanosPage({ searchParams }: { searchParams: Promi
   if (contexto.role === 'funcionario' && !contexto.acessoTotal) {
     return (
       <div className="empty-state card">
+        <Ilustracao nome="sem-permissao" />
         <div className="empty-state-title">Sem permissão para ver planos</div>
         <p>Fale com o responsável pelo petshop para liberar esse acesso.</p>
       </div>

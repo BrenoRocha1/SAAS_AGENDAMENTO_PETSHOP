@@ -7,7 +7,7 @@ interface Props {
   icon: keyof typeof Ionicons.glyphMap
   title: string
   subtitle?: string
-  // Desenho no lugar do ícone — só nas telas vazias que mais aparecem.
+  // Desenho no lugar do ícone (não em resultado de busca sem resposta).
   ilustracao?: NomeIlustracao
 }
 

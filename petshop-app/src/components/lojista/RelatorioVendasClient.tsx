@@ -36,6 +36,7 @@ import {
   IconPackage,
 } from '@/components/icons'
 import { rotuloEstoque } from '@/lib/produto'
+import Ilustracao from '@/components/Ilustracao'
 
 // ============================================================
 // Tipos — espelham exatamente o retorno das RPCs da migration 016
@@ -266,7 +267,7 @@ export default function RelatorioVendasClient({
 
       {semDadosNoPeriodo ? (
         <div className="empty-state card">
-          <IconInbox style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="relatorios" />
           <div className="empty-state-title">Nenhuma venda encontrada para o período selecionado.</div>
           <p>Tente escolher outro período ou verifique se há agendamentos cadastrados.</p>
         </div>

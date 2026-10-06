@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import TaxiDogConfigForm, { type TaxiDogConfigInicial } from '@/components/lojista/TaxiDogConfigForm'
 import TaxiDogRotasConfig from '@/components/lojista/TaxiDogRotasConfig'
-import { IconAlert, IconChevronLeft, IconLock } from '@/components/icons'
+import { IconAlert, IconChevronLeft } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'TaxiDog — Configurações' }
 
@@ -26,7 +27,7 @@ export default async function ConfiguracaoTaxiDogPage() {
       <>
         {voltar}
         <div className="empty-state card">
-          <IconLock style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="sem-permissao" />
           <div className="empty-state-title">Sem permissão para configurar o TaxiDog</div>
           <p>Apenas o responsável pela loja ou um administrador pode alterar essas regras.</p>
         </div>

@@ -143,7 +143,7 @@ export default function RelatoriosScreen() {
 
           <Text style={styles.secao}>Por serviço</Text>
           {d.servicos.length === 0 ? (
-            <EmptyState icon="cut-outline" title="Nenhuma venda no período" />
+            <EmptyState icon="cut-outline" ilustracao="relatorios" title="Nenhuma venda no período" />
           ) : (
             <Card style={styles.lista}>
               {d.servicos.map(s => (

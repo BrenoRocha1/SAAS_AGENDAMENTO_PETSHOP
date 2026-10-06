@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import { normalizarFormasLoja } from '@/lib/pagamento'
 import FormasPagamentoForm from '@/components/lojista/FormasPagamentoForm'
-import { IconAlert, IconChevronLeft, IconLock } from '@/components/icons'
+import { IconAlert, IconChevronLeft } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Formas de pagamentos aceitas — Configurações' }
 
@@ -27,7 +28,7 @@ export default async function FormasPagamentoPage() {
       <>
         {voltar}
         <div className="empty-state card">
-          <IconLock style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="sem-permissao" />
           <div className="empty-state-title">Sem permissão para mudar as formas de pagamento</div>
           <p>Apenas o responsável pela loja ou um administrador pode alterar essa configuração.</p>
         </div>

@@ -99,6 +99,7 @@ export default function PetshopsScreen() {
       {!loading && visiveis.length === 0 && !erro ? (
         <EmptyState
           icon="storefront-outline"
+          ilustracao={lojas.length === 0 ? 'loja' : undefined}
           title={lojas.length === 0 ? 'Nenhum petshop disponível' : 'Nenhum petshop encontrado'}
           subtitle={lojas.length === 0 ? 'Ainda não há petshops aceitando agendamento online.' : 'Tente outro nome ou cidade.'}
         />

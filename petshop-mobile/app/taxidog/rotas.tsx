@@ -53,6 +53,7 @@ export default function RotasScreen() {
       ) : !loading && secoes.length === 0 ? (
         <EmptyState
           icon="map-outline"
+          ilustracao="taxidog"
           title="Nenhuma rota por enquanto"
           subtitle="Monte uma rota com as corridas do dia, ou espere a loja montar uma para você."
         />

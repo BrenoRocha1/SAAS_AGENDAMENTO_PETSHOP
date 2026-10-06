@@ -2,8 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { hojeBrasilISO } from '@/lib/agenda'
 import type { AssinaturaDoCliente } from '@/lib/planos'
 import PlanoClienteCard from '@/components/cliente/PlanoClienteCard'
-import { IconAlert, IconRepeat } from '@/components/icons'
+import { IconAlert } from '@/components/icons'
 import type { Metadata } from 'next'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Meus Planos' }
 
@@ -31,7 +32,7 @@ export default async function MeusPlanosPage() {
       ) : assinaturas.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <IconRepeat style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+            <Ilustracao nome="planos" />
             <div className="empty-state-title">Nenhum plano ainda</div>
             <p>Quando a sua loja fizer um plano para o seu pet (ex.: banhos todo mês), ele aparece aqui.</p>
           </div>

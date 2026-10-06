@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { iniciais } from '@/lib/format'
 import { IconCalendar, IconSearch, IconStore, IconWhatsapp } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 export interface LojaCelular {
   id: string
@@ -44,7 +45,9 @@ export default function PetshopsCelular({ lojas }: { lojas: LojaCelular[] }) {
 
       {visiveis.length === 0 ? (
         <div className="dash-app-vazio">
-          <span className="dash-app-vazio-icone"><IconStore style={{ width: 26, height: 26 }} /></span>
+          {lojas.length === 0
+            ? <Ilustracao nome="loja" altura={110} style={{ marginBottom: 0 }} />
+            : <span className="dash-app-vazio-icone"><IconStore style={{ width: 26, height: 26 }} /></span>}
           <strong>{lojas.length === 0 ? 'Nenhum petshop disponível' : 'Nenhum petshop encontrado'}</strong>
           <span>{lojas.length === 0 ? 'Ainda não há petshops aceitando agendamento online.' : 'Tente outro nome ou cidade.'}</span>
         </div>

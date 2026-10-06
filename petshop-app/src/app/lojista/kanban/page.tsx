@@ -11,6 +11,7 @@ import { carregarPagamentos } from '@/lib/pagamento-servidor'
 import { idsAlteradosPeloCliente } from '@/lib/alteracoes-servidor'
 import { IconAlert, IconCar, IconChartBar, IconKanban, IconRoute } from '@/components/icons'
 import Link from 'next/link'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Gestor de Agendamentos' }
 
@@ -35,7 +36,7 @@ export default async function KanbanPage({ searchParams }: Props) {
           <h1 className="page-title">Gestor de Agendamentos</h1>
         </div>
         <div className="empty-state card">
-          <IconKanban style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="sem-permissao" />
           <div className="empty-state-title">Sem permissão para gerenciar a agenda</div>
           <p>Fale com o responsável pelo petshop para liberar esse acesso.</p>
         </div>

@@ -281,6 +281,7 @@ export default function ProdutosScreen() {
         {visiveis.length === 0 && !loading ? (
           <EmptyState
             icon="cube-outline"
+            ilustracao={produtos.length === 0 ? 'produtos' : undefined}
             title={produtos.length === 0 ? 'Nenhum produto cadastrado' : 'Nenhum produto encontrado'}
             subtitle={produtos.length === 0 ? 'Cadastre o primeiro produto em "Novo produto".' : 'Tente outro nome ou outro filtro.'}
           />

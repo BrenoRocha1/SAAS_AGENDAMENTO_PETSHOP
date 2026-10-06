@@ -1,8 +1,10 @@
 import type { CSSProperties } from 'react'
 
-// Ilustrações do unDraw (undraw.co — uso livre, sem crédito), já na cor da
-// marca, em public/ilustracoes. São as mesmas do app (petshop-mobile/
-// assets/ilustracoes). Entram só onde a tela está vazia ou é uma porta de
+// Ilustrações já na cor da marca, em public/ilustracoes — as mesmas do app
+// (petshop-mobile/assets/ilustracoes). As primeiras são do unDraw (undraw.co
+// — uso livre, sem crédito); as de tema próprio (tudo-em-dia, taxidog, loja,
+// servicos, relatorios, planos, produtos, sem-permissao) foram desenhadas
+// aqui, com o cachorro de pets.svg e formas simples na mesma paleta. Entram só onde a tela está vazia ou é uma porta de
 // entrada (login, código, cadastro, 404); nunca no meio de uma lista com
 // conteúdo, nem no resultado de uma busca. Para acrescentar uma: salvar o
 // SVG ali com o roxo do unDraw (#6c63ff) trocado por #4f46e5, sem texto
@@ -17,6 +19,14 @@ export type NomeIlustracao =
   | 'pets'
   | 'clientes'
   | 'equipe'
+  | 'tudo-em-dia'
+  | 'taxidog'
+  | 'loja'
+  | 'servicos'
+  | 'relatorios'
+  | 'planos'
+  | 'produtos'
+  | 'sem-permissao'
 
 interface Props {
   nome: NomeIlustracao

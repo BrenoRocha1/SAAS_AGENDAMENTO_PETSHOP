@@ -207,7 +207,7 @@ export default function ServicosScreen() {
       <Botao rotulo="Novo serviço" icone="add" onPress={() => abrir(null)} style={{ marginBottom: spacing.lg }} />
 
       {!loading && servicos.length === 0 && !erro ? (
-        <EmptyState icon="cut-outline" title="Nenhum serviço cadastrado" subtitle="Cadastre o primeiro serviço para a loja poder receber agendamentos." />
+        <EmptyState icon="cut-outline" ilustracao="servicos" title="Nenhum serviço cadastrado" subtitle="Cadastre o primeiro serviço para a loja poder receber agendamentos." />
       ) : (
         <View style={{ gap: spacing.md }}>
           {servicos.map(s => (

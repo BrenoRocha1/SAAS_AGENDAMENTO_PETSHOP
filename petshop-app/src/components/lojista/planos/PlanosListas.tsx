@@ -16,9 +16,10 @@ import {
 } from '@/lib/planos'
 import { formatarReais } from '@/lib/taxidog'
 import { Folha, LinhaSwitch, Opcao, Segmentos } from '@/components/app/PecasApp'
-import { IconAlert, IconCheck, IconMoney, IconRepeat, IconUsers } from '@/components/icons'
+import { IconAlert, IconCheck, IconMoney, IconRepeat } from '@/components/icons'
 import CobrancaPagamento from './CobrancaPagamento'
 import BeneficiosBarra from './BeneficiosBarra'
+import Ilustracao from '@/components/Ilustracao'
 
 // ── Assinaturas da loja ──
 export function AssinaturasLista({ assinaturas }: { assinaturas: Assinatura[] }) {
@@ -51,7 +52,7 @@ export function AssinaturasLista({ assinaturas }: { assinaturas: Assinatura[] })
           )}
           {assinaturas.length === 0 ? (
             <div className="dash-app-vazio">
-              <span className="dash-app-vazio-icone"><IconUsers style={{ width: 26, height: 26 }} /></span>
+              <Ilustracao nome="planos" altura={110} style={{ marginBottom: 0 }} />
               <strong>Nenhuma assinatura</strong>
               <span>Vincule um plano a um pet na ficha do pet.</span>
             </div>

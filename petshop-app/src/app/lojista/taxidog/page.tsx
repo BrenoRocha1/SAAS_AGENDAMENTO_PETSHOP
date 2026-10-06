@@ -6,7 +6,8 @@ import { redirect } from 'next/navigation'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import TaxiDogConteudo from '@/components/lojista/TaxiDogConteudo'
-import { IconCar, IconChartBar, IconRoute } from '@/components/icons'
+import { IconChartBar, IconRoute } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'TaxiDog — Corridas' }
 
@@ -65,7 +66,7 @@ export default async function TaxiDogPage({ searchParams }: Props) {
       <>
         {cabecalho}
         <div className="empty-state card">
-          <IconCar style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="sem-permissao" />
           <div className="empty-state-title">Sem permissão para acompanhar as corridas</div>
           <p>Fale com o responsável pelo petshop para liberar o acesso à agenda.</p>
         </div>

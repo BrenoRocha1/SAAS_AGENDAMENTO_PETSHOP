@@ -77,6 +77,7 @@ export default function InicioScreen() {
             ) : resumo.proximos.length === 0 ? (
               <EmptyState
                 icon="checkmark-circle-outline"
+                ilustracao="tudo-em-dia"
                 title="Nada pendente por agora"
                 subtitle="Os próximos agendamentos de hoje aparecem aqui."
               />

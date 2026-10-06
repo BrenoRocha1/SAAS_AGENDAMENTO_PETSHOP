@@ -154,7 +154,7 @@ export default function MontarRotaScreen() {
       {loading ? (
         <ActivityIndicator color={colors.primary600} style={{ marginTop: spacing.xl }} />
       ) : trechos.length === 0 ? (
-        <EmptyState icon="car-outline" title="Nenhuma corrida livre" subtitle="Não há corridas de hoje sem TaxiDog ou suas para montar rota." />
+        <EmptyState icon="car-outline" ilustracao="taxidog" title="Nenhuma corrida livre" subtitle="Não há corridas de hoje sem TaxiDog ou suas para montar rota." />
       ) : (
         <>
           {busca.length > 0 && (

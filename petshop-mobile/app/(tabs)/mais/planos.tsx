@@ -264,7 +264,7 @@ export default function PlanosScreen() {
           <>
             <Botao rotulo="Novo plano" icone="add" onPress={() => abrirPlano(null)} />
             {!loading && planos.length === 0 ? (
-              <EmptyState icon="ribbon-outline" title="Nenhum plano cadastrado" subtitle="Um plano junta serviços por um valor fixo no período — ex.: 4 banhos por mês." />
+              <EmptyState icon="ribbon-outline" ilustracao="planos" title="Nenhum plano cadastrado" subtitle="Um plano junta serviços por um valor fixo no período — ex.: 4 banhos por mês." />
             ) : (
               planos.map(p => (
                 <Card key={p.id_plano} style={{ gap: spacing.sm }}>
@@ -296,7 +296,7 @@ export default function PlanosScreen() {
         {/* ── Assinaturas ── */}
         {aba === 'assinaturas' && erro !== MSG_SEM_PLANOS && (
           !loading && assinaturas.length === 0 ? (
-            <EmptyState icon="people-outline" title="Nenhuma assinatura" subtitle="Vincule um plano a um pet na ficha do pet." />
+            <EmptyState icon="people-outline" ilustracao="planos" title="Nenhuma assinatura" subtitle="Vincule um plano a um pet na ficha do pet." />
           ) : (
             assinaturas.map(a => (
               <Card key={a.id_assinatura} style={{ gap: spacing.sm }}>

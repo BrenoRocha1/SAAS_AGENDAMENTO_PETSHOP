@@ -34,6 +34,7 @@ import {
   IconUserBadge,
   IconWhatsapp,
 } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 // Rota ativa em que a corrida ainda tem parada por fazer (migration 053):
 // ela só anda pela rota, então o card mostra "Rota #N" no lugar das etapas.
@@ -194,7 +195,7 @@ export default function TaxiDogPainel({ data, caminho, caminhoRotas, hojeISO, co
 
       {corridas.length === 0 ? (
         <div className="empty-state card">
-          <IconCar style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="taxidog" />
           <div className="empty-state-title">Nenhuma corrida neste dia</div>
           <p>
             {modoMotorista

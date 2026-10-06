@@ -2,8 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { obterUsuario } from '@/lib/supabase/usuario'
 import ServicosList from '@/components/lojista/ServicosList'
 import { obterContextoLojista } from '@/lib/lojista-context'
-import { IconScissors } from '@/components/icons'
 import type { Metadata } from 'next'
+import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Serviços' }
 
@@ -21,7 +21,7 @@ export default async function ServicosPage() {
           <h1 className="page-title">Serviços</h1>
         </div>
         <div className="empty-state card">
-          <IconScissors style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="sem-permissao" />
           <div className="empty-state-title">Sem permissão para gerenciar serviços</div>
           <p>Fale com o responsável pelo petshop para liberar esse acesso.</p>
         </div>

@@ -29,7 +29,6 @@ import {
   IconStore,
   IconLink,
   IconCar,
-  IconCalendar,
   IconScissors,
   IconUser,
 } from '@/components/icons'
@@ -51,6 +50,7 @@ import type { TaxiDogPendente } from '@/lib/actions'
 import type { FormaPagamento } from '@/lib/pagamento'
 import { bloqueiosDoDia, somarDiasISO, type BloqueioLoja } from '@/lib/bloqueios'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
+import Ilustracao from '@/components/Ilustracao'
 
 export interface AgendamentoCalendario {
   id_agendamento: string
@@ -435,7 +435,7 @@ export default function AgendaCalendar({
 
         {agendaDoDiaCelular.length === 0 ? (
           <div className="dash-app-vazio">
-            <span className="dash-app-vazio-icone"><IconCalendar style={{ width: 26, height: 26 }} /></span>
+            <Ilustracao nome="agendar" altura={110} style={{ marginBottom: 0 }} />
             <strong>{diaCelular === hojeISO ? 'Nenhum agendamento hoje' : 'Nenhum agendamento neste dia'}</strong>
             <span>Os agendamentos do dia aparecem aqui, organizados por horário.</span>
           </div>

@@ -10,7 +10,7 @@ import { normalizarRota, normalizarTrecho, type Rota } from '@/lib/taxidog-rotas
 import type { TaxiDogOpcao } from '@/lib/taxidog'
 import TaxiDogRotas, { type PerfilRotas } from '@/components/lojista/TaxiDogRotas'
 import TaxiDogRotaExecucao from '@/components/lojista/TaxiDogRotaExecucao'
-import { IconAlert, IconCar, IconKanban } from '@/components/icons'
+import { IconAlert, IconKanban } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'TaxiDog — Rotas' }
@@ -57,7 +57,7 @@ export default async function RotasTaxiDogPage({ searchParams }: Props) {
       <>
         {cabecalho}
         <div className="empty-state card">
-          <IconCar style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="sem-permissao" />
           <div className="empty-state-title">Sem permissão para ver as rotas</div>
           <p>Fale com o responsável pelo petshop para liberar o acesso.</p>
         </div>

@@ -10,8 +10,9 @@ import {
   removerVariacaoServicoAction,
 } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
-import { IconAlert, IconClose, IconPencil, IconPlus, IconScissors, IconSliders, IconTrash } from '@/components/icons'
+import { IconAlert, IconClose, IconPencil, IconPlus, IconSliders, IconTrash } from '@/components/icons'
 import { formatarReais } from '@/lib/taxidog'
+import Ilustracao from '@/components/Ilustracao'
 
 interface Servico {
   id_servico: string
@@ -168,7 +169,7 @@ export default function ServicosList({ servicos: inicial }: Props) {
       <div className="so-celular">
         {servicos.length === 0 ? (
           <div className="dash-app-vazio">
-            <span className="dash-app-vazio-icone"><IconScissors style={{ width: 26, height: 26 }} /></span>
+            <Ilustracao nome="servicos" altura={110} style={{ marginBottom: 0 }} />
             <strong>Nenhum serviço cadastrado</strong>
             <span>Cadastre o primeiro serviço para a loja poder receber agendamentos.</span>
           </div>
@@ -209,7 +210,7 @@ export default function ServicosList({ servicos: inicial }: Props) {
       <div className="so-desktop">
       {servicos.length === 0 ? (
         <div className="empty-state card">
-          <IconScissors style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="servicos" />
           <div className="empty-state-title">Nenhum serviço cadastrado</div>
           <p style={{ marginBottom: 'var(--space-4)' }}>Cadastre seus serviços para que os clientes possam agendar</p>
           <button className="btn btn-primary" onClick={abrirNovo}>Cadastrar primeiro serviço</button>

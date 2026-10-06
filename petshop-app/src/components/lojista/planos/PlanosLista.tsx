@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { alterarStatusPlanoAction, salvarPlanoAction } from '@/lib/actions-planos'
 import { PERIODICIDADES, rotuloPeriodicidade, sufixoPeriodo, type Periodicidade, type Plano } from '@/lib/planos'
 import { formatarReais } from '@/lib/taxidog'
-import { IconAlert, IconClose, IconInfo, IconMinus, IconPencil, IconPlus, IconRepeat } from '@/components/icons'
+import { IconAlert, IconClose, IconInfo, IconMinus, IconPencil, IconPlus } from '@/components/icons'
+import Ilustracao from '@/components/Ilustracao'
 
 export interface ServicoOpcao { id_servico: string; nome: string; preco: number; ativo: boolean }
 
@@ -52,7 +53,7 @@ export default function PlanosLista({ planos, servicos }: { planos: Plano[]; ser
           </button>
           {planos.length === 0 ? (
             <div className="dash-app-vazio">
-              <span className="dash-app-vazio-icone"><IconRepeat style={{ width: 26, height: 26 }} /></span>
+              <Ilustracao nome="planos" altura={110} style={{ marginBottom: 0 }} />
               <strong>Nenhum plano cadastrado</strong>
               <span>Um plano junta serviços por um valor fixo no período — ex.: 4 banhos por mês.</span>
             </div>
@@ -95,7 +96,7 @@ export default function PlanosLista({ planos, servicos }: { planos: Plano[]; ser
       <div className="so-desktop">
       {planos.length === 0 ? (
         <div className="empty-state card">
-          <IconRepeat style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
+          <Ilustracao nome="planos" />
           <div className="empty-state-title">Nenhum plano ainda</div>
           <p>Crie o primeiro: escolha os serviços, a quantidade, o valor e o período.</p>
         </div>

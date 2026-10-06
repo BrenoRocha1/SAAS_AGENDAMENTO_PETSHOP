@@ -74,6 +74,7 @@ export default async function PerfilClientePage({ params }: Props) {
   if (!contexto.podeGerenciarClientesPets) {
     return (
       <div className="empty-state card">
+        <Ilustracao nome="sem-permissao" />
         <div className="empty-state-title">Sem permissão para ver clientes</div>
         <p>Fale com o responsável pelo petshop para liberar esse acesso.</p>
       </div>

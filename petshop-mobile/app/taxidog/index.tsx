@@ -97,7 +97,7 @@ export default function InicioTaxiDogScreen() {
             </View>
           ) : !loading && !avulsas.proxima && (
             <View style={styles.section}>
-              <EmptyState icon="map-outline" title="Nada para agora" subtitle="Pegue uma corrida no Kanban ou monte uma rota — ou espere a loja mandar uma para você." />
+              <EmptyState icon="map-outline" ilustracao="taxidog" title="Nada para agora" subtitle="Pegue uma corrida no Kanban ou monte uma rota — ou espere a loja mandar uma para você." />
             </View>
           )}
 
