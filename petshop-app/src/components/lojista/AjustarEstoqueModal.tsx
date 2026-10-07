@@ -84,19 +84,19 @@ export default function AjustarEstoqueModal({ produto, onClose, onSucesso }: Pro
               </div>
             )}
 
-            <div className="form-grid-2">
-              <CampoQuantidade
-                name="quantidade"
-                label={`Estoque atual (${rotuloUnidade(produto.unidade_venda)})`}
-                required
-                unidadeVenda={produto.unidade_venda}
-                valorInicial={produto.estoque_atual}
-                autoFocus
-              />
-              <div className="form-group">
-                <label htmlFor="motivo" className="form-label">Motivo (opcional)</label>
-                <input id="motivo" name="motivo" type="text" className="form-input" placeholder="Ex: Compra de fornecedor" maxLength={200} />
-              </div>
+            {/* Um campo embaixo do outro: lado a lado, o rótulo com os botões
+                de unidade (Kg/g) não cabia em meia janela e quebrava. */}
+            <CampoQuantidade
+              name="quantidade"
+              label={`Estoque atual (${rotuloUnidade(produto.unidade_venda)})`}
+              required
+              unidadeVenda={produto.unidade_venda}
+              valorInicial={produto.estoque_atual}
+              autoFocus
+            />
+            <div className="form-group">
+              <label htmlFor="motivo" className="form-label">Motivo (opcional)</label>
+              <input id="motivo" name="motivo" type="text" className="form-input" placeholder="Ex: Compra de fornecedor" maxLength={200} />
             </div>
             <p className="text-xs text-muted">Corrija pro valor que a loja tem agora — o sistema calcula sozinho se foi entrada ou saída.</p>
           </div>
