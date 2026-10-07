@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { COOKIE_VOLTA, voltaValida } from '@/lib/volta-agendamento'
 
 // Ponto único de retorno pros e-mails do Supabase Auth que usam o fluxo
 // PKCE (login com Google, convite de cliente/funcionário, "esqueci minha
@@ -142,6 +143,13 @@ export async function GET(request: Request) {
     .maybeSingle()
   if (erroCliente) return erroPerfil(erroCliente.message)
   if (cliente) {
+    // Entrou a partir do link público de agendamento: volta para ele
+    // (lib/volta-agendamento).
+    const volta = voltaValida(cookieStore.get(COOKIE_VOLTA)?.value)
+    if (volta) {
+      cookieStore.delete(COOKIE_VOLTA)
+      return NextResponse.redirect(`${origin}${volta}`)
+    }
     return NextResponse.redirect(`${origin}/cliente/dashboard`)
   }
 

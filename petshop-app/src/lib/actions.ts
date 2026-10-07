@@ -42,6 +42,7 @@ import { hojeBrasilISO } from '@/lib/agenda'
 import { coordenadasParaTaxiDog, lerTaxiDogDoFormulario, mensagemErroTaxiDog, paramsRpcTaxiDog } from '@/lib/taxidog-servidor'
 import { mensagemErroBloqueio } from '@/lib/bloqueios'
 import { criarContaCliente } from '@/lib/cadastro-cliente'
+import { guardarVolta, usarVolta, voltaValida } from '@/lib/volta-agendamento'
 import { alterarTransporteAction } from '@/lib/actions-rotas'
 import { formatarCep as formatarCepTaxiDog } from '@/lib/taxidog'
 import { ehFormaPagamento, formasAtivas, mensagemErroPagamento, normalizarFormasLoja, type FormaPagamento } from '@/lib/pagamento'
@@ -100,9 +101,13 @@ async function obterOriginDaRequisicao() {
 // via Set-Cookie no servidor para que o /auth/callback consiga
 // encontrá-lo (não depende de document.cookie do browser).
 // ============================================================
-export async function getGoogleOAuthUrlAction(role?: string): Promise<{ error?: string; url?: string }> {
+//
+// `voltarPara`: o link público de agendamento de onde a pessoa veio
+// (lib/volta-agendamento) — fica num cookie até ela voltar do Google.
+export async function getGoogleOAuthUrlAction(role?: string, voltarPara?: string | null): Promise<{ error?: string; url?: string }> {
   const supabase = await createClient()
   const origin = await obterOriginDaRequisicao()
+  await guardarVolta(voltarPara)
   
   const callbackUrl = role 
     ? `${origin}/auth/callback?role=${role}`
@@ -241,9 +246,9 @@ export async function loginAction(formData: FormData) {
   // Só honra redirectTo de volta pro link público de agendamento (é onde a
   // middleware manda quem clicou em /agendamento/[id] sem estar logado) —
   // nunca redireciona pra fora do domínio nem pra rota arbitrária.
-  const redirectTo = formData.get('redirectTo') as string | null
-  if (role === 'cliente' && redirectTo?.startsWith('/agendamento/')) {
-    redirect(redirectTo)
+  const volta = voltaValida(formData.get('redirectTo') as string | null)
+  if (role === 'cliente' && volta) {
+    redirect(volta)
   }
 
   if (role === 'lojista') redirect('/lojista/dashboard')
@@ -263,7 +268,8 @@ export async function logoutAction(redirectTo?: string) {
   // aberto em outro computador).
   await supabase.auth.signOut({ scope: 'local' })
   revalidatePath('/', 'layout')
-  redirect(redirectTo?.startsWith('/agendamento/') ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : '/login')
+  const volta = voltaValida(redirectTo)
+  redirect(volta ? `/login?redirectTo=${encodeURIComponent(volta)}` : '/login')
 }
 
 // ============================================================
@@ -350,15 +356,19 @@ export async function cadastroClienteAction(formData: FormData) {
     password: conta.senha,
   })
 
+  // Quem veio do link público de agendamento volta para ele, com os
+  // serviços que já tinha escolhido (lib/volta-agendamento).
+  const volta = voltaValida(formData.get('redirectTo') as string | null)
+
   if (signInError) {
     // O cadastro foi feito com sucesso, mas não conseguimos logar automaticamente.
     // Redirecionar para login para o usuário entrar manualmente.
     console.error('[cadastroClienteAction] signIn pós-cadastro falhou:', signInError.message)
-    redirect('/login')
+    redirect(volta ? `/login?redirectTo=${encodeURIComponent(volta)}` : '/login')
   }
 
   revalidatePath('/', 'layout')
-  redirect('/cliente/dashboard')
+  redirect(volta ?? '/cliente/dashboard')
 }
 
 export async function cadastroLojistaAction(formData: FormData) {
@@ -528,7 +538,7 @@ export async function completarCadastroClienteGoogleAction(formData: FormData) {
 
   const { data: existing } = await adminClient.from('cliente').select('id_cliente').eq('id_cliente', user.id).maybeSingle()
   if (existing) {
-    redirect('/cliente/dashboard')
+    redirect((await usarVolta()) ?? '/cliente/dashboard')
   }
 
   const raw = {
@@ -571,9 +581,21 @@ export async function completarCadastroClienteGoogleAction(formData: FormData) {
   await adminClient.auth.admin.updateUserById(user.id, {
     user_metadata: { ...user.user_metadata, role: 'cliente', nome },
   })
+  // A sessão aberta ainda carrega o token de antes, sem o papel: sem
+  // renovar, o site continuava tratando a pessoa como "não é cliente"
+  // (o link de agendamento recusava a conta recém-criada).
+  await supabase.auth.refreshSession()
 
   revalidatePath('/', 'layout')
-  redirect('/cliente/dashboard')
+  // Veio do link público de agendamento: volta para ele.
+  redirect((await usarVolta()) ?? '/cliente/dashboard')
+}
+
+// Conta do Google que entrou pelo link de agendamento e ainda não terminou
+// o cadastro de cliente: guarda o link e leva para o "completar cadastro".
+export async function completarCadastroPeloLinkAction(voltarPara: string) {
+  await guardarVolta(voltarPara)
+  redirect('/completar-cadastro/cliente')
 }
 
 export async function completarCadastroLojistaGoogleAction(formData: FormData) {
@@ -643,6 +665,8 @@ export async function completarCadastroLojistaGoogleAction(formData: FormData) {
   await adminClient.auth.admin.updateUserById(user.id, {
     user_metadata: { ...user.user_metadata, role: 'lojista', nome_loja: parsed.data.nome_loja },
   })
+  // Renova o token da sessão, que ainda está sem o papel.
+  await supabase.auth.refreshSession()
 
   revalidatePath('/', 'layout')
   redirect('/lojista/dashboard')
@@ -666,21 +690,28 @@ export async function criarPetAction(formData: FormData) {
     porte: (formData.get('porte') as string) || undefined,
     dt_nasc: formData.get('dt_nasc') as string,
     peso: formData.get('peso') ? parseFloat(formData.get('peso') as string) : undefined,
-    obs: formData.get('obs') as string,
+    // O cadastro dentro do agendamento online não manda observações.
+    obs: (formData.get('obs') as string) || undefined,
   }
 
   const parsed = petSchema.safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  const { error } = await supabase.from('pet').insert({
-    id_cliente: user.id,
-    ...parsed.data,
-  })
+  // Devolve o pet criado: o agendamento online cadastra o pet na própria
+  // tela e já segue com ele escolhido.
+  const { data: pet, error } = await supabase
+    .from('pet')
+    .insert({
+      id_cliente: user.id,
+      ...parsed.data,
+    })
+    .select('id_pet, nome, raca, especie, porte, sexo')
+    .single()
 
   if (error) return { error: 'Erro ao cadastrar pet.' }
 
   revalidatePath('/cliente/pets')
-  return { success: true }
+  return { success: true, pet }
 }
 
 export async function editarPetAction(id_pet: string, formData: FormData) {

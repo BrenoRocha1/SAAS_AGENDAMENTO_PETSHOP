@@ -91,9 +91,25 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
     )
   }
 
+  // O papel vem do token da sessão. Quem entrou com o Google pode estar com
+  // um token sem ele (emitido antes de o cadastro terminar): aí vale o que
+  // está no banco — senão o link dizia "essa conta não é de cliente" para
+  // um cliente de verdade.
   const role = user?.user_metadata?.role
-  const autenticado = !!user && role === 'cliente'
-  const contaInvalida = !!user && role !== 'cliente'
+  let ehCliente = role === 'cliente'
+  // Conta do Google que ainda não terminou cadastro nenhum.
+  let cadastroIncompleto = false
+  if (user && !role) {
+    const [{ data: comoCliente }, { data: comoLojista }, { data: comoFuncionario }] = await Promise.all([
+      supabase.from('cliente').select('id_cliente').eq('id_cliente', user.id).maybeSingle(),
+      supabase.from('lojista').select('id_lojista').eq('id_lojista', user.id).maybeSingle(),
+      supabase.from('funcionario').select('id_funcionario').eq('id_funcionario', user.id).maybeSingle(),
+    ])
+    ehCliente = !!comoCliente
+    cadastroIncompleto = !comoCliente && !comoLojista && !comoFuncionario
+  }
+  const autenticado = !!user && ehCliente
+  const contaInvalida = !!user && !ehCliente
 
   // Serviços e horários são públicos — dá pra navegar e ver o que a loja
   // oferece sem estar logado. Busca a semana inteira (não só hoje) pra
@@ -243,6 +259,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
           cliente={cliente}
           autenticado={autenticado}
           contaInvalida={contaInvalida}
+          cadastroIncompleto={cadastroIncompleto}
           carrinhoInicial={servicosParam ? servicosParam.split(',').filter(Boolean) : []}
           taxidogDisponivel={taxidogDisponivel}
           precosEstimados={precosEstimados}

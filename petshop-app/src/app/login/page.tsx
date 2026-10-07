@@ -310,7 +310,7 @@ function LoginFormPane() {
 
     // Passa o perfil selecionado para o callback saber pra onde redirecionar
     // caso seja um usuário novo (sem perfil no banco ainda).
-    const result = await getGoogleOAuthUrlAction(perfil)
+    const result = await getGoogleOAuthUrlAction(perfil, redirectTo)
 
     if (result.error || !result.url) {
       setOauthPending(false)
@@ -448,7 +448,7 @@ function LoginFormPane() {
           ) : (
             <>
               Não tem conta?{' '}
-              <Link href="/cadastro">Criar conta como cliente</Link>
+              <Link href={redirectTo ? `/cadastro?redirectTo=${encodeURIComponent(redirectTo)}` : '/cadastro'}>Criar conta como cliente</Link>
             </>
           )}
         </div>

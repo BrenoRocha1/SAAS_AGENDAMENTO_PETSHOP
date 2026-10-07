@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { Suspense, useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { cadastroClienteAction, getGoogleOAuthUrlAction } from '@/lib/actions'
 import { IconIdCard, IconPhone, IconUser } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
@@ -67,6 +68,19 @@ function IconGoogle() {
   )
 }
 
+// Quem veio do link público de agendamento (?redirectTo=/agendamento/...)
+// volta para ele depois de criar a conta. Só estes dois pedaços leem a URL,
+// para o resto da página continuar pronto de antemão.
+function CampoVolta() {
+  const volta = useSearchParams().get('redirectTo')
+  return volta ? <input type="hidden" name="redirectTo" value={volta} /> : null
+}
+
+function LinkEntrar() {
+  const volta = useSearchParams().get('redirectTo')
+  return <Link href={volta ? `/login?redirectTo=${encodeURIComponent(volta)}` : '/login'}>Entrar</Link>
+}
+
 export default function CadastroClientePage() {
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
@@ -87,7 +101,8 @@ export default function CadastroClientePage() {
     setError(null)
     setOauthPending(true)
     
-    const result = await getGoogleOAuthUrlAction('cliente')
+    const volta = new URLSearchParams(window.location.search).get('redirectTo')
+    const result = await getGoogleOAuthUrlAction('cliente', volta)
     
     if (result.error || !result.url) {
       setOauthPending(false)
@@ -135,6 +150,7 @@ export default function CadastroClientePage() {
           </div>
 
           <form className="login-form" onSubmit={handleSubmit} noValidate>
+            <Suspense fallback={null}><CampoVolta /></Suspense>
             <div className="login-field">
               <label htmlFor="nome" className="login-label">Nome completo</label>
               <div className="login-input-wrap">
@@ -223,7 +239,7 @@ export default function CadastroClientePage() {
           </form>
 
           <p className="login-signup-hint">
-            Já tem conta? <Link href="/login">Entrar</Link>
+            Já tem conta? <Suspense fallback={<Link href="/login">Entrar</Link>}><LinkEntrar /></Suspense>
           </p>
         </div>
       </div>

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { criarAgendamentoOnlineAction, atualizarClassificacaoPetAction, logoutAction } from '@/lib/actions'
+import { criarAgendamentoOnlineAction, atualizarClassificacaoPetAction, completarCadastroPeloLinkAction, logoutAction } from '@/lib/actions'
+import NovoPetNoAgendamento from './NovoPetNoAgendamento'
 import PlanoNoPedido, { useMeusBeneficios } from './PlanoNoPedido'
 import { coberturaDoPlano } from '@/lib/planos'
 import { removerHorariosPassados } from '@/lib/agenda'
@@ -35,6 +36,7 @@ import {
   IconDog,
   IconPackage,
   IconPaw,
+  IconPlus,
   IconScissors,
 } from '@/components/icons'
 
@@ -115,6 +117,8 @@ interface Props {
   cliente: Cliente
   autenticado: boolean
   contaInvalida: boolean
+  // Entrou com o Google mas ainda não completou o cadastro de cliente.
+  cadastroIncompleto?: boolean
   carrinhoInicial: string[]
   // TaxiDog ligado e liberado pro agendamento online (fn_taxidog_publico,
   // migration 042) — decide se a etapa "Transporte" existe.
@@ -167,7 +171,7 @@ function ProgressoEtapas({ etapas, atual }: { etapas: Step[]; atual: Step }) {
 }
 
 export default function AgendamentoOnlineWizard({
-  lojista, horarios, bloqueios, janela, servicos, produtos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, carrinhoInicial,
+  lojista, horarios, bloqueios, janela, servicos, produtos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, cadastroIncompleto = false, carrinhoInicial,
   taxidogDisponivel, precosEstimados, formasPagamento,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
@@ -188,6 +192,8 @@ export default function AgendamentoOnlineWizard({
   const [carrinho, setCarrinho] = useState<string[]>(carrinhoInicial)
   const [pets, setPets] = useState<Pet[]>(petsIniciais)
   const [petId, setPetId] = useState('')
+  // Formulário de "Cadastrar outro pet" (sem pet nenhum ele já vem aberto).
+  const [novoPetAberto, setNovoPetAberto] = useState(false)
   const [data, setData] = useState('')
   const [horaInicio, setHoraInicio] = useState('')
   const [obs, setObs] = useState('')
@@ -315,10 +321,21 @@ export default function AgendamentoOnlineWizard({
     startTransition(() => logoutAction(voltarParaCa))
   }
 
+  function handleCompletarCadastro() {
+    startTransition(() => completarCadastroPeloLinkAction(voltarParaCa))
+  }
+
   function selecionarPet(p: Pet) {
     setPetId(p.id_pet)
     setEspecieForm(p.especie ?? '')
     setPorteForm(p.porte ?? '')
+  }
+
+  // Pet cadastrado aqui mesmo: entra na lista já escolhido.
+  function aoCriarPet(p: Pet) {
+    setPets(prev => [...prev, p])
+    setNovoPetAberto(false)
+    selecionarPet(p)
   }
 
   function salvarClassificacao() {
@@ -495,7 +512,24 @@ export default function AgendamentoOnlineWizard({
               </button>
             </div>
             <div className="modal-body">
-              {contaInvalida ? (
+              {cadastroIncompleto ? (
+                <>
+                  <IconPaw style={{ width: 28, height: 28, color: 'var(--primary-400)', margin: '0 auto var(--space-4)' }} />
+                  <h3 style={{ marginBottom: 'var(--space-2)' }}>Falta terminar seu cadastro</h3>
+                  <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
+                    Complete seus dados de cliente para continuar o agendamento em {lojista.nome}. Seus serviços escolhidos continuam salvos.
+                  </p>
+                  <button
+                    type="button"
+                    className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
+                    disabled={isPending}
+                    onClick={handleCompletarCadastro}
+                    style={{ width: '100%' }}
+                  >
+                    {isPending ? 'Abrindo...' : 'Completar cadastro'}
+                  </button>
+                </>
+              ) : contaInvalida ? (
                 <>
                   <IconAlert style={{ width: 28, height: 28, color: 'var(--warning-400)', margin: '0 auto var(--space-4)' }} />
                   <h3 style={{ marginBottom: 'var(--space-2)' }}>Essa conta não é uma conta de cliente</h3>
@@ -536,10 +570,12 @@ export default function AgendamentoOnlineWizard({
           <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-4)' }}>Preencha os detalhes do seu Pet</h2>
 
           {pets.length === 0 ? (
-            <div className="alert alert-warning">
-              <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-              <span>Você ainda não tem pets cadastrados. <Link href="/cliente/pets/novo">Cadastre um pet</Link> e volte a esse link para agendar.</span>
-            </div>
+            <>
+              <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-4)' }}>
+                Você ainda não tem pets cadastrados. Cadastre o primeiro para continuar o agendamento.
+              </p>
+              <NovoPetNoAgendamento onCriado={aoCriarPet} />
+            </>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-5)' }}>
               {pets.map(p => (
@@ -563,10 +599,22 @@ export default function AgendamentoOnlineWizard({
                   {petId === p.id_pet && <IconCheck style={{ width: 15, height: 15, color: 'var(--primary-400)', marginLeft: 'auto' }} />}
                 </div>
               ))}
+              {!novoPetAberto && (
+                <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setNovoPetAberto(true)}>
+                  <IconPlus style={{ width: 14, height: 14 }} /> Cadastrar outro pet
+                </button>
+              )}
             </div>
           )}
 
-          {petSel && precisaClassificar && (
+          {pets.length > 0 && novoPetAberto && (
+            <div style={{ marginBottom: 'var(--space-5)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--gray-800)' }}>
+              <h3 style={{ fontSize: '1rem', marginBottom: 'var(--space-4)' }}>Novo pet</h3>
+              <NovoPetNoAgendamento onCriado={aoCriarPet} onCancelar={() => setNovoPetAberto(false)} />
+            </div>
+          )}
+
+          {petSel && precisaClassificar && !novoPetAberto && (
             <div style={{ marginBottom: 'var(--space-5)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--gray-800)' }}>
               <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-3)' }}>
                 Falta completar a espécie e o porte de {petSel.nome} — usamos isso pra calcular o preço certo do serviço.
