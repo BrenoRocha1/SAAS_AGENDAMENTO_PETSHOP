@@ -16,7 +16,7 @@ import {
 import { IconAlert, IconCar, IconChartBar, IconCheck, IconChevronLeft, IconClose, IconMoney, IconUserBadge } from '@/components/icons'
 import PeriodoRelatorioTaxiDog from '@/components/lojista/PeriodoRelatorioTaxiDog'
 import { GradeIndicadores, Indicador } from '@/components/relatorio/Indicador'
-import { Pilha, Secao, SecaoVazia } from '@/components/relatorio/Secao'
+import { Pilha, Secao } from '@/components/relatorio/Secao'
 import { Ranking } from '@/components/relatorio/Ranking'
 import Ilustracao from '@/components/Ilustracao'
 
@@ -173,40 +173,52 @@ export default async function RelatorioCorridasPage({ searchParams }: Props) {
         )}
       </div>
 
-      <Pilha>
-        {/* Indicadores */}
-        <GradeIndicadores colunas={4}>
-          <Indicador
-            rotulo={concluidas.length === 1 ? 'Corrida concluída' : 'Corridas concluídas'}
-            valor={concluidas.length}
-            icone={<IconCheck />}
-          />
-          <Indicador rotulo="Valor das concluídas" valor={formatarReais(valorConcluidas)} icone={<IconMoney />} />
-          <Indicador rotulo="Em aberto" valor={emAberto} icone={<IconCar />} />
-          <Indicador rotulo={canceladas.length === 1 ? 'Cancelada' : 'Canceladas'} valor={canceladas.length} icone={<IconClose />} />
-        </GradeIndicadores>
-
-        {gestor && porTaxidog.length > 0 && (
-          <Secao titulo="Por TaxiDog" icone={<IconUserBadge />} descricao="Corridas concluídas de cada um no período">
-            <Ranking
-              comIniciais
-              itens={porTaxidog.map(t => ({
-                chave: t.nome,
-                titulo: t.nome,
-                // Corridas sem TaxiDog atribuído não são uma pessoa: sem iniciais.
-                sigla: t.nome === 'Sem TaxiDog' ? '—' : undefined,
-                valor: formatarReais(t.valor),
-                detalhe: `${t.qtd} ${t.qtd === 1 ? 'corrida' : 'corridas'}`,
-                parte: valorConcluidas > 0 ? t.valor / valorConcluidas : undefined,
-              }))}
+      {/* Período sem corrida nenhuma: o desenho no lugar dos números zerados,
+          como no Relatório de Vendas. */}
+      {corridas.length === 0 ? (
+        <div className="empty-state card">
+          <Ilustracao nome="relatorios" />
+          <div className="empty-state-title">Nenhuma corrida neste período</div>
+          <p>
+            {filtroTaxidog
+              ? 'Tente escolher outro período ou outro TaxiDog.'
+              : modoMotorista
+                ? 'Suas corridas aparecem aqui conforme você atende. Tente escolher outro período.'
+                : 'Tente escolher outro período ou confira se há corridas de TaxiDog agendadas.'}
+          </p>
+        </div>
+      ) : (
+        <Pilha>
+          {/* Indicadores */}
+          <GradeIndicadores colunas={4}>
+            <Indicador
+              rotulo={concluidas.length === 1 ? 'Corrida concluída' : 'Corridas concluídas'}
+              valor={concluidas.length}
+              icone={<IconCheck />}
             />
-          </Secao>
-        )}
+            <Indicador rotulo="Valor das concluídas" valor={formatarReais(valorConcluidas)} icone={<IconMoney />} />
+            <Indicador rotulo="Em aberto" valor={emAberto} icone={<IconCar />} />
+            <Indicador rotulo={canceladas.length === 1 ? 'Cancelada' : 'Canceladas'} valor={canceladas.length} icone={<IconClose />} />
+          </GradeIndicadores>
 
-        <Secao titulo="Corridas do período" icone={<IconChartBar />}>
-          {corridas.length === 0 ? (
-            <SecaoVazia>Nenhuma corrida neste período.</SecaoVazia>
-          ) : (
+          {gestor && porTaxidog.length > 0 && (
+            <Secao titulo="Por TaxiDog" icone={<IconUserBadge />} descricao="Corridas concluídas de cada um no período">
+              <Ranking
+                comIniciais
+                itens={porTaxidog.map(t => ({
+                  chave: t.nome,
+                  titulo: t.nome,
+                  // Corridas sem TaxiDog atribuído não são uma pessoa: sem iniciais.
+                  sigla: t.nome === 'Sem TaxiDog' ? '—' : undefined,
+                  valor: formatarReais(t.valor),
+                  detalhe: `${t.qtd} ${t.qtd === 1 ? 'corrida' : 'corridas'}`,
+                  parte: valorConcluidas > 0 ? t.valor / valorConcluidas : undefined,
+                }))}
+              />
+            </Secao>
+          )}
+
+          <Secao titulo="Corridas do período" icone={<IconChartBar />}>
             <div className="table-container">
               <table className="table">
                 <thead>
@@ -241,9 +253,9 @@ export default async function RelatorioCorridasPage({ searchParams }: Props) {
                 </tbody>
               </table>
             </div>
-          )}
-        </Secao>
-      </Pilha>
+          </Secao>
+        </Pilha>
+      )}
     </>
   )
 }
