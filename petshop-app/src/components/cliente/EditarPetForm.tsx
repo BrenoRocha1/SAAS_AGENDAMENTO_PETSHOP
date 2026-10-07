@@ -154,7 +154,7 @@ export default function EditarPetForm({ pet }: Props) {
             disabled={isPending}
             style={{ flex: 1 }}
           >
-            {isPending ? 'Salvando...' : (<><IconSave style={{ width: 15, height: 15 }} /> Salvar alterações</>)}
+            {isPending ? 'Salvando...' : (<><IconSave style={{ width: 15, height: 15, flexShrink: 0 }} /> Salvar alterações</>)}
           </button>
         </div>
       </form>

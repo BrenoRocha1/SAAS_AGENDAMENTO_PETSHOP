@@ -15,7 +15,7 @@ export default function NovoPetClienteScreen() {
     <ScreenContainer>
       <DetailHeader title="Novo pet" />
       <FormularioPet
-        rotuloBotao="Cadastrar pet"
+        onCancelar={() => router.back()}
         onSalvar={async d => {
           if (!user) return 'Sua sessão expirou. Entre de novo.'
           const { error } = await supabase.from('pet').insert({

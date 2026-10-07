@@ -5,16 +5,16 @@ import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { EmptyState } from '@/components/EmptyState'
 import { Aviso } from '@/components/Aviso'
-import { Botao } from '@/components/Botao'
-import { Avatar } from '@/components/Avatar'
+import { BotaoPequeno } from '@/components/BotaoPequeno'
+import { CartaoFotoPet } from '@/components/CartaoFotoPet'
+import { IconTrash } from '@/components/IconesDoSite'
 import { FormularioPet, type DadosPet } from '@/components/FormularioPet'
-import { TrocarFoto, acoesFotoPet } from '@/components/TrocarFoto'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { acoesDisponiveis } from '@/lib/acoes'
 import { dialogo } from '@/lib/dialogo'
 import { mensagemDoBanco } from '@/lib/erros'
-import { colors, spacing } from '@/theme/theme'
+import { colors } from '@/theme/theme'
 
 type PetDoCliente = Partial<DadosPet> & { nome: string; foto_url: string | null }
 
@@ -59,8 +59,6 @@ export default function PetClienteScreen() {
     )
   }
 
-  const foto = acoesFotoPet(id)
-
   function pedirRemocao() {
     dialogo('Remover pet', `Tirar ${pet?.nome} da sua lista? Os agendamentos já feitos continuam no histórico.`, [
       { text: 'Voltar', style: 'cancel' },
@@ -82,35 +80,37 @@ export default function PetClienteScreen() {
 
   return (
     <ScreenContainer>
-      <DetailHeader title={pet.nome} />
+      <DetailHeader title="Editar pet" />
 
-      <View style={{ alignItems: 'center', marginBottom: spacing.lg }}>
-        {acoesDisponiveis() ? (
-          <TrocarFoto nome={pet.nome} fotoUrl={pet.foto_url} enviar={foto.enviar} remover={foto.remover} onMudou={url => setPet({ ...pet, foto_url: url })} />
-        ) : (
-          <Avatar nome={pet.nome} fotoUrl={pet.foto_url} size={84} />
-        )}
+      {/* Os mesmos blocos da página do site, com 24 entre eles: a foto, os
+          dados e, embaixo, tirar o pet da lista. */}
+      <View style={{ gap: 24 }}>
+        {/* A foto vai pelo site (envio de arquivo): sem ele configurado, o cartão não aparece. */}
+        {acoesDisponiveis() && <CartaoFotoPet idPet={id} fotoUrl={pet.foto_url} onMudou={url => setPet({ ...pet, foto_url: url })} />}
+
+        <FormularioPet
+          inicial={pet}
+          editando
+          onCancelar={() => router.back()}
+          onSalvar={async d => {
+            if (!user) return 'Sua sessão expirou. Entre de novo.'
+            const { data, error } = await supabase
+              .from('pet')
+              .update({ nome: d.nome, raca: d.raca, sexo: d.sexo, especie: d.especie || null, porte: d.porte || null, dt_nasc: d.dt_nasc, peso: d.peso, obs: d.obs || null })
+              .eq('id_pet', id)
+              .eq('id_cliente', user.id)
+              .select('id_pet')
+            if (error || !data || data.length === 0) return error ? mensagemDoBanco(error, 'Erro ao atualizar o pet.') : 'Não foi possível salvar este pet.'
+            router.back()
+            return null
+          }}
+        />
+
+        <View style={{ gap: 12 }}>
+          {erro && <Aviso tipo="erro" texto={erro} />}
+          <BotaoPequeno normal variante="perigoClaro" rotulo="Remover pet" icone={IconTrash} onPress={pedirRemocao} carregando={removendo} />
+        </View>
       </View>
-
-      <FormularioPet
-        inicial={pet}
-        rotuloBotao="Salvar"
-        onSalvar={async d => {
-          if (!user) return 'Sua sessão expirou. Entre de novo.'
-          const { data, error } = await supabase
-            .from('pet')
-            .update({ nome: d.nome, raca: d.raca, sexo: d.sexo, especie: d.especie || null, porte: d.porte || null, dt_nasc: d.dt_nasc, peso: d.peso, obs: d.obs || null })
-            .eq('id_pet', id)
-            .eq('id_cliente', user.id)
-            .select('id_pet')
-          if (error || !data || data.length === 0) return error ? mensagemDoBanco(error, 'Erro ao atualizar o pet.') : 'Não foi possível salvar este pet.'
-          router.back()
-          return null
-        }}
-      />
-
-      {erro && <Aviso tipo="erro" texto={erro} style={{ marginTop: spacing.md }} />}
-      <Botao rotulo="Remover pet" icone="trash-outline" variante="perigo" style={{ marginTop: spacing.lg }} onPress={pedirRemocao} carregando={removendo} />
     </ScreenContainer>
   )
 }

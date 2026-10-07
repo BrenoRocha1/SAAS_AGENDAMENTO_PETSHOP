@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { obterUsuario } from '@/lib/supabase/usuario'
 import { redirect } from 'next/navigation'
 import EditarPetForm from '@/components/cliente/EditarPetForm'
+import RemoverPetCliente from '@/components/cliente/RemoverPetCliente'
 import PetFotoUpload from '@/components/cliente/PetFotoUpload'
 import type { Metadata } from 'next'
 
@@ -35,6 +36,7 @@ export default async function EditarPetPage({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
         <PetFotoUpload idPet={pet.id_pet} fotoUrlInicial={pet.foto_url} />
         <EditarPetForm pet={pet} />
+        <RemoverPetCliente idPet={pet.id_pet} nome={pet.nome} />
       </div>
     </>
   )
