@@ -83,7 +83,7 @@ export async function middleware(request: NextRequest) {
       // corridas, migration 042) — a página confere a permissão fina.
       const areasPermitidas = [
         '/lojista/agendamentos', '/lojista/kanban', '/lojista/taxidog', '/lojista/servicos',
-        '/lojista/produtos', '/lojista/clientes', '/lojista/pets',
+        '/lojista/produtos', '/lojista/pdv', '/lojista/clientes', '/lojista/pets',
       ]
       const permitido = areasPermitidas.some(p => pathname === p || pathname.startsWith(`${p}/`))
       if (!permitido) {

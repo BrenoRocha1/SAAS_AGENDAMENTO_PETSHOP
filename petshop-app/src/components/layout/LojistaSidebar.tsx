@@ -17,6 +17,7 @@ import {
   IconCar,
   IconRoute,
   IconRepeat,
+  IconCart,
 } from '@/components/icons'
 
 // Perfil da Loja e Horários saíram daqui — agora são acessados via
@@ -43,6 +44,7 @@ const navItemsBase = [
   { href: '/lojista/planos',        icon: IconRepeat,    label: 'Planos', restrito: true },
   { href: '/lojista/servicos',      icon: IconScissors,  label: 'Serviços', permissao: 'servicos' as const },
   { href: '/lojista/produtos',      icon: IconPackage,   label: 'Produtos', permissao: 'produtos' as const },
+  { href: '/lojista/pdv',           icon: IconCart,      label: 'Caixa (PDV)', permissao: 'produtos' as const, tambem: ['/lojista/pdv/vendas'] },
   { href: '/lojista/clientes',      icon: IconUsers,     label: 'Clientes', permissao: 'clientesPets' as const },
   { href: '/lojista/pets',          icon: IconDog,       label: 'Pets', permissao: 'clientesPets' as const },
   { href: '/lojista/configuracoes', icon: IconSettings,  label: 'Configurações', restrito: true },

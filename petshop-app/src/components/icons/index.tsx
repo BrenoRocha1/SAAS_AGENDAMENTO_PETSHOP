@@ -572,3 +572,59 @@ export function IconRoute(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+// Carrinho — item "PDV" do menu e a venda em andamento.
+export function IconCart(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M3 4h2.2l1.9 10.2a1.5 1.5 0 0 0 1.5 1.3h8.1a1.5 1.5 0 0 0 1.5-1.1L20 8H6.2" />
+      <circle cx="9.5" cy="19.2" r="1.3" />
+      <circle cx="17" cy="19.2" r="1.3" />
+    </svg>
+  )
+}
+
+// Cartão — pagamento no crédito/débito.
+export function IconCreditCard(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="2.5" y="5.5" width="19" height="13" rx="2" />
+      <path d="M2.5 10h19" />
+      <path d="M6.5 15h3" />
+    </svg>
+  )
+}
+
+// QR code — pagamento por Pix.
+export function IconQrCode(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1" />
+      <rect x="14" y="3.5" width="6.5" height="6.5" rx="1" />
+      <rect x="3.5" y="14" width="6.5" height="6.5" rx="1" />
+      <path d="M14 14h2.5v2.5H14zM18 18h2.5v2.5H18zM18 14h2.5M14 18v2.5" />
+    </svg>
+  )
+}
+
+// Impressora — imprimir o recibo.
+export function IconPrinter(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M7 9V3.5h10V9" />
+      <rect x="3.5" y="9" width="17" height="8" rx="2" />
+      <path d="M7 14h10v6.5H7z" />
+    </svg>
+  )
+}
+
+// Comprovante — histórico de vendas.
+export function IconReceipt(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M6 3.5h12v17l-2.4-1.6-1.8 1.6-1.8-1.6-1.8 1.6-1.8-1.6L6 20.5v-17Z" />
+      <path d="M9 8.5h6M9 12h6" />
+    </svg>
+  )
+}
+
