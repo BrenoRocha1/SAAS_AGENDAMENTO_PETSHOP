@@ -1,9 +1,9 @@
 'use client'
 
-import { Suspense, useState, useTransition } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { loginAction, getGoogleOAuthUrlAction } from '@/lib/actions'
+import { getGoogleOAuthUrlAction } from '@/lib/actions'
 import Ilustracao from '@/components/Ilustracao'
 import MarcaSaip from '@/components/MarcaSaip'
 
@@ -18,22 +18,7 @@ const stroke = {
   strokeLinejoin: 'round' as const,
 }
 
-function IconMail() {
-  return (
-    <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="m4 7 8 6 8-6" />
-    </svg>
-  )
-}
-function IconLock() {
-  return (
-    <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
-      <rect x="5" y="11" width="14" height="9" rx="2" />
-      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-    </svg>
-  )
-}
+
 function IconHash() {
   return (
     <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
@@ -41,23 +26,7 @@ function IconHash() {
     </svg>
   )
 }
-function IconEye() {
-  return (
-    <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
-      <path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z" />
-      <circle cx="12" cy="12" r="2.6" />
-    </svg>
-  )
-}
-function IconEyeOff() {
-  return (
-    <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
-      <path d="M3 3 21 21" />
-      <path d="M10.6 6.1A9.9 9.9 0 0 1 12 5.5c6.5 0 10 6.5 10 6.5a17 17 0 0 1-3.3 4M6.6 6.6A17 17 0 0 0 2 12s3.5 6.5 10 6.5a9.6 9.6 0 0 0 4.2-.9" />
-      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
-    </svg>
-  )
-}
+
 function IconAlert() {
   return (
     <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
@@ -265,8 +234,6 @@ function PerfilToggle({ perfil, onChange }: { perfil: Perfil; onChange: (p: Perf
 function LoginFormPane() {
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(null)
-  const [showPassword, setShowPassword] = useState(false)
-  const [isPending, startTransition] = useTransition()
   const [oauthPending, setOauthPending] = useState(false)
   const [perfil, setPerfil] = useState<Perfil>('cliente')
 
@@ -293,16 +260,6 @@ function LoginFormPane() {
     : null
 
   const message = error ?? paramMessage
-
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    const form = e.currentTarget
-    startTransition(async () => {
-      const result = await loginAction(new FormData(form))
-      if (result?.error) setError(result.error)
-    })
-  }
 
   async function handleGoogle() {
     setError(null)
@@ -347,63 +304,7 @@ function LoginFormPane() {
       )}
       {message && <ErrorBanner message={message} />}
 
-      <form className="login-form" onSubmit={handleSubmit} noValidate>
-        {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
-        <div className="login-field">
-          <label htmlFor="email" className="login-label">E-mail</label>
-          <div className="login-input-wrap">
-            <IconMail />
-            <input
-              id="email"
-              name="email"
-              type="email"
-              className="login-input"
-              placeholder={isLojista ? 'voce@petshop.com' : 'voce@email.com'}
-              autoComplete="email"
-              required
-            />
-          </div>
-        </div>
-
-        <div className="login-field">
-          <div className="flex items-center justify-between">
-            <label htmlFor="senha" className="login-label">Senha</label>
-            <Link href="/esqueci-senha" style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--lg-accent)' }}>
-              Esqueceu a senha?
-            </Link>
-          </div>
-          <div className="login-input-wrap">
-            <IconLock />
-            <input
-              id="senha"
-              name="senha"
-              type={showPassword ? 'text' : 'password'}
-              className="login-input has-toggle"
-              placeholder="Sua senha"
-              autoComplete="current-password"
-              required
-            />
-            <button
-              type="button"
-              className="login-eye"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-            >
-              {showPassword ? <IconEyeOff /> : <IconEye />}
-            </button>
-          </div>
-        </div>
-
-        <button type="submit" className="login-submit" disabled={isPending}>
-          {isPending ? 'Entrando...' : 'Entrar'}
-        </button>
-      </form>
-
-      <div className="login-divider">
-        <span>ou</span>
-      </div>
-
-      <div className="login-secondary-stack">
+      <div className="login-secondary-stack" style={{ marginTop: 'var(--space-8)' }}>
         <button
           type="button"
           className="login-btn-outline"
@@ -471,29 +372,7 @@ function LoginFormFallback() {
         <button className="login-perfil-tab" disabled type="button"><IconStore />Sou lojista</button>
       </div>
 
-      <form className="login-form" aria-hidden="true">
-        <div className="login-field">
-          <label className="login-label">E-mail</label>
-          <div className="login-input-wrap">
-            <IconMail />
-            <input className="login-input" placeholder="voce@email.com" disabled />
-          </div>
-        </div>
-        <div className="login-field">
-          <label className="login-label">Senha</label>
-          <div className="login-input-wrap">
-            <IconLock />
-            <input className="login-input" type="password" placeholder="Sua senha" disabled />
-          </div>
-        </div>
-        <button type="button" className="login-submit" disabled>Entrar</button>
-      </form>
-
-      <div className="login-divider">
-        <span>ou</span>
-      </div>
-
-      <div className="login-secondary-stack">
+      <div className="login-secondary-stack" style={{ marginTop: 'var(--space-8)' }}>
         <button type="button" className="login-btn-outline" disabled>
           <IconGoogle />
           Continuar com o Google
