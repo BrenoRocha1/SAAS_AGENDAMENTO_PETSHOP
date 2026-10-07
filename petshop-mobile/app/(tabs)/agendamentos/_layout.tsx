@@ -10,6 +10,7 @@ export default function AgendamentosLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="gestor" />
       <Stack.Screen name="gestor-taxidog" />
+      <Stack.Screen name="relatorio-corridas" />
       <Stack.Screen name="[id]" />
       <Stack.Screen name="novo" />
       <Stack.Screen name="remarcar" />

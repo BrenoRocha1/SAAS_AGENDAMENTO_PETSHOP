@@ -6,7 +6,6 @@ import {
   IconeConfiguracoes,
   IconeCorridas,
   IconeGestor,
-  IconeHistorico,
   IconeMais,
   IconePainel,
   IconePerfil,
@@ -58,13 +57,14 @@ const ITENS_LOJA: ItemLoja[] = [
   { icone: IconeConfiguracoes, label: 'Configurações', rota: '/mais/configuracoes', restrito: true },
 ]
 
-// Quem só é TaxiDog vê no site "Minhas corridas" e "Minhas rotas", nessa
-// ordem e com esses ícones; o app tem ainda a Início e o Histórico.
+// Quem só é TaxiDog vê no site "Minhas corridas", "Minhas rotas" e
+// "Relatório de corridas", nessa ordem e com esses ícones; o app tem ainda a
+// Início.
 const ITENS_TAXIDOG: ItemMenu[] = [
   { icone: IconePainel, label: 'Dashboard', rota: '/taxidog', aba: true },
   { icone: IconeCorridas, label: 'Minhas corridas', rota: '/taxidog/corridas', aba: true },
   { icone: IconeRotas, label: 'Minhas rotas', rota: '/taxidog/rotas', aba: true },
-  { icone: IconeHistorico, label: 'Histórico', rota: '/taxidog/historico', aba: true },
+  { icone: IconeRelatorios, label: 'Relatório de corridas', rota: '/taxidog/historico', aba: true },
 ]
 
 // Menu do cliente: os mesmos itens, ícones e ordem do site

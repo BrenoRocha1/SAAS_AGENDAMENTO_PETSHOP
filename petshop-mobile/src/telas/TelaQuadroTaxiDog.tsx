@@ -9,7 +9,7 @@ import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { CartaoVazio } from '@/components/CartaoVazio'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Folha } from '@/components/Folha'
-import { IconCar, IconKanban, IconRoute, IconUserBadge, IconWhatsapp } from '@/components/IconesDoSite'
+import { IconCar, IconChartBar, IconKanban, IconRoute, IconUserBadge, IconWhatsapp } from '@/components/IconesDoSite'
 import {
   AcaoDoCartao,
   CartaoDoQuadro,
@@ -256,7 +256,8 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
     </>
   ) : (
     <>
-      <DetailHeader title="Gestor de Agendamentos" junto={!!contexto?.kanbanAtivo} />
+      {/* Com o Gestor desligado, esta tela é a "TaxiDog" do menu. */}
+      <DetailHeader title={contexto?.kanbanAtivo ? 'Gestor de Agendamentos' : 'TaxiDog'} junto />
       {/* Troca de visão: volta para o quadro dos agendamentos, no mesmo dia. */}
       {contexto?.kanbanAtivo && (
         <BotaoPequeno
@@ -266,6 +267,10 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
           onPress={() => router.replace({ pathname: '/agendamentos/gestor', params: { data } })}
         />
       )}
+      {/* Os atalhos do TaxiDog, lado a lado embaixo da troca de visão. */}
+      <View style={styles.atalhos}>
+        <BotaoPequeno icone={IconChartBar} rotulo="Relatório" style={styles.atalho} onPress={() => router.push('/agendamentos/relatorio-corridas')} />
+      </View>
     </>
   )
 
@@ -598,8 +603,11 @@ function Linha({ rotulo, valor, children }: { rotulo: string; valor?: string; ch
 const styles = StyleSheet.create({
   titulo: { ...typography.heading.xl, color: colors.text },
   subtitulo: { ...typography.body.lg, color: colors.textMuted, marginTop: 2, marginBottom: 16 },
-  // "Visualizar agendamentos": na largura toda, 12 acima da faixa do dia.
-  trocaDeVisao: { marginBottom: 12 },
+  // "Visualizar agendamentos": na largura toda; os atalhos, 8 abaixo dela e
+  // 12 acima da faixa do dia.
+  trocaDeVisao: { marginBottom: 8 },
+  atalhos: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  atalho: { flex: 1 },
   barra: { gap: 12, marginBottom: 16 },
   totais: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 4 },
   total: { fontSize: 14, lineHeight: 20, color: COR_APAGADA },
