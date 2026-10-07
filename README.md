@@ -329,7 +329,9 @@ INDICES de performance:
   idx_horario_lojista
   idx_agendamento_cliente, idx_agendamento_lojista, idx_agendamento_pet
   idx_agendamento_status, idx_agendamento_data
-  idx_agendamento_unique_slot (indice de unicidade anti-double-booking)
+  idx_agendamento_slot (loja/dia/hora; ate a migration 084 era o indice unico
+    idx_agendamento_unique_slot — quem evita agendamento em dobro desde a 076
+    e fn_conferir_vaga, que respeita o limite de simultaneos da loja)
   idx_audit_registro, idx_audit_usuario, idx_audit_tabela
 
 TRIGGERS automaticos:

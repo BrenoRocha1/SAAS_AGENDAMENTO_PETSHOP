@@ -1621,6 +1621,15 @@ async function formaSemCobrancaPeloPlano(
   return formasAtivas(normalizarFormasLoja(formas))[0] ?? null
 }
 
+// Antecedência mínima/máxima da loja (migration 025): o banco já devolve a
+// frase pronta ("Agende com pelo menos 2 hora(s) de antecedência."). A lista
+// de horários respeita a mesma regra, então só chega aqui quem demorou na
+// tela até o horário escolhido sair da janela.
+function mensagemErroAntecedencia(mensagem: string): string | null {
+  const m = mensagem.match(/Agende com pelo menos[^\n]*|Não é possível agendar com mais de[^\n]*/)
+  return m ? m[0] : null
+}
+
 // Função "com pagamento" ainda não existe no banco.
 function faltaMigrationPagamento(error: { message: string; code?: string }): boolean {
   return (error.code === 'PGRST202' || error.message.includes('Could not find the function')) && error.message.includes('com_pagamento')
@@ -1746,6 +1755,10 @@ export async function criarAgendamentoAction(formData: FormData) {
     if (error.message.includes('Estoque insuficiente') || error.message.includes('produtos escolhidos não está')) {
       return { error: error.message }
     }
+    const erroAntecedencia = mensagemErroAntecedencia(error.message)
+    if (erroAntecedencia) return { error: erroAntecedencia }
+    // Sem isto o motivo some: em produção a pessoa só vê a frase genérica.
+    console.error('[criarAgendamentoAction] erro:', error.code, error.message)
     return { error: devError('Erro ao criar agendamento. Tente novamente.', error.message) }
   }
 
@@ -1857,6 +1870,9 @@ export async function criarAgendamentoOnlineAction(
     if (error.message.includes('Estoque insuficiente') || error.message.includes('produtos escolhidos não está')) {
       return { error: error.message }
     }
+    const erroAntecedencia = mensagemErroAntecedencia(error.message)
+    if (erroAntecedencia) return { error: erroAntecedencia }
+    console.error('[criarAgendamentoOnlineAction] erro:', error.code, error.message)
     return { error: devError('Erro ao criar agendamento. Tente novamente.', error.message) }
   }
 
