@@ -85,6 +85,51 @@ export function proximaAcaoCorrida(status: string, modalidade: string): { status
 
 const EM_MOVIMENTO = ['a_caminho_cliente', 'no_endereco', 'pet_embarcado', 'a_caminho_entrega', 'no_endereco_entrega']
 export const emMovimento = (status: string) => EM_MOVIMENTO.includes(status)
+
+// ── Quadro de corridas (o Kanban do site, lib/taxidog) ──
+
+// Situação da corrida como o quadro mostra — os mesmos textos do site
+// (rotuloStatusCorrida de lá; o daqui em cima é o da área do TaxiDog).
+export function rotuloDaCorridaNoQuadro(c: { status: string; modalidade: string; temTaxiDog: boolean; statusAgendamento?: string | null }): string {
+  switch (c.status) {
+    case 'agendada':
+      if (c.modalidade === 'entregar') return c.temTaxiDog ? 'Aguardando serviço' : 'Aguardando serviço · sem TaxiDog'
+      if (c.statusAgendamento === 'Pendente') return 'Pendente'
+      return c.temTaxiDog ? 'Corrida atribuída' : 'Aguardando TaxiDog'
+    case 'a_caminho_cliente': return 'A caminho do cliente'
+    case 'no_endereco': return 'Chegou ao endereço'
+    case 'pet_embarcado': return 'Pet embarcado'
+    case 'entregue_loja': return 'Pet entregue na loja'
+    case 'pronto_entrega': return c.temTaxiDog ? 'Serviço finalizado' : 'Pronto · aguardando TaxiDog'
+    case 'a_caminho_entrega': return 'A caminho para entrega'
+    case 'no_endereco_entrega': return 'Chegou ao endereço'
+    case 'concluida': return 'Corrida concluída'
+    case 'cancelada': return 'Cancelada'
+    default: return c.status
+  }
+}
+
+export type GrupoCorrida = 'pendentes' | 'atribuidas' | 'andamento' | 'concluidas'
+
+export const ROTULO_GRUPO: Record<GrupoCorrida, string> = {
+  pendentes: 'Pendentes',
+  atribuidas: 'Atribuídas',
+  andamento: 'Em andamento',
+  concluidas: 'Concluídas',
+}
+
+// Cancelada não entra em coluna nenhuma do quadro.
+export function grupoCorrida(status: string, temTaxiDog: boolean): GrupoCorrida | null {
+  if (status === 'cancelada') return null
+  if (status === 'concluida') return 'concluidas'
+  if (emMovimento(status)) return 'andamento'
+  return temTaxiDog ? 'atribuidas' : 'pendentes'
+}
+
+// A corrida ainda admite troca de TaxiDog? (mesma regra de fn_atribuir_corrida)
+export function podeReatribuir(status: string): boolean {
+  return status === 'agendada' || status === 'entregue_loja' || status === 'pronto_entrega'
+}
 export const encerrada = (status: string) => status === 'concluida' || status === 'cancelada'
 // Sem TaxiDog: aparece pra todo TaxiDog da loja pegar (migration 046).
 export const disponivel = (c: { id_funcionario: string | null }) => !c.id_funcionario

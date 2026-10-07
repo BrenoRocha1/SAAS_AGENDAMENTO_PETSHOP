@@ -1,12 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useFocusEffect, useRouter } from 'expo-router'
-import { Image, Pressable, StyleSheet, View } from 'react-native'
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
+import { StyleSheet, View } from 'react-native'
 import { Aviso } from '@/components/Aviso'
 import { BarraDoDia } from '@/components/BarraDoDia'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { CartaoVazio } from '@/components/CartaoVazio'
 import { DetailHeader } from '@/components/DetailHeader'
-import { IconCheck, IconDog, IconKanban, IconPlus, IconUserBadge } from '@/components/IconesDoSite'
+import { IconCar, IconCheck, IconKanban, IconPlus, IconUserBadge } from '@/components/IconesDoSite'
+import {
+  AcaoDoCartao,
+  CartaoDoQuadro,
+  ColunaDoQuadro,
+  ColunaVazia,
+  ColunasDoQuadro,
+  LinhaDoCartao,
+  NotaDoCartao,
+  PeDoCartao,
+  PetDoCartao,
+  TopoDoCartao,
+} from '@/components/Quadro'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { Seletor } from '@/components/Seletor'
 import { Text } from '@/components/Texto'
@@ -16,7 +28,7 @@ import { hojeBrasilISO } from '@/lib/agenda'
 import { atualizarStatus } from '@/lib/agendamentos'
 import { dialogo } from '@/lib/dialogo'
 import { perguntarBuscaTaxiDog } from '@/lib/perguntarTaxiDog'
-import { ORDEM_ETAPA, PROXIMA_ETAPA, coresStatus, podeAvancarEtapa } from '@/lib/statusAgendamento'
+import { ORDEM_ETAPA, PROXIMA_ETAPA, podeAvancarEtapa } from '@/lib/statusAgendamento'
 import { supabase } from '@/lib/supabase'
 import { formatarReais } from '@/lib/taxidog'
 import { colors } from '@/theme/theme'
@@ -33,8 +45,6 @@ const COLUNAS: { status: Etapa; titulo: string }[] = [
   { status: 'Concluído', titulo: 'Finalizado' },
 ]
 
-const COR_APAGADA = '#858d99'
-
 function descricaoPet(item: Agendamento) {
   const partes = [item.pet?.especie, item.pet?.porte, item.pet?.raca].filter(Boolean)
   return partes.length > 0 ? partes.join(' · ') : null
@@ -42,6 +52,8 @@ function descricaoPet(item: Agendamento) {
 
 interface Base {
   kanbanAtivo: boolean
+  // TaxiDog ativado na loja: aparece o "Visualizar TaxiDog".
+  taxidogAtivo: boolean
   funcionarios: { id_funcionario: string; nome: string }[]
   servicos: { id_servico: string; nome: string }[]
 }
@@ -57,7 +69,9 @@ export default function GestorScreen() {
   const idLojista = contexto?.idLojista
   const pode = !!contexto?.podeGerenciarAgenda
   const hoje = hojeBrasilISO()
-  const [data, setData] = useState(hoje)
+  // `data`: o dia em que a pessoa estava no quadro do TaxiDog.
+  const { data: dataInicial } = useLocalSearchParams<{ data?: string }>()
+  const [data, setData] = useState(dataInicial && /^\d{4}-\d{2}-\d{2}$/.test(dataInicial) ? dataInicial : hoje)
   const { agendamentos: doDia, loading, erro: erroCarga, recarregar } = useAgendamentosDoDia(pode ? idLojista : undefined, data)
 
   const [base, setBase] = useState<Base | null>(null)
@@ -71,14 +85,17 @@ export default function GestorScreen() {
 
   const carregarBase = useCallback(async () => {
     if (!idLojista || !pode) return
-    const [loja, funcs, servs] = await Promise.all([
+    const [loja, taxidog, funcs, servs] = await Promise.all([
       supabase.from('lojista').select('kanban_ativo').eq('id_lojista', idLojista).maybeSingle(),
+      // Tolerante: sem a migration 042 a tabela nem existe — aí o botão some.
+      supabase.from('taxidog_config').select('ativo').eq('id_lojista', idLojista).maybeSingle(),
       supabase.from('funcionario').select('id_funcionario, nome').eq('id_lojista', idLojista).eq('ativo', true).order('created_at'),
       supabase.from('servico').select('id_servico, nome').eq('id_lojista', idLojista).eq('status', 'Ativo').order('nome'),
     ])
     setBase({
       // Sem a coluna (ou sem resposta), vale "ligado" — como no site.
       kanbanAtivo: loja.error ? true : ((loja.data as { kanban_ativo: boolean | null } | null)?.kanban_ativo ?? true),
+      taxidogAtivo: !taxidog.error && !!(taxidog.data as { ativo: boolean | null } | null)?.ativo,
       funcionarios: (funcs.data ?? []) as Base['funcionarios'],
       servicos: (servs.data ?? []) as Base['servicos'],
     })
@@ -201,7 +218,17 @@ export default function GestorScreen() {
 
   return (
     <ScreenContainer refreshing={loading && itens.length > 0} onRefresh={() => { carregarBase(); recarregar() }}>
-      <DetailHeader title="Gestor de Agendamentos" />
+      <DetailHeader title="Gestor de Agendamentos" junto={!!base?.taxidogAtivo} />
+
+      {/* Troca de visão: o quadro das corridas do TaxiDog, no mesmo dia. */}
+      {base?.taxidogAtivo && (
+        <BotaoPequeno
+          icone={IconCar}
+          rotulo="Visualizar TaxiDog"
+          style={styles.trocaDeVisao}
+          onPress={() => router.replace({ pathname: '/agendamentos/gestor-taxidog', params: { data } })}
+        />
+      )}
 
       {/* A faixa do dia, os filtros e o "Novo agendamento": um embaixo do
           outro, todos na largura da tela. */}
@@ -244,99 +271,59 @@ export default function GestorScreen() {
           texto="Escolha outro dia ou crie um agendamento na agenda."
         />
       ) : (
-        <View style={[styles.colunas, loading && styles.carregando]}>
+        <ColunasDoQuadro style={loading && styles.carregando}>
           {COLUNAS.map(coluna => {
             const daColuna = itensFiltrados.filter(it => it.status === coluna.status)
-            const cor = coresStatus(coluna.status)
             return (
-              <View key={coluna.status} style={styles.coluna}>
-                <View style={[styles.colunaTopo, { borderTopColor: cor.solid }]}>
-                  <Text style={styles.colunaTitulo}>{coluna.titulo}</Text>
-                  <View style={[styles.contagem, { backgroundColor: cor.bg, borderColor: cor.ring }]}>
-                    <Text style={[styles.contagemTexto, { color: cor.fg }]}>{daColuna.length}</Text>
-                  </View>
-                </View>
+              <ColunaDoQuadro key={coluna.status} titulo={coluna.titulo} status={coluna.status} contagem={daColuna.length}>
+                {daColuna.length === 0 ? (
+                  <ColunaVazia>{comFiltro ? 'Nada com esse filtro.' : 'Nenhum agendamento aqui.'}</ColunaVazia>
+                ) : (
+                  daColuna.map(item => (
+                    <CartaoDoQuadro key={item.id_agendamento} onPress={() => router.push(`/agendamentos/${item.id_agendamento}`)}>
+                      <TopoDoCartao hora={item.hr_agendamento.slice(0, 5)} valor={formatarReais(Number(item.valor))} />
+                      <PetDoCartao foto={item.pet?.foto_url} nome={item.pet?.nome ?? 'Pet'} descricao={descricaoPet(item)} />
+                      <LinhaDoCartao>{item.cliente?.nome ?? '—'}</LinhaDoCartao>
+                      <LinhaDoCartao final>{item.servico?.nome ?? 'Serviço'}</LinhaDoCartao>
+                      {alterados.has(item.id_agendamento) && item.status === 'Pendente' && (
+                        <View style={styles.alterado}>
+                          <Text style={styles.alteradoTexto}>Alterado pelo cliente</Text>
+                        </View>
+                      )}
+                      <PeDoCartao icone={IconUserBadge}>{item.funcionario?.nome ?? 'Sem profissional'}</PeDoCartao>
 
-                <View style={styles.colunaCorpo}>
-                  {daColuna.length === 0 ? (
-                    <Text style={styles.colunaVazia}>{comFiltro ? 'Nada com esse filtro.' : 'Nenhum agendamento aqui.'}</Text>
-                  ) : (
-                    daColuna.map(item => (
-                      <Pressable
-                        key={item.id_agendamento}
-                        onPress={() => router.push(`/agendamentos/${item.id_agendamento}`)}
-                        accessibilityRole="button"
-                        style={({ pressed }) => [styles.cartao, pressed && styles.cartaoPressionado]}
-                      >
-                        <ConteudoDoCartao item={item} alterado={alterados.has(item.id_agendamento) && item.status === 'Pendente'} />
-                        {item.status !== 'Concluído' && (
-                          podeAvancarEtapa(item.status, data, hoje) ? (
+                      {/* Sem mouse pra arrastar, a etapa seguinte é um botão. */}
+                      {item.status !== 'Concluído' && (
+                        podeAvancarEtapa(item.status, data, hoje) ? (
+                          <AcaoDoCartao>
                             <BotaoPequeno
                               variante="sucesso"
                               icone={IconCheck}
                               rotulo={PROXIMA_ETAPA[item.status]!.acao}
                               carregando={ocupado === item.id_agendamento}
                               desativado={ocupado !== null}
-                              style={styles.acao}
                               onPress={() => avancar(item)}
                             />
-                          ) : (
-                            <Text style={styles.aindaNao}>Iniciar e finalizar a partir do dia do agendamento.</Text>
-                          )
-                        )}
-                      </Pressable>
-                    ))
-                  )}
-                </View>
-              </View>
+                          </AcaoDoCartao>
+                        ) : (
+                          <NotaDoCartao>Iniciar e finalizar a partir do dia do agendamento.</NotaDoCartao>
+                        )
+                      )}
+                    </CartaoDoQuadro>
+                  ))
+                )}
+              </ColunaDoQuadro>
             )
           })}
-        </View>
+        </ColunasDoQuadro>
       )}
     </ScreenContainer>
   )
 }
 
-function ConteudoDoCartao({ item, alterado }: { item: Agendamento; alterado: boolean }) {
-  const pet = descricaoPet(item)
-  return (
-    <>
-      <View style={styles.cartaoTopo}>
-        <Text style={styles.hora}>{item.hr_agendamento.slice(0, 5)}</Text>
-        <Text style={styles.valor}>{formatarReais(Number(item.valor))}</Text>
-      </View>
-
-      <View style={styles.cartaoPet}>
-        <View style={styles.foto}>
-          {item.pet?.foto_url ? (
-            <Image source={{ uri: item.pet.foto_url }} style={styles.fotoImagem} accessibilityLabel={item.pet.nome} />
-          ) : (
-            <IconDog size={14} color={COR_APAGADA} />
-          )}
-        </View>
-        <View style={styles.cartaoPetTexto}>
-          <Text style={styles.petNome}>{item.pet?.nome ?? 'Pet'}</Text>
-          {pet && <Text style={styles.petDescricao}>{pet}</Text>}
-        </View>
-      </View>
-
-      <Text style={styles.linha}>{item.cliente?.nome ?? '—'}</Text>
-      <Text style={[styles.linha, styles.linhaFinal]}>{item.servico?.nome ?? 'Serviço'}</Text>
-      {alterado && (
-        <View style={styles.alterado}>
-          <Text style={styles.alteradoTexto}>Alterado pelo cliente</Text>
-        </View>
-      )}
-
-      <View style={styles.profissional}>
-        <IconUserBadge size={13} color={COR_APAGADA} />
-        <Text style={styles.profissionalTexto}>{item.funcionario?.nome ?? 'Sem profissional'}</Text>
-      </View>
-    </>
-  )
-}
-
 const styles = StyleSheet.create({
+  // "Visualizar TaxiDog": na largura toda, 12 acima da faixa do dia.
+  trocaDeVisao: { marginBottom: 12 },
   barra: { gap: 12, marginBottom: 16 },
   // `.btn-primary` do site: sombra leve na cor da marca.
   novo: {
@@ -348,44 +335,6 @@ const styles = StyleSheet.create({
   },
   aviso: { marginBottom: 16 },
   carregando: { opacity: 0.6 },
-
-  colunas: { gap: 20 },
-  coluna: { borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
-  colunaTopo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderTopWidth: 3,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  colunaTitulo: { fontSize: 15, lineHeight: 24, fontWeight: '700', color: colors.text },
-  contagem: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 9999, borderWidth: 1 },
-  contagemTexto: { fontSize: 12, lineHeight: 19.2, fontWeight: '600', letterSpacing: 0.48 },
-  colunaCorpo: { flex: 1, padding: 12, gap: 12 },
-  colunaVazia: { padding: 12, fontSize: 14, lineHeight: 20, color: COR_APAGADA },
-
-  cartao: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
-  },
-  cartaoPressionado: { borderColor: colors.borderStrong },
-  cartaoTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  hora: { fontSize: 14, lineHeight: 22.4, fontWeight: '700', color: colors.text },
-  valor: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: colors.successFg },
-  cartaoPet: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  cartaoPetTexto: { flexShrink: 1 },
-  foto: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  fotoImagem: { width: '100%', height: '100%' },
-  petNome: { fontSize: 15, lineHeight: 24, fontWeight: '600', color: colors.text },
-  petDescricao: { fontSize: 12, lineHeight: 16, color: COR_APAGADA },
-  linha: { fontSize: 13, lineHeight: 20.8, color: colors.textDim, marginBottom: 2 },
-  linhaFinal: { marginBottom: 0 },
   alterado: {
     alignSelf: 'flex-start',
     marginTop: 6,
@@ -397,17 +346,4 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(245,158,11,0.1)',
   },
   alteradoTexto: { fontSize: 11, lineHeight: 17.6, fontWeight: '700', color: colors.warningFg },
-  profissional: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  profissionalTexto: { flexShrink: 1, fontSize: 12, lineHeight: 19.2, color: COR_APAGADA },
-  // A etapa seguinte, no pé do card (`.kanban-card-acao`).
-  acao: { marginTop: 8 },
-  aindaNao: { marginTop: 8, fontSize: 12, lineHeight: 16, color: COR_APAGADA },
 })

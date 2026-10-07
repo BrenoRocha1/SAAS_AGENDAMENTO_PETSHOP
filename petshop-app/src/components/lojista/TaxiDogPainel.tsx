@@ -35,6 +35,7 @@ import {
   IconWhatsapp,
 } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
+import FaixaDoDia from '@/components/lojista/FaixaDoDia'
 
 // Rota ativa em que a corrida ainda tem parada por fazer (migration 053):
 // ela só anda pela rota, então o card mostra "Rota #N" no lugar das etapas.
@@ -153,9 +154,10 @@ export default function TaxiDogPainel({ data, caminho, caminhoRotas, hojeISO, co
 
   return (
     <>
-      <div className="kanban-toolbar">
+      <div className="kanban-toolbar gestor-barra">
         {/* A conta que é só TaxiDog fica no dia de hoje: sem setas pra trocar de dia. */}
-        <div className="dash-day-nav">
+        <FaixaDoDia data={data} hojeISO={hojeISO} onIr={irParaDia} semSetas={modoMotorista} />
+        <div className="dash-day-nav so-desktop">
           {!modoMotorista && (
             <button onClick={() => irParaDia(format(subDays(dataObj, 1), 'yyyy-MM-dd'))} aria-label="Dia anterior">
               <IconChevronLeft />
@@ -268,7 +270,7 @@ export default function TaxiDogPainel({ data, caminho, caminhoRotas, hojeISO, co
                       <AcaoDoCard
                         c={c}
                         podeAssumir={podeAssumir && !podeAtribuir}
-                        etapasNoCard={modoMotorista}
+                        etapasNoCard={modoMotorista ? true : 'celular'}
                         isPending={isPending}
                         carregando={isPending && idEmAcao === c.id_corrida}
                         onAssumir={() => {
@@ -311,11 +313,13 @@ export default function TaxiDogPainel({ data, caminho, caminhoRotas, hojeISO, co
 // Botão no próprio card. Sem TaxiDog: "Aguardando aceite da loja"
 // (amarelo, enquanto o agendamento está Pendente) ou "Atribuir para mim".
 // Na visão do TaxiDog, também a próxima etapa ("Cheguei", "Pet
-// entregue"...) — sem precisar abrir o detalhe.
+// entregue"...) — sem precisar abrir o detalhe. Para a loja, a etapa no
+// card aparece só no celular (`etapasNoCard: 'celular'`); no desktop ela
+// continua no detalhe da corrida.
 function AcaoDoCard({ c, podeAssumir, etapasNoCard, isPending, carregando, onAssumir, onAvancar }: {
   c: CorridaDetalhe
   podeAssumir: boolean
-  etapasNoCard: boolean
+  etapasNoCard: boolean | 'celular'
   isPending: boolean
   carregando: boolean
   onAssumir: () => void
@@ -344,11 +348,17 @@ function AcaoDoCard({ c, podeAssumir, etapasNoCard, isPending, carregando, onAss
   }
 
   if (!etapasNoCard) return null
+  const soCelular = etapasNoCard === 'celular' ? ' so-celular' : ''
   const acao = proximaAcaoCorrida(c.status, c.modalidade)
-  if (acao?.status === 'a_caminho_cliente' && pendenteNaLoja) return aguardandoAceite
+  if (acao?.status === 'a_caminho_cliente' && pendenteNaLoja) {
+    // Para a própria loja, o aviso é o do detalhe da corrida.
+    return etapasNoCard === 'celular'
+      ? <p className="kanban-card-acao text-xs text-muted so-celular" style={{ margin: 'var(--space-2) 0 0' }}>Aceite o agendamento antes</p>
+      : aguardandoAceite
+  }
   if (acao) {
     return (
-      <div className="kanban-card-acao" onClick={e => e.stopPropagation()}>
+      <div className={`kanban-card-acao${soCelular}`} onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
         <button type="button" className={`btn btn-primary btn-sm ${carregando ? 'btn-loading' : ''}`} disabled={isPending} onClick={() => onAvancar(acao.status)}>
           {acao.rotulo}
         </button>
@@ -356,7 +366,7 @@ function AcaoDoCard({ c, podeAssumir, etapasNoCard, isPending, carregando, onAss
     )
   }
   if (c.status === 'entregue_loja' || (c.status === 'agendada' && c.modalidade === 'entregar')) {
-    return <p className="kanban-card-acao text-xs text-muted" style={{ margin: 'var(--space-2) 0 0' }}>Aguardando o serviço terminar para a entrega</p>
+    return <p className={`kanban-card-acao text-xs text-muted${soCelular}`} style={{ margin: 'var(--space-2) 0 0' }}>Aguardando o serviço terminar para a entrega</p>
   }
   return null
 }

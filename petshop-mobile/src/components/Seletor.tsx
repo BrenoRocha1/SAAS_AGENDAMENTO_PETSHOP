@@ -15,13 +15,16 @@ interface Props<T extends string> {
   // A caixa fica da largura da opção mais comprida (mínimo 160), como um
   // select solto do site — em vez de ocupar a linha toda.
   justo?: boolean
+  // Letra de 13 e menos respiro: o select pequeno de dentro dos cards
+  // (TaxiDog responsável).
+  compacto?: boolean
   style?: StyleProp<ViewStyle>
 }
 
 // Campo de escolha — a caixa do `.form-select` do site no celular (48 de
 // altura, cantos de 10, seta à direita). No site ela abre a lista do
 // navegador; aqui abre um painel com as mesmas opções.
-export function Seletor<T extends string>({ titulo, valor, opcoes, onChange, desativado, justo, style }: Props<T>) {
+export function Seletor<T extends string>({ titulo, valor, opcoes, onChange, desativado, justo, compacto, style }: Props<T>) {
   const [aberto, setAberto] = useState(false)
   const atual = opcoes.find(o => o.valor === valor)
 
@@ -33,7 +36,7 @@ export function Seletor<T extends string>({ titulo, valor, opcoes, onChange, des
         accessibilityRole="button"
         accessibilityLabel={`${titulo}: ${atual?.rotulo ?? ''}`}
         accessibilityState={{ disabled: !!desativado }}
-        style={({ pressed }) => [styles.caixa, justo && styles.caixaJusta, (pressed || desativado) && styles.apagado, style]}
+        style={({ pressed }) => [styles.caixa, justo && styles.caixaJusta, compacto && styles.caixaCompacta, (pressed || desativado) && styles.apagado, style]}
       >
         {/* Texto comprido é cortado pela caixa, sem reticências — como no select do site. */}
         {justo ? (
@@ -46,7 +49,7 @@ export function Seletor<T extends string>({ titulo, valor, opcoes, onChange, des
           </View>
         ) : (
           <View style={styles.janela}>
-            <Text style={styles.texto} numberOfLines={1}>{atual?.rotulo ?? ''}</Text>
+            <Text style={[styles.texto, compacto && styles.textoCompacto]} numberOfLines={1}>{atual?.rotulo ?? ''}</Text>
           </View>
         )}
         <View style={[styles.seta, justo && styles.setaPorCima]} />
@@ -91,6 +94,8 @@ const styles = StyleSheet.create({
   janelaJusta: { flexGrow: 1, flexShrink: 1, overflow: 'hidden' },
   medidor: { height: 0, overflow: 'hidden', alignItems: 'flex-start' },
   texto: { flexShrink: 0, fontSize: 16, color: colors.text },
+  caixaCompacta: { paddingLeft: 8 },
+  textoCompacto: { fontSize: 13 },
   // Triângulo cinza apontando para baixo, como a seta do select.
   seta: {
     width: 0,

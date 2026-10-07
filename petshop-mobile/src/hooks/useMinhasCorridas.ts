@@ -13,7 +13,7 @@ export interface RotaDaCorrida {
 
 // Corridas (id → rota) das que estão numa rota ativa. Tolerante: sem a
 // migration 052 a tabela não existe e nenhuma aparece em rota.
-async function rotasDasCorridas(ids: string[]): Promise<Record<string, RotaDaCorrida>> {
+export async function rotasDasCorridas(ids: string[]): Promise<Record<string, RotaDaCorrida>> {
   const resultado: Record<string, RotaDaCorrida> = {}
   if (ids.length === 0) return resultado
   const { data } = await supabase

@@ -37,6 +37,7 @@ import {
 import { useRecalculoRotas } from '@/lib/useRecalculoRotas'
 import { IconAlert, IconChevronLeft, IconChevronRight, IconClose, IconRoute, IconStore } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
+import FaixaDoDia from '@/components/lojista/FaixaDoDia'
 
 // Página "Rotas" do TaxiDog (migration 053), em dois perfis:
 //   • 'gestor' — dono, administrador ou gestão de agendamentos: monta rotas
@@ -176,9 +177,10 @@ export default function TaxiDogRotas({ perfil, precisaAprovacao, data, hojeISO, 
 
   return (
     <>
-      <div className="kanban-toolbar">
+      <div className="kanban-toolbar gestor-barra">
         {/* O TaxiDog fica no dia de hoje: sem setas pra trocar de dia. */}
-        <div className="dash-day-nav">
+        <FaixaDoDia data={data} hojeISO={hojeISO} onIr={irParaDia} semSetas={perfil !== 'gestor'} />
+        <div className="dash-day-nav so-desktop">
           {perfil === 'gestor' && (
             <button onClick={() => irParaDia(format(subDays(dataObj, 1), 'yyyy-MM-dd'))} aria-label="Dia anterior"><IconChevronLeft /></button>
           )}

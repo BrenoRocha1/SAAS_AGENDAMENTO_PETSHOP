@@ -33,8 +33,10 @@ interface ItemLoja extends ItemMenu {
   // Só o dono ou um administrador (acesso total) vê — igual ao site.
   restrito?: boolean
   permissao?: 'agenda' | 'servicos' | 'produtos' | 'clientesPets'
-  // Só com o Gestor de Agendamentos ligado nas configurações da loja.
-  condicao?: 'kanban'
+  // 'kanban': só com o Gestor de Agendamentos ligado nas configurações da
+  // loja. 'taxidog': o quadro das corridas direto no menu — só com o TaxiDog
+  // ligado e o Gestor desligado (com ele, o caminho é "Visualizar TaxiDog").
+  condicao?: 'kanban' | 'taxidog'
 }
 
 // Menu da loja: os MESMOS itens, ícones e ordem da barra lateral do site
@@ -46,6 +48,7 @@ const ITENS_LOJA: ItemLoja[] = [
   { icone: IconePainel, label: 'Dashboard', rota: '/', aba: true },
   { icone: IconeAgenda, label: 'Agendamentos', rota: '/agendamentos', aba: true, permissao: 'agenda' },
   { icone: IconeGestor, label: 'Gestor de Agendamentos', rota: '/agendamentos/gestor', permissao: 'agenda', condicao: 'kanban' },
+  { icone: IconeCorridas, label: 'TaxiDog', rota: '/agendamentos/gestor-taxidog', permissao: 'agenda', condicao: 'taxidog' },
   { icone: IconeRelatorios, label: 'Relatórios de Vendas', rota: '/mais/relatorios', restrito: true },
   { icone: IconePlanos, label: 'Planos', rota: '/mais/planos', restrito: true },
   { icone: IconeServicos, label: 'Serviços', rota: '/mais/servicos', permissao: 'servicos' },
@@ -89,7 +92,12 @@ export const MENU_DA_AREA: Record<ModoApp, { secao: string; inicio: string }> = 
 export function itensDoMenu(modo: ModoApp, contexto: ContextoLojista | null): ItemMenu[] {
   if (modo === 'cliente') return ITENS_CLIENTE
   if (modo === 'taxidog') return ITENS_TAXIDOG
-  const itens = ITENS_LOJA.filter(item => item.condicao !== 'kanban' || (contexto?.kanbanAtivo ?? true))
+  const kanbanAtivo = contexto?.kanbanAtivo ?? true
+  const itens = ITENS_LOJA.filter(item => {
+    if (item.condicao === 'kanban') return kanbanAtivo
+    if (item.condicao === 'taxidog') return !kanbanAtivo && !!contexto?.taxidogAtivo
+    return true
+  })
   if (!contexto || contexto.role === 'lojista' || contexto.acessoTotal) return itens
   return itens.filter(item => {
     if (item.restrito) return false

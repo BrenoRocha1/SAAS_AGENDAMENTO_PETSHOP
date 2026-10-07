@@ -10,6 +10,7 @@ import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendame
 import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
 import { BotaoEditar, EditarModal } from '@/components/EditarAgendamento'
 import { useArrastarToque } from '@/components/lojista/useArrastarToque'
+import FaixaDoDia from '@/components/lojista/FaixaDoDia'
 import HistoricoAlteracoes from '@/components/lojista/HistoricoAlteracoes'
 import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
 import type { TaxiDogPendente } from '@/lib/actions'
@@ -332,23 +333,7 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
     <>
       {/* Título e o botão "Visualizar TaxiDog" ficam na página (kanban/page.tsx). */}
       <div className="kanban-toolbar gestor-barra">
-        {/* Celular (até 768px): a mesma faixa de dia da tela Agendamentos. */}
-        <div className="so-celular gestor-dia-celular">
-          <div className="tela-app-dia">
-            <button type="button" onClick={() => irParaDia(format(subDays(selectedDateObj, 1), 'yyyy-MM-dd'))} aria-label="Dia anterior">
-              <IconChevronLeft style={{ width: 20, height: 20 }} />
-            </button>
-            <div>
-              <strong>{format(selectedDateObj, "EEEE, d 'de' MMMM", { locale: ptBR })}</strong>
-              {isHoje
-                ? <span>Hoje</span>
-                : <button type="button" onClick={() => irParaDia(hojeISO)}>Voltar para hoje</button>}
-            </div>
-            <button type="button" onClick={() => irParaDia(format(addDays(selectedDateObj, 1), 'yyyy-MM-dd'))} aria-label="Próximo dia">
-              <IconChevronRight style={{ width: 20, height: 20 }} />
-            </button>
-          </div>
-        </div>
+        <FaixaDoDia data={selectedDate} hojeISO={hojeISO} onIr={irParaDia} />
 
         <div className="dash-day-nav so-desktop">
           <button onClick={() => irParaDia(format(subDays(selectedDateObj, 1), 'yyyy-MM-dd'))} aria-label="Dia anterior">

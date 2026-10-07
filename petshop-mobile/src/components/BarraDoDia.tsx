@@ -8,31 +8,37 @@ import { colors, radius, spacing, typography } from '@/theme/theme'
 // anterior e o seguinte, a data por extenso no meio e, embaixo dela, "Hoje"
 // ou o atalho para voltar a hoje. Usada na agenda e no Gestor de
 // Agendamentos.
-export function BarraDoDia({ data, hoje, onMudar, style }: {
+export function BarraDoDia({ data, hoje, onMudar, semSetas, style }: {
   // Dia mostrado e o dia de hoje, em 'yyyy-MM-dd'.
   data: string
   hoje: string
   onMudar: (data: string) => void
+  // A conta que é só TaxiDog fica no dia de hoje: sem trocar de dia.
+  semSetas?: boolean
   style?: StyleProp<ViewStyle>
 }) {
   return (
     <View style={[styles.barra, style]}>
-      <Pressable onPress={() => onMudar(somarDiasISO(data, -1))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Dia anterior" style={styles.seta}>
-        <IconeApp name="chevron-back" size={20} color={colors.text} />
-      </Pressable>
+      {!semSetas && (
+        <Pressable onPress={() => onMudar(somarDiasISO(data, -1))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Dia anterior" style={styles.seta}>
+          <IconeApp name="chevron-back" size={20} color={colors.text} />
+        </Pressable>
+      )}
       <View style={styles.meio}>
         <Text style={styles.dia} numberOfLines={1}>{dataExtensaISO(data)}</Text>
         {data === hoje ? (
           <Text style={styles.hoje}>Hoje</Text>
-        ) : (
+        ) : semSetas ? null : (
           <Pressable onPress={() => onMudar(hoje)} hitSlop={8} accessibilityRole="button">
             <Text style={styles.voltarHoje}>Voltar para hoje</Text>
           </Pressable>
         )}
       </View>
-      <Pressable onPress={() => onMudar(somarDiasISO(data, 1))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Próximo dia" style={styles.seta}>
-        <IconeApp name="chevron-forward" size={20} color={colors.text} />
-      </Pressable>
+      {!semSetas && (
+        <Pressable onPress={() => onMudar(somarDiasISO(data, 1))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Próximo dia" style={styles.seta}>
+          <IconeApp name="chevron-forward" size={20} color={colors.text} />
+        </Pressable>
+      )}
     </View>
   )
 }

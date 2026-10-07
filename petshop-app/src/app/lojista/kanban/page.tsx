@@ -131,27 +131,31 @@ export default async function KanbanPage({ searchParams }: Props) {
 
   const cabecalho = (
     <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
-      <div>
+      {/* No celular o título já está na barra do topo: sem este bloco (vazio),
+          os botões não descem uma linha. */}
+      <div className="so-desktop">
         <h1 className="page-title">{visaoTaxiDog ? 'Gestor de Agendamentos · TaxiDog' : 'Gestor de Agendamentos'}</h1>
         <p className="page-subtitle">
           {visaoTaxiDog ? 'Corridas de busca e entrega dos pets' : 'Acompanhe o atendimento em tempo real'}
         </p>
       </div>
       {mostraTaxiDog && (
-        <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+        // No celular (.gestor-acoes): a troca de visão em cima, na largura
+        // toda, e os dois atalhos do TaxiDog lado a lado embaixo dela.
+        <div className="flex gap-2 gestor-acoes" style={{ flexWrap: 'wrap' }}>
           {visaoTaxiDog && (
             <>
               <Link href="/lojista/taxidog/relatorio" className="btn btn-ghost btn-sm">
-                <IconChartBar style={{ width: 14, height: 14 }} /> Relatório de corridas
+                <IconChartBar style={{ width: 14, height: 14 }} /> Relatório<span className="so-desktop">&nbsp;de corridas</span>
               </Link>
               <Link href={`/lojista/taxidog/rotas?data=${selectedDate}`} className="btn btn-secondary btn-sm">
-                <IconRoute style={{ width: 14, height: 14 }} /> Rotas do TaxiDog
+                <IconRoute style={{ width: 14, height: 14 }} /> Rotas<span className="so-desktop">&nbsp;do TaxiDog</span>
               </Link>
             </>
           )}
           <Link
             href={visaoTaxiDog ? `/lojista/kanban?data=${selectedDate}` : `/lojista/kanban?visao=taxidog&data=${selectedDate}`}
-            className="btn btn-secondary btn-sm"
+            className="btn btn-secondary btn-sm gestor-troca-visao"
           >
             {visaoTaxiDog
               ? <><IconKanban style={{ width: 14, height: 14 }} /> Visualizar agendamentos</>

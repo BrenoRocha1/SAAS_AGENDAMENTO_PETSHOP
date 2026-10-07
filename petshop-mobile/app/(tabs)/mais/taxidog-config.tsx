@@ -49,7 +49,7 @@ const valido = (s: string) => s.trim() !== '' && Number.isFinite(num(s)) && num(
 // usa distância.
 export default function TaxiDogConfigScreen() {
   const router = useRouter()
-  const { contexto } = useAuth()
+  const { contexto, recarregar } = useAuth()
   const idLojista = contexto?.idLojista
   const pode = !!contexto?.acessoTotal
   const [loading, setLoading] = useState(true)
@@ -180,6 +180,8 @@ export default function TaxiDogConfigScreen() {
     setSalvando(false)
     if (r.error) return setErro(r.error)
     setSalvo(true)
+    // O menu e o Gestor acompanham o liga/desliga do TaxiDog.
+    recarregar()
     setAviso(r.aviso ?? null)
     if (r.origemEndereco !== undefined) {
       setOrigem(r.origemEndereco)
