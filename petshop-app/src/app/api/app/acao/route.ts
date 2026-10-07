@@ -97,6 +97,7 @@ const ACOES: Record<string, Acao> = {
   alternarAgendamentoOnlineAction: acoes.alternarAgendamentoOnlineAction,
   atualizarSlugLojistaAction: acoes.atualizarSlugLojistaAction,
   atualizarJanelaAgendamentoAction: acoes.atualizarJanelaAgendamentoAction,
+  atualizarSomNotificacaoAction: acoes.atualizarSomNotificacaoAction,
   salvarFormasPagamentoAction: acoesPagamento.salvarFormasPagamentoAction,
   // Planos
   salvarPlanoAction: acoesPlanos.salvarPlanoAction,

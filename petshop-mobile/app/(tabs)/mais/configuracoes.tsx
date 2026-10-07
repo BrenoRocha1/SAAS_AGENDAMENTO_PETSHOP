@@ -1,6 +1,6 @@
 import { useCallback, useState, type ComponentType } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { Linking, Pressable, StyleSheet, View } from 'react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import {
@@ -18,7 +18,6 @@ import {
 import { SemPermissao } from '@/components/SemPermissao'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
-import { urlDoSite } from '@/lib/site'
 import { supabase } from '@/lib/supabase'
 import { colors } from '@/theme/theme'
 
@@ -31,17 +30,15 @@ interface Item {
   icone: ComponentType<IconeProps>
   titulo: string
   descricao: string
-  // Tela do app; sem ela, o item abre a página do site (`noSite`).
-  rota?: string
-  noSite?: string
+  // Tela do app.
+  rota: string
   selos?: Selo[]
 }
 
 // Configurações da loja: o MESMO índice do site
 // (petshop-app/src/app/lojista/configuracoes/page.tsx) — mesmos grupos,
 // itens, ícones, textos e selos, na mesma ordem. Mudou lá, muda aqui. As
-// medidas vêm da página do site em largura de celular. Notificações ainda
-// não tem tela no app: abre a do site.
+// medidas vêm da página do site em largura de celular.
 export default function ConfiguracoesScreen() {
   const { contexto } = useAuth()
   const router = useRouter()
@@ -120,15 +117,13 @@ export default function ConfiguracoesScreen() {
     {
       titulo: 'Sistema',
       itens: [
-        { icone: IconBell, titulo: 'Notificações', descricao: 'Configure as notificações do sistema', noSite: '/lojista/configuracoes/notificacoes' },
+        { icone: IconBell, titulo: 'Notificações', descricao: 'Configure as notificações do sistema', rota: '/mais/notificacoes' },
       ],
     },
   ]
 
   function abrir(item: Item) {
-    if (item.rota) return router.push(item.rota as never)
-    const url = item.noSite ? urlDoSite(item.noSite) : null
-    if (url) Linking.openURL(url)
+    router.push(item.rota as never)
   }
 
   return (

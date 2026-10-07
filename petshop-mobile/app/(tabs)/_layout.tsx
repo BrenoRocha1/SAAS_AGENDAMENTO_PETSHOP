@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router/js-tabs'
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/contexts/AuthContext'
+import { AvisoNovoAgendamento } from '@/components/AvisoNovoAgendamento'
 import { barraDeAbas, opcoesTabBar, tabIcon } from '@/components/tabBar'
 import { IconeAgenda, IconeClientes, IconeInicio, IconePets } from '@/components/IconesAbas'
 import { Text } from '@/components/Texto'
@@ -36,14 +37,18 @@ export default function TabsLayout() {
   }
 
   return (
-    <Tabs screenOptions={opcoesTabBar} tabBar={barraDeAbas}>
-      <Tabs.Screen name="index" options={{ title: 'Início', tabBarIcon: tabIcon(IconeInicio) }} />
-      <Tabs.Screen name="agendamentos" options={{ title: 'Agendamentos', tabBarIcon: tabIcon(IconeAgenda) }} />
-      <Tabs.Screen name="clientes" options={{ title: 'Clientes', tabBarIcon: tabIcon(IconeClientes) }} />
-      <Tabs.Screen name="pets" options={{ title: 'Pets', tabBarIcon: tabIcon(IconePets) }} />
-      {/* O menu da loja não é aba: abre pela barra do topo da Início. */}
-      <Tabs.Screen name="mais" options={{ href: null }} />
-    </Tabs>
+    <>
+      {/* O som de agendamento novo vale em qualquer tela da loja. */}
+      <AvisoNovoAgendamento idLojista={contexto.idLojista} />
+      <Tabs screenOptions={opcoesTabBar} tabBar={barraDeAbas}>
+        <Tabs.Screen name="index" options={{ title: 'Início', tabBarIcon: tabIcon(IconeInicio) }} />
+        <Tabs.Screen name="agendamentos" options={{ title: 'Agendamentos', tabBarIcon: tabIcon(IconeAgenda) }} />
+        <Tabs.Screen name="clientes" options={{ title: 'Clientes', tabBarIcon: tabIcon(IconeClientes) }} />
+        <Tabs.Screen name="pets" options={{ title: 'Pets', tabBarIcon: tabIcon(IconePets) }} />
+        {/* O menu da loja não é aba: abre pela barra do topo da Início. */}
+        <Tabs.Screen name="mais" options={{ href: null }} />
+      </Tabs>
+    </>
   )
 }
 

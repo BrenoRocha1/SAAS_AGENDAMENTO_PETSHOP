@@ -37,6 +37,14 @@
           "cameraPermission": "O SAIP usa a câmera para você tirar a foto do pet.",
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
       ]
     ]
   }
