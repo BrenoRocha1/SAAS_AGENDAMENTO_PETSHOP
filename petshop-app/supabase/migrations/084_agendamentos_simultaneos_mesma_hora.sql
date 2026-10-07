@@ -22,7 +22,12 @@
 -- No lugar fica um índice comum, com as mesmas colunas, para as consultas
 -- por loja/dia/hora continuarem rápidas.
 --
--- Para conferir antes de rodar (deve devolver uma linha) e depois (nenhuma):
+-- No banco em uso o índice único já não existia em 07/10/2026 (a consulta
+-- abaixo não devolveu nada, e dois agendamentos na mesma hora passaram no
+-- teste): lá este arquivo só cria o índice comum. Ele existe para um banco
+-- montado do zero pelas migrations não nascer com a trava antiga.
+--
+-- Para conferir (nenhuma linha = o índice único não existe):
 --   SELECT indexname FROM pg_indexes
 --   WHERE tablename = 'agendamento' AND indexname = 'idx_agendamento_unique_slot';
 -- ============================================================
