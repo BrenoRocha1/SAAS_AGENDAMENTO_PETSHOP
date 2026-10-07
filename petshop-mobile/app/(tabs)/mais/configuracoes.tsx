@@ -40,8 +40,8 @@ interface Item {
 // Configurações da loja: o MESMO índice do site
 // (petshop-app/src/app/lojista/configuracoes/page.tsx) — mesmos grupos,
 // itens, ícones, textos e selos, na mesma ordem. Mudou lá, muda aqui. As
-// medidas vêm da página do site em largura de celular. Avaliações e
-// Notificações ainda não têm tela no app: abrem a do site.
+// medidas vêm da página do site em largura de celular. Notificações ainda
+// não tem tela no app: abre a do site.
 export default function ConfiguracoesScreen() {
   const { contexto } = useAuth()
   const router = useRouter()
@@ -86,7 +86,7 @@ export default function ConfiguracoesScreen() {
         { icone: IconStore, titulo: 'Dados da loja', descricao: 'Nome, telefone, endereço e demais informações públicas da loja', rota: '/mais/perfil-loja' },
         { icone: IconClock, titulo: 'Horários de funcionamento', descricao: 'Configure os dias e horários de atendimento', rota: '/mais/horarios' },
         { icone: IconMoney, titulo: 'Formas de pagamentos aceitas', descricao: 'Pix, dinheiro e cartões que a loja aceita nos agendamentos', rota: '/mais/pagamentos' },
-        { icone: IconStar, titulo: 'Avaliações', descricao: 'Veja o que seus clientes estão dizendo sobre sua loja.', noSite: '/lojista/configuracoes/avaliacoes' },
+        { icone: IconStar, titulo: 'Avaliações', descricao: 'Veja o que seus clientes estão dizendo sobre sua loja.', rota: '/mais/avaliacoes' },
       ],
     },
     {

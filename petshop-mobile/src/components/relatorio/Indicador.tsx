@@ -44,9 +44,11 @@ export function GradeIndicadores({ children }: { children: ReactNode }) {
 
 // Indicador: o que é (com o ícone ao lado), o número e, embaixo, a
 // comparação com o período anterior e/ou uma explicação curta.
-export function Indicador({ rotulo, valor, icone: Icone, variacao, detalhe }: {
+export function Indicador({ rotulo, valor, aoLado, icone: Icone, variacao, detalhe }: {
   rotulo: string
   valor: string
+  // Ao lado do número (ex.: as estrelas da média de avaliações).
+  aoLado?: ReactNode
   icone: ComponentType<IconeProps>
   variacao?: Variacao | null
   detalhe?: string
@@ -58,7 +60,10 @@ export function Indicador({ rotulo, valor, icone: Icone, variacao, detalhe }: {
         <Icone size={20} color={colors.primary600} style={styles.icone} />
       </View>
       <View style={styles.conteudo}>
-        <Text style={styles.valor}>{valor}</Text>
+        <View style={styles.valorLinha}>
+          <Text style={styles.valor}>{valor}</Text>
+          {aoLado}
+        </View>
         {(variacao || detalhe) && (
           <View style={styles.apoio}>
             {variacao && (
@@ -88,6 +93,7 @@ const styles = StyleSheet.create({
   rotulo: { flexShrink: 1, fontSize: 14, lineHeight: 19.25, fontWeight: '500', color: COR_APAGADA },
   icone: { alignSelf: 'flex-start', flexShrink: 0 },
   conteudo: { paddingHorizontal: 20, paddingBottom: 20 },
+  valorLinha: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   valor: { fontFamily: FONTE_TITULO, fontSize: 24, lineHeight: 32, fontWeight: '600', color: colors.text, fontVariant: ['tabular-nums'] },
   apoio: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, rowGap: 2, marginTop: 4 },
   variacao: { flexDirection: 'row', alignItems: 'center', gap: 4 },
