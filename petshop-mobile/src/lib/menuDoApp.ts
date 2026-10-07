@@ -12,6 +12,7 @@ import {
   IconePetshops,
   IconePlanos,
   IconeProdutos,
+  IconeCaixa,
   IconeRelatorios,
   IconeRotas,
   IconeServicos,
@@ -52,6 +53,8 @@ const ITENS_LOJA: ItemLoja[] = [
   { icone: IconePlanos, label: 'Planos', rota: '/mais/planos', restrito: true },
   { icone: IconeServicos, label: 'Serviços', rota: '/mais/servicos', permissao: 'servicos' },
   { icone: IconeProdutos, label: 'Produtos', rota: '/mais/produtos', permissao: 'produtos' },
+  // O caixa mexe no estoque: segue a permissão de Produtos, como no site.
+  { icone: IconeCaixa, label: 'Caixa (PDV)', rota: '/mais/pdv', permissao: 'produtos' },
   { icone: IconeClientes, label: 'Clientes', rota: '/clientes', aba: true, permissao: 'clientesPets' },
   { icone: IconeCachorro, label: 'Pets', rota: '/pets', aba: true, permissao: 'clientesPets' },
   { icone: IconeConfiguracoes, label: 'Configurações', rota: '/mais/configuracoes', restrito: true },

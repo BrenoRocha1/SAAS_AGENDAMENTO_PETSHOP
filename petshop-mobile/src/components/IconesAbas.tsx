@@ -19,6 +19,8 @@ export {
   IconRepeat as IconePlanos,
   IconScissors as IconeServicos,
   IconPackage as IconeProdutos,
+  // "Caixa (PDV)" na barra lateral do site
+  IconCart as IconeCaixa,
   // "Pets" na barra lateral do site (a aba de baixo usa a patinha)
   IconDog as IconeCachorro,
   IconSettings as IconeConfiguracoes,

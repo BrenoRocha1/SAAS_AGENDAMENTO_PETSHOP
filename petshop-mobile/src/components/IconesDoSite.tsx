@@ -579,3 +579,53 @@ export function IconRoute(props: IconeProps) {
     </Base>
   )
 }
+
+export function IconCart(props: IconeProps) {
+  return (
+    <Base {...props}>
+      <Path d="M3 4h2.2l1.9 10.2a1.5 1.5 0 0 0 1.5 1.3h8.1a1.5 1.5 0 0 0 1.5-1.1L20 8H6.2" />
+      <Circle cx="9.5" cy="19.2" r="1.3" />
+      <Circle cx="17" cy="19.2" r="1.3" />
+    </Base>
+  )
+}
+
+export function IconCreditCard(props: IconeProps) {
+  return (
+    <Base {...props}>
+      <Rect x="2.5" y="5.5" width="19" height="13" rx="2" />
+      <Path d="M2.5 10h19" />
+      <Path d="M6.5 15h3" />
+    </Base>
+  )
+}
+
+export function IconQrCode(props: IconeProps) {
+  return (
+    <Base {...props}>
+      <Rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1" />
+      <Rect x="14" y="3.5" width="6.5" height="6.5" rx="1" />
+      <Rect x="3.5" y="14" width="6.5" height="6.5" rx="1" />
+      <Path d="M14 14h2.5v2.5H14zM18 18h2.5v2.5H18zM18 14h2.5M14 18v2.5" />
+    </Base>
+  )
+}
+
+export function IconPrinter(props: IconeProps) {
+  return (
+    <Base {...props}>
+      <Path d="M7 9V3.5h10V9" />
+      <Rect x="3.5" y="9" width="17" height="8" rx="2" />
+      <Path d="M7 14h10v6.5H7z" />
+    </Base>
+  )
+}
+
+export function IconReceipt(props: IconeProps) {
+  return (
+    <Base {...props}>
+      <Path d="M6 3.5h12v17l-2.4-1.6-1.8 1.6-1.8-1.6-1.8 1.6-1.8-1.6L6 20.5v-17Z" />
+      <Path d="M9 8.5h6M9 12h6" />
+    </Base>
+  )
+}

@@ -17,6 +17,8 @@ export default function MaisLayout() {
       <Stack.Screen name="perfil-loja" />
       <Stack.Screen name="avaliacoes" />
       <Stack.Screen name="notificacoes" />
+      <Stack.Screen name="pdv/index" />
+      <Stack.Screen name="pdv/vendas" />
     </Stack>
   )
 }
