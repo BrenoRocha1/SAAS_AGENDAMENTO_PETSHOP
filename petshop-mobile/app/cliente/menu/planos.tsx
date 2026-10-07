@@ -4,7 +4,7 @@ import { Linking, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
-import { EmptyState } from '@/components/EmptyState'
+import { CartaoVazio } from '@/components/CartaoVazio'
 import { Aviso } from '@/components/Aviso'
 import { Botao } from '@/components/Botao'
 import { Segmentos } from '@/components/Opcao'
@@ -16,6 +16,7 @@ import { formatarMoeda, linkWhatsApp } from '@/lib/format'
 import { normalizarFormasLoja, rotuloForma } from '@/lib/pagamento'
 import { ROTULO_STATUS_COBRANCA, statusCobrancaExibido, sufixoPeriodo } from '@/lib/planos'
 import type { AssinaturaDoCliente } from '@/lib/planos-cliente'
+import { FONTE_TITULO } from '@/theme/fontes'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 // Planos dos pets do cliente (fn_meus_planos, migration 068): o que cada
@@ -44,10 +45,21 @@ export default function PlanosClienteScreen() {
       <DetailHeader title="Meus planos" />
       {erro && <Aviso tipo="alerta" texto={erro} />}
       {!loading && !erro && planos.length === 0 ? (
-        <EmptyState icon="ribbon-outline" ilustracao="planos" title="Você ainda não tem plano" subtitle="Os planos são contratados na loja. Quando um pet seu tiver plano, ele aparece aqui." />
+        <CartaoVazio
+          ilustracao="planos"
+          titulo="Nenhum plano ainda"
+          texto="Quando a sua loja fizer um plano para o seu pet (ex.: banhos todo mês), ele aparece aqui."
+        />
       ) : (
-        <View style={{ gap: spacing.md }}>
-          {planos.map(a => <PlanoCard key={a.id_assinatura} a={a} hoje={hoje} />)}
+        // Os ativos primeiro e, embaixo, os encerrados — como no site.
+        <View style={{ gap: spacing.lg }}>
+          {planos.filter(a => a.status === 'ativa').map(a => <PlanoCard key={a.id_assinatura} a={a} hoje={hoje} />)}
+          {planos.some(a => a.status !== 'ativa') && (
+            <>
+              <Text style={styles.encerrados}>Planos encerrados</Text>
+              {planos.filter(a => a.status !== 'ativa').map(a => <PlanoCard key={a.id_assinatura} a={a} hoje={hoje} />)}
+            </>
+          )}
         </View>
       )}
     </ScreenContainer>
@@ -166,6 +178,8 @@ function PlanoCard({ a, hoje }: { a: AssinaturaDoCliente; hoje: string }) {
 
 const styles = StyleSheet.create({
   linha: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  // O `h3` "Planos encerrados" do site: 16 de letra, 16 a mais em cima.
+  encerrados: { fontFamily: FONTE_TITULO, fontSize: 16, lineHeight: 20.8, fontWeight: '600', color: colors.text, marginTop: 16 },
   titulo: { ...typography.body.lg, fontWeight: '700', color: colors.text },
   apagado: { color: colors.textMuted },
   rotulo: { ...typography.label.md, color: colors.textDim },

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { atualizarPerfilClienteAction } from '@/lib/actions'
 import { IconAlert, IconCheck, IconSave } from '@/components/icons'
+import { formatarTelefone } from '@/lib/format'
 
 interface Cliente {
   nome: string
@@ -23,6 +24,9 @@ export default function PerfilClienteForm({ cliente }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [isPending, startTransition] = useTransition()
+  // Com a máscara de sempre — vinha só com os números, como está no banco
+  // (a action tira a pontuação antes de salvar).
+  const [telefone, setTelefone] = useState(formatarTelefone(cliente.telefone))
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -68,8 +72,10 @@ export default function PerfilClienteForm({ cliente }: Props) {
             name="telefone"
             type="tel"
             className="form-input"
-            defaultValue={cliente.telefone}
+            value={telefone}
+            onChange={e => setTelefone(formatarTelefone(e.target.value))}
             placeholder="(11) 99999-9999"
+            maxLength={15}
             required
           />
         </div>

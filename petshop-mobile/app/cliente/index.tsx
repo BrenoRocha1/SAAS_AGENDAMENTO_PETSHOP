@@ -167,7 +167,8 @@ export default function InicioClienteScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { marginBottom: spacing.lg },
+  // 20 até o botão, como no site (`.dash-app-cabecalho`).
+  header: { marginBottom: 20 },
   saudacao: { ...typography.heading.xl, color: colors.text },
   sub: { ...typography.body.lg, color: colors.textMuted, marginTop: 2 },
   statsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },

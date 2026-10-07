@@ -4,7 +4,7 @@ import type { IconeProps } from '@/components/IconesDoSite'
 import { Text } from '@/components/Texto'
 import { colors } from '@/theme/theme'
 
-type Variante = 'primario' | 'secundario' | 'sucesso' | 'perigo' | 'perigoClaro' | 'fantasma'
+type Variante = 'primario' | 'secundario' | 'sucesso' | 'perigo' | 'perigoClaro' | 'fantasma' | 'fantasmaPerigo'
 
 interface Props {
   rotulo: string
@@ -36,6 +36,8 @@ const CORES: Record<Variante, { fundo: string; borda: string; texto: string }> =
   // `.tela-app-perigo`: "Excluir" no pé das janelas.
   perigoClaro: { fundo: colors.surface, borda: '#fecaca', texto: colors.dangerFg },
   fantasma: { fundo: 'transparent', borda: 'transparent', texto: colors.textMuted },
+  // `.btn-ghost` com a letra vermelha ("Quero excluir minha conta").
+  fantasmaPerigo: { fundo: 'transparent', borda: 'transparent', texto: colors.dangerFg },
 }
 
 // Botão pequeno das janelas de detalhe (ações do agendamento, "Adicionar

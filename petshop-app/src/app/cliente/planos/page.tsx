@@ -30,12 +30,12 @@ export default async function MeusPlanosPage() {
           <span>Os planos ainda não estão disponíveis. Tente de novo mais tarde.</span>
         </div>
       ) : assinaturas.length === 0 ? (
-        <div className="card">
-          <div className="empty-state">
-            <Ilustracao nome="planos" />
-            <div className="empty-state-title">Nenhum plano ainda</div>
-            <p>Quando a sua loja fizer um plano para o seu pet (ex.: banhos todo mês), ele aparece aqui.</p>
-          </div>
+        // Um elemento só, como as outras telas vazias: com o cartão por fora,
+        // os dois respiros somavam e o texto ficava espremido no celular.
+        <div className="empty-state card">
+          <Ilustracao nome="planos" />
+          <div className="empty-state-title">Nenhum plano ainda</div>
+          <p>Quando a sua loja fizer um plano para o seu pet (ex.: banhos todo mês), ele aparece aqui.</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', maxWidth: 760 }}>

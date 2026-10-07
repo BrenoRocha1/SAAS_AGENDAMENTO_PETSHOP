@@ -402,7 +402,8 @@ function Estrelas({ nota }: { nota: number }) {
 }
 
 const styles = StyleSheet.create({
-  cabecalho: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg },
+  // `.tela-app-titulo` do site: 12 até o que vem embaixo.
+  cabecalho: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   h1: { ...typography.heading.xl, color: colors.text },
   novo: {
     flexDirection: 'row',
