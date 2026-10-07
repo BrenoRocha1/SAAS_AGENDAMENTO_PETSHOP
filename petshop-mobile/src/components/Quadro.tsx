@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
   cartaoPressionado: { borderColor: colors.borderStrong },
   cartaoTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   hora: { fontSize: 14, lineHeight: 22.4, fontWeight: '700', color: colors.text },
-  dia: { fontSize: 12, fontWeight: '400', color: COR_APAGADA },
+  dia: { fontSize: 12, lineHeight: 22.4, fontWeight: '400', color: COR_APAGADA },
   valor: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: colors.successFg },
   cartaoPet: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   cartaoPetTexto: { flexShrink: 1 },

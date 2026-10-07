@@ -176,7 +176,10 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
   }, [corridas])
 
   const aberta = corridas.find(c => c.id_corrida === abertaId) ?? null
-  const contadas = motorista ? corridas.filter(c => c.id_funcionario) : corridas
+  // Os números são do dia mostrado — o que sobrou de dias anteriores aparece
+  // no quadro, mas não entra na conta.
+  const doDia = corridas.filter(c => c.dt_agendamento === data)
+  const contadas = motorista ? doDia.filter(c => c.id_funcionario) : doDia
   const canceladas = contadas.filter(c => c.status === 'cancelada').length
   const totalCorridas = contadas.length - canceladas
   const totalDia = contadas.filter(c => c.status !== 'cancelada').reduce((soma, c) => soma + c.valor, 0)
