@@ -216,7 +216,10 @@ export interface TrechoPendente {
   pet_nome: string
   pet_foto_url: string | null
   cliente_nome: string
+  cliente_telefone?: string
   id_funcionario: string | null
+  // Quem está com a corrida (para a loja ver "Com Fulano").
+  funcionario_nome?: string | null
 }
 
 export function normalizarTrecho(row: Record<string, unknown>): TrechoPendente {

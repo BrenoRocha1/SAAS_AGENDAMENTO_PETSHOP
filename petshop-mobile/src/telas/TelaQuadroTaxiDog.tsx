@@ -270,6 +270,7 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
       {/* Os atalhos do TaxiDog, lado a lado embaixo da troca de visão. */}
       <View style={styles.atalhos}>
         <BotaoPequeno icone={IconChartBar} rotulo="Relatório" style={styles.atalho} onPress={() => router.push('/agendamentos/relatorio-corridas')} />
+        <BotaoPequeno icone={IconRoute} rotulo="Rotas" style={styles.atalho} onPress={() => router.push({ pathname: '/agendamentos/rotas-taxidog', params: { data } })} />
       </View>
     </>
   )
@@ -365,12 +366,15 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
                     {/* O TaxiDog não precisa ver o próprio nome em todo card. */}
                     {!motorista && <PeDoCartao icone={IconUserBadge} tamanho={12}>{seletorDe(c)}</PeDoCartao>}
                     {rota ? (
-                      // Corrida de rota anda pela rota (o app só tem a tela de rota do TaxiDog).
-                      motorista ? (
-                        <AcaoDoCartao>
-                          <BotaoPequeno rotulo={`Ver Rota #${rota.numero}`} onPress={() => router.push(`/taxidog/rota/${rota.id_rota}` as never)} />
-                        </AcaoDoCartao>
-                      ) : null
+                      // Corrida de rota anda pela rota: o TaxiDog abre a tela dela; a loja, as rotas do dia.
+                      <AcaoDoCartao>
+                        <BotaoPequeno
+                          rotulo={`Ver Rota #${rota.numero}`}
+                          onPress={() => (motorista
+                            ? router.push(`/taxidog/rota/${rota.id_rota}` as never)
+                            : router.push({ pathname: '/agendamentos/rotas-taxidog', params: { data: c.dt_agendamento, rota: rota.id_rota } }))}
+                        />
+                      </AcaoDoCartao>
                     ) : (
                       <AcaoDaCorrida
                         c={c}

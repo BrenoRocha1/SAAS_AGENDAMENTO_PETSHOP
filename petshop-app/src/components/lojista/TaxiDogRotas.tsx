@@ -265,7 +265,8 @@ export default function TaxiDogRotas({ perfil, precisaAprovacao, data, hojeISO, 
             <div className="empty-state card">
               <Ilustracao nome="taxidog" />
               <div className="empty-state-title">{perfil === 'taxidog' ? 'Nenhuma rota sua neste dia' : 'Nenhuma rota neste dia'}</div>
-              <p>Marque as corridas ao lado e monte uma rota.</p>
+              {/* No celular as corridas ficam em cima, não ao lado. */}
+              <p>Marque as corridas<span className="so-desktop"> ao lado</span> e monte uma rota.</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -597,7 +598,12 @@ export function DetalheRota({ rota: r, perfil, precisaAprovacao, caminho, penden
             })}
           </ol>
           {editavel && pendentesDaRota.length > 1 && (
-            <p className="text-xs text-muted" style={{ margin: 0 }}>Arraste as paradas (ou use ↑ ↓) para mudar a ordem. As idas ao Pet Shop se ajustam sozinhas.</p>
+            <p className="text-xs text-muted" style={{ margin: 0 }}>
+              {/* No celular não se arrasta: a ordem muda pelas setas. */}
+              <span className="so-desktop">Arraste as paradas (ou use ↑ ↓) para mudar a ordem.</span>
+              <span className="so-celular-inline">Use ↑ ↓ para mudar a ordem das paradas.</span>
+              {' '}As idas ao Pet Shop se ajustam sozinhas.
+            </p>
           )}
 
           {editavel && paraAdicionar.length > 0 && (

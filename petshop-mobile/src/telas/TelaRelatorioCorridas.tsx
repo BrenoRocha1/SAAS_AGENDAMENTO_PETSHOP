@@ -112,7 +112,7 @@ export function TelaRelatorioCorridas({ modo }: { modo: 'loja' | 'motorista' }) 
   ) : (
     <>
       <DetailHeader title="Relatório de corridas" junto />
-      <BotaoPequeno variante="fantasma" icone={IconChevronLeft} rotulo="Corridas do TaxiDog" style={styles.voltar} onPress={() => router.back()} />
+      <BotaoPequeno variante="fantasma" icone={IconChevronLeft} rotulo="Corridas do TaxiDog" style={styles.voltar} onPress={() => router.dismissTo('/agendamentos/gestor-taxidog')} />
     </>
   )
 
