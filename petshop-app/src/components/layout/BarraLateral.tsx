@@ -36,7 +36,8 @@ interface Props {
   // Texto depois de "SAIP" na marca (ex.: "Admin").
   sufixoMarca?: string
   tituloMobile?: string
-  usuario: { nome: string; papel: string; iniciais: string; dica: string }
+  // `foto`: entra no lugar das iniciais (hoje só a conta do cliente tem).
+  usuario: { nome: string; papel: string; iniciais: string; dica: string; foto?: string | null }
   // Chave do localStorage que lembra se o menu ficou recolhido.
   chaveColapso: string
   idBotaoSair?: string
@@ -161,7 +162,12 @@ export default function BarraLateral({
 
           <SidebarFooter>
             <div className="sidebar-user" title={usuario.dica}>
-              <div className="sidebar-avatar">{usuario.iniciais}</div>
+              <div className="sidebar-avatar">
+                {usuario.foto ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+                  <img src={usuario.foto} alt="" />
+                ) : usuario.iniciais}
+              </div>
               {!recolhida && (
                 <div className="sidebar-user-info">
                   <div className="sidebar-user-name">{usuario.nome}</div>

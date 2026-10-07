@@ -33,17 +33,19 @@ export default async function ClienteLayout({
 
   if (!isCliente) redirect('/lojista/dashboard')
 
-  const { data: cliente } = await supabase
-    .from('cliente')
-    .select('nome')
-    .eq('id_cliente', user.id)
-    .single()
+  // A foto da conta (migration 085) vem numa consulta à parte: enquanto a
+  // coluna não existir no banco, o menu segue com o nome e as iniciais.
+  const [{ data: cliente }, { data: foto }] = await Promise.all([
+    supabase.from('cliente').select('nome').eq('id_cliente', user.id).single(),
+    supabase.from('cliente').select('foto_url').eq('id_cliente', user.id).maybeSingle(),
+  ])
 
   return (
     <div className="app-layout cliente-shell">
       <ClienteSidebar
         userName={cliente?.nome ?? user.email ?? 'Cliente'}
         userEmail={user.email ?? ''}
+        userFoto={foto?.foto_url ?? null}
       />
       <main className="app-main">
         <div className="app-content">{children}</div>

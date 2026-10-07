@@ -5,12 +5,14 @@ import { DetailHeader } from '@/components/DetailHeader'
 import { Aviso } from '@/components/Aviso'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { Campo } from '@/components/Campo'
+import { CartaoFoto } from '@/components/CartaoFoto'
 import { IconSave, IconTrash } from '@/components/IconesDoSite'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { MSG_SEM_SITE, acoesDisponiveis, chamarAcao } from '@/lib/acoes'
 import { mensagemDoBanco } from '@/lib/erros'
+import { buscarFotoCliente, enviarFotoCliente, removerFotoCliente } from '@/lib/fotoCliente'
 import { mascaraCpf, mascaraTelefone, soDigitos } from '@/lib/mascaras'
 import { FONTE_TITULO } from '@/theme/fontes'
 import { colors } from '@/theme/theme'
@@ -23,8 +25,8 @@ const O_QUE_ACONTECE = [
   'Você sai do sistema e não consegue mais entrar com esta conta.',
 ]
 
-// Perfil do cliente — a mesma página do site (/cliente/perfil): nome e
-// telefone são editáveis; o e-mail é o login e o CPF é documento, nenhum dos
+// Perfil do cliente — a mesma página do site (/cliente/perfil): a foto da
+// conta em cima (migration 085); nome e telefone são editáveis; o e-mail é o login e o CPF é documento, nenhum dos
 // dois muda por aqui. Embaixo, a exclusão da conta (LGPD), pela mesma action
 // do site.
 export default function PerfilClienteScreen() {
@@ -35,6 +37,7 @@ export default function PerfilClienteScreen() {
   const [telefone, setTelefone] = useState('')
   const [cpf, setCpf] = useState('')
   const [email, setEmail] = useState('')
+  const [fotoUrl, setFotoUrl] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [salvo, setSalvo] = useState(false)
   const [salvando, setSalvando] = useState(false)
@@ -58,6 +61,9 @@ export default function PerfilClienteScreen() {
       setEmail(c?.email ?? '')
       setCarregado(true)
     })
+    // A foto vem à parte: enquanto a coluna não existir no banco, o resto do
+    // perfil abre normalmente.
+    buscarFotoCliente(idCliente).then(url => { if (!cancelado) setFotoUrl(url) })
     return () => { cancelado = true }
   }, [idCliente])
 
@@ -105,6 +111,21 @@ export default function PerfilClienteScreen() {
   return (
     <ScreenContainer>
       <DetailHeader title="Meu perfil" />
+
+      {idCliente && (
+        <View style={styles.foto}>
+          <CartaoFoto
+            titulo="Foto do perfil"
+            deQuem="do perfil"
+            fotoUrl={fotoUrl}
+            convite="Adicione uma foto para aparecer na sua conta."
+            mensagemSalva="Foto do perfil atualizada com sucesso!"
+            enviar={arquivo => enviarFotoCliente(idCliente, arquivo)}
+            remover={() => removerFotoCliente(idCliente)}
+            onMudou={setFotoUrl}
+          />
+        </View>
+      )}
 
       <View style={styles.cartao}>
         {erro && <Aviso tipo="erro" texto={erro} style={styles.aviso} />}
@@ -200,6 +221,8 @@ export default function PerfilClienteScreen() {
 
 const styles = StyleSheet.create({
   cartao: { padding: 16, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  // O cartão da foto fica 20 acima do formulário, como no site.
+  foto: { marginBottom: 20 },
   aviso: { marginBottom: 20 },
   formulario: { gap: 16 },
   // E-mail e CPF (o `.form-grid-2` do site, que no celular vira uma coluna).

@@ -37,9 +37,11 @@ const ABAS_CELULAR = [
 interface Props {
   userName: string
   userEmail: string
+  // Foto da conta (migration 085); sem ela, as iniciais.
+  userFoto?: string | null
 }
 
-export default function ClienteSidebar({ userName, userEmail }: Props) {
+export default function ClienteSidebar({ userName, userEmail, userFoto }: Props) {
   const pathname = usePathname()
 
   const initials = userName
@@ -61,7 +63,7 @@ export default function ClienteSidebar({ userName, userEmail }: Props) {
         ativo: pathname === aba.href || pathname.startsWith(`${aba.href}/`),
       }))}
       iconeMarca={IconPaw}
-      usuario={{ nome: userName, papel: 'Cliente', iniciais: initials, dica: userEmail }}
+      usuario={{ nome: userName, papel: 'Cliente', iniciais: initials, dica: userEmail, foto: userFoto }}
       chaveColapso={CHAVE_COLAPSADA}
       idBotaoSair="btn-logout-cliente"
     />

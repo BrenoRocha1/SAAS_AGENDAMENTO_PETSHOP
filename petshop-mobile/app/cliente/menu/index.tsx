@@ -1,4 +1,5 @@
-import { useRouter } from 'expo-router'
+import { useCallback, useState } from 'react'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { Pressable, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
@@ -8,6 +9,7 @@ import { IconeSair, IconeSeta } from '@/components/IconesAbas'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { dialogo } from '@/lib/dialogo'
+import { buscarFotoCliente } from '@/lib/fotoCliente'
 import { itensDoMenu } from '@/lib/menuDoApp'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
@@ -19,6 +21,15 @@ export default function MenuClienteScreen() {
   const { user, signOut } = useAuth()
   const router = useRouter()
   const nome = (user?.user_metadata?.nome as string | undefined) ?? user?.email ?? 'Cliente'
+  // Foto da conta (migration 085) — relida ao voltar do perfil, onde ela muda.
+  const [fotoUrl, setFotoUrl] = useState<string | null>(null)
+  const idCliente = user?.id
+  useFocusEffect(useCallback(() => {
+    if (!idCliente) return
+    let cancelado = false
+    buscarFotoCliente(idCliente).then(url => { if (!cancelado) setFotoUrl(url) })
+    return () => { cancelado = true }
+  }, [idCliente]))
 
   function confirmarSaida() {
     dialogo('Sair da conta', 'Você precisará entrar de novo para ver os seus agendamentos.', [
@@ -32,7 +43,7 @@ export default function MenuClienteScreen() {
       <DetailHeader title="Menu" onVoltar={() => router.navigate('/cliente' as never)} />
 
       <Card style={styles.perfilCard}>
-        <Avatar nome={nome} size={48} />
+        <Avatar nome={nome} fotoUrl={fotoUrl} size={48} />
         <View style={{ flex: 1 }}>
           <Text style={styles.perfilNome} numberOfLines={1}>{nome}</Text>
           <Text style={styles.perfilEmail} numberOfLines={1}>{user?.email}</Text>

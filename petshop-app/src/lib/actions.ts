@@ -3445,6 +3445,109 @@ export async function removerFotoPetAction(id_pet: string): Promise<{ error?: st
 }
 
 // ============================================================
+// FOTO DA CONTA DO CLIENTE (migration 085) — o mesmo caminho da foto do
+// pet: o arquivo vai para a pasta do próprio cliente no bucket das fotos
+// de pet (as regras do bucket já deixam cada cliente gravar só na pasta
+// dele), com o nome fixo "perfil", e o endereço fica em cliente.foto_url.
+// ============================================================
+
+const CLIENTE_FOTO_ARQUIVO = 'perfil'
+const MSG_MIGRATION_FOTO_CLIENTE = 'Para usar a foto do perfil, execute a migration 085_foto_cliente.sql.'
+
+function faltaMigrationFotoCliente(error: { code?: string; message: string }): boolean {
+  return error.code === '42703' || error.code === 'PGRST204' || /foto_url/.test(error.message)
+}
+
+async function limparFotoDoCliente(supabase: ClienteSupabase, idCliente: string) {
+  const { data: existentes } = await supabase.storage.from(PET_FOTO_BUCKET).list(idCliente)
+  const doPerfil = existentes?.filter(f => f.name.startsWith(`${CLIENTE_FOTO_ARQUIVO}.`)) ?? []
+  if (doPerfil.length > 0) {
+    await supabase.storage.from(PET_FOTO_BUCKET).remove(doPerfil.map(f => `${idCliente}/${f.name}`))
+  }
+}
+
+export async function atualizarFotoClienteAction(
+  formData: FormData
+): Promise<{ error?: string; success?: boolean; url?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const arquivo = formData.get('foto') as File | null
+  if (!arquivo || arquivo.size === 0) {
+    return { error: 'Selecione uma imagem.' }
+  }
+  if (arquivo.size > PET_FOTO_TAMANHO_MAXIMO) {
+    return { error: 'Imagem muito grande. O limite é 5 MB.' }
+  }
+
+  const bytes = new Uint8Array(await arquivo.arrayBuffer())
+  const extensao = detectarExtensaoImagem(bytes)
+  if (!extensao) {
+    return { error: 'Formato de imagem inválido. Envie um arquivo JPG, PNG ou WEBP.' }
+  }
+
+  // Só conta de cliente tem foto de perfil (a loja usa a logo).
+  const { data: cliente } = await supabase.from('cliente').select('id_cliente').eq('id_cliente', user.id).maybeSingle()
+  if (!cliente) return { error: 'Acesso não autorizado' }
+
+  await limparFotoDoCliente(supabase, user.id)
+
+  const caminho = `${user.id}/${CLIENTE_FOTO_ARQUIVO}.${extensao}`
+  const { error: uploadError } = await supabase.storage
+    .from(PET_FOTO_BUCKET)
+    .upload(caminho, bytes, {
+      contentType: extensao === 'jpg' ? 'image/jpeg' : `image/${extensao}`,
+      upsert: true,
+    })
+
+  if (uploadError) {
+    return { error: devError('Não foi possível enviar a imagem. Tente novamente.', uploadError.message) }
+  }
+
+  const { data: { publicUrl } } = supabase.storage.from(PET_FOTO_BUCKET).getPublicUrl(caminho)
+  const urlComVersao = `${publicUrl}?v=${Date.now()}`
+
+  const { error: dbError } = await supabase
+    .from('cliente')
+    .update({ foto_url: urlComVersao })
+    .eq('id_cliente', user.id)
+
+  if (dbError) {
+    if (faltaMigrationFotoCliente(dbError)) return { error: MSG_MIGRATION_FOTO_CLIENTE }
+    return { error: devError('Imagem enviada, mas não foi possível salvar a referência. Tente novamente.', dbError.message) }
+  }
+
+  // O menu (layout) mostra a foto no lugar das iniciais.
+  revalidatePath('/cliente', 'layout')
+  return { success: true, url: urlComVersao }
+}
+
+export async function removerFotoClienteAction(): Promise<{ error?: string; success?: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const { data: cliente } = await supabase.from('cliente').select('id_cliente').eq('id_cliente', user.id).maybeSingle()
+  if (!cliente) return { error: 'Acesso não autorizado' }
+
+  await limparFotoDoCliente(supabase, user.id)
+
+  const { error } = await supabase
+    .from('cliente')
+    .update({ foto_url: null })
+    .eq('id_cliente', user.id)
+
+  if (error) {
+    if (faltaMigrationFotoCliente(error)) return { error: MSG_MIGRATION_FOTO_CLIENTE }
+    return { error: devError('Não foi possível remover a imagem. Tente novamente.', error.message) }
+  }
+
+  revalidatePath('/cliente', 'layout')
+  return { success: true }
+}
+
+// ============================================================
 // AVALIAÇÕES (migration 034)
 // ============================================================
 // O cliente avalia um atendimento finalizado. Quem valida de verdade são
