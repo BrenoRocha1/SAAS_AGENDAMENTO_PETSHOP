@@ -30,7 +30,7 @@ const UNIDADES: { valor: Unidade; rotulo: string }[] = [{ valor: 'horas', rotulo
 // actions do painel; sem o site configurado no app, só o dono da conta
 // consegue mudar (RLS).
 export function TelaConfigAgendamentos() {
-  const { contexto } = useAuth()
+  const { contexto, recarregar } = useAuth()
   const idLojista = contexto?.idLojista
   const pode = !!contexto?.acessoTotal
   const comSite = acoesDisponiveis()
@@ -110,7 +110,12 @@ export function TelaConfigAgendamentos() {
             descricaoDesativado="Desativado, o item some do menu lateral — os agendamentos continuam existindo normalmente, só a tela de Kanban fica indisponível."
             valor={kanban}
             desativado={!podeGravar}
-            onMudar={v => alternar('alternarKanbanAction', 'kanban_ativo', v, setKanban)}
+            onMudar={async v => {
+              const falha = await alternar('alternarKanbanAction', 'kanban_ativo', v, setKanban)
+              // O item some do menu (ou volta) na hora.
+              if (!falha) recarregar()
+              return falha
+            }}
           />
 
           {simultaneos === undefined ? (

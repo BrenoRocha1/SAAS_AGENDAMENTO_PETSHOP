@@ -10,6 +10,8 @@ export {
   IconStore as IconePetshops,
   IconCar as IconeCorridas,
   IconRoute as IconeRotas,
+  // "Gestor de Agendamentos" na barra lateral do site
+  IconKanban as IconeGestor,
   IconClock as IconeHistorico,
   // "Dashboard" na barra lateral do site
   IconGrid as IconePainel,

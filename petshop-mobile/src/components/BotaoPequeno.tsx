@@ -16,6 +16,8 @@ interface Props {
   iconeDepois?: ComponentType<IconeProps>
   // Tamanho do `.btn` comum (46 de altura, letra de 15) em vez do `.btn-sm`.
   normal?: boolean
+  // Quando o site desenha o ícone noutro tamanho (14 no pequeno, 15 no normal).
+  tamanhoDoIcone?: number
   // Algarismos da mesma largura (datas e valores que mudam sem o botão "pular").
   numeros?: boolean
   desativado?: boolean
@@ -38,9 +40,10 @@ const CORES: Record<Variante, { fundo: string; borda: string; texto: string }> =
 
 // Botão pequeno das janelas de detalhe (ações do agendamento, "Adicionar
 // TaxiDog", "Salvar transporte"). Para o botão grande de tela, ver Botao.
-export function BotaoPequeno({ rotulo, onPress, variante = 'secundario', icone: Icone, iconeDepois: IconeDepois, normal, numeros, desativado, carregando, style }: Props) {
+export function BotaoPequeno({ rotulo, onPress, variante = 'secundario', icone: Icone, iconeDepois: IconeDepois, normal, tamanhoDoIcone, numeros, desativado, carregando, style }: Props) {
   const cor = CORES[variante]
   const parado = desativado || carregando
+  const tamanho = tamanhoDoIcone ?? (normal ? 15 : 14)
   return (
     <Pressable
       onPress={onPress}
@@ -59,9 +62,9 @@ export function BotaoPequeno({ rotulo, onPress, variante = 'secundario', icone: 
         <ActivityIndicator size="small" color={cor.texto} />
       ) : (
         <>
-          {Icone && <Icone size={normal ? 15 : 14} color={cor.texto} />}
+          {Icone && <Icone size={tamanho} color={cor.texto} />}
           <Text style={[styles.texto, normal && styles.textoNormal, numeros && styles.textoNumeros, { color: cor.texto }]} numberOfLines={1}>{rotulo}</Text>
-          {IconeDepois && <IconeDepois size={normal ? 15 : 14} color={cor.texto} />}
+          {IconeDepois && <IconeDepois size={tamanho} color={cor.texto} />}
         </>
       )}
     </Pressable>

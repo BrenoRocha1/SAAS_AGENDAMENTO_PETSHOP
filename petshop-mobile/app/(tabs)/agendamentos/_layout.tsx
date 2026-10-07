@@ -8,6 +8,7 @@ export default function AgendamentosLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
+      <Stack.Screen name="gestor" />
       <Stack.Screen name="[id]" />
       <Stack.Screen name="novo" />
       <Stack.Screen name="remarcar" />

@@ -44,6 +44,7 @@ import { ROTULO_MODALIDADE, rotuloTransporte, type ModalidadeTaxiDog } from '@/l
 import { ESTADO_TRANSPORTE_INICIAL, escolhaDoTransporte, transportePronto, type EstadoTransporte } from '@/lib/transporte'
 import { colors, spacing } from '@/theme/theme'
 import { dialogo } from '@/lib/dialogo'
+import { perguntarBuscaTaxiDog } from '@/lib/perguntarTaxiDog'
 
 const QUEM_CANCELOU: Record<string, string> = {
   cliente: 'pelo cliente',
@@ -233,29 +234,8 @@ export default function AgendamentoDetalheScreen() {
     carregar()
   }
 
-  // A busca do TaxiDog ainda não chegou e a loja quer iniciar/finalizar:
-  // avisa (não bloqueia) — o cliente pode ter trazido o pet.
   function perguntarTaxiDog(status: StatusAgendamento, p: TaxiDogPendente) {
-    if (p.emMovimento) {
-      dialogo(
-        'TaxiDog a caminho',
-        `${p.pet} já está no carro do TaxiDog, a caminho da loja. Quer seguir mesmo assim?`,
-        [
-          { text: 'Voltar', style: 'cancel' },
-          { text: 'Seguir mesmo assim', onPress: () => avancar(status, 'ignorar') },
-        ],
-      )
-      return
-    }
-    dialogo(
-      'Busca do TaxiDog pendente',
-      `O TaxiDog ainda não buscou ${p.pet}. O cliente trouxe o pet?`,
-      [
-        { text: 'Voltar', style: 'cancel' },
-        { text: 'Seguir sem mexer no TaxiDog', onPress: () => avancar(status, 'ignorar') },
-        { text: 'Cliente trouxe o pet', onPress: () => avancar(status, 'cliente_trouxe') },
-      ],
-    )
+    perguntarBuscaTaxiDog(p, escolha => avancar(status, escolha))
   }
 
   function pedirAvanco() {

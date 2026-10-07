@@ -115,6 +115,8 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
   const [filtroFuncionario, setFiltroFuncionario] = useState('')
   const [filtroServico, setFiltroServico] = useState('')
   const [novoAberto, setNovoAberto] = useState(false)
+  // Celular: "Finalizar" no próprio card pede confirmação (não tem volta).
+  const [confirmarFinalizar, setConfirmarFinalizar] = useState<KanbanItem | null>(null)
 
   // Re-sincroniza com o servidor quando o dia muda (navegação por Link) —
   // ajuste de estado durante a renderização, não em efeito.
@@ -313,6 +315,14 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
     })
   }
 
+  // Celular: o botão do card leva para a etapa seguinte (no lugar de arrastar).
+  function avancarPeloCard(item: KanbanItem) {
+    const proxima = PROXIMA_ETAPA[item.status]
+    if (!proxima) return
+    if (proxima.status === 'Concluído') { setConfirmarFinalizar(item); return }
+    moverParaStatus(item, proxima.status)
+  }
+
   function descricaoPet(item: KanbanItem) {
     const partes = [item.especie_pet, item.porte_pet, item.raca_pet].filter(Boolean)
     return partes.length > 0 ? partes.join(' · ') : null
@@ -321,8 +331,26 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
   return (
     <>
       {/* Título e o botão "Visualizar TaxiDog" ficam na página (kanban/page.tsx). */}
-      <div className="kanban-toolbar">
-        <div className="dash-day-nav">
+      <div className="kanban-toolbar gestor-barra">
+        {/* Celular (até 768px): a mesma faixa de dia da tela Agendamentos. */}
+        <div className="so-celular gestor-dia-celular">
+          <div className="tela-app-dia">
+            <button type="button" onClick={() => irParaDia(format(subDays(selectedDateObj, 1), 'yyyy-MM-dd'))} aria-label="Dia anterior">
+              <IconChevronLeft style={{ width: 20, height: 20 }} />
+            </button>
+            <div>
+              <strong>{format(selectedDateObj, "EEEE, d 'de' MMMM", { locale: ptBR })}</strong>
+              {isHoje
+                ? <span>Hoje</span>
+                : <button type="button" onClick={() => irParaDia(hojeISO)}>Voltar para hoje</button>}
+            </div>
+            <button type="button" onClick={() => irParaDia(format(addDays(selectedDateObj, 1), 'yyyy-MM-dd'))} aria-label="Próximo dia">
+              <IconChevronRight style={{ width: 20, height: 20 }} />
+            </button>
+          </div>
+        </div>
+
+        <div className="dash-day-nav so-desktop">
           <button onClick={() => irParaDia(format(subDays(selectedDateObj, 1), 'yyyy-MM-dd'))} aria-label="Dia anterior">
             <IconChevronLeft />
           </button>
@@ -404,7 +432,13 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
                 >
                   {itensDaColuna.length === 0 ? (
                     <p className="text-sm text-muted" style={{ padding: 'var(--space-3)' }}>
-                      {filtroFuncionario || filtroServico ? 'Nada com esse filtro.' : 'Arraste um card pra cá, ou nenhum agendamento aqui.'}
+                      {filtroFuncionario || filtroServico ? 'Nada com esse filtro.' : (
+                        // No celular não se arrasta: a etapa muda pelo botão do card.
+                        <>
+                          <span className="so-desktop">Arraste um card pra cá, ou nenhum agendamento aqui.</span>
+                          <span className="so-celular-inline">Nenhum agendamento aqui.</span>
+                        </>
+                      )}
                     </p>
                   ) : (
                     itensDaColuna.map(item => {
@@ -452,6 +486,24 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
                             <IconUserBadge style={{ width: 13, height: 13 }} />
                             {item.nome_funcionario ?? 'Sem profissional'}
                           </div>
+
+                          {/* Celular: sem mouse pra arrastar, a etapa seguinte é um botão. */}
+                          {item.status !== 'Concluído' && (
+                            <div className="kanban-card-acao so-celular" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
+                              {podeAvancarEtapa(item.status, selectedDate, hojeISO) ? (
+                                <button
+                                  type="button"
+                                  className={`btn btn-success btn-sm ${isPending && pendingId === item.id_agendamento ? 'btn-loading' : ''}`}
+                                  disabled={isPending}
+                                  onClick={() => avancarPeloCard(item)}
+                                >
+                                  <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[item.status]!.acao}
+                                </button>
+                              ) : (
+                                <p className="text-xs text-muted" style={{ margin: 0 }}>Iniciar e finalizar a partir do dia do agendamento.</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )
                     })
@@ -626,6 +678,36 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
           onClose={() => setNovoAberto(false)}
           onCreated={() => router.refresh()}
         />
+      )}
+
+      {confirmarFinalizar && (
+        <div className="modal-overlay" onClick={() => setConfirmarFinalizar(null)}>
+          <div className="modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Finalizar atendimento</h3>
+              <button className="modal-close" onClick={() => setConfirmarFinalizar(null)} aria-label="Fechar">
+                <IconClose style={{ width: 15, height: 15 }} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ margin: 0 }}>Confirma que o atendimento de {confirmarFinalizar.nome_pet} terminou?</p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-ghost" onClick={() => setConfirmarFinalizar(null)}>Voltar</button>
+              <button
+                type="button"
+                className="btn btn-success"
+                onClick={() => {
+                  const item = confirmarFinalizar
+                  setConfirmarFinalizar(null)
+                  moverParaStatus(item, 'Concluído')
+                }}
+              >
+                Finalizar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {remarcando && <RemarcarModal {...remarcando} onFechar={() => setRemarcando(null)} />}

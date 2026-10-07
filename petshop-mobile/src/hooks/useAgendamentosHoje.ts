@@ -22,7 +22,7 @@ export function useAgendamentosDoDia(idLojista: string | undefined, dataISO?: st
     const { data, error } = await supabase
       .from('agendamento')
       .select(`
-        id_agendamento, dt_agendamento, hr_agendamento, status, valor, obs, id_funcionario,
+        id_agendamento, dt_agendamento, hr_agendamento, status, valor, obs, id_funcionario, id_servico, id_cliente,
         pet:id_pet ( nome, raca, especie, porte, foto_url ),
         servico:id_servico ( nome ),
         cliente:id_cliente ( nome ),

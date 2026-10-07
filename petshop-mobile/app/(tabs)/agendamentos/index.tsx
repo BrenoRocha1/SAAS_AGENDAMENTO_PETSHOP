@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { FlatList, Pressable, StyleSheet, View } from 'react-native'
 import { IconeApp } from '@/components/IconeApp'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { BarraDoDia } from '@/components/BarraDoDia'
 import { BarraTopo } from '@/components/BarraTopo'
 import { AppointmentRow } from '@/components/AppointmentRow'
 import { EmptyState } from '@/components/EmptyState'
@@ -10,7 +11,7 @@ import { SemPermissao } from '@/components/SemPermissao'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAgendamentosDoDia } from '@/hooks/useAgendamentosHoje'
-import { dataExtensaISO, hojeBrasilISO, somarDiasISO } from '@/lib/agenda'
+import { hojeBrasilISO } from '@/lib/agenda'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 export default function AgendamentosScreen() {
@@ -58,36 +59,7 @@ export default function AgendamentosScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.navDia}>
-          <Pressable
-            onPress={() => setData(d => somarDiasISO(d, -1))}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Dia anterior"
-            style={styles.seta}
-          >
-            <IconeApp name="chevron-back" size={20} color={colors.text} />
-          </Pressable>
-          <View style={styles.diaTexto}>
-            <Text style={styles.dia} numberOfLines={1}>{dataExtensaISO(data)}</Text>
-            {ehHoje ? (
-              <Text style={styles.hoje}>Hoje</Text>
-            ) : (
-              <Pressable onPress={() => setData(hoje)} hitSlop={8} accessibilityRole="button">
-                <Text style={styles.voltarHoje}>Voltar para hoje</Text>
-              </Pressable>
-            )}
-          </View>
-          <Pressable
-            onPress={() => setData(d => somarDiasISO(d, 1))}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Próximo dia"
-            style={styles.seta}
-          >
-            <IconeApp name="chevron-forward" size={20} color={colors.text} />
-          </Pressable>
-        </View>
+        <BarraDoDia data={data} hoje={hoje} onMudar={setData} />
       </View>
 
       <FlatList
@@ -135,20 +107,5 @@ const styles = StyleSheet.create({
   },
   novoTexto: { ...typography.label.md, color: colors.white },
   pressionado: { opacity: 0.8 },
-  navDia: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
-  },
-  seta: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  diaTexto: { flex: 1, alignItems: 'center', gap: 2 },
-  dia: { ...typography.heading.sm, lineHeight: 24, color: colors.text },
-  hoje: { ...typography.body.sm, color: colors.textMuted },
-  voltarHoje: { ...typography.label.md, color: colors.primary600 },
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing['3xl'], flexGrow: 1 },
 })

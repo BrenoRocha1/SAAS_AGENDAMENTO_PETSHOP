@@ -3,7 +3,7 @@ import { Platform, Share, StyleSheet, View, useWindowDimensions } from 'react-na
 import { format, parseISO } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
-import { Ilustracao } from '@/components/Ilustracao'
+import { CartaoVazio } from '@/components/CartaoVazio'
 import { SemPermissao } from '@/components/SemPermissao'
 import { Aviso } from '@/components/Aviso'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
@@ -32,7 +32,7 @@ import { GraficoEvolucao } from '@/components/relatorio/GraficoEvolucao'
 import { GradeIndicadores, Indicador, compararComAnterior } from '@/components/relatorio/Indicador'
 import { MiniIndicadores } from '@/components/relatorio/MiniIndicadores'
 import { BarraEmPartes, Etiqueta, Ranking } from '@/components/relatorio/Ranking'
-import { COR_APAGADA, GrupoDaSecao, NotaDaSecao, Pilha, Secao, SecaoVazia } from '@/components/relatorio/Secao'
+import { GrupoDaSecao, NotaDaSecao, Pilha, Secao, SecaoVazia } from '@/components/relatorio/Secao'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { hojeBrasilISO } from '@/lib/agenda'
@@ -424,10 +424,12 @@ export default function RelatoriosScreen() {
         {erro ? (
           <Aviso tipo="erro" texto={erro} />
         ) : !d ? null : d.resumo.atendimentos_total === 0 ? (
-          <View style={[styles.cartaoVazio, desatualizado && styles.apagado]}>
-            <Ilustracao nome="relatorios" altura={130} style={styles.vazioDesenho} />
-            <Text style={styles.vazioTitulo}>Nenhuma venda encontrada para o período selecionado.</Text>
-            <Text style={styles.vazioTexto}>Tente escolher outro período ou verifique se há agendamentos cadastrados.</Text>
+          <View style={desatualizado && styles.apagado}>
+            <CartaoVazio
+              ilustracao="relatorios"
+              titulo="Nenhuma venda encontrada para o período selecionado."
+              texto="Tente escolher outro período ou verifique se há agendamentos cadastrados."
+            />
           </View>
         ) : (
           <View style={desatualizado && styles.apagado} pointerEvents={desatualizado ? 'none' : 'auto'}>
@@ -854,12 +856,6 @@ const styles = StyleSheet.create({
   filtros: { padding: 16, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, marginBottom: 24 },
   // 16 do cartão + 36 das opções + 12 + 42 do botão + 6 de vão (mais a borda).
   calendario: { position: 'absolute', top: 113 },
-  // `.empty-state.card` do site no celular: desenho de 130, título de 18 e
-  // texto de 16, tudo centralizado.
-  cartaoVazio: { padding: 16, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  vazioDesenho: { marginBottom: 16 },
-  vazioTitulo: { fontSize: 18, lineHeight: 28.8, fontWeight: '600', color: COR_APAGADA, textAlign: 'center', marginBottom: 8 },
-  vazioTexto: { fontSize: 16, lineHeight: 25.6, color: '#4b5563', textAlign: 'center' },
   apagado: { opacity: 0.6 },
   duasColunas: { gap: 24 },
   filtrosDaTabela: { gap: 12 },

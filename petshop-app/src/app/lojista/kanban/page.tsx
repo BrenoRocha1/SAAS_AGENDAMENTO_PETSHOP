@@ -114,9 +114,12 @@ export default async function KanbanPage({ searchParams }: Props) {
           <IconKanban style={{ width: 36, height: 36, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />
           <div className="empty-state-title">O Gestor de Agendamentos está desativado</div>
           <p style={{ marginBottom: 'var(--space-4)' }}>
-            Ative o Gestor de Agendamentos no Perfil da Loja pra usar essa tela.
+            Ative o Gestor de Agendamentos nas Configurações de Agendamentos pra usar essa tela.
           </p>
-          <Link href="/lojista/perfil" className="btn btn-primary">Ir para Perfil da Loja</Link>
+          {/* A chave saiu do Perfil da Loja; quem não é dono/administrador não chega lá. */}
+          {contexto.acessoTotal && (
+            <Link href="/lojista/configuracoes/agendamentos" className="btn btn-primary">Ir para Configurações de Agendamentos</Link>
+          )}
         </div>
       </>
     )

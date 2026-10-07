@@ -15,6 +15,8 @@ export interface Agendamento {
   valor: number
   obs: string | null
   id_funcionario: string | null
+  id_servico: string
+  id_cliente: string | null
   pet: { nome: string; raca: string; especie: Especie | null; porte: Porte | null; foto_url: string | null } | null
   servico: { nome: string } | null
   cliente: { nome: string } | null

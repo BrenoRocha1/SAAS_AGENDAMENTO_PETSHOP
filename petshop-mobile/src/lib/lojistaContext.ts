@@ -17,6 +17,9 @@ export interface ContextoLojista {
   // Função TaxiDog (migration 042): recebe corridas no app. Não é
   // permissão — o dono da loja não é TaxiDog por ser dono.
   podeTaxidog: boolean
+  // lojista.kanban_ativo (migration 013): com ele desligado o Gestor de
+  // Agendamentos some do menu, como no site.
+  kanbanAtivo: boolean
 }
 
 // Consulta separada e tolerante: sem a migration 042 a coluna não existe,
@@ -24,6 +27,13 @@ export interface ContextoLojista {
 async function lerPodeTaxidog(supabase: SupabaseClient, userId: string): Promise<boolean> {
   const { data, error } = await supabase.from('funcionario').select('pode_taxidog').eq('id_funcionario', userId).maybeSingle()
   return !error && !!data?.pode_taxidog
+}
+
+// Tolerante como no site: se a coluna não existir (ou a leitura falhar),
+// vale "ligado".
+async function lerKanbanAtivo(supabase: SupabaseClient, idLojista: string): Promise<boolean> {
+  const { data, error } = await supabase.from('lojista').select('kanban_ativo').eq('id_lojista', idLojista).maybeSingle()
+  return error ? true : (data?.kanban_ativo ?? true)
 }
 
 export async function obterContextoLojista(
@@ -48,6 +58,7 @@ export async function obterContextoLojista(
       podeGerenciarClientesPets: true,
       acessoTotal: true,
       podeTaxidog: false,
+      kanbanAtivo: await lerKanbanAtivo(supabase, userId),
     }
   }
 
@@ -73,6 +84,7 @@ export async function obterContextoLojista(
       podeGerenciarClientesPets: data.pode_gerenciar_clientes_pets || data.acesso_total,
       acessoTotal: data.acesso_total,
       podeTaxidog: await lerPodeTaxidog(supabase, userId),
+      kanbanAtivo: await lerKanbanAtivo(supabase, data.id_lojista),
     }
   }
 

@@ -1532,9 +1532,12 @@ a:hover { color: var(--primary-300); }
   gap: var(--space-2);
 }
 
-.dash-day-nav button {
+/* Só as setas: o "Hoje" ao lado é um .btn comum (sem isto ele ficava
+   espremido em 30px, com o texto vazando). */
+.dash-day-nav button:not(.btn) {
   width: 30px;
   height: 30px;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
   border-radius: var(--radius-sm);
@@ -1543,8 +1546,8 @@ a:hover { color: var(--primary-300); }
   color: var(--gray-300);
   cursor: pointer;
 }
-.dash-day-nav button:hover:not(:disabled) { border-color: var(--gray-600); color: var(--gray-100); }
-.dash-day-nav button:disabled { opacity: 0.4; cursor: not-allowed; }
+.dash-day-nav button:not(.btn):hover:not(:disabled) { border-color: var(--gray-600); color: var(--gray-100); }
+.dash-day-nav button:not(.btn):disabled { opacity: 0.4; cursor: not-allowed; }
 .dash-day-nav svg { width: 15px; height: 15px; }
 
 .dash-day-label {
@@ -1974,10 +1977,27 @@ svg.is-da-visita { opacity: 0.45; }
   border-top: 1px solid var(--gray-800);
 }
 
-/* Ação no próprio card (painel do TaxiDog): um botão por card, largura
-   toda — "Atribuir para mim", "Cheguei", "Pet entregue"... */
+/* Ação no próprio card: um botão por card, largura toda — "Atribuir para
+   mim", "Cheguei", "Pet entregue" no painel do TaxiDog e, no celular, a
+   etapa seguinte do agendamento ("Aceitar", "Iniciar atendimento",
+   "Finalizar"). */
 .kanban-card-acao { margin-top: var(--space-2); }
 .kanban-card-acao .btn { width: 100%; justify-content: center; }
+
+/* Gestor de Agendamentos no celular: a faixa do dia, os filtros e o "Novo
+   agendamento" um embaixo do outro, todos na largura da tela; sem mouse, a
+   etapa seguinte é o botão do card, então a dica de arrastar sai. */
+@media (max-width: 768px) {
+  .gestor-barra { gap: var(--space-3); margin-bottom: var(--space-4); }
+  .gestor-dia-celular { width: 100%; }
+  .gestor-dia-celular .tela-app-dia { margin-bottom: 0; }
+  .gestor-barra .kanban-filtros { width: 100%; flex-direction: column; flex-wrap: nowrap; }
+  .gestor-barra .kanban-filtros .form-select { width: 100%; min-width: 0; }
+  .gestor-barra .kanban-filtros .btn { width: 100%; justify-content: center; }
+  .kanban-dica-toque { display: none; }
+  /* Sem arrastar, a coluna vazia não precisa de área para soltar. */
+  .kanban-column { min-height: 0; }
+}
 
 /* "Aguardando aceite da loja": amarelo, não clicável, mas sem o apagado
    de .btn:disabled — é um aviso, não um botão quebrado. */
