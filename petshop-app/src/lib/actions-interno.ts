@@ -9,6 +9,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { COOKIE_IMPERSONANDO } from '@/lib/impersonar'
+import { popularLojaDemo, type ResultadoDemo } from '@/lib/demo-loja'
 import { getPlatformAdmin } from '@/lib/admin'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ROTA_INTERNA } from '@/lib/rota-interna'
@@ -256,4 +257,22 @@ export async function trocarEmailAction(tipo: 'lojista' | 'cliente', id: string,
   await auditar(ctx.db, ctx.admin, 'conta.trocar_email', tipo, id, { de: emailAntigo, para: email })
   revalidarInterno()
   return { success: true }
+}
+
+// ── Conta de demonstração ─────────────────────────────────────────────────
+// Preenche a loja com perfil, produtos com foto, equipe, clientes, pets,
+// agenda e vendas de exemplo (lib/demo-loja). Pode rodar mais de uma vez:
+// só cria o que falta.
+export async function popularDemoAction(idLojista: string): Promise<Resultado & { demo?: ResultadoDemo }> {
+  const ctx = await exigirAdmin()
+  if ('erro' in ctx) return { error: ctx.erro }
+  if (!UUID_RE.test(idLojista)) return { error: 'Empresa inválida.' }
+  const { data: loja } = await ctx.db.from('lojista').select('id_lojista').eq('id_lojista', idLojista).maybeSingle()
+  if (!loja) return { error: 'Empresa não encontrada.' }
+
+  const demo = await popularLojaDemo(ctx.db, idLojista)
+  await auditar(ctx.db, ctx.admin, 'empresa.popular_demo', 'lojista', idLojista, { feito: demo.feito.length, avisos: demo.avisos.length })
+  revalidarInterno()
+  revalidatePath('/lojista', 'layout')
+  return { success: true, demo }
 }
