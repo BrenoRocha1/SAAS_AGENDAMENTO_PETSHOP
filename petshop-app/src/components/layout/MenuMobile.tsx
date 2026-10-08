@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { usePathname } from 'next/navigation'
 import { IconChevronLeft, IconMenu } from '@/components/icons'
-import { LogoSimbolo } from '@/components/LogoSaip'
+import LogoSaip from '@/components/LogoSaip'
 
 // Até 1024px a barra lateral fica fora da tela (globals.css, "RESPONSIVO").
 // Esta barra do topo tem o botão que abre ela; o fundo escuro, o Esc e a
@@ -78,10 +78,7 @@ export function BarraMenuMobile({ aberto, onAbrir, onFechar, titulo = 'SAIP', in
             <IconMenu style={{ width: 22, height: 22 }} />
           </button>
           {/* Mesma marca da barra do topo do app. */}
-          <span className="menu-mobile-logo"><LogoSimbolo altura={22} /></span>
-          <span className="menu-mobile-titulo">
-            SA<span>IP</span>{titulo.replace(/^SAIP/, '')}
-          </span>
+          <LogoSaip altura={22} sufixo={titulo.replace(/^SAIP\s*/, '') || undefined} />
         </div>
         {interna && (
           <div className="menu-mobile-interna">

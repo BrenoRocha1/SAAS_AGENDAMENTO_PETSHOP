@@ -1284,3 +1284,5 @@
 
 /* Logo na landing: o nome segue a cor do texto da página */
 .lp-nav-brand .logo-saip-texto, .lp-footer-brand .logo-saip-texto { color: var(--lp-text-main); }
+
+.lp-nav-brand, .lp-footer-brand { --logo-texto: var(--lp-text-main); }

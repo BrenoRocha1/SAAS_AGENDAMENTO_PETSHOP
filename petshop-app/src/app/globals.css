@@ -4533,13 +4533,7 @@ html[data-theme='dark'] .botao-app.is-perigo { border-color: rgba(248,113,113,0.
 /* ============================================================
    LOGO (components/LogoSaip)
    ============================================================ */
-:root { --logo-saip: #4343e0; }
-html[data-theme='dark'] { --logo-saip: #6366f1; }
-.logo-saip { display: inline-flex; align-items: center; gap: 0.6em; line-height: 1; }
-.logo-saip-texto {
-  font-family: 'Montserrat', var(--font-heading);
-  font-weight: 500;
-  letter-spacing: 0.32em;
-  color: var(--gray-50);
-}
-.logo-saip-texto small { font-size: 0.55em; letter-spacing: 0.1em; color: var(--gray-400); font-weight: 600; }
+:root { --logo-saip: #4343e0; --logo-texto: #0f1535; }
+html[data-theme='dark'] { --logo-saip: #6366f1; --logo-texto: #eceff5; }
+.logo-saip { display: inline-flex; align-items: center; gap: 0.5rem; line-height: 1; }
+.logo-saip-sufixo { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gray-400); }
