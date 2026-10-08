@@ -5,7 +5,7 @@ import { IconeApp } from '@/components/IconeApp'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BarraTopo } from '@/components/BarraTopo'
 import { SearchField } from '@/components/SearchField'
-import { PetRow } from '@/components/PetRow'
+import { PetCartao } from '@/components/PetCartao'
 import { EmptyState } from '@/components/EmptyState'
 import { FolhaPet } from '@/components/FolhaPet'
 import { SemPermissao } from '@/components/SemPermissao'
@@ -69,11 +69,16 @@ export default function PetsScreen() {
         <SearchField value={busca} onChangeText={setBusca} placeholder="Buscar pet, raça ou tutor..." />
       </View>
 
+      {/* Os pets em cards, dois por linha (a grade `.pets-grade` do site no
+          celular). Com número ímpar, um espaço vazio fecha a última linha
+          para o card não esticar. */}
       <FlatList
-        data={pets}
-        keyExtractor={item => item.id_pet}
+        data={pets.length % 2 ? [...pets, null] : pets}
+        keyExtractor={item => item?.id_pet ?? 'vazio'}
+        numColumns={2}
+        columnWrapperStyle={styles.linha}
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => <PetRow pet={item} onPress={() => router.push(`/pets/${item.id_pet}`)} />}
+        renderItem={({ item }) => (item ? <PetCartao pet={item} onPress={() => router.push(`/pets/${item.id_pet}`)} /> : <View style={styles.vazio} />)}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         refreshing={loading}
         onRefresh={recarregar}
@@ -117,4 +122,6 @@ const styles = StyleSheet.create({
   },
   novoTexto: { ...typography.label.md, color: colors.white },
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing['3xl'], flexGrow: 1 },
+  linha: { gap: spacing.md },
+  vazio: { flex: 1 },
 })

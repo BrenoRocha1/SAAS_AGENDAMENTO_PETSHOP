@@ -3,22 +3,22 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { format, parseISO } from 'date-fns'
-import { formatarTelefone, iniciais } from '@/lib/format'
+import { formatarTelefone } from '@/lib/format'
 import PetFormModal, { type ClienteBasico, type PetParaEditar } from './PetFormModal'
 import {
   IconAlert,
   IconChevronLeft,
   IconChevronRight,
   IconDog,
-  IconEye,
   IconPaw,
   IconPencil,
+  IconPhone,
   IconPlus,
   IconSearch,
   IconUser,
 } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
+import './pets-lista.css'
 
 export interface PetLinha extends PetParaEditar {
   telefone_cliente: string
@@ -122,6 +122,38 @@ export default function PetsList({
   const totalPaginas = Math.max(1, Math.ceil(total / pageSize))
   const temFiltroAtivo = !!(busca || filtroEspecie || filtroPorte)
 
+  // Os pets em cards (a mesma grade na tela grande e no celular): a foto em
+  // cima, e o card inteiro abre a ficha. O lápis de editar só existe na tela
+  // grande — no celular edita-se pela ficha, como no app.
+  const grade = (
+    <div className="pets-grade">
+      {pets.map(p => (
+        <div key={p.id_pet} className="pet-card">
+          <Link href={`/lojista/pets/${p.id_pet}`} className="pet-card-link" aria-label={`Abrir a ficha de ${p.nome}`}>
+            <span className="pet-card-foto">
+              {p.foto_url ? (
+                // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+                <img src={p.foto_url} alt="" loading="lazy" />
+              ) : p.especie === 'Gato' ? <IconPaw /> : <IconDog />}
+              {p.especie && <span className="pet-card-selo">{p.especie}</span>}
+            </span>
+            <span className="pet-card-info">
+              <span className="pet-card-nome">{p.nome}</span>
+              <span className="pet-card-sub">{[p.raca, p.porte].filter(Boolean).join(' · ') || 'Pet'}</span>
+              <span className="pet-card-linha"><IconUser /><span>{p.nome_cliente}</span></span>
+              <span className="pet-card-linha pet-card-telefone"><IconPhone /><span>{formatarTelefone(p.telefone_cliente)}</span></span>
+            </span>
+          </Link>
+          {podeEditar && (
+            <button type="button" className="pet-card-editar" title="Editar" aria-label={`Editar ${p.nome}`} onClick={() => abrirEdicao(p)}>
+              <IconPencil />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+
   return (
     <div style={{ opacity: isPending ? 0.6 : 1, transition: 'opacity 150ms' }}>
       {/* Celular (até 768px): a mesma tela Pets do app. */}
@@ -151,31 +183,7 @@ export default function PetsList({
             <strong>{busca ? 'Nenhum pet encontrado' : 'Nenhum pet cadastrado'}</strong>
             <span>{busca ? 'Tente outro nome, raça ou tutor.' : 'Os pets da sua loja aparecem aqui.'}</span>
           </div>
-        ) : (
-          <div className="dash-app-lista">
-            {pets.map(p => (
-              <button
-                type="button"
-                key={p.id_pet}
-                className="dash-app-linha"
-                onClick={() => router.push(`/lojista/pets/${p.id_pet}`)}
-              >
-                <span className="tela-app-avatar" style={p.foto_url ? { backgroundImage: `url(${p.foto_url})` } : undefined}>
-                  {!p.foto_url && iniciais(p.nome)}
-                </span>
-                <span className="dash-app-linha-info">
-                  <span className="dash-app-linha-pet">{p.nome}</span>
-                  <span className="dash-app-linha-sub">{[p.raca, p.porte].filter(Boolean).join(' • ') || (p.especie ?? 'Pet')}</span>
-                  <span className="dash-app-linha-meta">
-                    <IconUser style={{ width: 12, height: 12 }} /> {p.nome_cliente}
-                  </span>
-                </span>
-                <IconPaw className="tela-app-seta" style={{ width: 16, height: 16 }} />
-                <IconChevronRight className="tela-app-seta" style={{ width: 18, height: 18 }} />
-              </button>
-            ))}
-          </div>
-        )}
+        ) : grade}
 
         {totalPaginas > 1 && (
           <div className="tela-app-paginas">
@@ -236,59 +244,7 @@ export default function PetsList({
         </div>
       ) : (
         <>
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Pet</th>
-                  <th>Espécie</th>
-                  <th>Raça</th>
-                  <th>Porte</th>
-                  <th>Tutor</th>
-                  <th>Telefone</th>
-                  <th>Cadastro</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pets.map(p => (
-                  <tr key={p.id_pet}>
-                    <td className="font-semibold" style={{ color: 'var(--gray-100)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                        <div className="pet-avatar">
-                          {p.foto_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
-                            <img src={p.foto_url} alt={p.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          ) : (
-                            <IconDog style={{ width: 14, height: 14 }} />
-                          )}
-                        </div>
-                        {p.nome}
-                      </div>
-                    </td>
-                    <td>{p.especie ?? '—'}</td>
-                    <td>{p.raca}</td>
-                    <td>{p.porte ?? '—'}</td>
-                    <td>{p.nome_cliente}</td>
-                    <td>{formatarTelefone(p.telefone_cliente)}</td>
-                    <td className="text-sm text-muted">{format(parseISO(p.created_at), 'dd/MM/yyyy')}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                        <Link href={`/lojista/pets/${p.id_pet}`} className="btn btn-ghost btn-sm" title="Visualizar">
-                          <IconEye style={{ width: 14, height: 14 }} />
-                        </Link>
-                        {podeEditar && (
-                          <button className="btn btn-ghost btn-sm" title="Editar" onClick={() => abrirEdicao(p)}>
-                            <IconPencil style={{ width: 14, height: 14 }} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {grade}
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
             <span className="text-sm text-muted">
