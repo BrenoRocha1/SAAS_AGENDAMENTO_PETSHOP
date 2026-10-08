@@ -29,7 +29,7 @@ import {
 // Relatórios/Configurações, só a área coberta pelas permissões dele.
 const navItemsBase = [
   { href: '/lojista/dashboard',     icon: IconGrid,      label: 'Dashboard', restrito: true },
-  { href: '/lojista/agendamentos',  icon: IconCalendar,  label: 'Agendamentos', permissao: 'agenda' as const },
+  { href: '/lojista/agendamentos',  icon: IconCalendar,  label: 'Agenda', permissao: 'agenda' as const },
   // Gestor de Agendamentos (o Kanban). Dono/equipe com agenda chegam ao
   // TaxiDog por dentro dele ("Visualizar TaxiDog" → "Rotas do TaxiDog"),
   // então as telas do TaxiDog acendem este item (`tambem`).
@@ -57,7 +57,7 @@ const CHAVE_COLAPSADA = 'saip:lojista-sidebar-colapsada'
 // acesso àquela tela.
 const ABAS_CELULAR = [
   { href: '/lojista/dashboard', label: 'Início', icon: IconHome },
-  { href: '/lojista/agendamentos', label: 'Agendamentos', icon: IconCalendar },
+  { href: '/lojista/agendamentos', label: 'Agenda', icon: IconCalendar },
   { href: '/lojista/clientes', label: 'Clientes', icon: IconUsers },
   { href: '/lojista/pets', label: 'Pets', icon: IconPaw },
 ]

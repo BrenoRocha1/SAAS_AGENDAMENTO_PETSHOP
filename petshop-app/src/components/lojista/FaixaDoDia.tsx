@@ -4,7 +4,7 @@ import { addDays, format, parseISO, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { IconChevronLeft, IconChevronRight } from '@/components/icons'
 
-// Faixa do dia no celular (até 768px) — a mesma da tela Agendamentos: setas
+// Faixa do dia no celular (até 768px) — a mesma da tela Agenda: setas
 // nas pontas, a data por extenso no meio e "Hoje" ou "Voltar para hoje"
 // embaixo. Entra no lugar do `.dash-day-nav` (que fica só no desktop) no
 // Gestor de Agendamentos, no quadro do TaxiDog e nas Rotas.

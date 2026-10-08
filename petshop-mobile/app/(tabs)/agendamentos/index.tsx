@@ -33,7 +33,7 @@ export default function AgendamentosScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <BarraTopo />
         <View style={styles.header}>
-          <Text style={styles.title}>Agendamentos</Text>
+          <Text style={styles.title}>Agenda</Text>
         </View>
         <SemPermissao area="ver a agenda" />
       </SafeAreaView>
@@ -47,7 +47,7 @@ export default function AgendamentosScreen() {
       <BarraTopo />
       <View style={styles.header}>
         <View style={styles.tituloLinha}>
-          <Text style={styles.title}>Agendamentos</Text>
+          <Text style={styles.title}>Agenda</Text>
           <Pressable
             onPress={() => router.push({ pathname: '/agendamentos/novo', params: { data } })}
             accessibilityRole="button"

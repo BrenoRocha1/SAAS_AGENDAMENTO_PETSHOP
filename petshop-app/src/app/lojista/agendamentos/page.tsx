@@ -13,7 +13,7 @@ import { idsAlteradosPeloCliente } from '@/lib/alteracoes-servidor'
 import { normalizarBloqueios } from '@/lib/bloqueios'
 import Ilustracao from '@/components/Ilustracao'
 
-export const metadata: Metadata = { title: 'Agendamentos' }
+export const metadata: Metadata = { title: 'Agenda' }
 
 interface Props {
   searchParams: Promise<{ semana?: string; novoAgendamentoTutor?: string; novoAgendamentoProfissional?: string }>

@@ -42,7 +42,7 @@ export default function TabsLayout() {
       <AvisoNovoAgendamento idLojista={contexto.idLojista} />
       <Tabs screenOptions={opcoesTabBar} tabBar={barraDeAbas}>
         <Tabs.Screen name="index" options={{ title: 'Início', tabBarIcon: tabIcon(IconeInicio) }} />
-        <Tabs.Screen name="agendamentos" options={{ title: 'Agendamentos', tabBarIcon: tabIcon(IconeAgenda) }} />
+        <Tabs.Screen name="agendamentos" options={{ title: 'Agenda', tabBarIcon: tabIcon(IconeAgenda) }} />
         <Tabs.Screen name="clientes" options={{ title: 'Clientes', tabBarIcon: tabIcon(IconeClientes) }} />
         <Tabs.Screen name="pets" options={{ title: 'Pets', tabBarIcon: tabIcon(IconePets) }} />
         {/* O menu da loja não é aba: abre pela barra do topo da Início. */}

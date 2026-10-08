@@ -294,7 +294,7 @@ export default function AgendaCalendar({
     router.push(`/lojista/agendamentos?semana=${iso}`)
   }
 
-  // ── Celular: mesma tela Agendamentos do app (um dia por vez) ──
+  // ── Celular: mesma tela Agenda do app (um dia por vez) ──
   const hojeISO = hojeBrasilISO()
   const fimSemanaISO = format(addDays(inicioSemanaObj, 6), 'yyyy-MM-dd')
   const [diaCelular, setDiaCelular] = useState(() => (hojeISO >= inicioSemana && hojeISO <= fimSemanaISO ? hojeISO : inicioSemana))
@@ -386,8 +386,8 @@ export default function AgendaCalendar({
     <>
       <div className="page-header flex items-center justify-between so-desktop" style={{ flexWrap: 'wrap', gap: 'var(--space-3)' }}>
         <div>
-          <h1 className="page-title">Agendamentos</h1>
-          <p className="page-subtitle">Agenda semanal do seu petshop</p>
+          <h1 className="page-title">Agenda</h1>
+          <p className="page-subtitle">A semana do seu petshop</p>
         </div>
         <button className="btn btn-primary" onClick={() => setModalAberto(true)}>
           <IconPlus style={{ width: 16, height: 16 }} /> Criar agendamento
@@ -408,11 +408,11 @@ export default function AgendaCalendar({
         </div>
       )}
 
-      {/* Celular (até 768px): a mesma tela Agendamentos do app — a lista de
+      {/* Celular (até 768px): a mesma tela Agenda do app — a lista de
           um dia, com as setas pra trocar. Tocar abre o detalhe de sempre. */}
       <div className="so-celular tela-app">
         <div className="tela-app-titulo">
-          <h1>Agendamentos</h1>
+          <h1>Agenda</h1>
           <button type="button" className="tela-app-novo" onClick={() => setModalAberto(true)}>
             <IconPlus style={{ width: 18, height: 18 }} /> Novo
           </button>

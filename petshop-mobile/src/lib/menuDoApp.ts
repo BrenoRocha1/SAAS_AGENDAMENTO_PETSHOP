@@ -46,7 +46,7 @@ interface ItemLoja extends ItemMenu {
 // Configurações, como no site.
 const ITENS_LOJA: ItemLoja[] = [
   { icone: IconePainel, label: 'Dashboard', rota: '/', aba: true },
-  { icone: IconeAgenda, label: 'Agendamentos', rota: '/agendamentos', aba: true, permissao: 'agenda' },
+  { icone: IconeAgenda, label: 'Agenda', rota: '/agendamentos', aba: true, permissao: 'agenda' },
   { icone: IconeGestor, label: 'Gestor de Agendamentos', rota: '/agendamentos/gestor', permissao: 'agenda', condicao: 'kanban' },
   { icone: IconeCorridas, label: 'TaxiDog', rota: '/agendamentos/gestor-taxidog', permissao: 'agenda', condicao: 'taxidog' },
   { icone: IconeRelatorios, label: 'Relatórios de Vendas', rota: '/mais/relatorios', restrito: true },
