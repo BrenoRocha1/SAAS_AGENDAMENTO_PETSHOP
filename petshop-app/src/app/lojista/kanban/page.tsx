@@ -12,6 +12,7 @@ import { idsAlteradosPeloCliente } from '@/lib/alteracoes-servidor'
 import { IconAlert, IconCar, IconChartBar, IconKanban, IconRoute } from '@/components/icons'
 import Link from 'next/link'
 import Ilustracao from '@/components/Ilustracao'
+import '@/components/lojista/quadro.css'
 
 export const metadata: Metadata = { title: 'Gestor de Agendamentos' }
 
@@ -153,14 +154,15 @@ export default async function KanbanPage({ searchParams }: Props) {
               </Link>
             </>
           )}
-          <Link
-            href={visaoTaxiDog ? `/lojista/kanban?data=${selectedDate}` : `/lojista/kanban?visao=taxidog&data=${selectedDate}`}
-            className="btn btn-secondary btn-sm gestor-troca-visao"
-          >
-            {visaoTaxiDog
-              ? <><IconKanban style={{ width: 14, height: 14 }} /> Visualizar agendamentos</>
-              : <><IconCar style={{ width: 14, height: 14 }} /> Visualizar TaxiDog</>}
-          </Link>
+          {/* O que o quadro mostra: os agendamentos ou as corridas do TaxiDog. */}
+          <div className="quadro-visoes gestor-troca-visao" role="group" aria-label="O que mostrar no quadro">
+            <Link href={`/lojista/kanban?data=${selectedDate}`} className={visaoTaxiDog ? '' : 'is-ativa'} aria-current={visaoTaxiDog ? undefined : 'page'}>
+              <IconKanban /> Agendamentos
+            </Link>
+            <Link href={`/lojista/kanban?visao=taxidog&data=${selectedDate}`} className={visaoTaxiDog ? 'is-ativa' : ''} aria-current={visaoTaxiDog ? 'page' : undefined}>
+              <IconCar /> TaxiDog
+            </Link>
+          </div>
         </div>
       )}
     </div>

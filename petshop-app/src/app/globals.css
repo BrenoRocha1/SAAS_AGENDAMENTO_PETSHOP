@@ -2023,9 +2023,7 @@ svg.is-da-visita { opacity: 0.45; }
   .gestor-barra { gap: var(--space-3); margin-bottom: var(--space-4); }
   .gestor-dia-celular { width: 100%; }
   .gestor-dia-celular .tela-app-dia { margin-bottom: 0; }
-  .gestor-barra .kanban-filtros { width: 100%; flex-direction: column; flex-wrap: nowrap; }
-  .gestor-barra .kanban-filtros .form-select { width: 100%; min-width: 0; }
-  .gestor-barra .kanban-filtros .btn { width: 100%; justify-content: center; }
+  /* Os filtros lado a lado e o "Novo" ao lado do dia: ver lojista/quadro.css. */
   .kanban-dica-toque { display: none; }
   /* Sem arrastar, a coluna vazia não precisa de área para soltar. */
   .kanban-column { min-height: 0; }

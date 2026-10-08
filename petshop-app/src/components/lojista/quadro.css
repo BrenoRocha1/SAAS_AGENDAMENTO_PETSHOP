@@ -1,0 +1,103 @@
+/* ============================================================
+   Quadro (Gestor de Agendamentos e TaxiDog) — peças da barra de cima
+   e a versão de celular: a troca de visão num seletor, os filtros em
+   etiquetas e, até 768px, as etapas em abas com a contagem (só os
+   cards da etapa escolhida aparecem, em vez de quatro colunas
+   empilhadas).
+   ============================================================ */
+
+/* ---------- Agendamentos | TaxiDog ---------- */
+.quadro-visoes {
+  display: inline-flex; padding: 3px;
+  background: var(--gray-900); border: 1px solid var(--gray-700); border-radius: 12px;
+}
+.quadro-visoes a {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 34px; padding: 0 14px; border-radius: 9px;
+  font-size: 0.8125rem; font-weight: 600; color: var(--gray-400); text-decoration: none; white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.quadro-visoes a svg { width: 14px; height: 14px; }
+.quadro-visoes a:hover { color: var(--primary-300); }
+.quadro-visoes a.is-ativa { background: var(--primary-soft-bg); color: var(--primary-300); }
+
+/* ---------- Filtro em etiqueta (um <select> invisível por cima) ---------- */
+.filtro-chip {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 8px;
+  min-width: 0; height: 42px; padding: 0 12px;
+  background: var(--gray-900); border: 1px solid var(--gray-700); border-radius: 12px;
+  font-size: 0.875rem; font-weight: 600; color: var(--gray-200);
+  cursor: pointer; transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+.filtro-chip > svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--primary-400); }
+.filtro-chip-texto { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filtro-chip-curto { display: none; }
+.filtro-chip::after {
+  content: ''; flex-shrink: 0; width: 0; height: 0;
+  border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--gray-500);
+}
+.filtro-chip:hover { border-color: var(--primary-200); }
+.filtro-chip:focus-within { border-color: var(--primary-500); box-shadow: 0 0 0 3px var(--focus-ring); }
+.filtro-chip.is-ativo { background: var(--primary-soft-bg-8); border-color: var(--primary-soft-border); color: var(--primary-300); }
+.filtro-chip.is-ativo::after { border-top-color: var(--primary-300); }
+.filtro-chip select {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer; border: 0; font-size: 1rem; appearance: none;
+}
+
+/* ---------- Só no celular ---------- */
+.gestor-dia-linha, .quadro-etapas { display: none; }
+
+@media (max-width: 768px) {
+  .quadro-visoes { display: flex; width: 100%; }
+  .quadro-visoes a { flex: 1; height: 38px; font-size: 0.875rem; }
+  .quadro-visoes a svg { width: 15px; height: 15px; }
+
+  /* O dia e, ao lado, o "Novo". */
+  .gestor-dia-linha { display: flex; align-items: stretch; gap: var(--space-2); width: 100%; }
+  .gestor-dia-linha .gestor-dia-celular { flex: 1; min-width: 0; }
+  .gestor-novo {
+    flex-shrink: 0; width: 60px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    background: var(--primary-600); border: 0; border-radius: 14px; color: #fff; cursor: pointer;
+    font-family: var(--font-body); font-size: 0.6875rem; font-weight: 600;
+    box-shadow: 0 1px 3px var(--btn-primary-shadow);
+  }
+  .gestor-novo svg { width: 20px; height: 20px; }
+  .gestor-novo:active { opacity: 0.85; }
+
+  /* Filtros lado a lado, com o nome curto ("Profissional", "Serviço"). */
+  .gestor-barra .kanban-filtros { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--space-2); }
+  .gestor-barra .kanban-filtros > .btn { display: none; }
+  .filtro-chip { width: 100%; }
+  .filtro-chip-longo { display: none; }
+  .filtro-chip-curto { display: inline; }
+
+  /* As etapas em abas: a contagem em cima, o nome embaixo e a cor da etapa
+     no traço de cima. */
+  .quadro-etapas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); margin-bottom: var(--space-3); }
+  .quadro-etapa {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    min-width: 0; height: 58px; padding: 4px 2px 0;
+    background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 12px;
+    box-shadow: inset 0 3px 0 var(--cor-etapa);
+    font-family: var(--font-body); cursor: pointer; overflow: hidden;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+  }
+  .quadro-etapa strong { font-family: var(--font-heading); font-size: 1.125rem; font-weight: 800; line-height: 1.2; color: var(--gray-100); font-variant-numeric: tabular-nums; }
+  .quadro-etapa span { max-width: 100%; font-size: 0.6875rem; font-weight: 600; line-height: 1.3; color: var(--gray-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .quadro-etapa.is-ativa { border-color: var(--cor-etapa); background: color-mix(in srgb, var(--cor-etapa) 9%, #fff); }
+  .quadro-etapa.is-ativa span { color: var(--gray-200); }
+
+  /* Só a etapa escolhida, sem a moldura da coluna: os cards direto na tela. */
+  /* `minmax(0, …)` e `min-width: 0`: sem a moldura (que cortava o excesso), um
+     texto comprido não pode alargar o card além da tela. */
+  .quadro-com-etapas.kanban-columns { gap: 0; grid-template-columns: minmax(0, 1fr); }
+  .quadro-com-etapas .kanban-column { display: none; min-width: 0; max-height: none; min-height: 0; border: 0; border-radius: 0; background: none; overflow: visible; }
+  .quadro-com-etapas .kanban-column-body, .quadro-com-etapas .kanban-card { min-width: 0; }
+  .quadro-com-etapas .kanban-column.is-etapa-ativa { display: flex; }
+  .quadro-com-etapas .kanban-column-header { display: none; }
+  .quadro-com-etapas .kanban-column-body { padding: 0; background: none; border-radius: 0; overflow: visible; }
+  .quadro-com-etapas .kanban-column-body > p { padding: var(--space-8) var(--space-4) !important; text-align: center; }
+}

@@ -9,13 +9,14 @@ import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { CartaoVazio } from '@/components/CartaoVazio'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Folha } from '@/components/Folha'
-import { IconCar, IconChartBar, IconKanban, IconMapPin, IconRoute, IconUser, IconUserBadge, IconWhatsapp } from '@/components/IconesDoSite'
+import { IconCar, IconChartBar, IconMapPin, IconRoute, IconUser, IconUserBadge, IconWhatsapp } from '@/components/IconesDoSite'
 import {
   AcaoDoCartao,
   CartaoDoQuadro,
-  ColunaDoQuadro,
-  ColunaVazia,
-  ColunasDoQuadro,
+  CartoesDaEtapa,
+  EtapaVazia,
+  EtapasDoQuadro,
+  VisoesDoQuadro,
   EtiquetaDoQuadro,
   EtiquetasDoCartao,
   LinhaDoCartao,
@@ -37,7 +38,6 @@ import { formatarTelefone, linkWhatsApp } from '@/lib/format'
 import { assinarComSessao } from '@/lib/realtime'
 import { supabase } from '@/lib/supabase'
 import {
-  ROTULO_GRUPO,
   ROTULO_MODALIDADE,
   encerrada,
   enderecoCliente,
@@ -56,11 +56,12 @@ import { colors, typography } from '@/theme/theme'
 
 // As quatro colunas do quadro do site, com as cores das etapas do
 // atendimento (amarelo, azul, roxo, verde).
-const COLUNAS: { grupo: GrupoCorrida; status: string; vazio: string; vazioMotorista: string }[] = [
-  { grupo: 'pendentes', status: 'Pendente', vazio: 'Nenhuma corrida esperando TaxiDog.', vazioMotorista: 'Nenhuma corrida disponível agora.' },
-  { grupo: 'atribuidas', status: 'Confirmado', vazio: 'Nenhuma corrida atribuída aguardando saída.', vazioMotorista: 'Nenhuma corrida sua aguardando saída.' },
-  { grupo: 'andamento', status: 'Em andamento', vazio: 'Nenhum TaxiDog na rua agora.', vazioMotorista: 'Você não está em nenhuma corrida agora.' },
-  { grupo: 'concluidas', status: 'Concluído', vazio: 'Nenhuma corrida concluída ainda.', vazioMotorista: 'Nenhuma corrida concluída neste dia.' },
+// `aba`: o nome da etapa na aba (cabe em um quarto da tela).
+const COLUNAS: { grupo: GrupoCorrida; aba: string; status: string; vazio: string; vazioMotorista: string }[] = [
+  { grupo: 'pendentes', aba: 'Pendentes', status: 'Pendente', vazio: 'Nenhuma corrida esperando TaxiDog.', vazioMotorista: 'Nenhuma corrida disponível agora.' },
+  { grupo: 'atribuidas', aba: 'Atribuídas', status: 'Confirmado', vazio: 'Nenhuma corrida atribuída aguardando saída.', vazioMotorista: 'Nenhuma corrida sua aguardando saída.' },
+  { grupo: 'andamento', aba: 'Andamento', status: 'Em andamento', vazio: 'Nenhum TaxiDog na rua agora.', vazioMotorista: 'Você não está em nenhuma corrida agora.' },
+  { grupo: 'concluidas', aba: 'Concluídas', status: 'Concluído', vazio: 'Nenhuma corrida concluída ainda.', vazioMotorista: 'Nenhuma corrida concluída neste dia.' },
 ]
 
 // Etapas finais pedem confirmação — evita um toque errado com o celular
@@ -124,6 +125,7 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
   const [loading, setLoading] = useState(true)
   const [erroCarga, setErroCarga] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
+  const [etapaEscolhida, setEtapaEscolhida] = useState<GrupoCorrida | null>(null)
   // Qual card disparou a ação — só ele mostra o "carregando".
   const [idEmAcao, setIdEmAcao] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState(false)
@@ -258,13 +260,12 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
     <>
       {/* Com o Gestor desligado, esta tela é a "TaxiDog" do menu. */}
       <DetailHeader title={contexto?.kanbanAtivo ? 'Gestor de Agendamentos' : 'TaxiDog'} junto />
-      {/* Troca de visão: volta para o quadro dos agendamentos, no mesmo dia. */}
+      {/* O que o quadro mostra: volta para os agendamentos, no mesmo dia. */}
       {contexto?.kanbanAtivo && (
-        <BotaoPequeno
-          icone={IconKanban}
-          rotulo="Visualizar agendamentos"
+        <VisoesDoQuadro
+          ativa="taxidog"
           style={styles.trocaDeVisao}
-          onPress={() => router.replace({ pathname: '/agendamentos/gestor', params: { data } })}
+          onTrocar={() => router.replace({ pathname: '/agendamentos/gestor', params: { data } })}
         />
       )}
       {/* Os atalhos do TaxiDog, lado a lado embaixo da troca de visão. */}
@@ -290,6 +291,10 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
 
   // Trocando de dia, o quadro do dia anterior fica à vista, apagado.
   const desatualizado = carregadoEm !== data
+  // A etapa aberta nas abas. Sem escolha, a primeira que tem corrida (o que
+  // está pendente pede ação antes).
+  const etapaAberta = etapaEscolhida ?? COLUNAS.find(col => grupos[col.grupo].length > 0)?.grupo ?? 'pendentes'
+  const colunaAberta = COLUNAS.find(col => col.grupo === etapaAberta) ?? COLUNAS[0]
 
   return (
     <ScreenContainer topo={motorista ? <BarraTopo /> : undefined} refreshing={loading && corridas.length > 0} onRefresh={carregar}>
@@ -333,12 +338,17 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
           />
         </View>
       ) : (
-        <ColunasDoQuadro style={desatualizado && styles.carregando}>
-          {COLUNAS.map(col => (
-            <ColunaDoQuadro key={col.grupo} titulo={ROTULO_GRUPO[col.grupo]} status={col.status} contagem={grupos[col.grupo].length}>
-              {grupos[col.grupo].length === 0 ? (
-                <ColunaVazia>{motorista ? col.vazioMotorista : col.vazio}</ColunaVazia>
-              ) : grupos[col.grupo].map(c => {
+        <>
+          {/* As etapas em abas; só os cards da escolhida aparecem. */}
+          <EtapasDoQuadro
+            etapas={COLUNAS.map(col => ({ id: col.grupo, rotulo: col.aba, status: col.status, total: grupos[col.grupo].length }))}
+            valor={etapaAberta}
+            onChange={setEtapaEscolhida}
+          />
+          <CartoesDaEtapa style={desatualizado && styles.carregando}>
+              {grupos[etapaAberta].length === 0 ? (
+                <EtapaVazia>{motorista ? colunaAberta.vazioMotorista : colunaAberta.vazio}</EtapaVazia>
+              ) : grupos[etapaAberta].map(c => {
                 const rota = rotaPorCorrida[c.id_corrida]
                 return (
                   <CartaoDoQuadro
@@ -389,9 +399,8 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
                   </CartaoDoQuadro>
                 )
               })}
-            </ColunaDoQuadro>
-          ))}
-        </ColunasDoQuadro>
+          </CartoesDaEtapa>
+        </>
       )}
 
       {aberta && (

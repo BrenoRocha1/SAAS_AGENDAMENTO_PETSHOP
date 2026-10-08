@@ -8,15 +8,19 @@ import { IconChevronLeft, IconChevronRight } from '@/components/icons'
 // nas pontas, a data por extenso no meio e "Hoje" ou "Voltar para hoje"
 // embaixo. Entra no lugar do `.dash-day-nav` (que fica só no desktop) no
 // Gestor de Agendamentos, no quadro do TaxiDog e nas Rotas.
-export default function FaixaDoDia({ data, hojeISO, onIr, semSetas = false }: {
+export default function FaixaDoDia({ data, hojeISO, onIr, semSetas = false, curta = false }: {
   // Dia mostrado e o dia de hoje, em 'yyyy-MM-dd'.
   data: string
   hojeISO: string
   onIr: (data: string) => void
   // A conta que é só TaxiDog fica no dia de hoje: sem trocar de dia.
   semSetas?: boolean
+  // "Quinta, 8 de outubro" (sem o "-feira"): cabe numa linha com um botão
+  // ao lado da faixa (o "Novo" do Gestor de Agendamentos).
+  curta?: boolean
 }) {
   const dia = parseISO(`${data}T12:00:00`)
+  const porExtenso = format(dia, "EEEE, d 'de' MMMM", { locale: ptBR })
   return (
     <div className="so-celular gestor-dia-celular">
       <div className="tela-app-dia">
@@ -26,7 +30,7 @@ export default function FaixaDoDia({ data, hojeISO, onIr, semSetas = false }: {
           </button>
         )}
         <div>
-          <strong>{format(dia, "EEEE, d 'de' MMMM", { locale: ptBR })}</strong>
+          <strong>{curta ? porExtenso.replace('-feira', '') : porExtenso}</strong>
           {data === hojeISO
             ? <span>Hoje</span>
             : !semSetas && <button type="button" onClick={() => onIr(hojeISO)}>Voltar para hoje</button>}

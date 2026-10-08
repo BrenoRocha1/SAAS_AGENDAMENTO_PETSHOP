@@ -1,47 +1,161 @@
-import type { ComponentType, ReactNode } from 'react'
+import { useState, type ComponentType, type ReactNode } from 'react'
 import { Image, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
-import { IconClock, IconDog, type IconeProps } from '@/components/IconesDoSite'
+import { Folha } from '@/components/Folha'
+import { IconCar, IconClock, IconDog, IconKanban, IconPlus, type IconeProps } from '@/components/IconesDoSite'
+import { Opcao } from '@/components/Opcao'
 import { Text } from '@/components/Texto'
 import { coresStatus } from '@/lib/statusAgendamento'
 import { FONTE_TITULO } from '@/theme/fontes'
 import { colors, shadow } from '@/theme/theme'
 
-// As peças do quadro (Kanban) do site em largura de celular — as etapas uma
-// embaixo da outra, cada uma com a faixa colorida, o nome e a contagem, e os
-// cards dentro. Usadas no Gestor de Agendamentos e no quadro do TaxiDog.
+// As peças do quadro (Kanban) do site em largura de celular
+// (petshop-app/src/components/lojista/quadro.css): a troca de visão num
+// seletor, os filtros em etiquetas, as etapas em abas com a contagem e, embaixo,
+// só os cards da etapa escolhida. Usadas no Gestor de Agendamentos e no
+// quadro do TaxiDog.
 
 const COR_APAGADA = '#858d99'
 // O índigo claro do horário e do avatar (`--primary-soft-bg`).
 const SUAVE = 'rgba(79,70,229,0.12)'
 
-export function ColunasDoQuadro({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
-  return <View style={[styles.colunas, style]}>{children}</View>
+// '#3b82f6' → 'rgba(59,130,246,0.09)': o fundo da aba escolhida.
+function comTransparencia(hex: string, alfa: number) {
+  const n = parseInt(hex.replace('#', ''), 16)
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alfa})`
 }
 
-// `status`: de qual etapa do atendimento são as cores da faixa e da
-// contagem (amarelo, azul, roxo, verde).
-export function ColunaDoQuadro({ titulo, status, contagem, children }: {
-  titulo: string
-  status: string
-  contagem: number
-  children: ReactNode
+// "Agendamentos | TaxiDog" (`.quadro-visoes`): o que o quadro mostra.
+export function VisoesDoQuadro({ ativa, onTrocar, style }: {
+  ativa: 'agendamentos' | 'taxidog'
+  // Chamada ao tocar na visão que não está aberta.
+  onTrocar: () => void
+  style?: StyleProp<ViewStyle>
 }) {
-  const cor = coresStatus(status)
+  const visoes = [
+    { id: 'agendamentos', rotulo: 'Agendamentos', Icone: IconKanban },
+    { id: 'taxidog', rotulo: 'TaxiDog', Icone: IconCar },
+  ] as const
   return (
-    <View style={styles.coluna}>
-      <View style={[styles.colunaTopo, { borderTopColor: cor.solid }]}>
-        <Text style={styles.colunaTitulo}>{titulo}</Text>
-        <View style={[styles.contagem, { backgroundColor: cor.bg, borderColor: cor.ring }]}>
-          <Text style={[styles.contagemTexto, { color: cor.fg }]}>{contagem}</Text>
-        </View>
-      </View>
-      <View style={styles.colunaCorpo}>{children}</View>
+    <View style={[styles.visoes, style]}>
+      {visoes.map(({ id, rotulo, Icone }) => {
+        const aberta = id === ativa
+        return (
+          <Pressable
+            key={id}
+            onPress={() => { if (!aberta) onTrocar() }}
+            accessibilityRole="button"
+            accessibilityState={{ selected: aberta }}
+            style={[styles.visao, aberta && styles.visaoAtiva]}
+          >
+            <Icone size={15} color={aberta ? colors.primary300 : colors.textMuted} />
+            <Text style={[styles.visaoTexto, aberta && styles.visaoTextoAtivo]}>{rotulo}</Text>
+          </Pressable>
+        )
+      })}
     </View>
   )
 }
 
-export function ColunaVazia({ children }: { children: ReactNode }) {
-  return <Text style={styles.colunaVazia}>{children}</Text>
+// O "Novo" ao lado da faixa do dia (`.gestor-novo`): quadrado, da altura dela.
+export function NovoDoQuadro({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Novo agendamento"
+      style={({ pressed }) => [styles.novo, pressed && styles.novoPressionado]}
+    >
+      <IconPlus size={20} color={colors.white} />
+      <Text style={styles.novoTexto}>Novo</Text>
+    </Pressable>
+  )
+}
+
+// Filtro numa etiqueta (`.filtro-chip`): mostra o nome do filtro ou o que
+// está escolhido e, ao tocar, abre o painel com as opções.
+export function FiltroDoQuadro({ icone: Icone, rotulo, todos, valor, opcoes, onChange }: {
+  icone: ComponentType<IconeProps>
+  // Nome curto do filtro ("Profissional").
+  rotulo: string
+  // A opção de não filtrar ("Todos os profissionais").
+  todos: string
+  valor: string
+  opcoes: { valor: string; rotulo: string }[]
+  onChange: (valor: string) => void
+}) {
+  const [aberto, setAberto] = useState(false)
+  const escolhida = opcoes.find(o => o.valor === valor)
+  return (
+    <>
+      <Pressable
+        onPress={() => setAberto(true)}
+        accessibilityRole="button"
+        accessibilityLabel={`${rotulo}: ${escolhida?.rotulo ?? todos}`}
+        style={[styles.filtro, !!escolhida && styles.filtroAtivo]}
+      >
+        <Icone size={15} color={colors.primary600} />
+        <Text style={[styles.filtroTexto, !!escolhida && styles.filtroTextoAtivo]} numberOfLines={1}>{escolhida?.rotulo ?? rotulo}</Text>
+        <View style={[styles.filtroSeta, !!escolhida && styles.filtroSetaAtiva]} />
+      </Pressable>
+
+      <Folha visivel={aberto} titulo={rotulo} onFechar={() => setAberto(false)}>
+        <View style={styles.filtroOpcoes}>
+          {[{ valor: '', rotulo: todos }, ...opcoes].map(o => (
+            <Opcao
+              key={o.valor}
+              titulo={o.rotulo}
+              selecionada={o.valor === valor}
+              onPress={() => {
+                setAberto(false)
+                if (o.valor !== valor) onChange(o.valor)
+              }}
+            />
+          ))}
+        </View>
+      </Folha>
+    </>
+  )
+}
+
+// As etapas em abas (`.quadro-etapas`): a contagem em cima, o nome embaixo e
+// a cor da etapa no traço de cima. `status`: de qual etapa do atendimento
+// vem a cor (amarelo, azul, roxo, verde).
+export function EtapasDoQuadro<T extends string>({ etapas, valor, onChange }: {
+  etapas: { id: T; rotulo: string; total: number; status: string }[]
+  valor: T
+  onChange: (id: T) => void
+}) {
+  return (
+    <View style={styles.etapas} accessibilityRole="tablist">
+      {etapas.map(e => {
+        const cor = coresStatus(e.status).solid
+        const aberta = e.id === valor
+        return (
+          <Pressable
+            key={e.id}
+            onPress={() => onChange(e.id)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: aberta }}
+            accessibilityLabel={`${e.rotulo}: ${e.total}`}
+            style={[styles.etapa, aberta && { borderColor: cor, backgroundColor: comTransparencia(cor, 0.09) }]}
+          >
+            <View style={[styles.etapaTraco, { backgroundColor: cor }]} />
+            <Text style={styles.etapaTotal}>{e.total}</Text>
+            <Text style={[styles.etapaNome, aberta && styles.etapaNomeAtivo]} numberOfLines={1}>{e.rotulo}</Text>
+          </Pressable>
+        )
+      })}
+    </View>
+  )
+}
+
+// Os cards da etapa aberta, um embaixo do outro (sem a moldura da coluna).
+export function CartoesDaEtapa({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  return <View style={[styles.cartoes, style]}>{children}</View>
+}
+
+export function EtapaVazia({ children }: { children: ReactNode }) {
+  return <Text style={styles.etapaVazia}>{children}</Text>
 }
 
 export function CartaoDoQuadro({ onPress, children }: { onPress: () => void; children: ReactNode }) {
@@ -133,23 +247,36 @@ export function NotaDoCartao({ children }: { children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  colunas: { gap: 20 },
-  coluna: { borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
-  colunaTopo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderTopWidth: 3,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  colunaTitulo: { fontSize: 15, lineHeight: 24, fontWeight: '700', color: colors.text },
-  contagem: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 9999, borderWidth: 1 },
-  contagemTexto: { fontSize: 12, lineHeight: 19.2, fontWeight: '600', letterSpacing: 0.48 },
-  // Fundo bem claro: os cards, brancos, se destacam em cima dele.
-  colunaCorpo: { padding: 12, gap: 12, backgroundColor: colors.bg },
-  colunaVazia: { padding: 12, fontSize: 14, lineHeight: 20, color: COR_APAGADA },
+  // `.quadro-visoes`
+  visoes: { flexDirection: 'row', padding: 3, borderRadius: 12, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface },
+  visao: { flex: 1, height: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 9 },
+  visaoAtiva: { backgroundColor: SUAVE },
+  visaoTexto: { fontSize: 14, lineHeight: 14, fontWeight: '600', color: colors.textMuted },
+  visaoTextoAtivo: { color: colors.primary300 },
+
+  // `.gestor-novo`
+  novo: { width: 60, alignItems: 'center', justifyContent: 'center', gap: 2, borderRadius: 14, backgroundColor: colors.primary600 },
+  novoPressionado: { opacity: 0.85 },
+  novoTexto: { fontSize: 11, lineHeight: 17.6, fontWeight: '600', color: colors.white },
+
+  // `.filtro-chip`
+  filtro: { flex: 1, height: 42, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface },
+  filtroAtivo: { borderColor: 'rgba(79,70,229,0.25)', backgroundColor: 'rgba(79,70,229,0.08)' },
+  filtroTexto: { flex: 1, fontSize: 14, lineHeight: 22.4, fontWeight: '600', color: '#1f2937' },
+  filtroTextoAtivo: { color: colors.primary300 },
+  filtroSeta: { width: 0, height: 0, borderLeftWidth: 4, borderRightWidth: 4, borderTopWidth: 5, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: COR_APAGADA },
+  filtroSetaAtiva: { borderTopColor: colors.primary300 },
+  filtroOpcoes: { gap: 8 },
+
+  // `.quadro-etapas`
+  etapas: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  etapa: { flex: 1, height: 58, alignItems: 'center', justifyContent: 'center', gap: 1, paddingTop: 4, paddingHorizontal: 2, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
+  etapaTraco: { position: 'absolute', top: 0, left: 0, right: 0, height: 3 },
+  etapaTotal: { fontFamily: FONTE_TITULO, fontSize: 18, lineHeight: 21.6, fontWeight: '800', color: colors.text, fontVariant: ['tabular-nums'] },
+  etapaNome: { fontSize: 11, lineHeight: 14.3, fontWeight: '600', color: COR_APAGADA },
+  etapaNomeAtivo: { color: '#1f2937' },
+  cartoes: { gap: 12 },
+  etapaVazia: { paddingVertical: 32, paddingHorizontal: 16, textAlign: 'center', fontSize: 14, lineHeight: 20, color: COR_APAGADA },
 
   // `.kanban-card`: branco com sombra leve — sem cinza de fundo.
   cartao: {

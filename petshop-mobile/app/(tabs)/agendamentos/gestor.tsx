@@ -6,21 +6,23 @@ import { BarraDoDia } from '@/components/BarraDoDia'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { CartaoVazio } from '@/components/CartaoVazio'
 import { DetailHeader } from '@/components/DetailHeader'
-import { IconCar, IconCheck, IconKanban, IconPlus, IconScissors, IconUser, IconUserBadge } from '@/components/IconesDoSite'
+import { IconCheck, IconKanban, IconScissors, IconUser, IconUserBadge } from '@/components/IconesDoSite'
 import {
   AcaoDoCartao,
   CartaoDoQuadro,
-  ColunaDoQuadro,
-  ColunaVazia,
-  ColunasDoQuadro,
+  CartoesDaEtapa,
+  EtapaVazia,
+  EtapasDoQuadro,
+  FiltroDoQuadro,
   LinhaDoCartao,
   NotaDoCartao,
+  NovoDoQuadro,
   PeDoCartao,
   PetDoCartao,
   TopoDoCartao,
+  VisoesDoQuadro,
 } from '@/components/Quadro'
 import { ScreenContainer } from '@/components/ScreenContainer'
-import { Seletor } from '@/components/Seletor'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAgendamentosDoDia } from '@/hooks/useAgendamentosHoje'
@@ -38,11 +40,12 @@ type Etapa = 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído'
 
 // As quatro etapas do atendimento, na ordem do quadro do site. 'Cancelado'
 // fica fora, como na agenda.
-const COLUNAS: { status: Etapa; titulo: string }[] = [
-  { status: 'Pendente', titulo: 'Pendentes' },
-  { status: 'Confirmado', titulo: 'Aceitos' },
-  { status: 'Em andamento', titulo: 'Em Andamento' },
-  { status: 'Concluído', titulo: 'Finalizado' },
+// `aba`: o nome da etapa na aba (cabe em um quarto da tela).
+const COLUNAS: { status: Etapa; aba: string }[] = [
+  { status: 'Pendente', aba: 'Pendentes' },
+  { status: 'Confirmado', aba: 'Aceitos' },
+  { status: 'Em andamento', aba: 'Andamento' },
+  { status: 'Concluído', aba: 'Finalizados' },
 ]
 
 function descricaoPet(item: Agendamento) {
@@ -82,6 +85,7 @@ export default function GestorScreen() {
   const [aviso, setAviso] = useState<string | null>(null)
   const [filtroFuncionario, setFiltroFuncionario] = useState('')
   const [filtroServico, setFiltroServico] = useState('')
+  const [etapaEscolhida, setEtapaEscolhida] = useState<Etapa | null>(null)
 
   const carregarBase = useCallback(async () => {
     if (!idLojista || !pode) return
@@ -215,50 +219,54 @@ export default function GestorScreen() {
   }
 
   const comFiltro = !!filtroFuncionario || !!filtroServico
+  // A etapa aberta nas abas. Sem escolha, a primeira que tem agendamento (o
+  // que está pendente pede ação antes), ou "Aceitos".
+  const etapaAberta = etapaEscolhida ?? COLUNAS.find(c => itensFiltrados.some(it => it.status === c.status))?.status ?? 'Confirmado'
+  const daEtapa = itensFiltrados.filter(it => it.status === etapaAberta)
 
   return (
     <ScreenContainer refreshing={loading && itens.length > 0} onRefresh={() => { carregarBase(); recarregar() }}>
       <DetailHeader title="Gestor de Agendamentos" junto={!!base?.taxidogAtivo} />
 
-      {/* Troca de visão: o quadro das corridas do TaxiDog, no mesmo dia. */}
+      {/* O que o quadro mostra: os agendamentos ou as corridas do TaxiDog, no mesmo dia. */}
       {base?.taxidogAtivo && (
-        <BotaoPequeno
-          icone={IconCar}
-          rotulo="Visualizar TaxiDog"
-          style={styles.trocaDeVisao}
-          onPress={() => router.replace({ pathname: '/agendamentos/gestor-taxidog', params: { data } })}
+        <VisoesDoQuadro
+          ativa="agendamentos"
+          style={styles.visoes}
+          onTrocar={() => router.replace({ pathname: '/agendamentos/gestor-taxidog', params: { data } })}
         />
       )}
 
-      {/* A faixa do dia, os filtros e o "Novo agendamento": um embaixo do
-          outro, todos na largura da tela. */}
+      {/* O dia com o "Novo" ao lado e, embaixo, os filtros lado a lado. */}
       <View style={styles.barra}>
-        <BarraDoDia data={data} hoje={hoje} onMudar={d => { setErro(null); setAviso(null); setData(d) }} />
-        {base && base.funcionarios.length > 0 && (
-          <Seletor
-            titulo="Profissional"
-            valor={filtroFuncionario}
-            opcoes={[{ valor: '', rotulo: 'Todos os profissionais' }, ...base.funcionarios.map(f => ({ valor: f.id_funcionario, rotulo: f.nome }))]}
-            onChange={setFiltroFuncionario}
-          />
+        <View style={styles.diaLinha}>
+          <BarraDoDia curta style={styles.dia} data={data} hoje={hoje} onMudar={d => { setErro(null); setAviso(null); setData(d) }} />
+          <NovoDoQuadro onPress={() => router.push({ pathname: '/agendamentos/novo', params: { data } })} />
+        </View>
+        {base && (base.funcionarios.length > 0 || base.servicos.length > 0) && (
+          <View style={styles.filtros}>
+            {base.funcionarios.length > 0 && (
+              <FiltroDoQuadro
+                icone={IconUserBadge}
+                rotulo="Profissional"
+                todos="Todos os profissionais"
+                valor={filtroFuncionario}
+                opcoes={base.funcionarios.map(f => ({ valor: f.id_funcionario, rotulo: f.nome }))}
+                onChange={setFiltroFuncionario}
+              />
+            )}
+            {base.servicos.length > 0 && (
+              <FiltroDoQuadro
+                icone={IconScissors}
+                rotulo="Serviço"
+                todos="Todos os serviços"
+                valor={filtroServico}
+                opcoes={base.servicos.map(s => ({ valor: s.id_servico, rotulo: s.nome }))}
+                onChange={setFiltroServico}
+              />
+            )}
+          </View>
         )}
-        {base && base.servicos.length > 0 && (
-          <Seletor
-            titulo="Serviço"
-            valor={filtroServico}
-            opcoes={[{ valor: '', rotulo: 'Todos os serviços' }, ...base.servicos.map(s => ({ valor: s.id_servico, rotulo: s.nome }))]}
-            onChange={setFiltroServico}
-          />
-        )}
-        <BotaoPequeno
-          normal
-          variante="primario"
-          icone={IconPlus}
-          tamanhoDoIcone={16}
-          rotulo="Novo agendamento"
-          style={styles.novo}
-          onPress={() => router.push({ pathname: '/agendamentos/novo', params: { data } })}
-        />
       </View>
 
       {aviso && <View style={styles.aviso}><Aviso tipo="sucesso" texto={aviso} /></View>}
@@ -271,15 +279,18 @@ export default function GestorScreen() {
           texto="Escolha outro dia ou crie um agendamento na agenda."
         />
       ) : (
-        <ColunasDoQuadro style={loading && styles.carregando}>
-          {COLUNAS.map(coluna => {
-            const daColuna = itensFiltrados.filter(it => it.status === coluna.status)
-            return (
-              <ColunaDoQuadro key={coluna.status} titulo={coluna.titulo} status={coluna.status} contagem={daColuna.length}>
-                {daColuna.length === 0 ? (
-                  <ColunaVazia>{comFiltro ? 'Nada com esse filtro.' : 'Nenhum agendamento aqui.'}</ColunaVazia>
+        <>
+          {/* As etapas em abas; só os cards da escolhida aparecem. */}
+          <EtapasDoQuadro
+            etapas={COLUNAS.map(c => ({ id: c.status, rotulo: c.aba, status: c.status, total: itensFiltrados.filter(it => it.status === c.status).length }))}
+            valor={etapaAberta}
+            onChange={setEtapaEscolhida}
+          />
+          <CartoesDaEtapa style={loading && styles.carregando}>
+                {daEtapa.length === 0 ? (
+                  <EtapaVazia>{comFiltro ? 'Nada com esse filtro.' : 'Nenhum agendamento aqui.'}</EtapaVazia>
                 ) : (
-                  daColuna.map(item => (
+                  daEtapa.map(item => (
                     <CartaoDoQuadro key={item.id_agendamento} onPress={() => router.push(`/agendamentos/${item.id_agendamento}`)}>
                       <TopoDoCartao hora={item.hr_agendamento.slice(0, 5)} valor={formatarReais(Number(item.valor))} />
                       <PetDoCartao foto={item.pet?.foto_url} nome={item.pet?.nome ?? 'Pet'} descricao={descricaoPet(item)} />
@@ -312,27 +323,21 @@ export default function GestorScreen() {
                     </CartaoDoQuadro>
                   ))
                 )}
-              </ColunaDoQuadro>
-            )
-          })}
-        </ColunasDoQuadro>
+          </CartoesDaEtapa>
+        </>
       )}
     </ScreenContainer>
   )
 }
 
 const styles = StyleSheet.create({
-  // "Visualizar TaxiDog": na largura toda, 12 acima da faixa do dia.
-  trocaDeVisao: { marginBottom: 12 },
+  // O seletor de visão, 12 acima da faixa do dia.
+  visoes: { marginBottom: 12 },
   barra: { gap: 12, marginBottom: 16 },
-  // `.btn-primary` do site: sombra leve na cor da marca.
-  novo: {
-    shadowColor: colors.primary600,
-    shadowOpacity: 0.35,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
-  },
+  // `.gestor-dia-linha`: o dia e, ao lado, o "Novo" da mesma altura.
+  diaLinha: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
+  dia: { flex: 1 },
+  filtros: { flexDirection: 'row', gap: 8 },
   aviso: { marginBottom: 16 },
   carregando: { opacity: 0.6 },
   alterado: {

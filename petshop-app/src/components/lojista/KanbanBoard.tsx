@@ -11,6 +11,7 @@ import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lo
 import { BotaoEditar, EditarModal } from '@/components/EditarAgendamento'
 import { useArrastarToque } from '@/components/lojista/useArrastarToque'
 import FaixaDoDia from '@/components/lojista/FaixaDoDia'
+import { EtapasDoQuadro, FiltroChip } from '@/components/lojista/PecasDoQuadro'
 import HistoricoAlteracoes from '@/components/lojista/HistoricoAlteracoes'
 import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
 import type { TaxiDogPendente } from '@/lib/actions'
@@ -92,11 +93,12 @@ interface Props {
   formasPagamento: FormaPagamento[]
 }
 
-const COLUNAS: { status: KanbanItem['status']; titulo: string; borda: string }[] = [
-  { status: 'Pendente', titulo: 'Pendentes', borda: 'var(--status-aguardando-solid)' },
-  { status: 'Confirmado', titulo: 'Aceitos', borda: 'var(--status-aceito-solid)' },
-  { status: 'Em andamento', titulo: 'Em Andamento', borda: 'var(--status-andamento-solid)' },
-  { status: 'Concluído', titulo: 'Finalizado', borda: 'var(--status-concluido-solid)' },
+// `aba`: o nome da etapa na aba do celular (cabe em um quarto da tela).
+const COLUNAS: { status: KanbanItem['status']; titulo: string; aba: string; borda: string }[] = [
+  { status: 'Pendente', titulo: 'Pendentes', aba: 'Pendentes', borda: 'var(--status-aguardando-solid)' },
+  { status: 'Confirmado', titulo: 'Aceitos', aba: 'Aceitos', borda: 'var(--status-aceito-solid)' },
+  { status: 'Em andamento', titulo: 'Em Andamento', aba: 'Andamento', borda: 'var(--status-andamento-solid)' },
+  { status: 'Concluído', titulo: 'Finalizado', aba: 'Finalizados', borda: 'var(--status-concluido-solid)' },
 ]
 
 function ehColuna(v: string | null): v is KanbanItem['status'] {
@@ -118,6 +120,9 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
   const [confirmarBusca, setConfirmarBusca] = useState<{ item: KanbanItem; novoStatus: 'Em andamento' | 'Concluído'; info: TaxiDogPendente } | null>(null)
   const [filtroFuncionario, setFiltroFuncionario] = useState('')
   const [filtroServico, setFiltroServico] = useState('')
+  // Celular: a etapa aberta nas abas. Sem escolha, a primeira que tem
+  // agendamento (o que está pendente pede ação antes), ou "Aceitos".
+  const [etapaDoCelular, setEtapaDoCelular] = useState<KanbanItem['status'] | null>(null)
   const [novoAberto, setNovoAberto] = useState(false)
   // Celular: "Finalizar" no próprio card pede confirmação (não tem volta).
   const [confirmarFinalizar, setConfirmarFinalizar] = useState<KanbanItem | null>(null)
@@ -144,6 +149,7 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
       return true
     })
   }, [itens, filtroFuncionario, filtroServico])
+  const etapaAberta = etapaDoCelular ?? COLUNAS.find(c => itensFiltrados.some(it => it.status === c.status))?.status ?? 'Confirmado'
 
   // Usada tanto pelos botões quanto pelo arrastar-e-soltar. O status só
   // anda pra frente (Pendente→Confirmado→Em andamento→Concluído) — uma
@@ -336,7 +342,14 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
     <>
       {/* Título e o botão "Visualizar TaxiDog" ficam na página (kanban/page.tsx). */}
       <div className="kanban-toolbar gestor-barra">
-        <FaixaDoDia data={selectedDate} hojeISO={hojeISO} onIr={irParaDia} />
+        {/* Celular: o dia e, ao lado, o "Novo". */}
+        <div className="gestor-dia-linha">
+          <FaixaDoDia data={selectedDate} hojeISO={hojeISO} onIr={irParaDia} curta />
+          <button type="button" className="gestor-novo" onClick={() => setNovoAberto(true)} aria-label="Novo agendamento">
+            <IconPlus />
+            Novo
+          </button>
+        </div>
 
         <div className="dash-day-nav so-desktop">
           <button onClick={() => irParaDia(format(subDays(selectedDateObj, 1), 'yyyy-MM-dd'))} aria-label="Dia anterior">
@@ -357,20 +370,24 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
 
         <div className="kanban-filtros">
           {funcionarios.length > 0 && (
-            <select className="form-select" value={filtroFuncionario} onChange={e => setFiltroFuncionario(e.target.value)}>
-              <option value="">Todos os profissionais</option>
-              {funcionarios.map(f => (
-                <option key={f.id_funcionario} value={f.id_funcionario}>{f.nome}</option>
-              ))}
-            </select>
+            <FiltroChip
+              icone={IconUserBadge}
+              rotulo="Profissional"
+              todos="Todos os profissionais"
+              valor={filtroFuncionario}
+              onChange={setFiltroFuncionario}
+              opcoes={funcionarios.map(f => ({ valor: f.id_funcionario, rotulo: f.nome }))}
+            />
           )}
           {servicos.length > 0 && (
-            <select className="form-select" value={filtroServico} onChange={e => setFiltroServico(e.target.value)}>
-              <option value="">Todos os serviços</option>
-              {servicos.map(s => (
-                <option key={s.id_servico} value={s.id_servico}>{s.nome}</option>
-              ))}
-            </select>
+            <FiltroChip
+              icone={IconScissors}
+              rotulo="Serviço"
+              todos="Todos os serviços"
+              valor={filtroServico}
+              onChange={setFiltroServico}
+              opcoes={servicos.map(s => ({ valor: s.id_servico, rotulo: s.nome }))}
+            />
           )}
           <button type="button" className="btn btn-primary" onClick={() => setNovoAberto(true)}>
             <IconPlus style={{ width: 16, height: 16 }} />
@@ -402,11 +419,18 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
           <p>Escolha outro dia ou crie um agendamento na agenda.</p>
         </div>
       ) : (
-        <div className="kanban-columns">
+        <>
+        {/* Celular: as etapas em abas; só os cards da escolhida aparecem. */}
+        <EtapasDoQuadro
+          etapas={COLUNAS.map(c => ({ id: c.status, rotulo: c.aba, cor: c.borda, total: itensFiltrados.filter(it => it.status === c.status).length }))}
+          valor={etapaAberta}
+          onChange={setEtapaDoCelular}
+        />
+        <div className="kanban-columns quadro-com-etapas">
           {COLUNAS.map(coluna => {
             const itensDaColuna = itensFiltrados.filter(it => it.status === coluna.status)
             return (
-              <div key={coluna.status} className="kanban-column" data-alvo-toque={coluna.status}>
+              <div key={coluna.status} className={`kanban-column ${coluna.status === etapaAberta ? 'is-etapa-ativa' : ''}`} data-alvo-toque={coluna.status}>
                 <div className="kanban-column-header" style={{ borderTopColor: coluna.borda }}>
                   <span>{coluna.titulo}</span>
                   <span className={`badge ${classeBadgeStatus(coluna.status)}`}>{itensDaColuna.length}</span>
@@ -501,6 +525,7 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
             )
           })}
         </div>
+        </>
       )}
 
       {selecionado && (

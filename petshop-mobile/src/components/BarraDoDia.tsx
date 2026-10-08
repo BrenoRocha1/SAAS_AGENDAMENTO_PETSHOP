@@ -8,13 +8,16 @@ import { colors, radius, spacing, typography } from '@/theme/theme'
 // anterior e o seguinte, a data por extenso no meio e, embaixo dela, "Hoje"
 // ou o atalho para voltar a hoje. Usada na agenda e no Gestor de
 // Agendamentos.
-export function BarraDoDia({ data, hoje, onMudar, semSetas, style }: {
+export function BarraDoDia({ data, hoje, onMudar, semSetas, curta, style }: {
   // Dia mostrado e o dia de hoje, em 'yyyy-MM-dd'.
   data: string
   hoje: string
   onMudar: (data: string) => void
   // A conta que é só TaxiDog fica no dia de hoje: sem trocar de dia.
   semSetas?: boolean
+  // "Quinta, 8 de outubro" (sem o "-feira"): cabe numa linha com um botão
+  // ao lado da faixa (o "Novo" do Gestor de Agendamentos).
+  curta?: boolean
   style?: StyleProp<ViewStyle>
 }) {
   return (
@@ -25,7 +28,7 @@ export function BarraDoDia({ data, hoje, onMudar, semSetas, style }: {
         </Pressable>
       )}
       <View style={styles.meio}>
-        <Text style={styles.dia} numberOfLines={1}>{dataExtensaISO(data)}</Text>
+        <Text style={styles.dia} numberOfLines={1}>{curta ? dataExtensaISO(data).replace('-feira', '') : dataExtensaISO(data)}</Text>
         {data === hoje ? (
           <Text style={styles.hoje}>Hoje</Text>
         ) : semSetas ? null : (

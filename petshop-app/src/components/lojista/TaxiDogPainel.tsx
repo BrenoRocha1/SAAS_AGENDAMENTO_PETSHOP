@@ -38,6 +38,7 @@ import {
 } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
 import FaixaDoDia from '@/components/lojista/FaixaDoDia'
+import { EtapasDoQuadro } from '@/components/lojista/PecasDoQuadro'
 
 // Rota ativa em que a corrida ainda tem parada por fazer (migration 053):
 // ela só anda pela rota, então o card mostra "Rota #N" no lugar das etapas.
@@ -74,6 +75,14 @@ const COLUNAS: { grupo: GrupoCorrida; cor: string; badge: string; vazio: string 
   { grupo: 'andamento', cor: 'var(--status-andamento-solid)', badge: 'badge-em-andamento', vazio: 'Nenhum TaxiDog na rua agora.' },
   { grupo: 'concluidas', cor: 'var(--status-concluido-solid)', badge: 'badge-concluido', vazio: 'Nenhuma corrida concluída ainda.' },
 ]
+
+// O nome de cada etapa na aba do celular (cabe em um quarto da tela).
+const ABA_GRUPO: Record<GrupoCorrida, string> = {
+  pendentes: 'Pendentes',
+  atribuidas: 'Atribuídas',
+  andamento: 'Andamento',
+  concluidas: 'Concluídas',
+}
 
 const VAZIO_MOTORISTA: Record<GrupoCorrida, string> = {
   pendentes: 'Nenhuma corrida disponível agora.',
@@ -120,6 +129,11 @@ export default function TaxiDogPainel({ data, caminho, caminhoRotas, hojeISO, co
     }
     return g
   }, [corridas])
+
+  // Celular: a etapa aberta nas abas. Sem escolha, a primeira que tem corrida
+  // (o que está pendente pede ação antes).
+  const [etapaDoCelular, setEtapaDoCelular] = useState<GrupoCorrida | null>(null)
+  const etapaAberta = etapaDoCelular ?? COLUNAS.find(col => grupos[col.grupo].length > 0)?.grupo ?? 'pendentes'
 
   const contadas = modoMotorista ? corridas.filter(c => c.id_funcionario) : corridas
   const canceladas = contadas.filter(c => c.status === 'cancelada').length
@@ -208,9 +222,16 @@ export default function TaxiDogPainel({ data, caminho, caminhoRotas, hojeISO, co
           </p>
         </div>
       ) : (
-        <div className="kanban-columns">
+        <>
+        {/* Celular: as etapas em abas; só os cards da escolhida aparecem. */}
+        <EtapasDoQuadro
+          etapas={COLUNAS.map(col => ({ id: col.grupo, rotulo: ABA_GRUPO[col.grupo], cor: col.cor, total: grupos[col.grupo].length }))}
+          valor={etapaAberta}
+          onChange={setEtapaDoCelular}
+        />
+        <div className="kanban-columns quadro-com-etapas">
           {COLUNAS.map(col => (
-            <div key={col.grupo} className="kanban-column">
+            <div key={col.grupo} className={`kanban-column ${col.grupo === etapaAberta ? 'is-etapa-ativa' : ''}`}>
               <div className="kanban-column-header" style={{ borderTopColor: col.cor }}>
                 <span>{ROTULO_GRUPO[col.grupo]}</span>
                 <span className={`badge ${col.badge}`}>{grupos[col.grupo].length}</span>
@@ -289,6 +310,7 @@ export default function TaxiDogPainel({ data, caminho, caminhoRotas, hojeISO, co
             </div>
           ))}
         </div>
+        </>
       )}
 
       {aberta && (
