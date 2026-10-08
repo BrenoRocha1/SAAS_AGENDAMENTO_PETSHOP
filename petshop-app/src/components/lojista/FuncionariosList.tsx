@@ -26,10 +26,10 @@ import {
   IconScissors,
   IconShield,
   IconTrash,
-  IconUserBadge,
   IconUserPlus,
 } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
+import './equipe-membro.css'
 
 interface Funcionario {
   id_funcionario: string
@@ -380,7 +380,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
           }}
         >
           <div
-            className="card animate-slide-up folha-equipe"
+            className="card animate-slide-up folha-equipe eq-janela"
             style={{
               width: '100%',
               maxWidth: 560,
@@ -394,24 +394,20 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
                 fontWeight: 700,
                 color: 'var(--gray-100)',
                 fontFamily: 'var(--font-heading)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-2)',
               }}>
-                <span className="so-desktop" style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                  {editId ? <IconPencil style={{ width: 18, height: 18 }} /> : <IconUserBadge style={{ width: 18, height: 18 }} />}
-                  {editId ? 'Editar Membro' : 'Novo Membro'}
-                </span>
+                <span className="so-desktop">{editId ? 'Editar membro' : 'Novo membro'}</span>
                 <span className="so-celular-inline">{editId ? 'Editar funcionário' : 'Cadastrar funcionário'}</span>
               </h2>
-              <button
-                onClick={closeModal}
-                className="btn btn-ghost btn-sm"
-                aria-label="Fechar"
-              >
+              <button type="button" onClick={closeModal} className="modal-close" aria-label="Fechar">
                 <IconClose style={{ width: 15, height: 15 }} />
               </button>
             </div>
+            {/* Tela grande: a explicação fica logo abaixo do título. */}
+            <p className="eq-subtitulo">
+              {editId
+                ? 'Mude o nome, o cargo e o que esta pessoa pode fazer no painel.'
+                : 'Só o nome basta: a pessoa entra com o código de acesso rápido que você gera na tela dela.'}
+            </p>
 
             {error && (
               <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
@@ -421,6 +417,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
             )}
 
             <form ref={formRef} onSubmit={handleSubmit}>
+              <div className="eq-campos">
               <div className="form-group">
                 <label htmlFor="func-nome" className="form-label form-label-required">Nome completo</label>
                 <input
@@ -434,12 +431,6 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
                 />
               </div>
 
-              {!editId && (
-                <p className="form-hint" style={{ margin: '0 0 var(--space-3)' }}>
-                  Só o nome basta: a pessoa entra com o código de acesso rápido que você gera na tela dela.
-                </p>
-              )}
-
               <div className="form-group">
                 <label htmlFor="func-cargo" className="form-label">Cargo</label>
                 <input
@@ -451,17 +442,18 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
                   defaultValue={editFunc?.cargo ?? ''}
                 />
               </div>
+              </div>
 
-
-              <div className="separator so-desktop" />
+              {/* Celular: a explicação do cadastro, embaixo dos campos. */}
+              {!editId && (
+                <p className="form-hint so-celular" style={{ margin: 0 }}>
+                  Só o nome basta: a pessoa entra com o código de acesso rápido que você gera na tela dela.
+                </p>
+              )}
 
               <PermissoesCampos editFunc={editFunc} podeConcederAcessoTotal={podeConcederAcessoTotal} />
 
-              <div className="so-desktop" style={{
-                display: 'flex',
-                gap: 'var(--space-3)',
-                justifyContent: editFunc ? 'space-between' : 'flex-end',
-              }}>
+              <div className="so-desktop eq-rodape">
                 {editFunc && (podeConcederAcessoTotal || !editFunc.acesso_total) && (
                   <button
                     type="button"
@@ -476,7 +468,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="btn btn-ghost"
+                    className="btn btn-secondary"
                   >
                     Cancelar
                   </button>
@@ -685,207 +677,79 @@ function PermissoesCampos({
         </div>
       </div>
 
+      {/* Tela grande: lista agrupada, uma chave por linha. Os campos
+          escondidos (um por linha) são os que o formulário envia — valem
+          também para as chaves do celular, logo acima. */}
       <div className="so-desktop">
-      <h3 style={{
-        fontSize: '0.95rem',
-        fontWeight: 600,
-        color: 'var(--gray-200)',
-        marginBottom: 'var(--space-3)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--space-2)',
-      }}>
-        <IconShield style={{ width: 16, height: 16 }} /> Permissões
-      </h3>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-        <label style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-3)',
-          padding: 'var(--space-3)',
-          background: 'var(--gray-800)',
-          borderRadius: 'var(--radius-md)',
-          cursor: acessoTotal ? 'not-allowed' : 'pointer',
-          opacity: acessoTotal ? 0.6 : 1,
-        }}>
-          <input
-            type="checkbox"
-            checked={podeAgenda}
-            disabled={acessoTotal}
-            onChange={(e) => setPodeAgenda(e.target.checked)}
-            style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
-          />
-          <input type="hidden" name="pode_gerenciar_agenda" value={String(podeAgenda)} />
-          <div>
-            <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <IconCalendar style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Agenda
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
-              Visualizar e alterar status de agendamentos
-            </div>
-          </div>
-        </label>
-
-        <label style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-3)',
-          padding: 'var(--space-3)',
-          background: 'var(--gray-800)',
-          borderRadius: 'var(--radius-md)',
-          cursor: acessoTotal ? 'not-allowed' : 'pointer',
-          opacity: acessoTotal ? 0.6 : 1,
-        }}>
-          <input
-            type="checkbox"
-            checked={podeServicos}
-            disabled={acessoTotal}
-            onChange={(e) => setPodeServicos(e.target.checked)}
-            style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
-          />
-          <input type="hidden" name="pode_gerenciar_servicos" value={String(podeServicos)} />
-          <div>
-            <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <IconScissors style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Serviços
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
-              Cadastrar e editar serviços do petshop
-            </div>
-          </div>
-        </label>
-
-        <label style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-3)',
-          padding: 'var(--space-3)',
-          background: 'var(--gray-800)',
-          borderRadius: 'var(--radius-md)',
-          cursor: acessoTotal ? 'not-allowed' : 'pointer',
-          opacity: acessoTotal ? 0.6 : 1,
-        }}>
-          <input
-            type="checkbox"
-            checked={podeProdutos}
-            disabled={acessoTotal}
-            onChange={(e) => setPodeProdutos(e.target.checked)}
-            style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
-          />
-          <input type="hidden" name="pode_gerenciar_produtos" value={String(podeProdutos)} />
-          <div>
-            <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <IconPackage style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Produtos
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
-              Cadastrar produtos, categorias e ajustar o estoque
-            </div>
-          </div>
-        </label>
-
-        <label style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-3)',
-          padding: 'var(--space-3)',
-          background: 'var(--gray-800)',
-          borderRadius: 'var(--radius-md)',
-          cursor: acessoTotal ? 'not-allowed' : 'pointer',
-          opacity: acessoTotal ? 0.6 : 1,
-        }}>
-          <input
-            type="checkbox"
-            checked={podeClientesPets}
-            disabled={acessoTotal}
-            onChange={(e) => setPodeClientesPets(e.target.checked)}
-            style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
-          />
-          <input type="hidden" name="pode_gerenciar_clientes_pets" value={String(podeClientesPets)} />
-          <div>
-            <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <IconDog style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Gerenciar Pets e Clientes
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
-              Visualizar os pets e clientes cadastrados no sistema
-            </div>
-          </div>
-        </label>
-
-        {(podeConcederAcessoTotal || editFunc?.acesso_total) && (
-          <label style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-3)',
-            padding: 'var(--space-3)',
-            background: 'var(--gray-800)',
-            borderRadius: 'var(--radius-md)',
-            cursor: podeConcederAcessoTotal ? 'pointer' : 'not-allowed',
-            opacity: podeConcederAcessoTotal ? 1 : 0.6,
-          }}>
-            <input
-              type="checkbox"
-              checked={acessoTotal}
-              disabled={!podeConcederAcessoTotal}
-              onChange={(e) => handleAcessoTotal(e.target.checked)}
-              style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
+        <span className="eq-secao">Permissões</span>
+        <div className="eq-grupo">
+          {(podeConcederAcessoTotal || editFunc?.acesso_total) && (
+            <LinhaPermissao
+              destaque
+              icone={IconShield}
+              nome="acesso_total"
+              titulo="Administrador"
+              detalhe={podeConcederAcessoTotal
+                ? 'Mesmo acesso que você tem, em todas as telas'
+                : 'Só o responsável pela conta pode conceder ou remover'}
+              valor={acessoTotal}
+              desativado={!podeConcederAcessoTotal}
+              onChange={handleAcessoTotal}
             />
-            <input type="hidden" name="acesso_total" value={String(acessoTotal)} />
-            <div>
-              <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <IconShield style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> Acesso Total (Administrador)
-              </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
-                {podeConcederAcessoTotal
-                  ? 'Mesmo acesso que você tem, em todas as telas — só você pode conceder isso'
-                  : 'Só o responsável pela conta pode conceder ou remover acesso total'}
-              </div>
-            </div>
-          </label>
-        )}
-      </div>
-
-      {/* Funções — o que a pessoa FAZ na loja, independente do que ela pode
-          ver/editar. Não é travado por "Acesso total": um administrador não
-          vira TaxiDog automaticamente, e um TaxiDog não ganha permissão de
-          nada por ser TaxiDog. */}
-      <h3 style={{
-        fontSize: '0.95rem',
-        fontWeight: 600,
-        color: 'var(--gray-200)',
-        margin: 'var(--space-5) 0 var(--space-3)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--space-2)',
-      }}>
-        <IconUserBadge style={{ width: 16, height: 16 }} /> Funções
-      </h3>
-      <label style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--space-3)',
-        padding: 'var(--space-3)',
-        background: 'var(--gray-800)',
-        borderRadius: 'var(--radius-md)',
-        cursor: 'pointer',
-      }}>
-        <input
-          type="checkbox"
-          checked={podeTaxidog}
-          onChange={(e) => setPodeTaxidog(e.target.checked)}
-          style={{ width: 20, height: 20, accentColor: 'var(--primary-500)' }}
-        />
-        <input type="hidden" name="pode_taxidog" value={String(podeTaxidog)} />
-        <div>
-          <div style={{ fontWeight: 500, color: 'var(--gray-100)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <IconCar style={{ width: 15, height: 15, color: 'var(--gray-400)' }} /> TaxiDog
-          </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--gray-400)' }}>
-            Pode receber corridas de busca e entrega de pets pelo aplicativo
-          </div>
+          )}
+          <LinhaPermissao icone={IconCalendar} nome="pode_gerenciar_agenda" titulo="Agenda" detalhe="Ver e alterar o status dos agendamentos" valor={podeAgenda} desativado={acessoTotal} onChange={setPodeAgenda} />
+          <LinhaPermissao icone={IconScissors} nome="pode_gerenciar_servicos" titulo="Serviços" detalhe="Cadastrar e editar os serviços do petshop" valor={podeServicos} desativado={acessoTotal} onChange={setPodeServicos} />
+          <LinhaPermissao icone={IconPackage} nome="pode_gerenciar_produtos" titulo="Produtos" detalhe="Cadastrar produtos, categorias e ajustar o estoque" valor={podeProdutos} desativado={acessoTotal} onChange={setPodeProdutos} />
+          <LinhaPermissao icone={IconDog} nome="pode_gerenciar_clientes_pets" titulo="Pets e clientes" detalhe="Ver os pets e clientes cadastrados" valor={podeClientesPets} desativado={acessoTotal} onChange={setPodeClientesPets} />
         </div>
-      </label>
+
+        {/* Funções — o que a pessoa FAZ na loja, independente do que ela pode
+            ver/editar. Não é travado por "Administrador": um administrador não
+            vira TaxiDog automaticamente, e um TaxiDog não ganha permissão de
+            nada por ser TaxiDog. */}
+        <span className="eq-secao">Funções</span>
+        <div className="eq-grupo">
+          <LinhaPermissao icone={IconCar} nome="pode_taxidog" titulo="TaxiDog" detalhe="Recebe corridas de busca e entrega de pets pelo aplicativo" valor={podeTaxidog} onChange={setPodeTaxidog} />
+        </div>
       </div>
     </div>
+  )
+}
+
+// Uma permissão da janela na tela grande: ícone, nome, explicação e a chave.
+// A linha inteira liga e desliga; o campo escondido é o que o formulário envia.
+function LinhaPermissao({ icone: Icone, nome, titulo, detalhe, valor, onChange, desativado, destaque }: {
+  icone: typeof IconShield
+  // `name` do campo enviado no formulário.
+  nome: string
+  titulo: string
+  detalhe: string
+  valor: boolean
+  onChange: (valor: boolean) => void
+  desativado?: boolean
+  // A linha do administrador: ícone cheio em índigo.
+  destaque?: boolean
+}) {
+  return (
+    <label className={`eq-linha ${desativado ? 'is-travada' : ''} ${destaque ? 'is-destaque' : ''}`}>
+      <span className="eq-icone"><Icone /></span>
+      <span className="eq-texto">
+        <strong>{titulo}</strong>
+        <small>{detalhe}</small>
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={valor}
+        aria-label={titulo}
+        className={`switch ${valor ? 'switch-on' : ''}`}
+        disabled={desativado}
+        onClick={() => onChange(!valor)}
+      >
+        <span className="switch-thumb" />
+      </button>
+      <input type="hidden" name={nome} value={String(valor)} />
+    </label>
   )
 }
 
