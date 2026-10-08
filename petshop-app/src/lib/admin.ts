@@ -32,15 +32,3 @@ export async function getPlatformAdmin(): Promise<PlatformAdmin | null> {
   return (data as PlatformAdmin | null) ?? null
 }
 
-/**
- * Segundo fator (TOTP, app autenticador) do painel interno. O painel só
- * abre com a sessão em nível "aal2" — ou seja, depois do código de 6
- * dígitos. Escape de emergência: INTERNO_2FA=off nas variáveis de ambiente
- * (use só se o MFA do Supabase estiver desligado e você ficar trancado fora).
- */
-export async function segundoFatorOk(): Promise<boolean> {
-  if (process.env.INTERNO_2FA === 'off') return true
-  const supabase = await createClient()
-  const { data } = await supabase.auth.getClaims()
-  return (data?.claims as { aal?: string } | undefined)?.aal === 'aal2'
-}

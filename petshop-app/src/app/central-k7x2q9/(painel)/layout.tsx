@@ -1,6 +1,5 @@
-import { notFound, redirect } from 'next/navigation'
-import { getPlatformAdmin, segundoFatorOk } from '@/lib/admin'
-import { ROTA_INTERNA } from '@/lib/rota-interna'
+import { notFound } from 'next/navigation'
+import { getPlatformAdmin } from '@/lib/admin'
 import InternoSidebar from '@/components/interno/InternoSidebar'
 import type { Metadata } from 'next'
 
@@ -14,8 +13,6 @@ export default async function InternoLayout({ children }: { children: React.Reac
   // comum: nada na resposta confirma que este painel existe.
   const admin = await getPlatformAdmin()
   if (!admin) notFound()
-  // Sem o código do app autenticador (2º fator), não entra.
-  if (!(await segundoFatorOk())) redirect(`${ROTA_INTERNA}/verificar`)
 
   return (
     <div className="app-layout">
