@@ -615,6 +615,10 @@ function Bolha({ m, reenviando, onReenviar, onMidia }: {
   onReenviar: () => void
   onMidia: () => void
 }) {
+  // O arquivo fica na Meta por tempo limitado: se não vier, a mensagem
+  // avisa em vez de mostrar uma imagem quebrada.
+  const [semArquivo, setSemArquivo] = useState(false)
+
   if (m.tipo === 'sistema') {
     return <div className="wa-sistema"><span>{m.texto}</span></div>
   }
@@ -625,16 +629,17 @@ function Bolha({ m, reenviando, onReenviar, onMidia }: {
 
   return (
     <div className={`wa-bolha is-${m.direcao} ${m.status === 'erro' ? 'is-erro' : ''}`} title={m.direcao === 'saida' && m.nome_autor ? `Enviada por ${m.nome_autor}` : undefined}>
-      {m.tipo === 'imagem' && arquivo && (
+      {m.tipo === 'imagem' && arquivo && !semArquivo && (
         <a href={arquivo} target="_blank" rel="noopener noreferrer" className="wa-imagem">
           {/* eslint-disable-next-line @next/next/no-img-element -- arquivo da conversa, entregue pela rota do próprio site */}
-          <img src={arquivo} alt="Imagem" loading="lazy" onLoad={onMidia} />
+          <img src={arquivo} alt="Imagem" loading="lazy" onLoad={onMidia} onError={() => setSemArquivo(true)} />
         </a>
       )}
-      {m.tipo === 'figurinha' && arquivo && (
+      {m.tipo === 'figurinha' && arquivo && !semArquivo && (
         // eslint-disable-next-line @next/next/no-img-element -- arquivo da conversa, entregue pela rota do próprio site
-        <img src={arquivo} alt="Figurinha" className="wa-figurinha" loading="lazy" onLoad={onMidia} />
+        <img src={arquivo} alt="Figurinha" className="wa-figurinha" loading="lazy" onLoad={onMidia} onError={() => setSemArquivo(true)} />
       )}
+      {semArquivo && <p className="wa-texto-apagado">{m.tipo === 'figurinha' ? 'Figurinha' : 'Imagem'} não disponível no momento.</p>}
       {m.tipo === 'audio' && arquivo && <audio controls preload="none" src={arquivo} />}
       {m.tipo === 'video' && arquivo && <video controls preload="none" src={arquivo} className="wa-video" />}
       {m.tipo === 'documento' && arquivo && (
