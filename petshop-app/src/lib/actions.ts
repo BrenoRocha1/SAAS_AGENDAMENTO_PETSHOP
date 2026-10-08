@@ -105,6 +105,21 @@ async function obterOriginDaRequisicao() {
 // `voltarPara`: o link público de agendamento de onde a pessoa veio
 // (lib/volta-agendamento) — fica num cookie até ela voltar do Google.
 export async function getGoogleOAuthUrlAction(role?: string, voltarPara?: string | null): Promise<{ error?: string; url?: string }> {
+  return obterUrlOAuth('google', 'Google', role, voltarPara)
+}
+
+// Mesmo fluxo do Google, com o provedor Apple (precisa estar habilitado
+// em Supabase > Authentication > Providers > Apple).
+export async function getAppleOAuthUrlAction(role?: string, voltarPara?: string | null): Promise<{ error?: string; url?: string }> {
+  return obterUrlOAuth('apple', 'Apple', role, voltarPara)
+}
+
+async function obterUrlOAuth(
+  provider: 'google' | 'apple',
+  rotulo: string,
+  role?: string,
+  voltarPara?: string | null,
+): Promise<{ error?: string; url?: string }> {
   const supabase = await createClient()
   const origin = await obterOriginDaRequisicao()
   await guardarVolta(voltarPara)
@@ -114,7 +129,7 @@ export async function getGoogleOAuthUrlAction(role?: string, voltarPara?: string
     : `${origin}/auth/callback`
 
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
+    provider,
     options: {
       redirectTo: callbackUrl,
       skipBrowserRedirect: true,
@@ -122,7 +137,7 @@ export async function getGoogleOAuthUrlAction(role?: string, voltarPara?: string
   })
 
   if (error || !data.url) {
-    return { error: `Não foi possível conectar com o Google: ${error?.message ?? 'URL não retornada'}` }
+    return { error: `Não foi possível conectar com o ${rotulo}: ${error?.message ?? 'URL não retornada'}` }
   }
   
   // Retorna a URL para o cliente fazer o redirecionamento.
