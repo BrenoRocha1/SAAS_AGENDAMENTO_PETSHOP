@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { acessoDaLoja } from '@/lib/acesso-loja'
 import type { Metadata } from 'next'
 import { diaSemanaBrasil, agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
 import { descreverBloqueio, fechadoODiaTodo, normalizarBloqueios, somarDiasISO } from '@/lib/bloqueios'
@@ -119,6 +120,8 @@ export default async function VitrineLojaPage({ params }: Props) {
     .maybeSingle()
 
   if (!lj || !lj.ativo) notFound()
+  // Teste de 30 dias vencido (migration 088): a página pública também some.
+  if (!(await acessoDaLoja(supabase, lj.id_lojista)).liberado) notFound()
 
   // Busca paralela — serviços, horários, avaliações
   // Nota: `categoria` é adicionada pela migration 042 — pode não existir

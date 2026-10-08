@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { COOKIE_VOLTA, voltaValida } from '@/lib/volta-agendamento'
+import { COOKIE_LOGIN_INTERNO } from '@/lib/impersonar'
+import { ROTA_INTERNA } from '@/lib/rota-interna'
 
 // Ponto único de retorno pros e-mails do Supabase Auth que usam o fluxo
 // PKCE (login com Google, convite de cliente/funcionário, "esqueci minha
@@ -97,6 +99,20 @@ export async function GET(request: Request) {
     url.searchParams.set('error', 'no_user')
     url.searchParams.set('error_detail', encodeURIComponent(detail))
     return NextResponse.redirect(url.toString())
+  }
+
+  // Veio do login do painel interno: só segue pra lá quem está em
+  // admin_usuario (RLS deixa cada um ler a própria linha). Quem não é admin
+  // volta pra home, sem pista de que o painel existe.
+  if (cookieStore.get(COOKIE_LOGIN_INTERNO)) {
+    cookieStore.delete(COOKIE_LOGIN_INTERNO)
+    const { data: admin } = await supabase
+      .from('admin_usuario')
+      .select('id')
+      .eq('id', user.id)
+      .eq('ativo', true)
+      .maybeSingle()
+    return NextResponse.redirect(`${origin}${admin ? ROTA_INTERNA : '/'}`)
   }
 
   // As consultas abaixo usam a sessão recém-criada do próprio usuário:

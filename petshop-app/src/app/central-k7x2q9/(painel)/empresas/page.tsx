@@ -15,6 +15,7 @@ interface Props { searchParams: Promise<{ busca?: string; status?: string; pagin
 interface Linha {
   id_lojista: string; nome_loja: string; email: string; telefone: string
   cidade: string | null; estado: string | null; ativo: boolean; created_at: string
+  acesso_ate: string | null; acesso_livre: boolean | null
 }
 
 export default async function InternoEmpresas({ searchParams }: Props) {
@@ -28,7 +29,7 @@ export default async function InternoEmpresas({ searchParams }: Props) {
 
   let q = db
     .from('lojista')
-    .select('id_lojista, nome_loja, email, telefone, cidade, estado, ativo, created_at', { count: 'exact' })
+    .select('id_lojista, nome_loja, email, telefone, cidade, estado, ativo, created_at, acesso_ate, acesso_livre', { count: 'exact' })
   if (busca) q = q.or(`nome_loja.ilike.%${busca}%,email.ilike.%${busca}%,cidade.ilike.%${busca}%`)
   if (status) q = q.eq('ativo', status === 'ativas')
   const { data, count } = await q
@@ -59,7 +60,7 @@ export default async function InternoEmpresas({ searchParams }: Props) {
         <div className="table-container">
           <table className="table">
             <thead>
-              <tr><th>Empresa</th><th>Contato</th><th>Cidade/UF</th><th>Status</th><th>Cadastrada</th><th /></tr>
+              <tr><th>Empresa</th><th>Contato</th><th>Cidade/UF</th><th>Status</th><th>Acesso</th><th>Cadastrada</th><th /></tr>
             </thead>
             <tbody>
               {lojas.map(l => (
@@ -68,6 +69,9 @@ export default async function InternoEmpresas({ searchParams }: Props) {
                   <td><div>{l.email}</div><div className="text-sm text-muted">{telefoneBR(l.telefone)}</div></td>
                   <td>{l.cidade ? `${l.cidade}${l.estado ? `/${l.estado}` : ''}` : '—'}</td>
                   <td><span className={`badge ${l.ativo ? 'badge-ativo' : 'badge-inativo'}`}>{l.ativo ? 'Ativa' : 'Inativa'}</span></td>
+                  <td className="text-sm">
+                    {l.acesso_livre ? 'Isenta' : l.acesso_ate ? (new Date(l.acesso_ate).getTime() > Date.now() ? `até ${dataBRFmt(l.acesso_ate)}` : 'Encerrado') : '—'}
+                  </td>
                   <td className="text-sm text-muted">{dataBRFmt(l.created_at)}</td>
                   <td>
                     <BotaoAcao

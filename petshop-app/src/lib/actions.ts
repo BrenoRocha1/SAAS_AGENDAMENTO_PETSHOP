@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
+import { cookies, headers } from 'next/headers'
+import { COOKIE_LOGIN_INTERNO } from '@/lib/impersonar'
 import { gerarEmailInterno } from '@/lib/email-interno'
 import { trocarCodigoPorToken } from '@/lib/codigo-acesso'
 import {
@@ -127,6 +128,23 @@ export async function getGoogleOAuthUrlAction(role?: string, voltarPara?: string
   
   // Retorna a URL para o cliente fazer o redirecionamento.
   // Isso evita o bug do Next.js/Vercel onde Set-Cookie é perdido em redirects 30x para URLs externas.
+  return { url: data.url }
+}
+
+// Login do painel interno (/central-…/entrar): mesmo fluxo do Google, mas
+// deixa um cookie curto para o callback mandar de volta ao painel (só se a
+// conta for mesmo de administrador — o callback confere).
+export async function getGoogleOAuthUrlInternoAction(): Promise<{ error?: string; url?: string }> {
+  const supabase = await createClient()
+  const origin = await obterOriginDaRequisicao()
+  ;(await cookies()).set(COOKIE_LOGIN_INTERNO, '1', {
+    httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 10,
+  })
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${origin}/auth/callback`, skipBrowserRedirect: true },
+  })
+  if (error || !data.url) return { error: `Não foi possível conectar com o Google: ${error?.message ?? 'URL não retornada'}` }
   return { url: data.url }
 }
 

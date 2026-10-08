@@ -3,7 +3,7 @@ import { ROTA_INTERNA } from '@/lib/rota-interna'
 import { TAMANHO_PAGINA, dataBRFmt, numeroPagina, termoSeguro, telefoneBR } from '@/lib/interno-util'
 import Paginacao from '@/components/interno/Paginacao'
 import BotaoAcao from '@/components/interno/BotaoAcao'
-import { alterarStatusClienteAction } from '@/lib/actions-interno'
+import { alterarStatusClienteAction, entrarComoAction } from '@/lib/actions-interno'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Clientes — Interno' }
@@ -55,7 +55,13 @@ export default async function InternoClientes({ searchParams }: Props) {
                   <td><div>{c.email}</div><div className="text-sm text-muted">{telefoneBR(c.telefone)}</div></td>
                   <td><span className={`badge ${c.ativo ? 'badge-ativo' : 'badge-inativo'}`}>{c.ativo ? 'Ativo' : 'Inativo'}</span></td>
                   <td className="text-sm text-muted">{dataBRFmt(c.created_at)}</td>
-                  <td>
+                  <td style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                    <BotaoAcao
+                      acao={entrarComoAction.bind(null, 'cliente', c.id_cliente)}
+                      confirmar={`Entrar na conta de ${c.nome}? Sua sessão atual será trocada pela dela.`}
+                    >
+                      Entrar
+                    </BotaoAcao>
                     <BotaoAcao
                       acao={alterarStatusClienteAction.bind(null, c.id_cliente, !c.ativo)}
                       confirmar={c.ativo ? `Desativar ${c.nome}?` : undefined}

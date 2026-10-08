@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { logoutAction } from '@/lib/actions'
 import { BarraMenuMobile, useMenuMobile, useTituloInterno } from '@/components/layout/MenuMobile'
 import { IconLogout } from '@/components/icons'
+import TemaToggle from '@/components/layout/TemaToggle'
 import {
   Sidebar,
   SidebarFooter,
@@ -175,6 +176,7 @@ export default function BarraLateral({
                 </div>
               )}
             </div>
+            <TemaToggle />
             <SidebarItem
               id={idBotaoSair}
               icon={<IconLogout style={{ width: 20, height: 20 }} />}

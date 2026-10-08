@@ -6,7 +6,9 @@ import { formatarReais } from '@/lib/taxidog'
 import { dataBRFmt, telefoneBR } from '@/lib/interno-util'
 import BotaoAcao from '@/components/interno/BotaoAcao'
 import FormEmpresa from '@/components/interno/FormEmpresa'
-import { alterarStatusEmpresaAction } from '@/lib/actions-interno'
+import { alterarStatusEmpresaAction, definirAcessoLivreAction, entrarComoAction, estenderAcessoAction } from '@/lib/actions-interno'
+import { calcularAcesso } from '@/lib/acesso-loja'
+import { dataHoraBR } from '@/lib/interno-util'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Empresa — Interno' }
@@ -40,6 +42,7 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
     db.from('funcionario').select('id_funcionario, nome, cargo, ativo').eq('id_lojista', id).order('nome'),
   ])
 
+  const acesso = calcularAcesso(loja.acesso_ate, loja.acesso_livre)
   const totalVendas = ((vendas30.data ?? []) as { total: number }[]).reduce((s, v) => s + Number(v.total), 0)
 
   const cards: { valor: string | number; rotulo: string }[] = [
@@ -81,6 +84,34 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
             <div className="stat-card-label">{c.rotulo}</div>
           </div>
         ))}
+      </div>
+
+      <h2 className="page-title" style={{ fontSize: '1.125rem', marginBottom: 'var(--space-3)' }}>Acesso e teste</h2>
+      <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-8)', display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <span className={`badge ${acesso.liberado ? 'badge-ativo' : 'badge-cancelado'}`}>
+            {acesso.livre ? 'Isenta de cobrança' : acesso.liberado ? 'Em teste / em dia' : 'Teste encerrado'}
+          </span>
+          {!acesso.livre && (
+            <p className="text-sm text-muted" style={{ marginTop: 'var(--space-2)' }}>
+              Acesso até {dataHoraBR(loja.acesso_ate)}{acesso.liberado && acesso.diasRestantes !== null ? ` (${acesso.diasRestantes} dias)` : ''}
+            </p>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+          <BotaoAcao acao={estenderAcessoAction.bind(null, id, 30)}>+30 dias</BotaoAcao>
+          <BotaoAcao acao={estenderAcessoAction.bind(null, id, 7)}>+7 dias</BotaoAcao>
+          <BotaoAcao acao={definirAcessoLivreAction.bind(null, id, !acesso.livre)}>
+            {acesso.livre ? 'Voltar a cobrar' : 'Isentar de cobrança'}
+          </BotaoAcao>
+          <BotaoAcao
+            acao={entrarComoAction.bind(null, 'lojista', id)}
+            className="btn btn-primary btn-sm"
+            confirmar={`Entrar na conta de ${loja.nome_loja}? Sua sessão atual será trocada pela dela.`}
+          >
+            Entrar na conta
+          </BotaoAcao>
+        </div>
       </div>
 
       <h2 className="page-title" style={{ fontSize: '1.125rem', marginBottom: 'var(--space-3)' }}>Dados da empresa</h2>
