@@ -1,0 +1,23 @@
+-- ============================================================
+-- PETSHOP SaaS - Migration 087: excluir produto que já foi vendido
+-- ============================================================
+-- Hoje um produto vendido junto de um agendamento não pode ser excluído:
+-- a venda fica presa ao cadastro dele (agendamento_produto.id_produto é
+-- ON DELETE RESTRICT, migration 039) e o banco recusa o DELETE — a loja
+-- só conseguia deixar "Inativo", e ele continuava na lista de Produtos.
+--
+-- Com esta coluna, "Excluir" passa a funcionar também nesse caso: quando
+-- o banco recusa apagar, excluirProdutoAction marca o produto como
+-- excluído (status 'Inativo', fora do agendamento online e com a data
+-- aqui). Ele some da tela de Produtos (site e app); do caixa e do
+-- agendamento online já sumia por estar inativo. A LINHA continua no
+-- banco, então nada do histórico muda: os agendamentos antigos seguem
+-- mostrando o produto e os relatórios de vendas seguem somando.
+--
+-- É só uma coluna nova, vazia para todo mundo: nada muda para os produtos
+-- que existem. Quem grava é a própria loja, pelas regras de sempre da
+-- tabela produto (migrations 037 e 040). Produto nunca vendido em
+-- agendamento continua sendo apagado de verdade, como antes.
+-- ============================================================
+
+ALTER TABLE produto ADD COLUMN IF NOT EXISTS excluido_em TIMESTAMPTZ;

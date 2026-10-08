@@ -1073,7 +1073,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                 </span>
                 <p style={{ color: 'var(--gray-200)' }}>
                   Tem certeza que deseja excluir <strong style={{ color: 'var(--gray-100)' }}>&quot;{confirmarExclusao.nome}&quot;</strong>?
-                  Essa ação não pode ser desfeita.
+                  Essa ação não pode ser desfeita. Se ele já foi vendido, as vendas continuam no histórico e nos relatórios.
                 </p>
               </div>
             </div>

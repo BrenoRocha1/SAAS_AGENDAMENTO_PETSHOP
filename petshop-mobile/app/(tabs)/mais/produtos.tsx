@@ -136,7 +136,9 @@ export default function ProdutosScreen() {
       setErro('Não foi possível carregar os produtos.')
     } else {
       setErro(null)
-      setProdutos(((prods.data ?? []) as Produto[]).map(p => ({
+      // Produto excluído depois de vendido (migration 087) continua no banco
+      // pelo histórico, mas não aparece mais aqui. Sem a coluna, ninguém sai.
+      setProdutos(((prods.data ?? []) as (Produto & { excluido_em?: string | null })[]).filter(p => !p.excluido_em).map(p => ({
         ...p,
         preco_venda: Number(p.preco_venda),
         estoque_atual: Number(p.estoque_atual),
@@ -612,7 +614,7 @@ export default function ProdutosScreen() {
       </Folha>
 
       <FolhaConfirmar visivel={!!excluir} titulo="Excluir produto" nome={excluir?.nome} ocupado={enviando} onConfirmar={confirmarExclusao} onFechar={() => setExcluir(null)}>
-        Essa ação não pode ser desfeita.
+        Essa ação não pode ser desfeita. Se ele já foi vendido, as vendas continuam no histórico e nos relatórios.
       </FolhaConfirmar>
     </ScreenContainer>
   )

@@ -1249,11 +1249,12 @@ export async function movimentarEstoqueAction(id_produto: string, formData: Form
 // Exclusão é só lojista/administrador (mesma regra de
 // excluirServicoAction). Desde a migration 040, ter movimentação de
 // estoque não trava mais a exclusão (movimento_estoque tem ON DELETE
-// CASCADE em produto) — só um produto já vendido de verdade pelo
-// agendamento online barra (agendamento_produto é ON DELETE RESTRICT,
-// ver catch do código 23503 abaixo), pra não quebrar o histórico de
-// compras do cliente.
-export async function excluirProdutoAction(id_produto: string) {
+// CASCADE em produto). Produto já vendido junto de um agendamento o banco
+// não deixa apagar (agendamento_produto é ON DELETE RESTRICT, código
+// 23503): nesse caso ele é marcado como excluído (migration 087) — some
+// da tela de Produtos, do caixa e do agendamento online, e a linha fica no
+// banco pra não quebrar o histórico de compras nem os relatórios.
+export async function excluirProdutoAction(id_produto: string): Promise<{ error?: string; success?: boolean; aviso?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
@@ -1273,6 +1274,16 @@ export async function excluirProdutoAction(id_produto: string) {
 
   if (error) {
     if (error.code === '23503') {
+      const { error: erroMarca } = await db
+        .from('produto')
+        .update({ status: 'Inativo', disponivel_agendamento_online: false, excluido_em: new Date().toISOString() })
+        .eq('id_produto', id_produto)
+        .eq('id_lojista', contexto.idLojista)
+      if (!erroMarca) {
+        revalidatePath('/lojista/produtos')
+        return { success: true, aviso: 'Produto excluído. Como ele já foi vendido, as vendas continuam no histórico.' }
+      }
+      // Sem a coluna excluido_em (migration 087 ainda não rodou): como era antes.
       return { error: 'Este produto já foi vendido pelo agendamento online e não pode ser excluído. Marque-o como "Inativo" em vez de excluir.' }
     }
     return { error: 'Erro ao excluir produto.' }

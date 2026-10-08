@@ -56,7 +56,11 @@ export default async function ProdutosPage() {
     ((custosRes.error ? [] : custosRes.data ?? []) as { id_produto: string; custo_unitario: number }[])
       .map(c => [c.id_produto, Number(c.custo_unitario)]),
   )
-  const produtosComCusto = (produtos ?? []).map(p => ({ ...p, custo_unitario: custoPorProduto.get(p.id_produto) ?? null }))
+  // Produto excluído depois de vendido (migration 087) continua no banco
+  // pelo histórico, mas não aparece mais aqui. Sem a coluna, ninguém sai.
+  const produtosComCusto = (produtos ?? [])
+    .filter(p => !p.excluido_em)
+    .map(p => ({ ...p, custo_unitario: custoPorProduto.get(p.id_produto) ?? null }))
 
   return (
     <>
