@@ -322,24 +322,6 @@ function LoginFormPane() {
           Código de acesso rápido
         </Link>
 
-        <div className="login-switch-perfil">
-          {isLojista ? (
-            <>
-              <span>É cliente?</span>
-              <button type="button" className="login-switch-link" onClick={() => { setPerfil('cliente'); setError(null) }}>
-                Entrar como cliente
-              </button>
-            </>
-          ) : (
-            <>
-              <span>É lojista / petshop?</span>
-              <button type="button" className="login-switch-link" onClick={() => { setPerfil('lojista'); setError(null) }}>
-                Entrar como lojista
-              </button>
-            </>
-          )}
-        </div>
-
         <div className="login-register-hint">
           {isLojista ? (
             <>

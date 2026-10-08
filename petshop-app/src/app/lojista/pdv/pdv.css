@@ -495,3 +495,13 @@
 @media (prefers-reduced-motion: reduce) {
   .pdv-produto, .pdv-item, .pdv-produto-qtd, .pdv-sucesso-icone, .pdv-carrinho.is-aberto { animation: none; transition: none; }
 }
+
+/* Dicas de atalho nos botões do carrinho */
+.pdv-texto-btn kbd, .pdv-cliente kbd, .pdv-link-btn kbd {
+  margin-left: 6px; padding: 0 5px; font-family: var(--font-body); font-size: 0.6875rem; font-weight: 600;
+  color: var(--gray-500); background: var(--gray-850); border: 1px solid var(--gray-700); border-radius: var(--radius-sm);
+}
+.pdv-cliente kbd { margin-left: auto; }
+@media (max-width: 900px) {
+  .pdv-texto-btn kbd, .pdv-cliente kbd, .pdv-link-btn kbd { display: none; }
+}
