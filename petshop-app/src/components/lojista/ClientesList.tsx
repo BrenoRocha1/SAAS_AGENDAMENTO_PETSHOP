@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { formatarTelefone, iniciais } from '@/lib/format'
 import ClienteFormModal, { type ClienteParaEditar } from './ClienteFormModal'
 import {
@@ -14,6 +15,10 @@ import {
   IconUsers,
 } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
+import './clientes-lista.css'
+
+// Quantos nomes de pet cabem na linha antes do "+N".
+const PETS_NA_LINHA = 3
 
 export interface ClienteLinha {
   id_cliente: string
@@ -92,6 +97,68 @@ export default function ClientesList({ clientes, total, pagina, pageSize, busca,
 
   const totalPaginas = Math.max(1, Math.ceil(total / pageSize))
 
+  // A lista (a mesma na tela grande e no celular; o CSS esconde no celular o
+  // que só cabe na tela grande): um bloco só, a linha inteira abre o cliente
+  // e o lápis de editar aparece ao passar o mouse.
+  const lista = (
+    <div className="cli-lista">
+      <div className="cli-cabecalho" aria-hidden="true">
+        <span>Cliente</span>
+        <span>Telefone</span>
+        <span>Pets</span>
+        <span>Agendamentos</span>
+        <span />
+      </div>
+      {clientes.map(c => (
+        <div key={c.id_cliente} className="cli-linha">
+          <Link href={`/lojista/clientes/${c.id_cliente}`} className="cli-link" aria-label={`Abrir ${c.nome}`}>
+            <span className="cli-quem">
+              <span className="cli-avatar">{iniciais(c.nome)}</span>
+              <span className="cli-nome">
+                <strong>{c.nome}</strong>
+                {c.email && <small className="cli-email">{c.email}</small>}
+                <small className="cli-fone-celular">{formatarTelefone(c.telefone)}</small>
+              </span>
+            </span>
+            <span className="cli-telefone">{formatarTelefone(c.telefone)}</span>
+            <span className="cli-pets">
+              {c.qtdPets === 0 ? (
+                <span className="cli-sem">Sem pet cadastrado</span>
+              ) : (
+                <>
+                  {/* O resumo vem como "Nome (Raça)": na linha vai só o nome, a raça fica na dica. */}
+                  {c.petsResumo.slice(0, PETS_NA_LINHA).map(p => <span key={p} className="cli-pet" title={p}>{p.replace(/\s*\([^)]*\)\s*$/, '')}</span>)}
+                  {c.qtdPets > Math.min(c.petsResumo.length, PETS_NA_LINHA) && (
+                    <span className="cli-pet is-mais">+{c.qtdPets - Math.min(c.petsResumo.length, PETS_NA_LINHA)}</span>
+                  )}
+                </>
+              )}
+            </span>
+            <span className="cli-agend">
+              <strong>{c.qtdAgendamentos}</strong>
+              <small>{c.qtdAgendamentos === 1 ? 'agendamento' : 'agendamentos'}</small>
+            </span>
+            <span className="cli-fim">
+              <span className="cli-qtd-pets"><IconPaw /> {c.qtdPets}</span>
+              <IconChevronRight className="cli-seta" />
+            </span>
+          </Link>
+          {podeEditar && (
+            <button
+              type="button"
+              className="cli-editar"
+              title="Editar"
+              aria-label={`Editar ${c.nome}`}
+              onClick={() => abrirEdicao({ id_cliente: c.id_cliente, nome: c.nome, telefone: c.telefone })}
+            >
+              <IconPencil />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+
   return (
     <div style={{ opacity: isPending ? 0.6 : 1, transition: 'opacity 150ms' }}>
       {/* Celular (até 768px): a mesma tela Clientes do app. */}
@@ -122,24 +189,7 @@ export default function ClientesList({ clientes, total, pagina, pageSize, busca,
             <span>{busca ? 'Tente outro nome ou telefone.' : 'Os clientes da sua loja aparecem aqui.'}</span>
           </div>
         ) : (
-          <div className="dash-app-lista">
-            {clientes.map(c => (
-              <button
-                type="button"
-                key={c.id_cliente}
-                className="dash-app-linha"
-                onClick={() => router.push(`/lojista/clientes/${c.id_cliente}`)}
-              >
-                <span className="tela-app-avatar">{iniciais(c.nome)}</span>
-                <span className="dash-app-linha-info">
-                  <span className="dash-app-linha-pet">{c.nome}</span>
-                  <span className="dash-app-linha-sub">{formatarTelefone(c.telefone)}</span>
-                </span>
-                <span className="tela-app-chip"><IconPaw style={{ width: 13, height: 13 }} /> {c.qtdPets}</span>
-                <IconChevronRight className="tela-app-seta" style={{ width: 18, height: 18 }} />
-              </button>
-            ))}
-          </div>
+          lista
         )}
 
         {totalPaginas > 1 && (
@@ -156,15 +206,19 @@ export default function ClientesList({ clientes, total, pagina, pageSize, busca,
       </div>
 
       <div className="so-desktop">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-        <div className="dash-search" style={{ maxWidth: 360 }}>
+      <div className="cli-barra">
+        <div className="cli-busca">
           <IconSearch />
           <input
-            placeholder="Buscar por nome, telefone ou e-mail..."
+            placeholder="Buscar por nome, telefone ou e-mail"
             value={buscaInput}
             onChange={e => setBuscaInput(e.target.value)}
+            aria-label="Buscar cliente por nome, telefone ou e-mail"
           />
         </div>
+        {total > 0 && (
+          <span className="cli-total"><strong>{total}</strong> cliente{total !== 1 ? 's' : ''}</span>
+        )}
         {podeEditar && (
           <button onClick={abrirNovo} className="btn btn-primary" id="btn-novo-cliente">
             <IconPlus style={{ width: 16, height: 16 }} /> Novo Cliente
@@ -191,99 +245,21 @@ export default function ClientesList({ clientes, total, pagina, pageSize, busca,
         </div>
       ) : (
         <>
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Cliente</th>
-                  <th>Contato</th>
-                  <th>Pets</th>
-                  <th>Agendamentos</th>
-                  {podeEditar && <th>Ações</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {clientes.map(c => (
-                  <tr
-                    key={c.id_cliente}
-                    onClick={() => router.push(`/lojista/clientes/${c.id_cliente}`)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <td>
-                      <div className="flex items-center gap-3">
-                        <div
-                          style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: '50%',
-                            background: 'var(--primary-600)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 700,
-                            fontSize: '0.875rem',
-                            color: 'white',
-                            flexShrink: 0,
-                          }}
-                        >
-                          {c.nome?.[0]?.toUpperCase()}
-                        </div>
-                        <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{c.nome}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div>{formatarTelefone(c.telefone)}</div>
-                      <div className="text-sm text-muted">{c.email}</div>
-                    </td>
-                    <td>
-                      {c.qtdPets === 0 ? (
-                        <span className="text-sm text-muted">Sem pet cadastrado</span>
-                      ) : (
-                        <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
-                          {c.petsResumo.map(p => (
-                            <span key={p} className="badge badge-ativo" style={{ fontSize: '0.7rem' }}>{p}</span>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <span className="font-semibold" style={{ color: 'var(--primary-400)' }}>
-                        {c.qtdAgendamentos}
-                      </span>
-                    </td>
-                    {podeEditar && (
-                      <td>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          title="Editar"
-                          onClick={e => {
-                            e.stopPropagation()
-                            abrirEdicao({ id_cliente: c.id_cliente, nome: c.nome, telefone: c.telefone })
-                          }}
-                        >
-                          <IconPencil style={{ width: 14, height: 14 }} />
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {lista}
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
-            <span className="text-sm text-muted">
-              {total} cliente{total !== 1 ? 's' : ''} · página {pagina} de {totalPaginas}
-            </span>
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => navegar({ pagina: pagina - 1 > 1 ? String(pagina - 1) : undefined })} disabled={pagina <= 1 || isPending}>
-                <IconChevronLeft style={{ width: 14, height: 14 }} /> Anterior
-              </button>
-              <button className="btn btn-ghost btn-sm" onClick={() => navegar({ pagina: String(pagina + 1) })} disabled={pagina >= totalPaginas || isPending}>
-                Próxima <IconChevronRight style={{ width: 14, height: 14 }} />
-              </button>
+          {totalPaginas > 1 && (
+            <div className="cli-rodape">
+              <span className="text-sm text-muted">Página {pagina} de {totalPaginas}</span>
+              <div className="cli-paginas">
+                <button type="button" onClick={() => navegar({ pagina: pagina - 1 > 1 ? String(pagina - 1) : undefined })} disabled={pagina <= 1 || isPending} aria-label="Página anterior">
+                  <IconChevronLeft />
+                </button>
+                <button type="button" onClick={() => navegar({ pagina: String(pagina + 1) })} disabled={pagina >= totalPaginas || isPending} aria-label="Próxima página">
+                  <IconChevronRight />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
       </div>

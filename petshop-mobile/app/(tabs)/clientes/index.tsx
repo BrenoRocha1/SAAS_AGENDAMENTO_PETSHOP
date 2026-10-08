@@ -62,10 +62,16 @@ export default function ClientesScreen() {
         data={clientes}
         keyExtractor={item => item.id_cliente}
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <ClienteRow cliente={item} onPress={() => router.push(`/clientes/${item.id_cliente}`)} />
+        // Um bloco só: as linhas coladas, com o traço fino entre elas (a
+        // primeira e a última fecham os cantos).
+        renderItem={({ item, index }) => (
+          <ClienteRow
+            cliente={item}
+            primeiro={index === 0}
+            ultimo={index === clientes.length - 1}
+            onPress={() => router.push(`/clientes/${item.id_cliente}`)}
+          />
         )}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         refreshing={loading}
         onRefresh={recarregar}
         onEndReachedThreshold={0.4}
