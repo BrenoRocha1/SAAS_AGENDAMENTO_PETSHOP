@@ -3,7 +3,6 @@ import { getPlatformAdmin } from '@/lib/admin'
 import { dataBRFmt } from '@/lib/interno-util'
 import BotaoAcao from '@/components/interno/BotaoAcao'
 import FormAdmin from '@/components/interno/FormAdmin'
-import CodigoAcesso from '@/components/interno/CodigoAcesso'
 import { alterarStatusAdminAction } from '@/lib/actions-interno'
 import type { Metadata } from 'next'
 
@@ -15,8 +14,8 @@ export default async function InternoAdmins() {
   if (!db) return <div className="alert alert-error"><span>SUPABASE_SERVICE_ROLE_KEY não configurada.</span></div>
   const eu = await getPlatformAdmin()
 
-  const { data } = await db.from('admin_usuario').select('id, email, nome, ativo, created_at, codigo_gerado_em').order('created_at')
-  const admins = (data ?? []) as { id: string; email: string; nome: string | null; ativo: boolean; created_at: string; codigo_gerado_em?: string | null }[]
+  const { data } = await db.from('admin_usuario').select('id, email, nome, ativo, created_at').order('created_at')
+  const admins = (data ?? []) as { id: string; email: string; nome: string | null; ativo: boolean; created_at: string }[]
 
   return (
     <>
@@ -24,8 +23,6 @@ export default async function InternoAdmins() {
         <h1 className="page-title">Administradores</h1>
         <p className="page-subtitle">Quem tem acesso a este painel interno</p>
       </div>
-
-      <CodigoAcesso geradoEm={admins.find(a => a.id === eu?.id)?.codigo_gerado_em ?? null} />
 
       <FormAdmin />
 

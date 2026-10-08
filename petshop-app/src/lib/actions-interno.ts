@@ -9,8 +9,6 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { COOKIE_IMPERSONANDO } from '@/lib/impersonar'
-import { checkRateLimit } from '@/lib/rate-limit'
-import { gerarCodigoInterno, hashCodigoInterno } from '@/lib/codigo-interno'
 import { getPlatformAdmin } from '@/lib/admin'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ROTA_INTERNA } from '@/lib/rota-interna'
@@ -211,7 +209,8 @@ export async function entrarComoAction(tipo: 'lojista' | 'cliente', id: string):
     httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 8,
   })
   revalidatePath('/', 'layout')
-  redirect(tipo === 'lojista' ? '/lojista/dashboard' : '/cliente/dashboard')
+  // Cai direto no perfil pessoal da pessoa, para a equipe resolver o que ela precisar.
+  redirect(tipo === 'lojista' ? '/lojista/perfil' : '/cliente/perfil')
 }
 
 // Sai da conta vista e volta para a tela de entrada do painel interno.
@@ -257,71 +256,4 @@ export async function trocarEmailAction(tipo: 'lojista' | 'cliente', id: string,
   await auditar(ctx.db, ctx.admin, 'conta.trocar_email', tipo, id, { de: emailAntigo, para: email })
   revalidarInterno()
   return { success: true }
-}
-
-// ── Código de acesso do painel interno ────────────────────────────────────
-// Cada administrador tem UM código longo (20 caracteres, ~100 bits). Só o
-// hash fica no banco; o código aparece uma única vez, na hora de gerar.
-// Gerar de novo invalida o anterior. Quem tem o código entra como aquele
-// administrador — trate como senha.
-
-export async function gerarCodigoInternoAction(): Promise<Resultado & { codigo?: string }> {
-  const ctx = await exigirAdmin()
-  if ('erro' in ctx) return { error: ctx.erro }
-  const codigo = gerarCodigoInterno()
-  const { error } = await ctx.db
-    .from('admin_usuario')
-    .update({ codigo_hash: hashCodigoInterno(codigo), codigo_gerado_em: new Date().toISOString() })
-    .eq('id', ctx.admin.id)
-  if (error) return { error: error.message }
-  await auditar(ctx.db, ctx.admin, 'admin.codigo_gerar', 'admin_usuario', ctx.admin.id)
-  revalidarInterno()
-  return { success: true, codigo }
-}
-
-export async function revogarCodigoInternoAction(): Promise<Resultado> {
-  const ctx = await exigirAdmin()
-  if ('erro' in ctx) return { error: ctx.erro }
-  const { error } = await ctx.db
-    .from('admin_usuario')
-    .update({ codigo_hash: null, codigo_gerado_em: null })
-    .eq('id', ctx.admin.id)
-  if (error) return { error: error.message }
-  await auditar(ctx.db, ctx.admin, 'admin.codigo_revogar', 'admin_usuario', ctx.admin.id)
-  revalidarInterno()
-  return { success: true }
-}
-
-// Tela /entrar: só o código. Resposta igual para qualquer falha (não
-// diz se o código existe) e limite de tentativas por IP.
-export async function entrarComCodigoAction(codigoDigitado: string): Promise<Resultado> {
-  const limite = await checkRateLimit('interno-codigo', 8, 15)
-  if (!limite.success) return { error: `Muitas tentativas. Tente de novo em ${Math.ceil((limite.retryAfter ?? 60) / 60)} min.` }
-
-  const invalido = { error: 'Código inválido.' }
-  const hash = hashCodigoInterno(codigoDigitado)
-  if (!hash) return invalido
-
-  const db = createAdminClient()
-  if (!db) return { error: 'Servidor sem a chave de serviço (SUPABASE_SERVICE_ROLE_KEY).' }
-
-  const { data: admin } = await db
-    .from('admin_usuario')
-    .select('id, email, nome, ativo')
-    .eq('codigo_hash', hash)
-    .eq('ativo', true)
-    .maybeSingle()
-  if (!admin) return invalido
-
-  const { data: link, error: erroLink } = await db.auth.admin.generateLink({ type: 'magiclink', email: admin.email })
-  const tokenHash = link?.properties?.hashed_token
-  if (erroLink || !tokenHash) return { error: 'Não foi possível entrar agora. Use o login com Google.' }
-
-  const supabase = await createClient()
-  const { error: erroSessao } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' })
-  if (erroSessao) return { error: 'Não foi possível entrar agora. Use o login com Google.' }
-
-  await auditar(db, { id: admin.id, email: admin.email, nome: admin.nome, ativo: true }, 'admin.login_codigo', 'admin_usuario', admin.id)
-  revalidatePath('/', 'layout')
-  redirect(ROTA_INTERNA)
 }

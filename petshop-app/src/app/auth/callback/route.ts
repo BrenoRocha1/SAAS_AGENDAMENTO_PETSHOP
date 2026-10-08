@@ -102,8 +102,8 @@ export async function GET(request: Request) {
   }
 
   // Veio do login do painel interno: só segue pra lá quem está em
-  // admin_usuario (RLS deixa cada um ler a própria linha). Quem não é admin
-  // volta pra home, sem pista de que o painel existe.
+  // admin_usuario (RLS deixa cada um ler a própria linha). Qualquer outra
+  // conta é desconectada e vê o mesmo 404 de uma página que não existe.
   if (cookieStore.get(COOKIE_LOGIN_INTERNO)) {
     cookieStore.delete(COOKIE_LOGIN_INTERNO)
     const { data: admin } = await supabase
@@ -112,7 +112,8 @@ export async function GET(request: Request) {
       .eq('id', user.id)
       .eq('ativo', true)
       .maybeSingle()
-    return NextResponse.redirect(`${origin}${admin ? ROTA_INTERNA : '/'}`)
+    if (!admin) await supabase.auth.signOut({ scope: 'local' })
+    return NextResponse.redirect(`${origin}${ROTA_INTERNA}`)
   }
 
   // As consultas abaixo usam a sessão recém-criada do próprio usuário:
