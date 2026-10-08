@@ -44,7 +44,7 @@ import { mensagemErroBloqueio } from '@/lib/bloqueios'
 import { criarContaCliente } from '@/lib/cadastro-cliente'
 import { guardarVolta, usarVolta, voltaValida } from '@/lib/volta-agendamento'
 import { alterarTransporteAction } from '@/lib/actions-rotas'
-import { formatarCep as formatarCepTaxiDog } from '@/lib/taxidog'
+import { buscaQueNaoChegou, formatarCep as formatarCepTaxiDog } from '@/lib/taxidog'
 import { ehFormaPagamento, formasAtivas, mensagemErroPagamento, normalizarFormasLoja, type FormaPagamento } from '@/lib/pagamento'
 import { coberturaDoPlano, type PlanoDoPet } from '@/lib/planos'
 import { erroQuantidadeInteira } from '@/lib/produto'
@@ -2046,18 +2046,22 @@ async function buscaPendenteDaVisita(
     .eq('dt_agendamento', linha.dt_agendamento)
   const ids = ((visita ?? []) as { id_agendamento: string }[]).map(v => v.id_agendamento)
   if (ids.length === 0) return null
+  // Todas as buscas da visita, as que já chegaram também: é por elas que se
+  // sabe que o pet está na loja (ver buscaQueNaoChegou).
   const { data: corridas, error } = await supabase
     .from('taxidog_corrida')
-    .select('status, modalidade, cep, logradouro, numero, complemento, bairro, cidade, uf')
+    .select('id_agendamento, status, modalidade, cep, logradouro, numero, complemento, bairro, cidade, uf')
     .in('id_agendamento', ids)
     .in('modalidade', ['buscar', 'buscar_entregar'])
-    .in('status', ['agendada', 'a_caminho_cliente', 'no_endereco', 'pet_embarcado'])
-    .limit(1)
-  if (error || !corridas || corridas.length === 0) return null
-  const c = corridas[0] as {
+    .neq('status', 'cancelada')
+    .order('created_at')
+  if (error || !corridas) return null
+  const c = buscaQueNaoChegou(corridas as {
+    id_agendamento: string
     status: string; modalidade: 'buscar' | 'buscar_entregar'
     cep: string; logradouro: string; numero: string; complemento: string | null; bairro: string; cidade: string; uf: string
-  }
+  }[], idAgendamento)
+  if (!c) return null
   return {
     pet: linha.pet?.nome ?? 'o pet',
     modalidade: c.modalidade,

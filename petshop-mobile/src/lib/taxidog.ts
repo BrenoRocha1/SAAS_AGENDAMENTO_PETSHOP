@@ -127,6 +127,21 @@ export function grupoCorrida(status: string, temTaxiDog: boolean): GrupoCorrida 
 }
 
 // A corrida ainda admite troca de TaxiDog? (mesma regra de fn_atribuir_corrida)
+// Busca do TaxiDog que ainda não chegou à loja — o aviso de quem vai iniciar
+// ou finalizar o atendimento. `corridas`: as buscas ("buscar" e "buscar e
+// entregar") não canceladas da VISITA (mesmo pet, mesmo dia). Vale a corrida
+// do próprio agendamento; sem ela, as da visita. E, se alguma das que valem
+// já chegou à loja, o pet está lá: não há o que avisar. (Antes bastava haver
+// uma busca pendente em QUALQUER agendamento do pet no dia — o pet chegava
+// pela corrida das 09:00 e o aviso aparecia por causa da corrida das 15:00.)
+const BUSCA_A_CAMINHO: string[] = ['agendada', 'a_caminho_cliente', 'no_endereco', 'pet_embarcado']
+export function buscaQueNaoChegou<T extends { id_agendamento: string; status: string }>(corridas: T[], idAgendamento: string): T | null {
+  const proprias = corridas.filter(c => c.id_agendamento === idAgendamento)
+  const valem = proprias.length > 0 ? proprias : corridas
+  if (valem.some(c => !BUSCA_A_CAMINHO.includes(c.status))) return null
+  return valem[0] ?? null
+}
+
 export function podeReatribuir(status: string): boolean {
   return status === 'agendada' || status === 'entregue_loja' || status === 'pronto_entrega'
 }
