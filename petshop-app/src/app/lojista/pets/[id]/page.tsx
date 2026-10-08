@@ -169,7 +169,7 @@ export default async function DetalhePetPage({ params }: Props) {
               // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
               <img src={pet.foto_url} alt={pet.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-              <IconDog style={{ width: 30, height: 30, color: 'var(--gray-500)' }} />
+              <IconDog style={{ width: 30, height: 30 }} />
             )}
           </div>
           <div>

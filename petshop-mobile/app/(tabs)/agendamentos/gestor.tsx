@@ -6,7 +6,7 @@ import { BarraDoDia } from '@/components/BarraDoDia'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { CartaoVazio } from '@/components/CartaoVazio'
 import { DetailHeader } from '@/components/DetailHeader'
-import { IconCar, IconCheck, IconKanban, IconPlus, IconUserBadge } from '@/components/IconesDoSite'
+import { IconCar, IconCheck, IconKanban, IconPlus, IconScissors, IconUser, IconUserBadge } from '@/components/IconesDoSite'
 import {
   AcaoDoCartao,
   CartaoDoQuadro,
@@ -283,8 +283,8 @@ export default function GestorScreen() {
                     <CartaoDoQuadro key={item.id_agendamento} onPress={() => router.push(`/agendamentos/${item.id_agendamento}`)}>
                       <TopoDoCartao hora={item.hr_agendamento.slice(0, 5)} valor={formatarReais(Number(item.valor))} />
                       <PetDoCartao foto={item.pet?.foto_url} nome={item.pet?.nome ?? 'Pet'} descricao={descricaoPet(item)} />
-                      <LinhaDoCartao>{item.cliente?.nome ?? '—'}</LinhaDoCartao>
-                      <LinhaDoCartao final>{item.servico?.nome ?? 'Serviço'}</LinhaDoCartao>
+                      <LinhaDoCartao icone={IconUser}>{item.cliente?.nome ?? '—'}</LinhaDoCartao>
+                      <LinhaDoCartao icone={IconScissors} final>{item.servico?.nome ?? 'Serviço'}</LinhaDoCartao>
                       {alterados.has(item.id_agendamento) && item.status === 'Pendente' && (
                         <View style={styles.alterado}>
                           <Text style={styles.alteradoTexto}>Alterado pelo cliente</Text>

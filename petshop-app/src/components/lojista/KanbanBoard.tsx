@@ -28,9 +28,12 @@ import {
   IconCheck,
   IconChevronLeft,
   IconChevronRight,
+  IconClock,
   IconClose,
   IconDog,
   IconPlus,
+  IconScissors,
+  IconUser,
   IconUserBadge,
 } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
@@ -444,8 +447,8 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
                           onKeyDown={e => { if (e.key === 'Enter') handleCardClick(item) }}
                         >
                           <div className="kanban-card-top">
-                            <div className="kanban-card-time">{item.hr_agendamento.slice(0, 5)}</div>
-                            <span className="text-sm font-semibold text-success">{formatarReais(item.valor)}</span>
+                            <div className="kanban-card-time"><IconClock />{item.hr_agendamento.slice(0, 5)}</div>
+                            <span className="kanban-card-valor">{formatarReais(item.valor)}</span>
                           </div>
 
                           <div className="kanban-card-main">
@@ -454,7 +457,7 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
                                 // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
                                 <img src={item.foto_pet} alt={item.nome_pet} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               ) : (
-                                <IconDog style={{ width: 14, height: 14, color: 'var(--gray-500)' }} />
+                                <IconDog style={{ width: 20, height: 20 }} />
                               )}
                             </div>
                             <div>
@@ -463,13 +466,13 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
                             </div>
                           </div>
 
-                          <div className="kanban-card-line">{item.nome_cliente}</div>
-                          <div className="kanban-card-line text-muted">{item.nome_servico}</div>
+                          <div className="kanban-card-line"><IconUser /><span>{item.nome_cliente}</span></div>
+                          <div className="kanban-card-line"><IconScissors /><span>{item.nome_servico}</span></div>
                           {item.alterado_cliente && item.status === 'Pendente' && <span className="tag-alterado-cliente">Alterado pelo cliente</span>}
 
                           <div className="kanban-card-prof">
                             <IconUserBadge style={{ width: 13, height: 13 }} />
-                            {item.nome_funcionario ?? 'Sem profissional'}
+                            <span>{item.nome_funcionario ?? 'Sem profissional'}</span>
                           </div>
 
                           {/* Celular: sem mouse pra arrastar, a etapa seguinte é um botão. */}
@@ -523,7 +526,7 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
                     // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
                     <img src={selecionado.foto_pet} alt={selecionado.nome_pet} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <IconDog style={{ width: 22, height: 22, color: 'var(--gray-500)' }} />
+                    <IconDog style={{ width: 22, height: 22 }} />
                   )}
                 </div>
                 <div>

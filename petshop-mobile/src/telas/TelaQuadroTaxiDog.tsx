@@ -9,7 +9,7 @@ import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { CartaoVazio } from '@/components/CartaoVazio'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Folha } from '@/components/Folha'
-import { IconCar, IconChartBar, IconKanban, IconRoute, IconUserBadge, IconWhatsapp } from '@/components/IconesDoSite'
+import { IconCar, IconChartBar, IconKanban, IconMapPin, IconRoute, IconUser, IconUserBadge, IconWhatsapp } from '@/components/IconesDoSite'
 import {
   AcaoDoCartao,
   CartaoDoQuadro,
@@ -355,8 +355,8 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
                       valor={formatarReais(c.valor)}
                     />
                     <PetDoCartao foto={c.pet_foto_url} nome={c.pet_nome} />
-                    <LinhaDoCartao>{c.cliente_nome} · {formatarTelefone(c.cliente_telefone)}</LinhaDoCartao>
-                    <LinhaDoCartao cortada final>{c.bairro} · {c.logradouro}, {c.numero}</LinhaDoCartao>
+                    <LinhaDoCartao icone={IconUser}>{c.cliente_nome} · {formatarTelefone(c.cliente_telefone)}</LinhaDoCartao>
+                    <LinhaDoCartao icone={IconMapPin} final>{c.bairro} · {c.logradouro}, {c.numero}</LinhaDoCartao>
                     <EtiquetasDoCartao>
                       <EtiquetaDoQuadro>{ROTULO_MODALIDADE[c.modalidade]}</EtiquetaDoQuadro>
                       {rota && <EtiquetaDoQuadro tom="Em andamento">Rota #{rota.numero}</EtiquetaDoQuadro>}

@@ -1,15 +1,18 @@
 import type { ComponentType, ReactNode } from 'react'
 import { Image, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
-import { IconDog, type IconeProps } from '@/components/IconesDoSite'
+import { IconClock, IconDog, type IconeProps } from '@/components/IconesDoSite'
 import { Text } from '@/components/Texto'
 import { coresStatus } from '@/lib/statusAgendamento'
-import { colors } from '@/theme/theme'
+import { FONTE_TITULO } from '@/theme/fontes'
+import { colors, shadow } from '@/theme/theme'
 
 // As peças do quadro (Kanban) do site em largura de celular — as etapas uma
 // embaixo da outra, cada uma com a faixa colorida, o nome e a contagem, e os
 // cards dentro. Usadas no Gestor de Agendamentos e no quadro do TaxiDog.
 
 const COR_APAGADA = '#858d99'
+// O índigo claro do horário e do avatar (`--primary-soft-bg`).
+const SUAVE = 'rgba(79,70,229,0.12)'
 
 export function ColunasDoQuadro({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return <View style={[styles.colunas, style]}>{children}</View>
@@ -51,14 +54,18 @@ export function CartaoDoQuadro({ onPress, children }: { onPress: () => void; chi
   )
 }
 
-// Horário à esquerda (com o dia, quando não é o dia mostrado) e valor à direita.
+// Horário numa etiqueta índigo à esquerda (com o dia ao lado, quando não é
+// o dia mostrado) e valor à direita.
 export function TopoDoCartao({ hora, dia, valor }: { hora: string; dia?: string | null; valor: string }) {
   return (
     <View style={styles.cartaoTopo}>
-      <Text style={styles.hora}>
-        {hora}
-        {dia ? <Text style={styles.dia}>{`  ${dia}`}</Text> : null}
-      </Text>
+      <View style={styles.horaLinha}>
+        <View style={styles.hora}>
+          <IconClock size={13} color={colors.primary300} />
+          <Text style={styles.horaTexto}>{hora}</Text>
+        </View>
+        {dia ? <Text style={styles.dia}>{dia}</Text> : null}
+      </View>
       <Text style={styles.valor}>{valor}</Text>
     </View>
   )
@@ -68,7 +75,7 @@ export function PetDoCartao({ foto, nome, descricao }: { foto: string | null | u
   return (
     <View style={styles.cartaoPet}>
       <View style={styles.foto}>
-        {foto ? <Image source={{ uri: foto }} style={styles.fotoImagem} accessibilityLabel={nome} /> : <IconDog size={14} color={COR_APAGADA} />}
+        {foto ? <Image source={{ uri: foto }} style={styles.fotoImagem} accessibilityLabel={nome} /> : <IconDog size={20} color={colors.primary300} />}
       </View>
       <View style={styles.cartaoPetTexto}>
         <Text style={styles.petNome}>{nome}</Text>
@@ -78,16 +85,22 @@ export function PetDoCartao({ foto, nome, descricao }: { foto: string | null | u
   )
 }
 
-// `final`: a última linha antes do rodapé (sem o vão de baixo).
-// `cortada`: uma linha só, cortando o que não couber (endereço).
-export function LinhaDoCartao({ children, final, cortada }: { children: ReactNode; final?: boolean; cortada?: boolean }) {
-  return <Text style={[styles.linha, final && styles.linhaFinal]} numberOfLines={cortada ? 1 : undefined}>{children}</Text>
+// Linha do card com o ícone do que ela diz (cliente, serviço, endereço),
+// sempre numa linha só. `final`: a última antes do rodapé (sem o vão de baixo).
+export function LinhaDoCartao({ icone: Icone, children, final }: { icone: ComponentType<IconeProps>; children: ReactNode; final?: boolean }) {
+  return (
+    <View style={[styles.linha, final && styles.linhaFinal]}>
+      <Icone size={14} color={colors.primary600} />
+      <Text style={styles.linhaTexto} numberOfLines={1}>{children}</Text>
+    </View>
+  )
 }
 
 // Selo de texto comum (`.badge` sem maiúsculas): tipo de transporte, rota,
 // situação da corrida. `tom` = etapa de onde vêm as cores, ou cinza.
 export function EtiquetaDoQuadro({ tom = 'neutro', children }: { tom?: string; children: ReactNode }) {
-  const cor = tom === 'neutro' ? { bg: colors.border, fg: colors.textMuted, ring: colors.borderStrong } : coresStatus(tom)
+  // A neutra é branca com borda fina (`.kanban-card-tag`), sem cinza.
+  const cor = tom === 'neutro' ? { bg: colors.surface, fg: colors.textDim, ring: colors.borderStrong } : coresStatus(tom)
   return (
     <View style={[styles.etiqueta, { backgroundColor: cor.bg, borderColor: cor.ring }]}>
       <Text style={[styles.etiquetaTexto, { color: cor.fg }]}>{children}</Text>
@@ -103,8 +116,8 @@ export function EtiquetasDoCartao({ children }: { children: ReactNode }) {
 export function PeDoCartao({ icone: Icone, tamanho = 13, children }: { icone: ComponentType<IconeProps>; tamanho?: number; children: ReactNode }) {
   return (
     <View style={styles.pe}>
-      <Icone size={tamanho} color={COR_APAGADA} />
-      {typeof children === 'string' ? <Text style={styles.peTexto}>{children}</Text> : children}
+      <Icone size={tamanho} color={colors.primary600} />
+      {typeof children === 'string' ? <Text style={styles.peTexto} numberOfLines={1}>{children}</Text> : children}
     </View>
   )
 }
@@ -134,29 +147,34 @@ const styles = StyleSheet.create({
   colunaTitulo: { fontSize: 15, lineHeight: 24, fontWeight: '700', color: colors.text },
   contagem: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 9999, borderWidth: 1 },
   contagemTexto: { fontSize: 12, lineHeight: 19.2, fontWeight: '600', letterSpacing: 0.48 },
-  colunaCorpo: { padding: 12, gap: 12 },
+  // Fundo bem claro: os cards, brancos, se destacam em cima dele.
+  colunaCorpo: { padding: 12, gap: 12, backgroundColor: colors.bg },
   colunaVazia: { padding: 12, fontSize: 14, lineHeight: 20, color: COR_APAGADA },
 
+  // `.kanban-card`: branco com sombra leve — sem cinza de fundo.
   cartao: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+    padding: 12,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surface,
+    ...shadow.sm,
   },
-  cartaoPressionado: { borderColor: colors.borderStrong },
-  cartaoTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  hora: { fontSize: 14, lineHeight: 22.4, fontWeight: '700', color: colors.text },
-  dia: { fontSize: 12, lineHeight: 22.4, fontWeight: '400', color: COR_APAGADA },
-  valor: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: colors.successFg },
-  cartaoPet: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  cartaoPressionado: { borderColor: colors.primary200 },
+  cartaoTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 },
+  horaLinha: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
+  hora: { height: 26, flexDirection: 'row', alignItems: 'center', gap: 5, paddingLeft: 8, paddingRight: 10, borderRadius: 13, backgroundColor: SUAVE },
+  horaTexto: { fontSize: 13, lineHeight: 13, fontWeight: '700', color: colors.primary300, fontVariant: ['tabular-nums'] },
+  dia: { fontSize: 12, lineHeight: 19.2, fontWeight: '400', color: COR_APAGADA },
+  valor: { fontFamily: FONTE_TITULO, fontSize: 15, lineHeight: 24, fontWeight: '800', letterSpacing: -0.15, color: colors.successFg },
+  cartaoPet: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
   cartaoPetTexto: { flexShrink: 1 },
-  foto: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  foto: { width: 40, height: 40, borderRadius: 20, backgroundColor: SUAVE, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   fotoImagem: { width: '100%', height: '100%' },
-  petNome: { fontSize: 15, lineHeight: 24, fontWeight: '600', color: colors.text },
-  petDescricao: { fontSize: 12, lineHeight: 16, color: COR_APAGADA },
-  linha: { fontSize: 13, lineHeight: 20.8, color: colors.textDim, marginBottom: 2 },
+  petNome: { fontSize: 15, lineHeight: 19.5, fontWeight: '700', color: colors.text },
+  petDescricao: { fontSize: 12, lineHeight: 16.2, color: COR_APAGADA },
+  linha: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  linhaTexto: { flexShrink: 1, fontSize: 13, lineHeight: 20.8, color: '#1f2937' },
   linhaFinal: { marginBottom: 0 },
   etiquetas: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
   etiqueta: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 9999, borderWidth: 1 },
@@ -164,13 +182,13 @@ const styles = StyleSheet.create({
   pe: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-    paddingTop: 4,
+    gap: 8,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  peTexto: { flexShrink: 1, fontSize: 12, lineHeight: 19.2, color: COR_APAGADA },
+  peTexto: { flexShrink: 1, fontSize: 12, lineHeight: 19.2, color: colors.textMuted },
   acao: { marginTop: 8 },
   nota: { marginTop: 8, fontSize: 12, lineHeight: 16, color: COR_APAGADA },
 })

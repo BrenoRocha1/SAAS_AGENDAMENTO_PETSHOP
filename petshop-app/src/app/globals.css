@@ -1904,6 +1904,8 @@ svg.is-da-visita { opacity: 0.45; }
 
 .kanban-column-body {
   padding: var(--space-3);
+  /* Fundo bem claro: os cards, brancos, se destacam em cima dele. */
+  background: var(--gray-950);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -1922,13 +1924,16 @@ svg.is-da-visita { opacity: 0.45; }
   box-shadow: inset 0 0 0 2px var(--primary-500);
 }
 
+/* Card branco com sombra leve (como os produtos do PDV): o horário numa
+   etiqueta índigo, avatar e ícones na cor da marca — sem cinza de fundo. */
 .kanban-card {
-  background: var(--gray-850);
+  background: var(--gray-900);
   border: 1px solid var(--gray-800);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-sm);
   cursor: grab;
-  transition: border-color var(--transition-fast), opacity var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast);
   /* Sem isso, um clique+arrasto que começa em cima de um texto vira
      seleção de texto (fica tudo azul) em vez de iniciar o drag — o
      navegador prioriza selecionar texto ao arrastar, então "solta" o
@@ -1936,7 +1941,7 @@ svg.is-da-visita { opacity: 0.45; }
   user-select: none;
   -webkit-user-select: none;
 }
-.kanban-card:hover { border-color: var(--gray-700); }
+.kanban-card:hover { border-color: var(--primary-200); box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .kanban-card:active { cursor: grabbing; }
 .kanban-card.is-dragging { opacity: 0.4; }
 /* Toque longo no card não abre menu/lupa do sistema nem arrasta a foto. */
@@ -1952,11 +1957,21 @@ svg.is-da-visita { opacity: 0.45; }
 .kanban-dica-toque { display: none; margin: 0 0 var(--space-3); }
 @media (pointer: coarse) { .kanban-dica-toque { display: block; } }
 
-.kanban-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); }
-.kanban-card-time { font-weight: 700; color: var(--gray-100); font-size: 0.875rem; }
+.kanban-card-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-3); }
+.kanban-card-time {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 26px; padding: 0 10px 0 8px;
+  border-radius: var(--radius-full); background: var(--primary-soft-bg);
+  font-size: 0.8125rem; font-weight: 700; line-height: 1; color: var(--primary-300);
+  font-variant-numeric: tabular-nums;
+}
+.kanban-card-time svg { width: 13px; height: 13px; flex-shrink: 0; }
+.kanban-card-valor { font-family: var(--font-heading); font-size: 0.9375rem; font-weight: 800; letter-spacing: -0.01em; color: var(--success-400); white-space: nowrap; }
 
-.kanban-card-main { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
-.kanban-card-pet { font-weight: 600; color: var(--gray-100); font-size: 0.9375rem; }
+.kanban-card-main { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); min-width: 0; }
+.kanban-card-main > :last-child { min-width: 0; }
+.kanban-card-pet { font-weight: 700; color: var(--gray-100); font-size: 0.9375rem; line-height: 1.3; }
+.kanban-card .pet-avatar { width: 40px; height: 40px; }
 
 /* Avatar de pet (foto ou ícone de fallback) — reaproveitado no card do
    Kanban, no modal de detalhes e na lista de Pets. 28px por padrão;
@@ -1965,7 +1980,8 @@ svg.is-da-visita { opacity: 0.45; }
   width: 28px;
   height: 28px;
   border-radius: var(--radius-full);
-  background: var(--gray-800);
+  background: var(--primary-soft-bg);
+  color: var(--primary-300);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1973,18 +1989,25 @@ svg.is-da-visita { opacity: 0.45; }
   flex-shrink: 0;
 }
 
-.kanban-card-line { font-size: 0.8125rem; color: var(--gray-300); margin-bottom: 2px; }
+.kanban-card-line { display: flex; align-items: center; gap: var(--space-2); min-width: 0; font-size: 0.8125rem; color: var(--gray-200); margin-bottom: 4px; }
+.kanban-card-line > svg { width: 14px; height: 14px; flex-shrink: 0; color: var(--primary-400); }
+.kanban-card-line > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .kanban-card-prof {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   font-size: 0.75rem;
-  color: var(--gray-500);
-  margin-top: var(--space-1);
-  padding-top: var(--space-1);
+  color: var(--gray-400);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
   border-top: 1px solid var(--gray-800);
 }
+.kanban-card-prof > svg { flex-shrink: 0; color: var(--primary-400); }
+.kanban-card-prof > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kanban-card-main .text-xs { line-height: 1.35; }
+/* Etiqueta neutra do card (o tipo de transporte): branca com borda fina. */
+.kanban-card-tag { background: var(--gray-900); border: 1px solid var(--gray-700); color: var(--gray-300); }
 
 /* Ação no próprio card: um botão por card, largura toda — "Atribuir para
    mim", "Cheguei", "Pet entregue" no painel do TaxiDog e, no celular, a

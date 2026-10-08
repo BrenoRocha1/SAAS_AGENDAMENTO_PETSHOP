@@ -27,10 +27,12 @@ import {
   IconCar,
   IconChevronLeft,
   IconChevronRight,
+  IconClock,
   IconClose,
   IconDog,
   IconMapPin,
   IconRoute,
+  IconUser,
   IconUserBadge,
   IconWhatsapp,
 } from '@/components/icons'
@@ -227,24 +229,25 @@ export default function TaxiDogPainel({ data, caminho, caminhoRotas, hojeISO, co
                     onKeyDown={e => { if (e.key === 'Enter') setAbertaId(c.id_corrida) }}
                   >
                     <div className="kanban-card-top">
-                      <div className="kanban-card-time">{c.hr_agendamento.slice(0, 5)}</div>
-                      <span className="text-sm font-semibold text-success">{formatarReais(c.valor)}</span>
+                      <div className="kanban-card-time"><IconClock />{c.hr_agendamento.slice(0, 5)}</div>
+                      <span className="kanban-card-valor">{formatarReais(c.valor)}</span>
                     </div>
                     <div className="kanban-card-main">
                       <span className="pet-avatar">
                         {c.pet_foto_url
                           // eslint-disable-next-line @next/next/no-img-element -- URL pública do Storage
                           ? <img src={c.pet_foto_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          : <IconDog style={{ width: 14, height: 14, color: 'var(--gray-500)' }} />}
+                          : <IconDog style={{ width: 20, height: 20 }} />}
                       </span>
                       <span className="kanban-card-pet">{c.pet_nome}</span>
                     </div>
-                    <div className="kanban-card-line">{c.cliente_nome} · {formatarTelefone(c.cliente_telefone)}</div>
-                    <div className="kanban-card-line" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={enderecoEmUmaLinha(c)}>
-                      {c.bairro} · {c.logradouro}, {c.numero}
+                    <div className="kanban-card-line"><IconUser /><span>{c.cliente_nome} · {formatarTelefone(c.cliente_telefone)}</span></div>
+                    <div className="kanban-card-line" title={enderecoEmUmaLinha(c)}>
+                      <IconMapPin />
+                      <span>{c.bairro} · {c.logradouro}, {c.numero}</span>
                     </div>
                     <div className="flex gap-1" style={{ flexWrap: 'wrap', margin: 'var(--space-1) 0' }}>
-                      <span className="badge badge-inativo" style={{ textTransform: 'none', letterSpacing: 0 }}>{ROTULO_MODALIDADE[c.modalidade]}</span>
+                      <span className="badge kanban-card-tag" style={{ textTransform: 'none', letterSpacing: 0 }}>{ROTULO_MODALIDADE[c.modalidade]}</span>
                       {rotaPorCorrida[c.id_corrida] && (
                         <span className="badge badge-em-andamento" style={{ textTransform: 'none', letterSpacing: 0 }}>Rota #{rotaPorCorrida[c.id_corrida].numero}</span>
                       )}

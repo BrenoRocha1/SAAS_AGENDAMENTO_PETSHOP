@@ -260,7 +260,7 @@ export default function PetsList({
                             // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
                             <img src={p.foto_url} alt={p.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           ) : (
-                            <IconDog style={{ width: 14, height: 14, color: 'var(--gray-500)' }} />
+                            <IconDog style={{ width: 14, height: 14 }} />
                           )}
                         </div>
                         {p.nome}
