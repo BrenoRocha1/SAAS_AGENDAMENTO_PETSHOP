@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { getAppleOAuthUrlAction, getGoogleOAuthUrlAction } from '@/lib/actions'
+import { getGoogleOAuthUrlAction } from '@/lib/actions'
 import Ilustracao from '@/components/Ilustracao'
 import MarcaSaip from '@/components/MarcaSaip'
 
@@ -42,13 +42,6 @@ function IconGoogle() {
       <path fill="#34A853" d="M12 23c3.1 0 5.7-1 7.6-2.8l-3.7-2.9c-1 .7-2.3 1.1-3.9 1.1-3 0-5.6-2-6.5-4.8H1.7v3C3.6 20.5 7.5 23 12 23Z" />
       <path fill="#FBBC05" d="M5.5 13.6a6.6 6.6 0 0 1 0-4.2v-3H1.7a11 11 0 0 0 0 10.2l3.8-3Z" />
       <path fill="#EA4335" d="M12 4.6c1.7 0 3.2.6 4.4 1.7l3.3-3.3C17.7 1.1 15.1 0 12 0 7.5 0 3.6 2.5 1.7 6.4l3.8 3C6.4 6.6 9 4.6 12 4.6Z" />
-    </svg>
-  )
-}
-function IconApple() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.300 0 2.1-1.1 2.800-2.300.9-1.300 1.200-2.5 1.300-2.600-.1 0-2.500-1-2.500-3.800ZM14.200 5.800c.6-.8 1.100-1.900.9-3-.9 0-2.100.6-2.700 1.400-.6.700-1.100 1.800-1 2.900 1.100.1 2.200-.5 2.800-1.300Z" />
     </svg>
   )
 }
@@ -241,7 +234,7 @@ function PerfilToggle({ perfil, onChange }: { perfil: Perfil; onChange: (p: Perf
 function LoginFormPane() {
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(null)
-  const [oauthPending, setOauthPending] = useState<'google' | 'apple' | null>(null)
+  const [oauthPending, setOauthPending] = useState(false)
   const [perfil, setPerfil] = useState<Perfil>('cliente')
 
   const redirectTo = searchParams.get('redirectTo')
@@ -268,18 +261,17 @@ function LoginFormPane() {
 
   const message = error ?? paramMessage
 
-  async function handleOAuth(provedor: 'google' | 'apple') {
+  async function handleGoogle() {
     setError(null)
-    setOauthPending(provedor)
+    setOauthPending(true)
 
     // Passa o perfil selecionado para o callback saber pra onde redirecionar
     // caso seja um usuário novo (sem perfil no banco ainda).
-    const acao = provedor === 'apple' ? getAppleOAuthUrlAction : getGoogleOAuthUrlAction
-    const result = await acao(perfil, redirectTo)
+    const result = await getGoogleOAuthUrlAction(perfil, redirectTo)
 
     if (result.error || !result.url) {
-      setOauthPending(null)
-      setError(result.error || `Não foi possível conectar com ${provedor === 'apple' ? 'a Apple' : 'o Google'}. Tente novamente.`)
+      setOauthPending(false)
+      setError(result.error || 'Não foi possível conectar com o Google. Tente novamente.')
       return
     }
 
@@ -316,22 +308,13 @@ function LoginFormPane() {
         <button
           type="button"
           className="login-btn-outline"
-          onClick={() => handleOAuth('google')}
-          disabled={oauthPending !== null}
+          onClick={handleGoogle}
+          disabled={oauthPending}
         >
           <IconGoogle />
-          {oauthPending === 'google' ? 'Conectando...' : 'Continuar com o Google'}
+          {oauthPending ? 'Conectando...' : 'Continuar com o Google'}
         </button>
 
-        <button
-          type="button"
-          className="login-btn-outline"
-          onClick={() => handleOAuth('apple')}
-          disabled={oauthPending !== null}
-        >
-          <IconApple />
-          {oauthPending === 'apple' ? 'Conectando...' : 'Continuar com a Apple'}
-        </button>
 
         {/* Equipe do petshop: entra só com o código de 6 dígitos que o
             responsável gera (sem e-mail nem senha). */}
@@ -340,12 +323,6 @@ function LoginFormPane() {
           Código de acesso rápido
         </Link>
 
-        {isLojista && (
-          <div className="login-register-hint">
-            Não tem conta?{' '}
-            <Link href="/cadastro/lojista">Cadastrar meu petshop</Link>
-          </div>
-        )}
       </div>
     </div>
   )
@@ -369,10 +346,6 @@ function LoginFormFallback() {
         <button type="button" className="login-btn-outline" disabled>
           <IconGoogle />
           Continuar com o Google
-        </button>
-        <button type="button" className="login-btn-outline" disabled>
-          <IconApple />
-          Continuar com a Apple
         </button>
         <button type="button" className="login-btn-outline" disabled>
           <IconHash />

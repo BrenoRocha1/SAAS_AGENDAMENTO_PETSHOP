@@ -50,7 +50,10 @@ export async function middleware(request: NextRequest) {
   // /agendamento/[id] é público de propósito — qualquer pessoa com o link
   // pode ver a loja e os serviços sem login; só o passo de agendar em si
   // exige conta de cliente (checado na própria página/wizard).
-  const ROTAS_PROTEGIDAS = ['/cliente', '/lojista', '/admin', '/completar-cadastro']
+  // O painel interno (lib/rota-interna) fica de fora de propósito: quem não
+  // é admin recebe 404 do próprio layout, sem o redirect pro /login que
+  // confirmaria que a rota existe.
+  const ROTAS_PROTEGIDAS = ['/cliente', '/lojista', '/completar-cadastro']
   const isRotaProtegida = ROTAS_PROTEGIDAS.some((rota) => pathname.startsWith(rota))
 
   // Única regra: sem sessão + rota protegida → login
