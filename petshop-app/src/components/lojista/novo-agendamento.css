@@ -390,7 +390,7 @@ button.na-item:disabled { cursor: default; }
   .na-resumo-corpo { padding: 0 var(--space-4) var(--space-3); gap: var(--space-3); }
   .na-itens { border-radius: 12px; }
   .na-item { min-height: 44px; }
-  .na-forma { height: 44px; border-radius: 10px; border-color: var(--gray-800); font-size: 0.875rem; }
+  .na-forma { height: 44px; gap: 6px; padding: 0 10px; border-radius: 10px; border-color: var(--gray-800); }
   .na-seg button { height: 32px; }
 
   .na-barra {

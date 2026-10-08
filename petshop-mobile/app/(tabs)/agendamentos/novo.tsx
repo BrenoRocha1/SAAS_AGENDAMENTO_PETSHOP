@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Aviso } from '@/components/Aviso'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { Campo } from '@/components/Campo'
 import { EtapaTransporte } from '@/components/EtapaTransporte'
-import { IconCar, IconCheck, IconDog, IconPlus, IconScissors, IconSearch, type IconeProps } from '@/components/IconesDoSite'
-import { ItemEscolha } from '@/components/ItemEscolha'
-import { Seletor } from '@/components/Seletor'
+import { Folha } from '@/components/Folha'
+import {
+  IconAlert, IconCalendar, IconCar, IconCheck, IconChevronLeft, IconChevronRight, IconClose, IconCreditCard, IconDog, IconMoney,
+  IconPlus, IconQrCode, IconScissors, IconSearch, IconUser, IconUserBadge, type IconeProps,
+} from '@/components/IconesDoSite'
+import { Opcao } from '@/components/Opcao'
 import { SeletorDataHora } from '@/components/SeletorDataHora'
 import { SemPermissao } from '@/components/SemPermissao'
 import { Text, TextInput } from '@/components/Texto'
@@ -19,25 +22,50 @@ import { supabase } from '@/lib/supabase'
 import { hojeBrasilISO, removerHorariosPassados } from '@/lib/agenda'
 import { atribuirProfissional, type Slot } from '@/lib/agendamentos'
 import { mensagemDoBanco } from '@/lib/erros'
-import { formatarMoeda, formatarTelefone } from '@/lib/format'
+import { formatarMoeda, formatarTelefone, iniciais } from '@/lib/format'
 import { dataParaISO, mascaraData } from '@/lib/mascaras'
 import { ROTULO_FORMA_PAGAMENTO, formasAtivas, normalizarFormasLoja, type FormaPagamento } from '@/lib/pagamento'
+import { ROTULO_MODALIDADE } from '@/lib/taxidog'
 import { ESTADO_TRANSPORTE_INICIAL, escolhaDoTransporte, transportePronto, type EstadoTransporte } from '@/lib/transporte'
-import { colors, spacing } from '@/theme/theme'
+import { FONTE_TITULO } from '@/theme/fontes'
+import { colors } from '@/theme/theme'
 
 interface ClienteOpcao { id_cliente: string; nome: string; telefone: string | null }
-interface PetOpcao { id_pet: string; nome: string; raca: string | null }
+interface PetOpcao { id_pet: string; nome: string; raca: string | null; foto_url?: string | null }
 interface ServicoOpcao { id_servico: string; nome: string; preco: number; duracao: number }
 // fn_beneficios_do_pet (migration 060)
 interface PlanoDoPet { plano: string; beneficios: { id_servico: string; quantidade: number; usados: number }[] }
 
 const SEM_TAXIDOG: EstadoTransporte = { ...ESTADO_TRANSPORTE_INICIAL, opcao: 'levar' }
 
+type Etapa = 'cliente' | 'pet' | 'servico' | 'horario' | 'transporte' | 'pagamento'
+
+const PERGUNTA: Record<Etapa, string> = {
+  cliente: 'Quem é o cliente?',
+  pet: 'Qual pet?',
+  servico: 'Qual serviço?',
+  horario: 'Quando?',
+  transporte: 'Como o pet vai até a loja?',
+  pagamento: 'Resumo e pagamento',
+}
+
+const ICONE_FORMA: Record<FormaPagamento, ComponentType<IconeProps>> = {
+  pix: IconQrCode,
+  cartao_credito: IconCreditCard,
+  cartao_debito: IconCreditCard,
+  dinheiro: IconMoney,
+}
+
+const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+const DIAS_LONGOS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+
 // Novo agendamento feito pela loja (balcão, telefone) — a MESMA janela do
-// site (petshop-app/src/components/lojista/NovoAgendamentoModal.tsx):
-// mesmas seções, textos, ordem e botões, com as medidas tiradas dela em
-// largura de celular. Lá é uma janela por cima da agenda; aqui é uma tela.
-// Mudou lá, muda aqui. O agendamento nasce Aceito.
+// site em largura de celular (petshop-app/src/components/lojista/
+// NovoAgendamentoModal.tsx + novo-agendamento.css), no padrão do PDV: uma
+// etapa por tela (escolheu, já passa para a seguinte), o resumo com o
+// pagamento por último e o botão fixo embaixo. Lá é uma janela por cima da
+// agenda; aqui é uma tela. Mudou lá, muda aqui. O agendamento nasce Aceito.
 export default function NovoAgendamentoScreen() {
   const params = useLocalSearchParams<{ data?: string; cliente?: string }>()
   const router = useRouter()
@@ -57,6 +85,9 @@ export default function NovoAgendamentoScreen() {
   const [taxidogAtivo, setTaxidogAtivo] = useState(false)
   const [erroCarga, setErroCarga] = useState<string | null>(null)
 
+  const [etapaEscolhida, setEtapa] = useState<Etapa>(clienteFixo ? 'pet' : 'cliente')
+  const [obsAberta, setObsAberta] = useState(false)
+  const [escolhendoProfissional, setEscolhendoProfissional] = useState(false)
   const [busca, setBusca] = useState('')
   const [clienteId, setClienteId] = useState(clienteFixo)
   const [pets, setPets] = useState<{ idCliente: string; lista: PetOpcao[] } | null>(null)
@@ -127,11 +158,17 @@ export default function NovoAgendamentoScreen() {
   useEffect(() => {
     if (!clienteId) return
     let cancelado = false
-    supabase.from('pet').select('id_pet, nome, raca').eq('id_cliente', clienteId).eq('ativo', true).order('nome').then(({ data: rows }) => {
+    supabase.from('pet').select('id_pet, nome, raca, foto_url').eq('id_cliente', clienteId).eq('ativo', true).order('nome').then(({ data: rows }) => {
       if (cancelado) return
       const lista = (rows ?? []) as PetOpcao[]
       setPets({ idCliente: clienteId, lista })
-      setPetId(atual => (lista.some(p => p.id_pet === atual) ? atual : ''))
+      if (lista.length === 1) {
+        // Um pet só: já sai escolhido e a tela pula para o serviço.
+        setPetId(lista[0].id_pet)
+        setEtapa(e => (e === 'pet' ? 'servico' : e))
+      } else {
+        setPetId(atual => (lista.some(p => p.id_pet === atual) ? atual : ''))
+      }
     })
     return () => { cancelado = true }
   }, [clienteId])
@@ -180,8 +217,11 @@ export default function NovoAgendamentoScreen() {
 
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase()
+    const digitos = termo.replace(/\D/g, '')
     const lista = clientes ?? []
-    return termo ? lista.filter(c => c.nome.toLowerCase().includes(termo)) : lista
+    return termo
+      ? lista.filter(c => c.nome.toLowerCase().includes(termo) || (digitos.length >= 3 && (c.telefone ?? '').replace(/\D/g, '').includes(digitos)))
+      : lista
   }, [clientes, busca])
 
   if (!contexto?.podeGerenciarAgenda || !idLojista) {
@@ -213,15 +253,75 @@ export default function NovoAgendamentoScreen() {
   const escolhaTaxiDog = comTransporte ? escolhaDoTransporte(transporte) : null
   // O plano cobre o agendamento inteiro (sem TaxiDog): não há o que pagar.
   const nadaAPagar = vaiUsarBeneficio && !escolhaTaxiDog && !planoNaoCobriu
-  const podeSubmeter = !!(clienteId && petId && servicoId && data && hora && (forma || nadaAPagar))
+  // Loja com uma forma de pagamento só: ela já vai escolhida.
+  const formaEscolhida: FormaPagamento | '' = forma || (formas.length === 1 ? formas[0] : '')
+  const podeSubmeter = !!(clienteId && petId && servicoId && data && hora && (formaEscolhida || nadaAPagar))
     && (!comTransporte || transportePronto(transporte)) && !enviando
 
-  function escolherCliente(id: string) {
-    setClienteId(id)
-    setPetId('')
-    setNovoPet(false)
-    setTransporte(SEM_TAXIDOG)
+  // ---------- Etapas ----------
+  const etapas: Etapa[] = [
+    ...(clienteFixo ? [] : ['cliente' as const]),
+    'pet', 'servico', 'horario',
+    ...(comTransporte ? ['transporte' as const] : []),
+    'pagamento',
+  ]
+  const etapa = etapas.includes(etapaEscolhida) ? etapaEscolhida : etapas[etapas.length - 1]
+  const indice = etapas.indexOf(etapa)
+  const feita: Record<Etapa, boolean> = {
+    cliente: !!cliente,
+    pet: !!pet,
+    servico: !!servico,
+    horario: hora !== '',
+    transporte: transportePronto(transporte),
+    pagamento: !!formaEscolhida || nadaAPagar,
   }
+  // Uma etapa abre quando as de antes já foram feitas.
+  const liberada = (e: Etapa) => etapas.slice(0, etapas.indexOf(e)).every(a => feita[a])
+  const depoisDe = (e: Etapa): Etapa => etapas[etapas.indexOf(e) + 1] ?? e
+  const irPara = (e: Etapa) => { if (!enviando && liberada(e)) setEtapa(e) }
+  const voltar = () => (indice === 0 ? router.back() : setEtapa(etapas[indice - 1]))
+
+  // Trocar de cliente limpa o que era do anterior: o pet e o endereço/taxa
+  // do TaxiDog.
+  function escolherCliente(id: string) {
+    if (id !== clienteId) {
+      setClienteId(id)
+      setPetId('')
+      setNovoPet(false)
+      setPetErro(null)
+      setTransporte(SEM_TAXIDOG)
+    }
+    setEtapa('pet')
+  }
+
+  // ---------- Textos do resumo ----------
+  const dia = new Date(`${data}T12:00:00`)
+  const quandoCurto = hora ? `${DIAS[dia.getDay()]}, ${dia.getDate()} de ${MESES[dia.getMonth()].slice(0, 3)} · ${hora}` : null
+  const valorServico = servico ? (vaiUsarBeneficio ? 0 : precoDe(servico)) : 0
+  const valorTaxiDog = escolhaTaxiDog ? Number(escolhaTaxiDog.cotacao.valor ?? 0) : 0
+  const total = valorServico + valorTaxiDog
+  const faltas = [
+    !cliente && 'cliente',
+    !pet && 'pet',
+    !servico && 'serviço',
+    !hora && 'horário',
+    comTransporte && !transportePronto(transporte) && 'endereço do TaxiDog',
+    !nadaAPagar && !formaEscolhida && 'forma de pagamento',
+  ].filter((f): f is string => !!f)
+  const escolhido: Partial<Record<Etapa, string | null | undefined>> = {
+    cliente: cliente?.nome,
+    pet: pet?.nome,
+    servico: servico?.nome,
+    horario: quandoCurto,
+  }
+  const trilha = etapa === 'pagamento' ? '' : [
+    clienteFixo ? cliente?.nome : null,
+    ...etapas.slice(0, indice).map(e => escolhido[e]),
+  ].filter(Boolean).join(' · ')
+  const planosValidos = planos?.chave === `${petId}|${data}` ? planos.lista : []
+  // Serviço que o plano do pet ainda cobre neste período (selo na lista).
+  const cobertoPeloPlano = (idServico: string) =>
+    planosValidos.some(p => p.beneficios.some(b => b.id_servico === idServico && b.quantidade > Number(b.usados)))
 
   async function criarPet() {
     if (!petNome.trim() || !petRaca.trim()) return setPetErro('Informe o nome e a raça do pet.')
@@ -237,6 +337,7 @@ export default function NovoAgendamentoScreen() {
     setPets(atual => (atual?.idCliente === clienteId ? { ...atual, lista: [...atual.lista, criado] } : { idCliente: clienteId, lista: [criado] }))
     setPetsPorCliente(conta => ({ ...conta, [clienteId]: (conta[clienteId] ?? 0) + 1 }))
     setPetId(criado.id_pet)
+    setEtapa('servico')
     setNovoPet(false)
     setPetNome('')
     setPetRaca('')
@@ -246,7 +347,7 @@ export default function NovoAgendamentoScreen() {
 
   async function criar() {
     if (!podeSubmeter || !idLojista) return
-    if (!nadaAPagar && !forma) return setErro('Escolha a forma de pagamento.')
+    if (!nadaAPagar && !formaEscolhida) return setErro('Escolha a forma de pagamento.')
     setErro(null)
     setEnviando(true)
 
@@ -262,7 +363,7 @@ export default function NovoAgendamentoScreen() {
         hr_agendamento: hora,
         obs,
         taxidog: JSON.stringify({ modalidade: escolhaTaxiDog.modalidade, endereco: escolhaTaxiDog.endereco }),
-        forma_pagamento: forma,
+        forma_pagamento: formaEscolhida,
         status_pagamento: pago,
         usar_beneficio: vaiUsarBeneficio ? '1' : null,
       }))
@@ -280,7 +381,7 @@ export default function NovoAgendamentoScreen() {
         // que a loja aceita, só de passagem — quando o plano é usado, logo
         // abaixo, o valor zera e o banco troca a forma para "Plano de
         // assinatura" (migration 082).
-        p_forma_pagamento: nadaAPagar ? formas[0] : forma,
+        p_forma_pagamento: nadaAPagar ? formas[0] : formaEscolhida,
         p_status_pagamento: nadaAPagar ? 'pendente' : pago,
         p_id_lojista: idLojista,
         p_id_cliente: clienteId,
@@ -318,38 +419,109 @@ export default function NovoAgendamentoScreen() {
     if (!aviso) setTimeout(() => router.back(), 1200)
   }
 
-  return (
-    <ScreenContainer>
-      <DetailHeader title="Novo agendamento" junto />
+  // Total, erro e o botão de confirmar — fixos no pé da tela na última etapa.
+  const rodapeFinal = (
+    <View style={styles.barraFinal}>
+      {erro && (
+        <View style={styles.erro} accessibilityRole="alert">
+          <IconAlert size={15} color={colors.dangerFg} />
+          <Text style={styles.erroTexto}>{erro}</Text>
+        </View>
+      )}
+      <View style={styles.total}>
+        <Text style={styles.totalRotulo}>Total</Text>
+        <Text style={styles.totalValor}>{formatarMoeda(total)}</Text>
+      </View>
+      <BotaoDaBarra rotulo={enviando ? 'Agendando...' : 'Confirmar agendamento'} alto desativado={!podeSubmeter} onPress={criar} />
+      {faltas.length > 0 && <Text style={styles.falta}>Falta: {faltas.join(', ')}.</Text>}
+    </View>
+  )
 
-      <View style={styles.corpo}>
-        {erroCarga && <Aviso tipo="erro" texto={erroCarga} />}
-        {erro && <Aviso tipo="erro" texto={erro} />}
+  return (
+    <ScreenContainer scroll={false} contentStyle={styles.tela}>
+      <KeyboardAvoidingView style={styles.tela} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.topo}>
+          {/* Volta uma etapa (na primeira, sai da tela). */}
+          <Pressable
+            onPress={voltar}
+            disabled={enviando}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={indice === 0 || feito ? 'Fechar' : 'Voltar para a etapa anterior'}
+            style={styles.voltar}
+          >
+            <IconChevronLeft size={20} color="#1f2937" />
+          </Pressable>
+          <Text style={styles.titulo} numberOfLines={1}>Novo agendamento</Text>
+          <Pressable onPress={() => router.back()} disabled={enviando} hitSlop={10} accessibilityRole="button" accessibilityLabel="Fechar" style={styles.fechar}>
+            <IconClose size={15} color={colors.textMuted} />
+          </Pressable>
+        </View>
 
         {feito ? (
-          <>
-            <Aviso tipo="sucesso" texto={`Agendamento criado e confirmado com sucesso.${feito.usouPlano && !feito.aviso ? ' O benefício do plano foi usado.' : ''}`} />
-            {feito.aviso && <Aviso tipo="erro" texto={feito.aviso} />}
-          </>
+          <View style={styles.sucesso}>
+            <View style={styles.sucessoIcone}>
+              <IconCheck size={30} color={colors.success} />
+            </View>
+            <Text style={styles.sucessoTitulo}>Agendamento confirmado</Text>
+            <Text style={styles.sucessoTexto}>
+              <Text style={styles.forte}>{pet?.nome}</Text> · {servico?.nome}{'\n'}
+              {DIAS_LONGOS[dia.getDay()]}, {dia.getDate()} de {MESES[dia.getMonth()]} às {hora}
+            </Text>
+            {feito.usouPlano && !feito.aviso && <Text style={styles.sucessoTexto}>O benefício do plano foi usado.</Text>}
+            {feito.aviso && (
+              <>
+                <View style={[styles.erro, { marginTop: 8 }]}>
+                  <IconAlert size={15} color={colors.dangerFg} />
+                  <Text style={styles.erroTexto}>{feito.aviso}</Text>
+                </View>
+                <BotaoPequeno normal rotulo="Fechar" onPress={() => router.back()} style={{ marginTop: 12 }} />
+              </>
+            )}
+          </View>
         ) : (
           <>
-            {/* Cliente */}
-            <View style={styles.grupo}>
-              <Rotulo texto="Cliente" obrigatorio />
-              {clientes === null ? (
+            {/* Em que etapa está e o que já foi escolhido. */}
+            <View style={styles.progresso}>
+              {etapas.map((e, i) => <View key={e} style={[styles.segmento, i <= indice && styles.segmentoFeito]} />)}
+            </View>
+            <View style={styles.etapa}>
+              <View style={styles.etapaLinha}>
+                <Text style={styles.pergunta}>{PERGUNTA[etapa]}</Text>
+                <Text style={styles.contador}>{indice + 1} de {etapas.length}</Text>
+              </View>
+              {!!trilha && <Text style={styles.trilha} numberOfLines={1}>{trilha}</Text>}
+            </View>
+
+            <ScrollView style={styles.tela} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+              {erroCarga && <Aviso tipo="erro" texto={erroCarga} />}
+
+              {/* Cliente */}
+              {etapa === 'cliente' && (clientes === null ? (
                 <ActivityIndicator color={colors.primary600} />
               ) : clientes.length === 0 ? (
                 <Aviso tipo="alerta" texto="Você ainda não tem nenhum cliente cadastrado. Cadastre um em Clientes → Novo Cliente antes de criar o agendamento." />
-              ) : clienteFixo && cliente ? (
-                <ItemEscolha titulo={cliente.nome} detalhe={cliente.telefone ? formatarTelefone(cliente.telefone) : undefined} selecionado />
               ) : (
                 <>
-                  <ListaRolavel altura={220}>
+                  <View style={styles.busca}>
+                    <IconSearch size={18} color="#858d99" />
+                    <TextInput
+                      value={busca}
+                      onChangeText={setBusca}
+                      placeholder="Buscar por nome ou telefone"
+                      placeholderTextColor={colors.textFaint}
+                      editable={!enviando}
+                      accessibilityLabel="Buscar cliente por nome ou telefone"
+                      style={styles.buscaCampo}
+                    />
+                  </View>
+                  <View style={styles.lista}>
                     {filtrados.map(c => {
                       const qtd = petsPorCliente[c.id_cliente] ?? 0
                       return (
-                        <ItemEscolha
+                        <Linha
                           key={c.id_cliente}
+                          avatar={<Text style={styles.avatarTexto}>{iniciais(c.nome)}</Text>}
                           titulo={c.nome}
                           detalhe={`${c.telefone ? formatarTelefone(c.telefone) : ''}${qtd > 0 ? ` · ${qtd} pet${qtd > 1 ? 's' : ''}` : ''}`}
                           selecionado={clienteId === c.id_cliente}
@@ -358,148 +530,142 @@ export default function NovoAgendamentoScreen() {
                         />
                       )
                     })}
-                    {filtrados.length === 0 && <Text style={styles.apoio}>Nenhum cliente encontrado para "{busca}".</Text>}
-                  </ListaRolavel>
-                  {/* No celular o site põe a busca embaixo da lista. */}
-                  <View style={styles.busca}>
-                    <IconSearch size={16} color={colors.textFaint} />
-                    <TextInput
-                      value={busca}
-                      onChangeText={setBusca}
-                      placeholder="Buscar cliente pelo nome..."
-                      placeholderTextColor={colors.textFaint}
-                      editable={!enviando}
-                      accessibilityLabel="Buscar cliente pelo nome"
-                      style={styles.buscaCampo}
+                  </View>
+                  {filtrados.length === 0 && <Text style={styles.msg}>Nenhum cliente encontrado para "{busca}".</Text>}
+                </>
+              ))}
+
+              {/* Pet — sem nenhum pet, já abre o cadastro rápido */}
+              {etapa === 'pet' && (petsDoCliente === null ? (
+                <ActivityIndicator color={colors.primary600} />
+              ) : (novoPet || petsDoCliente.length === 0) && comSite ? (
+                <View style={styles.novoPet}>
+                  <View style={styles.novoPetTitulo}>
+                    <IconDog size={16} color={colors.primary600} />
+                    <Text style={styles.novoPetTexto}>Novo pet de {cliente?.nome.split(' ')[0]}</Text>
+                  </View>
+                  {petsDoCliente.length === 0 && <Text style={styles.nota}>Este cliente ainda não tem pet cadastrado.</Text>}
+                  {petErro && (
+                    <View style={styles.erro}>
+                      <IconAlert size={15} color={colors.dangerFg} />
+                      <Text style={styles.erroTexto}>{petErro}</Text>
+                    </View>
+                  )}
+                  <View style={styles.dois}>
+                    <View style={styles.metade}>
+                      <Campo rotulo="Nome do pet" obrigatorio value={petNome} onChangeText={setPetNome} placeholder="Rex" editable={!salvandoPet} maxLength={60} />
+                    </View>
+                    <View style={styles.metade}>
+                      <Campo rotulo="Raça" obrigatorio value={petRaca} onChangeText={setPetRaca} placeholder="SRD, Poodle..." editable={!salvandoPet} maxLength={60} />
+                    </View>
+                  </View>
+                  <View style={styles.dois}>
+                    <View style={[styles.metade, { gap: 4 }]}>
+                      <Text style={styles.rotulo}>Sexo <Text style={styles.estrela}>*</Text></Text>
+                      <View style={[styles.seg, styles.segLargo]}>
+                        {(['Macho', 'Fêmea'] as const).map(sexo => (
+                          <Pressable
+                            key={sexo}
+                            onPress={() => setPetSexo(sexo)}
+                            disabled={salvandoPet}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: petSexo === sexo }}
+                            style={[styles.segBotao, styles.segBotaoLargo, petSexo === sexo && styles.segAtivo]}
+                          >
+                            <Text style={[styles.segTexto, styles.segTextoLargo, petSexo === sexo && styles.segTextoAtivo]}>{sexo}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                    <View style={styles.metade}>
+                      <Campo
+                        rotulo="Nascimento"
+                        obrigatorio
+                        value={petNasc}
+                        onChangeText={t => setPetNasc(mascaraData(t))}
+                        placeholder="dd/mm/aaaa"
+                        keyboardType="number-pad"
+                        editable={!salvandoPet}
+                        maxLength={10}
+                      />
+                    </View>
+                  </View>
+                  <View style={styles.aDireita}>
+                    {petsDoCliente.length > 0 && (
+                      <BotaoPequeno rotulo="Cancelar" variante="fantasma" desativado={salvandoPet} onPress={() => { setNovoPet(false); setPetErro(null) }} />
+                    )}
+                    <BotaoPequeno
+                      rotulo={salvandoPet ? 'Cadastrando...' : 'Salvar pet'}
+                      variante="primario"
+                      desativado={salvandoPet || !petNome.trim() || !petRaca.trim() || !petNasc}
+                      onPress={criarPet}
                     />
                   </View>
-                </>
-              )}
-            </View>
+                </View>
+              ) : (
+                <View style={styles.lista}>
+                  {petsDoCliente.length === 0 && <Text style={styles.msg}>Este cliente ainda não tem pet cadastrado.</Text>}
+                  {petsDoCliente.map(p => (
+                    <Linha
+                      key={p.id_pet}
+                      avatarGrande
+                      avatar={p.foto_url
+                        ? <Image source={{ uri: p.foto_url }} style={styles.foto} accessibilityIgnoresInvertColors />
+                        : <IconDog size={22} color={colors.primary300} />}
+                      titulo={p.nome}
+                      detalhe={p.raca ?? undefined}
+                      selecionado={petId === p.id_pet}
+                      desativado={enviando}
+                      onPress={() => { setPetId(p.id_pet); setEtapa('servico') }}
+                    />
+                  ))}
+                  {comSite && (
+                    <Linha
+                      novo
+                      avatarGrande
+                      avatar={<IconPlus size={22} color={colors.primary600} />}
+                      titulo="Cadastrar novo pet"
+                      desativado={enviando}
+                      onPress={() => setNovoPet(true)}
+                    />
+                  )}
+                </View>
+              ))}
 
-            {/* Pet */}
-            {cliente && (
-              <View style={styles.grupo}>
-                <Rotulo texto="Pet" obrigatorio />
-                {petsDoCliente === null ? (
-                  <ActivityIndicator color={colors.primary600} />
-                ) : (
-                  <>
-                    {petsDoCliente.length === 0 && !novoPet && <Text style={[styles.apoio, { marginBottom: 8 }]}>Este cliente ainda não tem pet cadastrado.</Text>}
-                    {petsDoCliente.length > 0 && (
-                      <View style={{ marginBottom: 8 }}>
-                        <ListaRolavel altura={140}>
-                          {petsDoCliente.map(p => (
-                            <ItemEscolha
-                              key={p.id_pet}
-                              icone={IconDog}
-                              titulo={p.nome}
-                              detalhe={p.raca ?? undefined}
-                              selecionado={petId === p.id_pet}
-                              desativado={enviando}
-                              onPress={() => setPetId(p.id_pet)}
-                            />
-                          ))}
-                        </ListaRolavel>
-                      </View>
-                    )}
+              {/* Serviço — com o preço para o pet escolhido */}
+              {etapa === 'servico' && (servicos.length === 0 ? (
+                <Text style={styles.msg}>Nenhum serviço ativo cadastrado. Cadastre um em Serviços antes de agendar.</Text>
+              ) : (
+                <View style={styles.lista}>
+                  {servicos.map(s => (
+                    <Linha
+                      key={s.id_servico}
+                      avatar={<IconScissors size={18} color={colors.primary300} />}
+                      titulo={s.nome}
+                      detalhe={`${s.duracao} min`}
+                      selo={cobertoPeloPlano(s.id_servico) ? ' · no plano do cliente' : undefined}
+                      valor={formatarMoeda(precoDe(s))}
+                      selecionado={servicoId === s.id_servico}
+                      desativado={enviando}
+                      onPress={() => {
+                        if (s.id_servico !== servicoId) setHora('')
+                        setServicoId(s.id_servico)
+                        setEtapa('horario')
+                      }}
+                    />
+                  ))}
+                </View>
+              ))}
 
-                    {!novoPet ? (
-                      comSite && <BotaoPequeno rotulo="Cadastrar novo pet" icone={IconPlus} variante="fantasma" desativado={enviando} onPress={() => setNovoPet(true)} />
-                    ) : (
-                      <View style={styles.novoPet}>
-                        <View style={styles.novoPetTitulo}>
-                          <IconDog size={15} color={colors.textMuted} />
-                          <Text style={styles.novoPetTexto}>Novo pet de {cliente.nome.split(' ')[0]}</Text>
-                        </View>
-                        {petErro && <Aviso tipo="erro" texto={petErro} />}
-                        <Campo rotulo="Nome do pet *" value={petNome} onChangeText={setPetNome} placeholder="Rex" editable={!salvandoPet} maxLength={60} />
-                        <Campo rotulo="Raça *" value={petRaca} onChangeText={setPetRaca} placeholder="SRD, Poodle..." editable={!salvandoPet} maxLength={60} />
-                        <View style={styles.grupo}>
-                          <Text style={styles.rotulo}>Sexo <Text style={styles.estrela}>*</Text></Text>
-                          <Seletor
-                            titulo="Sexo"
-                            valor={petSexo}
-                            desativado={salvandoPet}
-                            opcoes={[{ valor: 'Macho', rotulo: 'Macho' }, { valor: 'Fêmea', rotulo: 'Fêmea' }]}
-                            onChange={setPetSexo}
-                          />
-                        </View>
-                        <Campo
-                          rotulo="Data de nascimento *"
-                          value={petNasc}
-                          onChangeText={t => setPetNasc(mascaraData(t))}
-                          placeholder="dd/mm/aaaa"
-                          keyboardType="number-pad"
-                          editable={!salvandoPet}
-                          maxLength={10}
-                        />
-                        <View style={styles.aDireita}>
-                          <BotaoPequeno rotulo="Cancelar" variante="fantasma" desativado={salvandoPet} onPress={() => { setNovoPet(false); setPetErro(null) }} />
-                          <BotaoPequeno
-                            rotulo={salvandoPet ? 'Cadastrando...' : 'Salvar pet'}
-                            variante="primario"
-                            desativado={salvandoPet || !petNome.trim() || !petRaca.trim() || !petNasc}
-                            onPress={criarPet}
-                          />
-                        </View>
-                      </View>
-                    )}
-                  </>
-                )}
-              </View>
-            )}
-
-            {/* Serviço */}
-            {pet && (
-              <View style={styles.grupo}>
-                <Rotulo texto="Serviço" obrigatorio />
-                {servicos.length === 0 ? (
-                  <Text style={styles.apoio}>Nenhum serviço ativo cadastrado. Cadastre um em Serviços antes de agendar.</Text>
-                ) : (
-                  <ListaRolavel altura={160}>
-                    {servicos.map(s => (
-                      <ItemEscolha
-                        key={s.id_servico}
-                        icone={IconScissors}
-                        tamanhoDoIcone={16}
-                        titulo={s.nome}
-                        detalhe={`${s.duracao} min`}
-                        selecionado={servicoId === s.id_servico}
-                        desativado={enviando}
-                        lateral={<Text style={styles.preco}>{formatarMoeda(precoDe(s))}</Text>}
-                        onPress={() => { setServicoId(s.id_servico); setHora('') }}
-                      />
-                    ))}
-                  </ListaRolavel>
-                )}
-              </View>
-            )}
-
-            {/* Profissional — opcional; só quem pode atribuir escolhe. */}
-            {servico && equipe.length > 0 && acessoTotal && (
-              <View style={styles.grupo}>
-                <Rotulo texto="Profissional (opcional)" />
-                <Seletor
-                  titulo="Profissional (opcional)"
-                  valor={funcionarioId}
-                  desativado={enviando}
-                  opcoes={[{ valor: '', rotulo: 'Sem profissional definido' }, ...equipe.map(f => ({ valor: f.id_funcionario, rotulo: f.nome }))]}
-                  onChange={setFuncionarioId}
-                />
-              </View>
-            )}
-
-            {/* Data e horário */}
-            {servico && (
-              <View style={styles.grupo}>
-                <Rotulo texto="Data e horário" obrigatorio />
+              {/* Data e horário */}
+              {etapa === 'horario' && (
                 <SeletorDataHora
+                  enxuto
                   idLojista={idLojista}
                   data={data}
                   onData={d => { setData(d); setHora('') }}
                   hora={hora}
-                  onHora={setHora}
+                  onHora={h => { setHora(h); setEtapa(depoisDe('horario')) }}
                   slots={slotsDoDia ? slotsDoDia.lista : null}
                   aviso={
                     slotsDoDia?.erro ? 'Não foi possível carregar os horários. Escolha outro dia e volte, ou tente de novo em instantes.'
@@ -509,166 +675,405 @@ export default function NovoAgendamentoScreen() {
                   dataMin={hoje}
                   desativado={enviando}
                 />
-              </View>
-            )}
+              )}
 
-            {/* Transporte — só com o TaxiDog ativado na loja */}
-            {servico && comTransporte && (
-              <View style={styles.grupo}>
-                <Rotulo texto="Transporte do pet" icone={IconCar} />
-                <EtapaTransporte key={clienteId} idLojista={idLojista} valor={transporte} onChange={setTransporte} loja={{ idCliente: clienteId }} />
-                {escolhaTaxiDog && (
-                  <Text style={styles.total}>
-                    Total: <Text style={styles.totalValor}>{formatarMoeda((vaiUsarBeneficio ? 0 : precoDe(servico)) + Number(escolhaTaxiDog.cotacao.valor ?? 0))}</Text>
-                    <Text style={styles.apoioCor}> (serviço + TaxiDog)</Text>
-                  </Text>
-                )}
-              </View>
-            )}
+              {/* Transporte — só com o TaxiDog ativado na loja */}
+              {etapa === 'transporte' && (
+                <EtapaTransporte key={clienteId} compacto idLojista={idLojista} valor={transporte} onChange={setTransporte} loja={{ idCliente: clienteId }} />
+              )}
 
-            {/* Plano do pet (migration 060) */}
-            {servico && beneficio && (
-              <View style={[styles.plano, !beneficioDisponivel && styles.planoEsgotado]}>
-                {beneficioDisponivel ? (
-                  <>
-                    <Text style={styles.texto}>
-                      <Text style={styles.forte}>Este serviço está incluído no plano do cliente</Text> ({beneficio.plano}: {restantes} de {beneficio.quantidade} restante{restantes !== 1 ? 's' : ''} no período).
-                    </Text>
+              {/* Resumo e pagamento */}
+              {etapa === 'pagamento' && (
+                <>
+                  <View style={styles.itens}>
+                    <Item icone={IconUser} texto={cliente?.nome} vazio="Escolher cliente" onPress={clienteFixo ? undefined : () => irPara('cliente')} />
+                    <Item icone={IconDog} texto={pet?.nome} detalhe={pet?.raca} vazio="Escolher pet" onPress={() => irPara('pet')} />
+                    <Item
+                      icone={IconScissors}
+                      texto={servico?.nome}
+                      vazio="Escolher serviço"
+                      valor={servico ? (vaiUsarBeneficio ? 'Pelo plano' : formatarMoeda(precoDe(servico))) : null}
+                      onPress={() => irPara('servico')}
+                    />
+                    <Item icone={IconCalendar} texto={quandoCurto} vazio="Escolher data e horário" onPress={() => irPara('horario')} />
+                    {comTransporte && (
+                      <Item
+                        icone={IconCar}
+                        texto={transporte.opcao === 'taxidog' ? 'TaxiDog' : 'Cliente leva o pet'}
+                        detalhe={transporte.opcao === 'taxidog' ? ROTULO_MODALIDADE[transporte.modalidade] : null}
+                        vazio=""
+                        valor={escolhaTaxiDog ? formatarMoeda(valorTaxiDog) : transporte.opcao === 'taxidog' ? 'Falta o endereço' : null}
+                        onPress={() => irPara('transporte')}
+                      />
+                    )}
+                    {/* Profissional — opcional; só quem pode atribuir escolhe. */}
+                    {equipe.length > 0 && acessoTotal && (
+                      <Pressable
+                        onPress={() => setEscolhendoProfissional(true)}
+                        disabled={enviando}
+                        accessibilityRole="button"
+                        accessibilityLabel="Profissional (opcional)"
+                        style={[styles.item, styles.itemFinal]}
+                      >
+                        <IconUserBadge size={16} color={colors.primary600} />
+                        <Text style={[styles.itemTexto, !funcionarioId && styles.itemVazio]} numberOfLines={1}>
+                          {equipe.find(f => f.id_funcionario === funcionarioId)?.nome ?? 'Sem profissional definido'}
+                        </Text>
+                        <View style={styles.seta} />
+                      </Pressable>
+                    )}
+                  </View>
+
+                  {/* Plano do pet (migration 060) */}
+                  {servico && beneficio && (beneficioDisponivel ? (
                     <Pressable
                       onPress={() => setUsarBeneficio(v => !v)}
                       disabled={enviando}
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: usarBeneficio }}
-                      style={styles.marcar}
+                      style={styles.plano}
                     >
                       <View style={[styles.caixinha, usarBeneficio && styles.caixinhaMarcada]}>
                         {usarBeneficio && <IconCheck size={11} color={colors.white} />}
                       </View>
-                      <Text style={styles.texto}>Usar o benefício do plano (o serviço não é cobrado neste agendamento)</Text>
+                      <Text style={styles.planoTexto}>
+                        <Text style={styles.forte}>Usar o benefício do plano</Text> — {beneficio.plano}: {restantes} de {beneficio.quantidade} restante{restantes !== 1 ? 's' : ''} no período. O serviço não é cobrado neste agendamento.
+                      </Text>
                     </Pressable>
-                  </>
-                ) : (
-                  <Text style={styles.texto}>
-                    Os usos deste serviço no plano {beneficio.plano} acabaram neste período ({beneficio.usados} de {beneficio.quantidade}) — ele será cobrado como avulso.
-                  </Text>
+                  ) : (
+                    <View style={[styles.plano, styles.planoEsgotado]}>
+                      <Text style={styles.planoTexto}>
+                        Os usos deste serviço no plano {beneficio.plano} acabaram neste período ({beneficio.usados} de {beneficio.quantidade}) — ele será cobrado como avulso.
+                      </Text>
+                    </View>
+                  ))}
+
+                  {/* Pagamento — obrigatório, menos quando o plano cobre tudo. */}
+                  {nadaAPagar ? (
+                    <View style={styles.coberto}>
+                      <IconCheck size={15} color={colors.successFg} />
+                      <Text style={styles.cobertoTexto}>O plano cobre este agendamento: não há o que pagar.</Text>
+                    </View>
+                  ) : (
+                    <View style={{ gap: 8 }}>
+                      <View style={styles.blocoTopo}>
+                        <Text style={styles.rotulo}>Pagamento</Text>
+                        <View style={styles.seg}>
+                          {(['pendente', 'pago'] as const).map(status => (
+                            <Pressable
+                              key={status}
+                              onPress={() => setPago(status)}
+                              disabled={enviando}
+                              accessibilityRole="button"
+                              accessibilityState={{ selected: pago === status }}
+                              style={[styles.segBotao, pago === status && styles.segAtivo]}
+                            >
+                              <Text style={[styles.segTexto, pago === status && styles.segTextoAtivo]}>{status === 'pago' ? 'Pago' : 'Pendente'}</Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
+                      <View style={styles.formas}>
+                        {formas.map(f => {
+                          const IconeDaForma = ICONE_FORMA[f]
+                          const ativa = formaEscolhida === f
+                          return (
+                            <View key={f} style={styles.formaCaixa}>
+                              <Pressable
+                                onPress={() => setForma(f)}
+                                disabled={enviando}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected: ativa }}
+                                style={[styles.forma, ativa && styles.formaAtiva]}
+                              >
+                                <IconeDaForma size={17} color={colors.primary600} />
+                                <Text style={[styles.formaTexto, ativa && styles.segTextoAtivo]} numberOfLines={1}>{ROTULO_FORMA_PAGAMENTO[f]}</Text>
+                              </Pressable>
+                            </View>
+                          )
+                        })}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Observações */}
+                  {obsAberta || obs ? (
+                    <TextInput
+                      value={obs}
+                      onChangeText={setObs}
+                      placeholder="Observações. Ex: pet é nervoso com barulho"
+                      placeholderTextColor={colors.textFaint}
+                      accessibilityLabel="Observações (opcional)"
+                      maxLength={500}
+                      multiline
+                      editable={!enviando}
+                      autoFocus={obsAberta && !obs}
+                      style={styles.obs}
+                    />
+                  ) : (
+                    <Pressable onPress={() => setObsAberta(true)} disabled={enviando} hitSlop={8} accessibilityRole="button" style={styles.link}>
+                      <IconPlus size={13} color={colors.primary600} />
+                      <Text style={styles.linkTexto}>Adicionar observação</Text>
+                    </Pressable>
+                  )}
+                </>
+              )}
+            </ScrollView>
+
+            {/* O botão da etapa, fixo embaixo. */}
+            {etapa === 'pagamento' ? rodapeFinal : (
+              <View style={styles.barra}>
+                {servico && (
+                  <View>
+                    <Text style={styles.barraRotulo}>Total</Text>
+                    <Text style={styles.barraValor}>{formatarMoeda(total)}</Text>
+                  </View>
                 )}
+                <BotaoDaBarra rotulo="Continuar" desativado={!feita[etapa] || enviando} onPress={() => setEtapa(depoisDe(etapa))} />
               </View>
-            )}
-
-            {/* Pagamento — obrigatório, menos quando o plano cobre tudo. */}
-            {servico && !nadaAPagar && (
-              <View style={styles.grupo}>
-                <Rotulo texto="Pagamento" />
-                <View style={{ gap: 12 }}>
-                  <Seletor<FormaPagamento | ''>
-                    titulo="Forma de pagamento"
-                    valor={forma}
-                    desativado={enviando}
-                    opcoes={[{ valor: '' as const, rotulo: 'Forma de pagamento...' }, ...formas.map(f => ({ valor: f, rotulo: ROTULO_FORMA_PAGAMENTO[f] }))]}
-                    onChange={setForma}
-                  />
-                  <Seletor
-                    titulo="Status do pagamento"
-                    valor={pago}
-                    desativado={enviando}
-                    opcoes={[{ valor: 'pendente', rotulo: 'Pendente' }, { valor: 'pago', rotulo: 'Pago' }]}
-                    onChange={setPago}
-                  />
-                </View>
-                <Text style={styles.dica}>Vale para o pedido todo{escolhaTaxiDog ? ' (serviço e TaxiDog)' : ''}. Obrigatório para salvar.</Text>
-              </View>
-            )}
-
-            {/* Observações */}
-            {hora !== '' && (
-              <Campo rotulo="Observações (opcional)" value={obs} onChangeText={setObs} placeholder="Ex: pet é nervoso com barulho" maxLength={500} multiline editable={!enviando} />
             )}
           </>
         )}
-      </View>
+      </KeyboardAvoidingView>
 
-      {!feito && (
-        <View style={styles.rodape}>
-          <BotaoPequeno normal variante="primario" rotulo={enviando ? 'Agendando...' : 'Confirmar agendamento'} desativado={!podeSubmeter} onPress={criar} />
-          <BotaoPequeno normal rotulo="Cancelar" desativado={enviando} onPress={() => router.back()} />
+      <Folha visivel={escolhendoProfissional} titulo="Profissional (opcional)" onFechar={() => setEscolhendoProfissional(false)}>
+        <View style={{ gap: 8 }}>
+          {[{ id_funcionario: '', nome: 'Sem profissional definido' }, ...equipe].map(f => (
+            <Opcao
+              key={f.id_funcionario}
+              titulo={f.nome}
+              selecionada={f.id_funcionario === funcionarioId}
+              onPress={() => { setEscolhendoProfissional(false); setFuncionarioId(f.id_funcionario) }}
+            />
+          ))}
         </View>
-      )}
+      </Folha>
     </ScreenContainer>
   )
 }
 
-// Rótulo de campo (`.form-label`), com o "*" dos obrigatórios.
-function Rotulo({ texto, obrigatorio, icone: Icone }: { texto: string; obrigatorio?: boolean; icone?: ComponentType<IconeProps> }) {
+// Linha de escolha (`.na-opcao` no celular): cartão branco com o avatar, o
+// nome, o detalhe e, à direita, o valor ou o "✓" da escolhida.
+function Linha({ avatar, avatarGrande, titulo, detalhe, selo, valor, selecionado, novo, desativado, onPress }: {
+  avatar: ReactNode
+  avatarGrande?: boolean
+  titulo: string
+  detalhe?: string
+  // Depois do detalhe, em verde ("no plano do cliente").
+  selo?: string
+  valor?: string
+  selecionado?: boolean
+  // A linha tracejada de "Cadastrar novo pet".
+  novo?: boolean
+  desativado?: boolean
+  onPress: () => void
+}) {
   return (
-    <View style={styles.rotuloLinha}>
-      {Icone && <Icone size={13} color={colors.textDim} />}
-      <Text style={styles.rotulo}>
-        {texto}
-        {obrigatorio && <Text style={styles.estrela}> *</Text>}
+    <Pressable
+      onPress={onPress}
+      disabled={desativado}
+      accessibilityRole="button"
+      accessibilityState={{ selected: !!selecionado, disabled: !!desativado }}
+      style={[styles.linha, selecionado && styles.linhaSelecionada, novo && styles.linhaNova]}
+    >
+      <View style={[styles.avatar, avatarGrande && styles.avatarGrande, novo && styles.avatarNovo]}>{avatar}</View>
+      <View style={styles.linhaTexto}>
+        <Text style={[styles.linhaTitulo, novo && styles.linhaTituloNovo]} numberOfLines={1}>{titulo}</Text>
+        {!!detalhe && (
+          <Text style={styles.linhaDetalhe} numberOfLines={1}>
+            {detalhe}
+            {selo ? <Text style={styles.selo}>{selo}</Text> : null}
+          </Text>
+        )}
+      </View>
+      {valor ? <Text style={styles.linhaValor}>{valor}</Text> : selecionado ? <IconCheck size={18} color={colors.primary600} /> : null}
+    </Pressable>
+  )
+}
+
+// Uma linha do resumo: o que já foi escolhido (ou o que falta) e, ao tocar,
+// a etapa onde se troca.
+function Item({ icone: Icone, texto, detalhe, vazio, valor, onPress }: {
+  icone: ComponentType<IconeProps>
+  texto?: string | null
+  detalhe?: string | null
+  vazio: string
+  valor?: string | null
+  onPress?: () => void
+}) {
+  return (
+    <Pressable onPress={onPress} disabled={!onPress} accessibilityRole="button" style={styles.item}>
+      <Icone size={16} color={colors.primary600} />
+      <Text style={[styles.itemTexto, !texto && styles.itemVazio]} numberOfLines={1}>
+        {texto ?? vazio}
+        {texto && detalhe ? <Text style={styles.itemDetalhe}> · {detalhe}</Text> : null}
       </Text>
-    </View>
+      {!!valor && <Text style={styles.itemValor}>{valor}</Text>}
+      {onPress && <IconChevronRight size={14} color={colors.textFaint} />}
+    </Pressable>
   )
 }
 
-// Lista de escolha que rola por dentro quando passa da altura (`.picker-list`).
-function ListaRolavel({ altura, children }: { altura: number; children: ReactNode }) {
+// O botão do pé da tela (`.na-barra .btn`): 50 de altura, 52 no de confirmar.
+function BotaoDaBarra({ rotulo, alto, desativado, onPress }: { rotulo: string; alto?: boolean; desativado?: boolean; onPress: () => void }) {
   return (
-    <ScrollView style={{ maxHeight: altura }} contentContainerStyle={styles.lista} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-      {children}
-    </ScrollView>
+    <Pressable
+      onPress={onPress}
+      disabled={desativado}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!desativado }}
+      style={({ pressed }) => [styles.botao, alto ? styles.botaoAlto : styles.botaoNaLinha, (pressed || desativado) && styles.apagado]}
+    >
+      <Text style={styles.botaoTexto}>{rotulo}</Text>
+    </Pressable>
   )
 }
 
-// Medidas e cores da janela do site em 375 de largura.
+const SUAVE = 'rgba(79,70,229,0.12)'
+const APAGADO = '#858d99'
+
+// Medidas e cores da janela do site em 375 de largura (novo-agendamento.css).
 const styles = StyleSheet.create({
-  corpo: { gap: 12 },
-  grupo: { gap: 4 },
-  rotuloLinha: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  rotulo: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.textDim },
-  estrela: { color: colors.dangerFg },
-  lista: { gap: 8 },
-  // `.dash-search` no celular: 40 de altura, lupa por dentro.
+  tela: { flex: 1, padding: 0, paddingBottom: 0 },
+
+  // `.na-topo`
+  topo: { height: 52, flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, paddingBottom: 8, paddingHorizontal: 16 },
+  voltar: { width: 32, height: 32, marginLeft: -6, alignItems: 'center', justifyContent: 'center' },
+  titulo: { flex: 1, fontSize: 18, lineHeight: 22.5, fontWeight: '700', color: colors.text },
+  fechar: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+
+  // `.na-progresso` e `.na-etapa`
+  progresso: { flexDirection: 'row', gap: 4, paddingHorizontal: 16 },
+  segmento: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.border },
+  segmentoFeito: { backgroundColor: colors.primary600 },
+  etapa: { padding: 12, paddingHorizontal: 16 },
+  etapaLinha: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
+  pergunta: { flexShrink: 1, fontFamily: FONTE_TITULO, fontSize: 20, lineHeight: 25, fontWeight: '800', letterSpacing: -0.2, color: colors.text },
+  contador: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: APAGADO },
+  trilha: { marginTop: 2, fontSize: 14, lineHeight: 22.4, color: colors.textMuted },
+
+  // `.na-principal` / `.na-resumo-corpo`
+  conteudo: { gap: 12, paddingHorizontal: 16, paddingBottom: 12 },
+  msg: { paddingVertical: 24, textAlign: 'center', fontSize: 14, lineHeight: 22.4, color: APAGADO },
+  nota: { fontSize: 13, lineHeight: 18.2, color: APAGADO },
+
+  // `.na-busca`
   busca: {
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    height: 40,
-    marginTop: 4,
-    marginBottom: 8,
-    paddingHorizontal: 11,
-    borderRadius: 6,
+    gap: 12,
+    paddingLeft: 14,
+    paddingRight: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  buscaCampo: { flex: 1, height: '100%', fontSize: 14, color: colors.text },
-  apoio: { fontSize: 14, lineHeight: 20, color: '#858d99' },
-  apoioCor: { color: '#858d99' },
-  preco: { fontSize: 13.3, lineHeight: 16, fontWeight: '600', color: colors.successFg },
-  novoPet: { gap: 12, padding: 16, borderRadius: 6, borderWidth: 1, borderColor: colors.borderStrong },
-  novoPetTitulo: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  novoPetTexto: { fontSize: 14, fontWeight: '600', color: '#1f2937' },
-  aDireita: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
-  total: { fontSize: 14, lineHeight: 20, color: colors.text },
-  totalValor: { fontWeight: '700', color: colors.successFg },
-  // `.plano-aviso-agendamento`
-  plano: { gap: 8, padding: 12, marginBottom: 4, borderRadius: 6, borderWidth: 1, borderColor: colors.primary500, backgroundColor: colors.surfaceMuted },
-  planoEsgotado: { borderColor: colors.borderStrong },
-  texto: { flexShrink: 1, fontSize: 14, lineHeight: 20, color: colors.text },
-  forte: { fontWeight: '700' },
-  marcar: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  caixinha: {
-    width: 16,
-    height: 16,
-    borderRadius: 3,
-    borderWidth: 1,
-    borderColor: colors.textMuted,
-    backgroundColor: colors.surface,
+  buscaCampo: { flex: 1, height: '100%', fontSize: 16, color: colors.text },
+
+  // `.na-lista` e `.na-opcao`
+  lista: { gap: 8 },
+  linha: {
+    minHeight: 60,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 8.8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
+  linhaSelecionada: { borderColor: colors.primary600 },
+  linhaNova: { borderStyle: 'dashed', borderColor: colors.primary200, backgroundColor: 'transparent' },
+  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: SUAVE },
+  avatarGrande: { width: 48, height: 48, borderRadius: 24 },
+  avatarNovo: { backgroundColor: 'transparent', borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary200 },
+  avatarTexto: { fontSize: 13, lineHeight: 13, fontWeight: '700', color: colors.primary300 },
+  foto: { width: '100%', height: '100%' },
+  linhaTexto: { flex: 1 },
+  linhaTitulo: { fontSize: 15, lineHeight: 20.25, fontWeight: '600', color: colors.text },
+  linhaTituloNovo: { color: colors.primary600 },
+  linhaDetalhe: { fontSize: 13, lineHeight: 17.55, color: APAGADO },
+  selo: { fontWeight: '600', color: colors.successFg },
+  linhaValor: { fontFamily: FONTE_TITULO, fontSize: 16, lineHeight: 25.6, fontWeight: '800', letterSpacing: -0.16, color: colors.text },
+
+  // `.na-novo-pet`
+  novoPet: { gap: 12 },
+  novoPetTitulo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  novoPetTexto: { fontSize: 15, lineHeight: 24, fontWeight: '600', color: colors.text },
+  dois: { flexDirection: 'row', gap: 12 },
+  metade: { flex: 1 },
+  rotulo: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.textDim },
+  estrela: { color: colors.dangerFg },
+  aDireita: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
+
+  // `.na-seg`: trilha branca, a escolhida em índigo claro.
+  seg: { flexDirection: 'row', padding: 2, borderRadius: 10, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface },
+  segLargo: { alignSelf: 'stretch' },
+  segBotao: { height: 32, paddingHorizontal: 11.2, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  segBotaoLargo: { flex: 1, height: 44 },
+  segAtivo: { backgroundColor: SUAVE },
+  segTexto: { fontSize: 13, lineHeight: 13, fontWeight: '600', color: colors.textMuted },
+  segTextoLargo: { fontSize: 15, lineHeight: 15 },
+  segTextoAtivo: { color: colors.primary300 },
+
+  // `.na-itens` e `.na-item`
+  itens: { borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
+  item: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  itemFinal: { borderBottomWidth: 0 },
+  itemTexto: { flex: 1, fontSize: 14, lineHeight: 22.4, fontWeight: '600', color: colors.text },
+  itemDetalhe: { fontSize: 13, fontWeight: '400', color: APAGADO },
+  itemVazio: { fontWeight: '500', color: APAGADO },
+  itemValor: { fontSize: 14, lineHeight: 22.4, fontWeight: '700', color: colors.text },
+  // Triângulo apontando para baixo, como a seta do select.
+  seta: { width: 0, height: 0, borderLeftWidth: 5, borderRightWidth: 5, borderTopWidth: 6, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: colors.textMuted },
+
+  // `.na-plano` e `.na-coberto`
+  plano: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 9.6, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(79,70,229,0.25)', backgroundColor: 'rgba(79,70,229,0.08)' },
+  planoEsgotado: { borderColor: colors.border, backgroundColor: colors.bg },
+  planoTexto: { flex: 1, fontSize: 13, lineHeight: 18.2, color: '#1f2937' },
+  forte: { fontWeight: '700', color: colors.text },
+  caixinha: { width: 16, height: 16, marginTop: 1, borderRadius: 3, borderWidth: 1, borderColor: colors.textMuted, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   caixinhaMarcada: { backgroundColor: colors.primary600, borderColor: colors.primary600 },
-  dica: { fontSize: 13, lineHeight: 20.8, color: '#858d99' },
-  // `.modal-footer` no celular: os dois botões empilhados.
-  rodape: { gap: 8, marginTop: spacing.xl },
+  coberto: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cobertoTexto: { flex: 1, fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.successFg },
+
+  // `.na-bloco` (pagamento)
+  blocoTopo: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  // Duas por linha com 8 de vão: cada caixa tem 50% e 4 de respiro em volta.
+  formas: { flexDirection: 'row', flexWrap: 'wrap', margin: -4 },
+  formaCaixa: { width: '50%', padding: 4 },
+  forma: { height: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
+  formaAtiva: { borderColor: colors.primary600, backgroundColor: 'rgba(79,70,229,0.08)' },
+  formaTexto: { flexShrink: 1, fontSize: 13, lineHeight: 13, fontWeight: '600', color: '#1f2937' },
+
+  link: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 },
+  linkTexto: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.primary600 },
+  obs: { minHeight: 52, paddingVertical: 6.4, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, fontSize: 14, lineHeight: 19.6, color: colors.text, textAlignVertical: 'top' },
+
+  // `.na-barra`
+  barra: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
+  barraRotulo: { fontSize: 12, lineHeight: 19.2, fontWeight: '600', color: APAGADO },
+  barraValor: { fontFamily: FONTE_TITULO, fontSize: 18, lineHeight: 21.6, fontWeight: '800', letterSpacing: -0.36, color: colors.text },
+  barraFinal: { gap: 8, paddingTop: 12, paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
+  total: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  totalRotulo: { fontFamily: FONTE_TITULO, fontSize: 15, lineHeight: 24, fontWeight: '600', color: colors.textMuted },
+  totalValor: { fontFamily: FONTE_TITULO, fontSize: 24, lineHeight: 28.8, fontWeight: '800', letterSpacing: -0.72, color: colors.text },
+  botao: { height: 50, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary600 },
+  botaoNaLinha: { flex: 1 },
+  botaoAlto: { height: 52, marginTop: 4 },
+  botaoTexto: { fontSize: 16, lineHeight: 16, fontWeight: '600', color: colors.white },
+  apagado: { opacity: 0.5 },
+  falta: { textAlign: 'center', fontSize: 12, lineHeight: 19.2, color: APAGADO },
+  erro: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.dangerBg },
+  erroTexto: { flex: 1, fontSize: 13, lineHeight: 18.2, fontWeight: '500', color: colors.dangerFg },
+
+  // `.na-sucesso`
+  sucesso: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24 },
+  sucessoIcone: { width: 64, height: 64, marginBottom: 8, borderRadius: 32, borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)', backgroundColor: colors.successBg, alignItems: 'center', justifyContent: 'center' },
+  sucessoTitulo: { fontFamily: FONTE_TITULO, fontSize: 20, lineHeight: 25, fontWeight: '800', color: colors.text },
+  sucessoTexto: { textAlign: 'center', fontSize: 14, lineHeight: 21, color: APAGADO },
 })

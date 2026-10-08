@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import { ActivityIndicator, StyleSheet, View } from 'react-native'
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native'
 import { Aviso } from './Aviso'
 import { Campo } from './Campo'
-import { IconCar, IconStore } from './IconesDoSite'
+import { IconCar, IconMapPin, IconStore } from './IconesDoSite'
 import { ItemEscolha } from './ItemEscolha'
 import { Opcao } from './Opcao'
-import { Text } from '@/components/Texto'
+import { Text, TextInput } from '@/components/Texto'
 import { supabase } from '@/lib/supabase'
 import { chamarAcao } from '@/lib/acoes'
 import { formatarMoeda } from '@/lib/format'
 import { mascaraCep, soDigitos } from '@/lib/mascaras'
-import { ROTULO_MODALIDADE, type ModalidadeTaxiDog } from '@/lib/taxidog'
+import { ROTULO_MODALIDADE, formatarKm, type ModalidadeTaxiDog } from '@/lib/taxidog'
 import {
   DESCRICAO_MODALIDADE,
   MODALIDADES,
@@ -19,6 +19,7 @@ import {
   type EnderecoTaxiDog,
   type EstadoTransporte,
 } from '@/lib/transporte'
+import { FONTE_TITULO } from '@/theme/fontes'
 import { colors, spacing, typography } from '@/theme/theme'
 
 interface Props {
@@ -33,6 +34,17 @@ interface Props {
     modalidades?: readonly ModalidadeTaxiDog[]
     rotuloLevar?: string
   }
+  // Tela "Novo agendamento" da loja: as opções lado a lado e o endereço
+  // numa linha só quando já está completo, pra caber sem rolar — o
+  // `TaxiDogCampos compacto` do site.
+  compacto?: boolean
+}
+
+// "Rua, número · complemento · bairro · cidade - UF", como no site.
+function enderecoEmUmaLinha(e: EnderecoTaxiDog): string {
+  const rua = [e.logradouro, e.numero].filter(Boolean).join(', ')
+  const cidade = [e.cidade, e.uf].filter(Boolean).join(' - ')
+  return [rua, e.complemento, e.bairro, cidade].filter(Boolean).join(' · ')
 }
 
 type RespostaCotacao = {
@@ -44,7 +56,7 @@ type RespostaCotacao = {
 // (buscar, entregar ou os dois) informando o endereço. A taxa vem da
 // cotação do servidor (cotarTaxiDogAction) assim que o endereço fica
 // completo, e é calculada de novo na hora de agendar.
-export function EtapaTransporte({ idLojista, valor, onChange, loja }: Props) {
+export function EtapaTransporte({ idLojista, valor, onChange, loja, compacto }: Props) {
   const modoLoja = !!loja
   const idClienteDaLoja = loja?.idCliente ?? null
   const [buscandoCep, setBuscandoCep] = useState(false)
@@ -53,6 +65,9 @@ export function EtapaTransporte({ idLojista, valor, onChange, loja }: Props) {
   const [erroCotacao, setErroCotacao] = useState<string | null>(null)
   const chaveAtual = useRef('')
   const jaPreencheu = useRef(false)
+  // Só no compacto: o formulário do endereço fica aberto enquanto a pessoa
+  // digita (null = abre sozinho quando falta alguma parte do endereço).
+  const [formularioAberto, setFormularioAberto] = useState<boolean | null>(null)
 
   // Último endereço usado num TaxiDog deste cliente — poupa digitar de
   // novo (a RLS já limita às corridas dele).
@@ -109,6 +124,7 @@ export function EtapaTransporte({ idLojista, valor, onChange, loja }: Props) {
 
   function atualizar(campo: keyof EnderecoTaxiDog, texto: string) {
     setErroCotacao(null)
+    setFormularioAberto(true)
     onChange(prev => ({ ...prev, endereco: { ...prev.endereco, [campo]: texto }, cotacoes: null, precisao: null }))
   }
 
@@ -145,6 +161,157 @@ export function EtapaTransporte({ idLojista, valor, onChange, loja }: Props) {
   }
 
   const cotacao = valor.cotacoes?.[valor.modalidade] ?? null
+
+  if (compacto) {
+    const mostrarFormulario = formularioAberto ?? !chaveEndereco
+    const paraQue = `Endereço para ${valor.modalidade === 'entregar' ? 'entrega' : 'busca'} do pet`
+    const campo = (nome: keyof EnderecoTaxiDog, rotulo: string, maximo: number, extra?: object) => (
+      <TextInput
+        value={valor.endereco[nome]}
+        onChangeText={t => atualizar(nome, t)}
+        placeholder={rotulo}
+        placeholderTextColor={colors.textFaint}
+        accessibilityLabel={rotulo}
+        maxLength={maximo}
+        style={c.campo}
+        {...extra}
+      />
+    )
+    return (
+      <View style={{ gap: 12 }}>
+        <View style={c.opcoes}>
+          {([
+            ['levar', IconStore, loja?.rotuloLevar ?? (modoLoja ? 'Cliente leva o pet' : 'Vou levar o pet')],
+            ['taxidog', IconCar, 'TaxiDog'],
+          ] as const).map(([opcao, Icone, rotulo]) => {
+            const ativa = valor.opcao === opcao
+            return (
+              <Pressable
+                key={opcao}
+                onPress={() => onChange(prev => ({ ...prev, opcao }))}
+                accessibilityRole="button"
+                accessibilityState={{ selected: ativa }}
+                style={[c.opcao, ativa && c.ativa]}
+              >
+                <Icone size={22} color={colors.primary600} />
+                <Text style={[c.opcaoTexto, ativa && c.textoAtivo]}>{rotulo}</Text>
+              </Pressable>
+            )
+          })}
+        </View>
+
+        {valor.opcao === 'taxidog' && (
+          <>
+            <View style={c.modalidades}>
+              {(loja?.modalidades ?? MODALIDADES).map(m => {
+                const cot = valor.cotacoes?.[m]
+                const ativa = valor.modalidade === m
+                return (
+                  <Pressable
+                    key={m}
+                    onPress={() => onChange(prev => ({ ...prev, modalidade: m }))}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: ativa }}
+                    style={[c.modalidade, ativa && c.modalidadeAtiva]}
+                  >
+                    <Text style={[c.modalidadeNome, ativa && c.textoAtivo]}>{ROTULO_MODALIDADE[m]}</Text>
+                    <Text style={[c.modalidadeValor, ativa && c.textoAtivo, cot && !cot.disponivel && c.indisponivel]}>
+                      {cot ? (cot.disponivel ? formatarMoeda(cot.valor) : 'Indisponível') : 'Taxa pelo endereço'}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </View>
+
+            {mostrarFormulario ? (
+              <View style={{ gap: 8 }}>
+                <View style={c.enderecoTopo}>
+                  <View style={c.enderecoRotulo}>
+                    <IconMapPin size={14} color={colors.primary600} />
+                    <Text style={c.rotulo}>{paraQue}</Text>
+                  </View>
+                  {!!chaveEndereco && (
+                    <Pressable onPress={() => setFormularioAberto(false)} hitSlop={8} accessibilityRole="button">
+                      <Text style={c.link}>Pronto</Text>
+                    </Pressable>
+                  )}
+                </View>
+                <View style={c.linha}>
+                  <TextInput
+                    value={valor.endereco.cep}
+                    onChangeText={aoMudarCep}
+                    placeholder="CEP"
+                    placeholderTextColor={colors.textFaint}
+                    accessibilityLabel="CEP"
+                    keyboardType="number-pad"
+                    maxLength={9}
+                    style={[c.campo, c.metade]}
+                  />
+                  <View style={c.metade}>{campo('numero', 'Número', 20)}</View>
+                </View>
+                {campo('logradouro', 'Rua', 150)}
+                {campo('complemento', 'Complemento (opcional)', 80)}
+                <View style={c.linha}>
+                  <View style={c.metade}>{campo('bairro', 'Bairro', 80)}</View>
+                  <View style={c.metade}>{campo('cidade', 'Cidade', 80)}</View>
+                  <TextInput
+                    value={valor.endereco.uf}
+                    onChangeText={t => atualizar('uf', t.toUpperCase())}
+                    placeholder="UF"
+                    placeholderTextColor={colors.textFaint}
+                    accessibilityLabel="UF"
+                    autoCapitalize="characters"
+                    maxLength={2}
+                    style={[c.campo, c.uf]}
+                  />
+                </View>
+                {buscandoCep && <Text style={c.nota}>Buscando CEP...</Text>}
+                {erroCep && <Text style={[c.nota, c.notaErro]}>{erroCep}</Text>}
+              </View>
+            ) : (
+              <View style={c.enderecoLinha}>
+                <IconMapPin size={18} color={colors.primary600} />
+                <View style={c.enderecoTexto}>
+                  <Text style={c.enderecoPequeno}>{paraQue}</Text>
+                  <Text style={c.enderecoForte}>{enderecoEmUmaLinha(valor.endereco)}</Text>
+                </View>
+                <Pressable onPress={() => setFormularioAberto(true)} hitSlop={8} accessibilityRole="button">
+                  <Text style={c.link}>Alterar</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {!chaveEndereco ? (
+              <Text style={c.nota}>Preencha o endereço completo para calcular a taxa do TaxiDog.</Text>
+            ) : cotando || !valor.cotacoes ? (
+              erroCotacao
+                ? <Text style={[c.nota, c.notaErro]}>{erroCotacao}</Text>
+                : <Text style={c.nota}>Calculando a taxa do TaxiDog...</Text>
+            ) : cotacao && !cotacao.disponivel ? (
+              <Text style={[c.nota, c.notaAviso]}>
+                {cotacao.motivo ?? 'O TaxiDog não está disponível para este endereço.'}
+                {modoLoja ? ' O cliente ainda pode levar o pet até a loja.' : ' Você ainda pode levar o pet até a loja.'}
+              </Text>
+            ) : cotacao ? (
+              <View style={c.taxa}>
+                <View style={c.enderecoTexto}>
+                  <Text style={c.taxaNome}>Taxa do TaxiDog · {ROTULO_MODALIDADE[valor.modalidade]}</Text>
+                  <Text style={c.taxaDetalhe}>
+                    {[
+                      cotacao.distanciaKm != null ? `${formatarKm(cotacao.distanciaKm)} da loja` : null,
+                      cotacao.criterio,
+                      valor.precisao === 'bairro' ? 'rua não achada no mapa: usamos o centro do bairro' : null,
+                    ].filter(Boolean).join(' · ')}
+                  </Text>
+                </View>
+                <Text style={c.taxaValor}>{formatarMoeda(cotacao.valor)}</Text>
+              </View>
+            ) : null}
+          </>
+        )}
+      </View>
+    )
+  }
 
   return (
     <View style={{ gap: spacing.md }}>
@@ -247,6 +414,80 @@ export function EtapaTransporte({ idLojista, valor, onChange, loja }: Props) {
     </View>
   )
 }
+
+// `compacto`: as medidas do `.tdc-*` do site em largura de celular.
+const SUAVE = 'rgba(79,70,229,0.08)'
+const c = StyleSheet.create({
+  opcoes: { flexDirection: 'row', gap: 12 },
+  opcao: {
+    flex: 1,
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  ativa: { borderColor: colors.primary600, backgroundColor: SUAVE },
+  opcaoTexto: { flexShrink: 1, fontSize: 14, lineHeight: 18.2, fontWeight: '600', color: '#1f2937' },
+  textoAtivo: { color: colors.primary300 },
+  modalidades: { flexDirection: 'row', gap: 8 },
+  modalidade: {
+    flex: 1,
+    gap: 2,
+    paddingVertical: 8.8,
+    paddingHorizontal: 9.6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  modalidadeAtiva: { borderColor: colors.primary600, backgroundColor: SUAVE },
+  modalidadeNome: { fontSize: 13, lineHeight: 16.9, fontWeight: '600', color: '#1f2937' },
+  modalidadeValor: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: '#858d99' },
+  indisponivel: { color: colors.dangerFg },
+  enderecoTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  enderecoRotulo: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  rotulo: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.textDim },
+  link: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.primary600 },
+  linha: { flexDirection: 'row', gap: 8 },
+  metade: { flex: 1 },
+  uf: { width: 84 },
+  campo: {
+    height: 48,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    fontSize: 16,
+    color: colors.text,
+  },
+  enderecoLinha: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 9.6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  enderecoTexto: { flex: 1 },
+  enderecoPequeno: { fontSize: 12, lineHeight: 19.2, color: '#858d99' },
+  enderecoForte: { fontSize: 14, lineHeight: 18.9, fontWeight: '600', color: colors.text },
+  nota: { fontSize: 13, lineHeight: 18.2, color: '#858d99' },
+  notaErro: { color: colors.dangerFg },
+  notaAviso: { color: colors.warningFg },
+  taxa: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9.6, paddingHorizontal: 12, borderRadius: 10, backgroundColor: SUAVE },
+  taxaNome: { fontSize: 14, lineHeight: 22.4, fontWeight: '600', color: colors.text },
+  taxaDetalhe: { fontSize: 12, lineHeight: 16.2, color: colors.textMuted },
+  taxaValor: { fontFamily: FONTE_TITULO, fontSize: 16, lineHeight: 25.6, fontWeight: '800', color: colors.text },
+})
 
 const styles = StyleSheet.create({
   rotulo: { ...typography.label.md, color: colors.textDim },

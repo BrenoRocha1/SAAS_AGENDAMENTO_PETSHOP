@@ -65,13 +65,16 @@ interface Props {
   desativado?: boolean
   // Começo da frase do rodapé: "Agendamento para…", "Remarcar para…".
   rotulo?: string
+  // Tela "Novo agendamento": cinco horários por linha e sem o rodapé (o
+  // que foi escolhido aparece no resumo), pra caber sem rolar.
+  enxuto?: boolean
 }
 
 // Data e horário num bloco só — o `SeletorDataHora` do site
 // (petshop-app/src/components/SeletorDataHora.tsx) no celular: o mês em
 // grade, os horários do dia embaixo e, no rodapé, o que ficou escolhido.
 // Mesmas medidas: células de 36 de altura, horários em 4 colunas.
-export function SeletorDataHora({ idLojista, data, onData, hora, onHora, slots, aviso, dataMin, desativado, rotulo = 'Agendamento para' }: Props) {
+export function SeletorDataHora({ idLojista, data, onData, hora, onHora, slots, aviso, dataMin, desativado, rotulo = 'Agendamento para', enxuto }: Props) {
   const calendario = useCalendarioDaLoja(idLojista)
   const hoje = hojeBrasilISO()
   const base = dataDe(data || dataMin || hoje)
@@ -92,8 +95,8 @@ export function SeletorDataHora({ idLojista, data, onData, hora, onHora, slots, 
   const quando = escolhido ? `${DIAS_LONGOS[escolhido.getDay()]}, ${escolhido.getDate()} de ${MESES[escolhido.getMonth()]}` : null
 
   return (
-    <View style={styles.caixa}>
-      <View style={styles.calendario}>
+    <View style={[styles.caixa, enxuto && styles.caixaEnxuta]}>
+      <View style={[styles.calendario, enxuto && styles.calendarioEnxuto]}>
         <View style={styles.cabecalho}>
           <Pressable
             onPress={() => setMes(anterior)}
@@ -117,7 +120,7 @@ export function SeletorDataHora({ idLojista, data, onData, hora, onHora, slots, 
 
         <View style={styles.dias}>
           {celulas.map((dia, i) => {
-            if (dia === null) return <View key={`v${i}`} style={styles.celula} />
+            if (dia === null) return <View key={`v${i}`} style={[styles.celula, enxuto && styles.celulaEnxuta]} />
             const texto = iso(mes.ano, mes.mes, dia)
             const diaSemana = new Date(mes.ano, mes.mes, dia, 12).getDay()
             const fechado = calendario?.fechamentos.find(b => b.dt_inicio <= texto && texto <= b.dt_fim && !b.hr_inicio) ?? null
@@ -126,7 +129,7 @@ export function SeletorDataHora({ idLojista, data, onData, hora, onHora, slots, 
             const parado = !!desativado || foraDoLimite || semExpediente || !!fechado
             const selecionado = texto === data
             return (
-              <View key={texto} style={styles.celula}>
+              <View key={texto} style={[styles.celula, enxuto && styles.celulaEnxuta]}>
               <Pressable
                 onPress={() => onData(texto)}
                 disabled={parado}
@@ -167,14 +170,14 @@ export function SeletorDataHora({ idLojista, data, onData, hora, onHora, slots, 
               const selecionado = hora === h
               const ocupado = !s.disponivel
               return (
-                <View key={s.hr_slot} style={styles.slotCaixa}>
+                <View key={s.hr_slot} style={[styles.slotCaixa, enxuto && styles.slotCaixaEnxuta]}>
                 <Pressable
                   onPress={() => onHora(h)}
                   disabled={ocupado || desativado}
                   accessibilityRole="button"
                   accessibilityState={{ selected: selecionado, disabled: ocupado }}
                   accessibilityLabel={ocupado ? `${h}, horário ocupado` : h}
-                  style={[styles.slot, selecionado && styles.slotSelecionado, ocupado && !selecionado && styles.slotOcupado]}
+                  style={[styles.slot, enxuto && styles.slotEnxuto, selecionado && styles.slotSelecionado, ocupado && !selecionado && styles.slotOcupado]}
                 >
                   <Text style={[styles.slotTexto, selecionado && styles.slotTextoSelecionado, ocupado && !selecionado && styles.slotTextoOcupado]}>{h}</Text>
                 </Pressable>
@@ -185,7 +188,7 @@ export function SeletorDataHora({ idLojista, data, onData, hora, onHora, slots, 
         )}
       </View>
 
-      <View style={styles.rodape}>
+      {!enxuto && <View style={styles.rodape}>
         {quando && hora ? (
           <Text style={styles.rodapeTexto}>{rotulo} <Text style={styles.forte}>{quando}</Text> às <Text style={styles.forte}>{hora}</Text>.</Text>
         ) : quando ? (
@@ -193,7 +196,7 @@ export function SeletorDataHora({ idLojista, data, onData, hora, onHora, slots, 
         ) : (
           <Text style={styles.rodapeTexto}>Escolha o dia e o horário.</Text>
         )}
-      </View>
+      </View>}
     </View>
   )
 }
@@ -241,4 +244,10 @@ const styles = StyleSheet.create({
   rodape: { paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.border },
   rodapeTexto: { fontSize: 14, lineHeight: 22.4, color: colors.textDim },
   forte: { fontWeight: '700', color: colors.text },
+  // `enxuto`: as medidas do seletor dentro da janela "Novo agendamento" do site.
+  caixaEnxuta: { borderRadius: 12 },
+  calendarioEnxuto: { padding: 12 },
+  celulaEnxuta: { height: 38 },
+  slotCaixaEnxuta: { width: '20%' },
+  slotEnxuto: { height: 38 },
 })
