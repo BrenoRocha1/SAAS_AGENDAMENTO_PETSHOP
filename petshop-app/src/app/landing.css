@@ -1281,3 +1281,6 @@
   .lp-nav-actions .lp-cta-btn { display: none; }
   .lp-float-badge { display: none; }
 }
+
+/* Logo na landing: o nome segue a cor do texto da página */
+.lp-nav-brand .logo-saip-texto, .lp-footer-brand .logo-saip-texto { color: var(--lp-text-main); }

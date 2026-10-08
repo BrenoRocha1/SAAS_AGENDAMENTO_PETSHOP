@@ -13,6 +13,7 @@ export const metadata: Metadata = {
     'Plataforma SaaS completa para agendamento de banho e tosa. Gerencie seu petshop com facilidade e segurança.',
   keywords: ['petshop', 'agendamento', 'banho e tosa', 'pet', 'veterinário'],
   authors: [{ name: 'SAIP' }],
+  openGraph: { images: [{ url: '/logo-saip.webp', width: 1774, height: 887, alt: 'SAIP' }] },
   viewport: 'width=device-width, initial-scale=1',
   themeColor: '#4f46e5',
 }
@@ -43,7 +44,7 @@ export default function RootLayout({
         {/* eslint-disable-next-line @next/next/no-page-custom-font -- essa regra é pra pages/_document.js (Pages Router); aqui é o root layout do App Router, que já envolve todas as rotas */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Montserrat:wght@500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
         />
       </head>
       <body suppressHydrationWarning>{children}</body>

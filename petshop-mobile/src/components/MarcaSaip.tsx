@@ -1,8 +1,8 @@
 import { StyleSheet, View } from 'react-native'
-import { IconePets } from '@/components/IconesAbas'
+import { LogoSimbolo } from '@/components/LogoSaip'
 import { Text } from '@/components/Texto'
 import { FONTE_TITULO } from '@/theme/fontes'
-import { colors, radius, spacing } from '@/theme/theme'
+import { colors, spacing } from '@/theme/theme'
 
 export const SLOGAN_SAIP = 'Sistema de agendamento inteligente para petshop'
 
@@ -12,13 +12,9 @@ export const SLOGAN_SAIP = 'Sistema de agendamento inteligente para petshop'
 export function MarcaSaip() {
   return (
     <View style={styles.marca}>
-      <View style={styles.selo}>
-        <IconePets color={colors.primary600} size={18} />
-      </View>
+      <LogoSimbolo altura={30} />
       <View style={styles.texto}>
-        <Text style={styles.nome}>
-          SA<Text style={{ color: colors.primary600 }}>IP</Text>
-        </Text>
+        <Text style={styles.nome}>SAIP</Text>
         <Text style={styles.slogan}>{SLOGAN_SAIP}</Text>
       </View>
     </View>
@@ -27,17 +23,7 @@ export function MarcaSaip() {
 
 const styles = StyleSheet.create({
   marca: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.xl },
-  selo: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary50,
-    borderWidth: 1,
-    borderColor: colors.primary100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   texto: { flex: 1, gap: 1 },
-  nome: { fontSize: 18, lineHeight: 22, fontWeight: '700', letterSpacing: -0.2, fontFamily: FONTE_TITULO, color: colors.text },
+  nome: { fontSize: 18, lineHeight: 22, fontWeight: '700', letterSpacing: 3, fontFamily: FONTE_TITULO, color: colors.text },
   slogan: { fontSize: 12, lineHeight: 16, color: colors.textMuted },
 })

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { logoutAction } from '@/lib/actions'
 import { BarraMenuMobile, useMenuMobile, useTituloInterno } from '@/components/layout/MenuMobile'
 import { IconLogout } from '@/components/icons'
+import { LogoSimbolo } from '@/components/LogoSaip'
 import TemaToggle from '@/components/layout/TemaToggle'
 import {
   Sidebar,
@@ -54,7 +55,6 @@ export default function BarraLateral({
   secao,
   itens,
   abas,
-  iconeMarca: IconeMarca,
   sufixoMarca,
   tituloMobile,
   usuario,
@@ -132,7 +132,7 @@ export default function BarraLateral({
           >
             <div className="sidebar-marca">
               <div className="sidebar-logo-icon">
-                <IconeMarca style={{ width: 16, height: 16 }} />
+                <LogoSimbolo altura={22} />
               </div>
               {!recolhida && (
                 <span className="sidebar-logo-text">
