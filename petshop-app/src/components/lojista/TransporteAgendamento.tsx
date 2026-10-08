@@ -94,7 +94,7 @@ export default function TransporteAgendamento({ idAgendamento, idCliente, status
           <IconCar style={{ width: 14, height: 14 }} /> Transporte
         </span>
         {podeAlterar && !encerrado && !editando && !bloqueado && (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={abrirEdicao}>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={abrirEdicao}>
             {transporte ? 'Alterar' : 'Adicionar TaxiDog'}
           </button>
         )}
@@ -133,11 +133,12 @@ export default function TransporteAgendamento({ idAgendamento, idCliente, status
             modoLoja
             idCliente={idCliente ?? undefined}
             modalidades={modalidades}
-            rotuloLevar={petNaLoja ? 'Sem entrega — o cliente busca o pet' : 'Sem TaxiDog — o cliente leva e busca'}
+            rotuloLevar={petNaLoja ? 'Sem entrega' : 'Sem TaxiDog'}
+            compacto
           />
           {aberto?.naRota && <p className="text-xs text-muted" style={{ margin: 0 }}>Este pet já está numa rota — o TaxiDog recebe o aviso da mudança.</p>}
           <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditando(false)} disabled={isPending}>Cancelar</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditando(false)} disabled={isPending}>Cancelar</button>
             <button
               type="button"
               className={`btn btn-primary btn-sm ${isPending ? 'btn-loading' : ''}`}

@@ -174,8 +174,8 @@ const styles = StyleSheet.create({
   // `.btn.btn-lg` do site: 50 de altura, letra de 16.
   botao: { height: 50, paddingHorizontal: 32, borderRadius: 10, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   botaoTexto: { fontSize: 16, lineHeight: 16, fontWeight: '600' },
-  cancelar: { backgroundColor: colors.border, borderColor: colors.borderStrong },
-  cancelarTexto: { color: colors.text },
+  cancelar: { backgroundColor: colors.surface, borderColor: colors.borderStrong },
+  cancelarTexto: { color: '#1f2937' },
   // Ocupa o que sobra da linha; sem respiro dos lados para o texto caber
   // inteiro (no site ele também passa do respiro, numa linha só).
   salvar: { flex: 1, paddingHorizontal: 0, backgroundColor: colors.primary600, borderColor: colors.primary600 },

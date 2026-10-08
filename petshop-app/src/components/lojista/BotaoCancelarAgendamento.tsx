@@ -31,7 +31,7 @@ export default function BotaoCancelarAgendamento({ onConfirmar, disabled }: {
         >
           Sim, cancelar
         </button>
-        <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => setConfirmando(false)}>
+        <button type="button" className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => setConfirmando(false)}>
           Voltar
         </button>
       </div>

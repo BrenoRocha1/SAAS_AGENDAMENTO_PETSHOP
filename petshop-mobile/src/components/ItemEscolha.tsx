@@ -20,7 +20,7 @@ interface Props {
 }
 
 // Item de uma lista de escolha — o `.picker-item` do site no celular:
-// cartão cinza com borda; escolhido, fica lilás com a borda índigo e o "✓".
+// cartão branco com borda; escolhido, fica lilás com a borda índigo e o "✓".
 export function ItemEscolha({ titulo, detalhe, icone: Icone, tamanhoDoIcone = 18, selecionado, lateral, grande, desativado, onPress }: Props) {
   return (
     <Pressable
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surface,
   },
   itemGrande: { padding: 16 },
   selecionado: { borderColor: colors.primary500, backgroundColor: 'rgba(79,70,229,0.1)' },

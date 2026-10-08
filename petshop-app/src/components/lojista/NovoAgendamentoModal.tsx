@@ -29,18 +29,16 @@ import {
   IconCheck,
   IconChevronLeft,
   IconChevronRight,
-  IconCreditCard,
   IconSearch,
   IconDog,
-  IconMoney,
   IconPlus,
-  IconQrCode,
   IconScissors,
   IconCar,
   IconUser,
   IconUserBadge,
 } from '@/components/icons'
 import type { ClienteComPets, ServicoAtivo } from './DashboardClient'
+import { ICONE_FORMA } from './PagamentoAgendamento'
 import './novo-agendamento.css'
 
 interface Slot {
@@ -100,13 +98,6 @@ const ETAPAS: Record<Etapa, { nome: string; pergunta: string }> = {
 }
 
 type Icone = ComponentType<SVGProps<SVGSVGElement>>
-
-const ICONE_FORMA: Record<FormaPagamento, Icone> = {
-  pix: IconQrCode,
-  cartao_credito: IconCreditCard,
-  cartao_debito: IconCreditCard,
-  dinheiro: IconMoney,
-}
 
 // O mesmo corte de celular do globals.css.
 const CORTE_CELULAR = '(max-width: 768px)'
@@ -717,13 +708,13 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                     </div>
                     <div className="na-acoes">
                       {petsDoCliente.length > 0 && (
-                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setShowNovoPet(false); setPetErro(null) }} disabled={isPendingPet}>
+                        <button type="button" className="btn btn-secondary" onClick={() => { setShowNovoPet(false); setPetErro(null) }} disabled={isPendingPet}>
                           Cancelar
                         </button>
                       )}
                       <button
                         type="button"
-                        className={`btn btn-primary btn-sm ${isPendingPet ? 'btn-loading' : ''}`}
+                        className={`btn btn-primary ${isPendingPet ? 'btn-loading' : ''}`}
                         onClick={handleCriarPet}
                         disabled={isPendingPet || !petNome.trim() || !petRaca.trim() || !petDtNasc}
                       >

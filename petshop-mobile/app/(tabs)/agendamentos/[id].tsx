@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Aviso } from '@/components/Aviso'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
+import { FormasDePagamento, Segmentos } from '@/components/EscolhaPagamento'
 import { EtapaTransporte } from '@/components/EtapaTransporte'
 import { Folha } from '@/components/Folha'
 import { IconCalendar, IconCar, IconCheck, IconLink, IconMoney, IconPencil, IconRepeat, IconStore, type IconeProps } from '@/components/IconesDoSite'
@@ -58,6 +59,8 @@ const ROTULO_ORIGEM: Record<'loja' | 'online', string> = {
 }
 
 // Selo do pagamento nas cores dos status do atendimento, como o site.
+const STATUS_QUE_A_LOJA_ESCOLHE: StatusPagamento[] = ['pendente', 'pago', 'cancelado']
+
 const STATUS_DO_SELO: Record<StatusPagamento, StatusAgendamento> = {
   pendente: 'Pendente',
   pago: 'Concluído',
@@ -402,7 +405,7 @@ export default function AgendamentoDetalheScreen() {
             <View style={styles.blocoTopo}>
               <TituloDoBloco icone={IconCar} texto="Transporte" />
               {podeGerenciar && comSite && !transporteBloqueado && (
-                <BotaoPequeno rotulo={transporte ? 'Alterar' : 'Adicionar TaxiDog'} variante="fantasma" onPress={abrirTransporte} />
+                <BotaoPequeno rotulo={transporte ? 'Alterar' : 'Adicionar TaxiDog'} onPress={abrirTransporte} />
               )}
             </View>
 
@@ -485,34 +488,20 @@ export default function AgendamentoDetalheScreen() {
             <View style={styles.bloco}>
               <View style={styles.blocoTopo}>
                 <TituloDoBloco icone={IconMoney} texto="Pagamento" />
-                {statusPagamento && <StatusBadge status={STATUS_DO_SELO[statusPagamento]} rotulo={ROTULO_STATUS_PAGAMENTO[statusPagamento]} />}
+                {/* Quem pode alterar vê o status na escolha logo abaixo. */}
+                {statusPagamento && !podeGerenciar && <StatusBadge status={STATUS_DO_SELO[statusPagamento]} rotulo={ROTULO_STATUS_PAGAMENTO[statusPagamento]} />}
               </View>
 
               {podeGerenciar ? (
-                <View style={styles.campos}>
-                  <Seletor<FormaPagamento | ''>
-                    titulo="Forma de pagamento"
-                    valor={formaAtual ?? ''}
-                    desativado={enviando}
-                    style={styles.campo}
-                    opcoes={[
-                      ...(formaAtual ? [] : [{ valor: '' as const, rotulo: 'Não informada' }]),
-                      ...opcoesForma.map(f => ({ valor: f, rotulo: ROTULO_FORMA_PAGAMENTO[f] })),
-                    ]}
-                    onChange={v => { if (ehFormaPagamento(v)) salvarPagamento(v, null) }}
-                  />
-                  <Seletor<StatusPagamento | ''>
-                    titulo="Status do pagamento"
-                    valor={statusPagamento ?? ''}
+                <View style={styles.pagamento}>
+                  <FormasDePagamento formas={opcoesForma} valor={formaAtual} desativado={enviando} onChange={f => salvarPagamento(f, null)} />
+                  <Segmentos<StatusPagamento>
+                    cheio
+                    rotulo="Status do pagamento"
+                    valor={statusPagamento}
                     desativado={enviando || !formaAtual}
-                    style={styles.campo}
-                    opcoes={[
-                      ...(statusPagamento ? [] : [{ valor: '' as const, rotulo: '—' }]),
-                      { valor: 'pendente', rotulo: 'Pendente' },
-                      { valor: 'pago', rotulo: 'Pago' },
-                      { valor: 'cancelado', rotulo: 'Cancelado' },
-                    ]}
-                    onChange={v => { if (ehStatusPagamento(v)) salvarPagamento(null, v) }}
+                    opcoes={STATUS_QUE_A_LOJA_ESCOLHE.map(st => ({ valor: st, rotulo: ROTULO_STATUS_PAGAMENTO[st] }))}
+                    onChange={st => salvarPagamento(null, st)}
                   />
                 </View>
               ) : (
@@ -571,7 +560,7 @@ export default function AgendamentoDetalheScreen() {
               <Text style={styles.apoio}>Cancelar este agendamento? Não dá para desfazer.</Text>
               <View style={styles.campos}>
                 <BotaoPequeno rotulo="Sim, cancelar" variante="perigo" style={styles.campo} desativado={enviando} onPress={confirmarCancelamento} />
-                <BotaoPequeno rotulo="Voltar" variante="fantasma" style={styles.campo} onPress={() => setConfirmandoCancelar(false)} />
+                <BotaoPequeno rotulo="Voltar" style={styles.campo} onPress={() => setConfirmandoCancelar(false)} />
               </View>
             </View>
           ) : (
@@ -585,18 +574,19 @@ export default function AgendamentoDetalheScreen() {
         {erroTransporte && <Aviso tipo="erro" texto={erroTransporte} />}
         {petNaLoja && <Text style={styles.apoio}>O pet já está na loja — só a entrega pode ser pedida ou retirada.</Text>}
         <EtapaTransporte
+          compacto
           idLojista={ctx.idLojista}
           valor={estadoTransporte}
           onChange={setEstadoTransporte}
           loja={{
             idCliente: a.id_cliente,
             modalidades,
-            rotuloLevar: petNaLoja ? 'Sem entrega — o cliente busca o pet' : 'Sem TaxiDog — o cliente leva e busca',
+            rotuloLevar: petNaLoja ? 'Sem entrega' : 'Sem TaxiDog',
           }}
         />
         {transporteAberto?.naRota && <Text style={styles.apoio}>Este pet já está numa rota — o TaxiDog recebe o aviso da mudança.</Text>}
         <View style={styles.rodapeDaFolha}>
-          <BotaoPequeno rotulo="Cancelar" variante="fantasma" desativado={salvandoTransporte} onPress={() => setEditandoTransporte(false)} />
+          <BotaoPequeno rotulo="Cancelar" desativado={salvandoTransporte} onPress={() => setEditandoTransporte(false)} />
           <BotaoPequeno
             rotulo="Salvar transporte"
             variante="primario"
@@ -661,6 +651,8 @@ const styles = StyleSheet.create({
   apoioCor: { color: '#858d99' },
   aEsquerda: { alignSelf: 'flex-start' },
   campos: { flexDirection: 'row', gap: 8 },
+  // `.pag-detalhe-campos`: as formas em botões e, embaixo, o status.
+  pagamento: { gap: 8, marginTop: 4 },
   campo: { flex: 1 },
   // `.historico-alteracoes`
   alteracoes: { gap: 4, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },

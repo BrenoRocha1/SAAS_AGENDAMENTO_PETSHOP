@@ -26,16 +26,17 @@ interface Props {
 }
 
 // Cores e medidas do `.btn.btn-sm` do site no celular: 42 de altura, 12 de
-// respiro, letra de 13. Sucesso e perigo são os tons claros do site (fundo
-// a 15%, contorno a 30%), não os botões cheios.
+// respiro, letra de 13. O secundário é branco com borda fina (sem cinza).
+// Sucesso e perigo são os tons claros do site (fundo a 15%, contorno a
+// 30%), não os botões cheios.
 const CORES: Record<Variante, { fundo: string; borda: string; texto: string }> = {
   primario: { fundo: colors.primary600, borda: colors.primary600, texto: colors.white },
-  secundario: { fundo: colors.border, borda: colors.borderStrong, texto: colors.text },
+  secundario: { fundo: colors.surface, borda: colors.borderStrong, texto: '#1f2937' },
   sucesso: { fundo: 'rgba(16,185,129,0.15)', borda: 'rgba(16,185,129,0.3)', texto: colors.successFg },
   perigo: { fundo: 'rgba(239,68,68,0.15)', borda: 'rgba(239,68,68,0.3)', texto: colors.dangerFg },
   // `.tela-app-perigo`: "Excluir" no pé das janelas.
   perigoClaro: { fundo: colors.surface, borda: '#fecaca', texto: colors.dangerFg },
-  fantasma: { fundo: 'transparent', borda: 'transparent', texto: colors.textMuted },
+  fantasma: { fundo: 'transparent', borda: 'transparent', texto: colors.textDim },
   // `.btn-ghost` com a letra vermelha ("Quero excluir minha conta").
   fantasmaPerigo: { fundo: 'transparent', borda: 'transparent', texto: colors.dangerFg },
 }

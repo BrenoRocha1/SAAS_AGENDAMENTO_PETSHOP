@@ -123,6 +123,7 @@
 .na-novo-pet .form-group { gap: var(--space-1); }
 .na-novo-pet .form-label { font-size: 0.8125rem; }
 .na-acoes { display: flex; justify-content: flex-end; gap: var(--space-3); }
+.na-acoes .btn { min-width: 128px; }
 
 /* Escolha entre duas ou três opções: trilha branca, a escolhida em índigo claro. */
 .na-seg { display: inline-flex; padding: 2px; background: var(--gray-900); border: 1px solid var(--gray-700); border-radius: var(--radius-md); }
@@ -132,8 +133,11 @@
   transition: all var(--transition-fast);
 }
 .na-seg button.is-ativo { background: var(--primary-soft-bg); color: var(--primary-300); }
-.na-seg.is-largo { display: flex; }
+.na-seg.is-largo, .na-seg.is-cheio { display: flex; }
 .na-seg.is-largo button { flex: 1; height: 40px; font-size: 0.9375rem; }
+.na-seg.is-cheio button { flex: 1; height: 32px; padding: 0 0.4rem; }
+.na-seg button:disabled { opacity: 0.5; cursor: default; }
+.na-forma:disabled { opacity: 0.6; cursor: default; }
 
 /* ---------- Data e horário dentro da janela ---------- */
 .na-conteudo .sdh { flex-shrink: 0; }
@@ -201,8 +205,14 @@
 .tdc-endereco-linha > span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .tdc-endereco-linha small { font-size: 0.75rem; color: var(--gray-500); }
 .tdc-endereco-linha strong { font-size: 0.875rem; font-weight: 600; line-height: 1.35; color: var(--gray-100); }
-.tdc-link { flex-shrink: 0; background: none; border: 0; padding: 4px 2px; cursor: pointer; font-family: var(--font-body); font-size: 0.8125rem; font-weight: 600; color: var(--primary-400); }
-.tdc-link:hover { color: var(--primary-300); text-decoration: underline; }
+.tdc-link, .na-link {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 0.75rem;
+  background: var(--gray-900); border: 1px solid var(--gray-700); border-radius: var(--radius-full); cursor: pointer;
+  font-family: var(--font-body); font-size: 0.8125rem; font-weight: 600; color: var(--primary-400);
+  transition: all var(--transition-fast);
+}
+.tdc-link:hover, .na-link:hover:not(:disabled) { background: var(--primary-soft-bg-8); border-color: var(--primary-200); color: var(--primary-300); }
 .tdc-nota { margin: 0; font-size: 0.8125rem; line-height: 1.4; color: var(--gray-500); }
 .tdc-nota.is-erro { color: var(--danger-400); }
 .tdc-nota.is-aviso { color: var(--warning-400); }
@@ -273,9 +283,8 @@ button.na-item:disabled { cursor: default; }
 .na-coberto { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; font-size: 0.8125rem; font-weight: 600; color: var(--success-400); }
 .na-coberto svg { width: 15px; height: 15px; }
 
-.na-link { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--font-body); font-size: 0.8125rem; font-weight: 600; color: var(--primary-400); }
+.na-link { align-self: flex-start; }
 .na-link svg { width: 13px; height: 13px; }
-.na-link:hover { color: var(--primary-300); text-decoration: underline; }
 .na-obs { flex-shrink: 0; min-height: 52px !important; padding: 0.4rem 0.75rem !important; resize: none; background: var(--gray-900) !important; font-size: 0.875rem !important; line-height: 1.4; }
 
 /* Rodapé do resumo: total grande e o botão, como no carrinho do PDV. */
@@ -361,6 +370,8 @@ button.na-item:disabled { cursor: default; }
   .na-busca input { border-color: var(--gray-800); border-radius: 12px; }
   .na-novo-pet { max-width: none; }
   .na-seg.is-largo button { height: 44px; }
+  .na-acoes .btn { flex: 1; }
+  .tdc-link, .na-link { height: 32px; }
 
   .na-conteudo .sdh { display: flex; flex-direction: column; flex: 1; min-height: 0; border-radius: 12px; }
   .na-conteudo .sdh-corpo { flex: 1; min-height: 0; display: flex; flex-direction: column; }

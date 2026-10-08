@@ -18,6 +18,7 @@ import {
   type ModalidadeTaxiDog,
 } from '@/lib/taxidog'
 import { IconAlert, IconCar, IconCheck, IconMapPin, IconStore } from '@/components/icons'
+import '@/components/lojista/novo-agendamento.css'
 
 // ============================================================
 // Transporte do pet (TaxiDog) — campos compartilhados
@@ -108,7 +109,7 @@ function estiloOpcao(selecionado: boolean): React.CSSProperties {
     padding: 'var(--space-4)',
     borderRadius: 'var(--radius-md)',
     border: `1px solid ${selecionado ? 'var(--primary-500)' : 'var(--gray-700)'}`,
-    background: selecionado ? 'var(--primary-soft-bg)' : 'var(--gray-850)',
+    background: selecionado ? 'var(--primary-soft-bg-8)' : 'var(--gray-900)',
     cursor: 'pointer',
     textAlign: 'left',
     width: '100%',

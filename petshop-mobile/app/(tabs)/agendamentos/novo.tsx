@@ -6,11 +6,12 @@ import { DetailHeader } from '@/components/DetailHeader'
 import { Aviso } from '@/components/Aviso'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { Campo } from '@/components/Campo'
+import { FormasDePagamento, Segmentos } from '@/components/EscolhaPagamento'
 import { EtapaTransporte } from '@/components/EtapaTransporte'
 import { Folha } from '@/components/Folha'
 import {
-  IconAlert, IconCalendar, IconCar, IconCheck, IconChevronLeft, IconChevronRight, IconClose, IconCreditCard, IconDog, IconMoney,
-  IconPlus, IconQrCode, IconScissors, IconSearch, IconUser, IconUserBadge, type IconeProps,
+  IconAlert, IconCalendar, IconCar, IconCheck, IconChevronLeft, IconChevronRight, IconClose, IconDog,
+  IconPlus, IconScissors, IconSearch, IconUser, IconUserBadge, type IconeProps,
 } from '@/components/IconesDoSite'
 import { Opcao } from '@/components/Opcao'
 import { SeletorDataHora } from '@/components/SeletorDataHora'
@@ -24,7 +25,7 @@ import { atribuirProfissional, type Slot } from '@/lib/agendamentos'
 import { mensagemDoBanco } from '@/lib/erros'
 import { formatarMoeda, formatarTelefone, iniciais } from '@/lib/format'
 import { dataParaISO, mascaraData } from '@/lib/mascaras'
-import { ROTULO_FORMA_PAGAMENTO, formasAtivas, normalizarFormasLoja, type FormaPagamento } from '@/lib/pagamento'
+import { formasAtivas, normalizarFormasLoja, type FormaPagamento } from '@/lib/pagamento'
 import { ROTULO_MODALIDADE } from '@/lib/taxidog'
 import { ESTADO_TRANSPORTE_INICIAL, escolhaDoTransporte, transportePronto, type EstadoTransporte } from '@/lib/transporte'
 import { FONTE_TITULO } from '@/theme/fontes'
@@ -47,13 +48,6 @@ const PERGUNTA: Record<Etapa, string> = {
   horario: 'Quando?',
   transporte: 'Como o pet vai até a loja?',
   pagamento: 'Resumo e pagamento',
-}
-
-const ICONE_FORMA: Record<FormaPagamento, ComponentType<IconeProps>> = {
-  pix: IconQrCode,
-  cartao_credito: IconCreditCard,
-  cartao_debito: IconCreditCard,
-  dinheiro: IconMoney,
 }
 
 const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
@@ -562,20 +556,14 @@ export default function NovoAgendamentoScreen() {
                   <View style={styles.dois}>
                     <View style={[styles.metade, { gap: 4 }]}>
                       <Text style={styles.rotulo}>Sexo <Text style={styles.estrela}>*</Text></Text>
-                      <View style={[styles.seg, styles.segLargo]}>
-                        {(['Macho', 'Fêmea'] as const).map(sexo => (
-                          <Pressable
-                            key={sexo}
-                            onPress={() => setPetSexo(sexo)}
-                            disabled={salvandoPet}
-                            accessibilityRole="button"
-                            accessibilityState={{ selected: petSexo === sexo }}
-                            style={[styles.segBotao, styles.segBotaoLargo, petSexo === sexo && styles.segAtivo]}
-                          >
-                            <Text style={[styles.segTexto, styles.segTextoLargo, petSexo === sexo && styles.segTextoAtivo]}>{sexo}</Text>
-                          </Pressable>
-                        ))}
-                      </View>
+                      <Segmentos
+                        largo
+                        rotulo="Sexo"
+                        valor={petSexo}
+                        desativado={salvandoPet}
+                        opcoes={[{ valor: 'Macho', rotulo: 'Macho' }, { valor: 'Fêmea', rotulo: 'Fêmea' }]}
+                        onChange={setPetSexo}
+                      />
                     </View>
                     <View style={styles.metade}>
                       <Campo
@@ -592,11 +580,13 @@ export default function NovoAgendamentoScreen() {
                   </View>
                   <View style={styles.aDireita}>
                     {petsDoCliente.length > 0 && (
-                      <BotaoPequeno rotulo="Cancelar" variante="fantasma" desativado={salvandoPet} onPress={() => { setNovoPet(false); setPetErro(null) }} />
+                      <BotaoPequeno normal rotulo="Cancelar" style={styles.metade} desativado={salvandoPet} onPress={() => { setNovoPet(false); setPetErro(null) }} />
                     )}
                     <BotaoPequeno
+                      normal
                       rotulo={salvandoPet ? 'Cadastrando...' : 'Salvar pet'}
                       variante="primario"
+                      style={styles.metade}
                       desativado={salvandoPet || !petNome.trim() || !petRaca.trim() || !petNasc}
                       onPress={criarPet}
                     />
@@ -758,41 +748,15 @@ export default function NovoAgendamentoScreen() {
                     <View style={{ gap: 8 }}>
                       <View style={styles.blocoTopo}>
                         <Text style={styles.rotulo}>Pagamento</Text>
-                        <View style={styles.seg}>
-                          {(['pendente', 'pago'] as const).map(status => (
-                            <Pressable
-                              key={status}
-                              onPress={() => setPago(status)}
-                              disabled={enviando}
-                              accessibilityRole="button"
-                              accessibilityState={{ selected: pago === status }}
-                              style={[styles.segBotao, pago === status && styles.segAtivo]}
-                            >
-                              <Text style={[styles.segTexto, pago === status && styles.segTextoAtivo]}>{status === 'pago' ? 'Pago' : 'Pendente'}</Text>
-                            </Pressable>
-                          ))}
-                        </View>
+                        <Segmentos
+                          rotulo="Status do pagamento"
+                          valor={pago}
+                          desativado={enviando}
+                          opcoes={[{ valor: 'pendente', rotulo: 'Pendente' }, { valor: 'pago', rotulo: 'Pago' }]}
+                          onChange={setPago}
+                        />
                       </View>
-                      <View style={styles.formas}>
-                        {formas.map(f => {
-                          const IconeDaForma = ICONE_FORMA[f]
-                          const ativa = formaEscolhida === f
-                          return (
-                            <View key={f} style={styles.formaCaixa}>
-                              <Pressable
-                                onPress={() => setForma(f)}
-                                disabled={enviando}
-                                accessibilityRole="button"
-                                accessibilityState={{ selected: ativa }}
-                                style={[styles.forma, ativa && styles.formaAtiva]}
-                              >
-                                <IconeDaForma size={17} color={colors.primary600} />
-                                <Text style={[styles.formaTexto, ativa && styles.segTextoAtivo]} numberOfLines={1}>{ROTULO_FORMA_PAGAMENTO[f]}</Text>
-                              </Pressable>
-                            </View>
-                          )
-                        })}
-                      </View>
+                      <FormasDePagamento formas={formas} valor={formaEscolhida} desativado={enviando} onChange={setForma} />
                     </View>
                   )}
 
@@ -1010,16 +974,6 @@ const styles = StyleSheet.create({
   estrela: { color: colors.dangerFg },
   aDireita: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
 
-  // `.na-seg`: trilha branca, a escolhida em índigo claro.
-  seg: { flexDirection: 'row', padding: 2, borderRadius: 10, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface },
-  segLargo: { alignSelf: 'stretch' },
-  segBotao: { height: 32, paddingHorizontal: 11.2, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  segBotaoLargo: { flex: 1, height: 44 },
-  segAtivo: { backgroundColor: SUAVE },
-  segTexto: { fontSize: 13, lineHeight: 13, fontWeight: '600', color: colors.textMuted },
-  segTextoLargo: { fontSize: 15, lineHeight: 15 },
-  segTextoAtivo: { color: colors.primary300 },
-
   // `.na-itens` e `.na-item`
   itens: { borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
   item: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
@@ -1043,14 +997,8 @@ const styles = StyleSheet.create({
 
   // `.na-bloco` (pagamento)
   blocoTopo: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  // Duas por linha com 8 de vão: cada caixa tem 50% e 4 de respiro em volta.
-  formas: { flexDirection: 'row', flexWrap: 'wrap', margin: -4 },
-  formaCaixa: { width: '50%', padding: 4 },
-  forma: { height: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
-  formaAtiva: { borderColor: colors.primary600, backgroundColor: 'rgba(79,70,229,0.08)' },
-  formaTexto: { flexShrink: 1, fontSize: 13, lineHeight: 13, fontWeight: '600', color: '#1f2937' },
 
-  link: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 },
+  link: { alignSelf: 'flex-start', height: 32, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface },
   linkTexto: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.primary600 },
   obs: { minHeight: 52, paddingVertical: 6.4, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, fontSize: 14, lineHeight: 19.6, color: colors.text, textAlignVertical: 'top' },
 

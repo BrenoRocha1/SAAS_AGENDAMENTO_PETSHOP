@@ -485,15 +485,17 @@ a:hover { color: var(--primary-300); }
 
 .btn-primary:active { transform: translateY(0); }
 
+/* Secundário: branco com borda fina (sem cinza); o destaque é em índigo. */
 .btn-secondary {
-  background: var(--gray-800);
-  color: var(--gray-100);
+  background: var(--gray-900);
+  color: var(--gray-200);
   border-color: var(--gray-700);
 }
 
 .btn-secondary:hover {
-  background: var(--gray-700);
-  border-color: var(--gray-600);
+  background: var(--primary-soft-bg-8);
+  border-color: var(--primary-200);
+  color: var(--primary-300);
 }
 
 .btn-danger {
@@ -519,13 +521,13 @@ a:hover { color: var(--primary-300); }
 
 .btn-ghost {
   background: transparent;
-  color: var(--gray-400);
+  color: var(--gray-300);
   border-color: transparent;
 }
 
 .btn-ghost:hover {
-  background: var(--gray-800);
-  color: var(--gray-100);
+  background: var(--primary-soft-bg-8);
+  color: var(--primary-300);
 }
 
 .btn-sm { padding: 0.4rem var(--space-3); font-size: 0.8125rem; }
@@ -563,7 +565,8 @@ a:hover { color: var(--primary-300); }
 .form-input,
 .form-select,
 .form-textarea {
-  background: var(--gray-850);
+  /* Campo branco com borda fina, como os do PDV (sem cinza nos controles). */
+  background: var(--gray-900);
   border: 1px solid var(--gray-700);
   border-radius: var(--radius-md);
   padding: 0.625rem var(--space-4);
@@ -585,7 +588,7 @@ a:hover { color: var(--primary-300); }
 .form-textarea:focus {
   border-color: var(--primary-500);
   box-shadow: 0 0 0 3px var(--focus-ring);
-  background: var(--gray-800);
+  background-color: var(--gray-900);
 }
 
 .form-input.error,
@@ -719,7 +722,7 @@ a:hover { color: var(--primary-300); }
   cursor: pointer;
   transition: all var(--transition-fast);
 }
-.estoque-card-action-btn:hover { color: var(--gray-100); border-color: var(--gray-700); background: var(--gray-850); }
+.estoque-card-action-btn:hover { color: var(--primary-300); border-color: var(--primary-200); background: var(--primary-soft-bg-8); }
 .estoque-card-action-btn.is-danger:hover { color: var(--danger-400); border-color: var(--danger-500); background: rgba(239,68,68,0.1); }
 .estoque-card-foto {
   width: 100%;
@@ -751,8 +754,8 @@ a:hover { color: var(--primary-300); }
   align-items: center;
   gap: 2px;
   padding: 3px;
-  background: var(--gray-850);
-  border: 1px solid var(--gray-800);
+  background: var(--gray-900);
+  border: 1px solid var(--gray-700);
   border-radius: var(--radius-md);
   flex-shrink: 0;
 }
@@ -769,9 +772,8 @@ a:hover { color: var(--primary-300); }
   cursor: pointer;
   transition: all var(--transition-fast);
 }
-.view-toggle-btn:hover { color: var(--gray-200); background: var(--gray-800); }
-.view-toggle-btn.is-active { background: var(--primary-600); color: #fff; box-shadow: 0 1px 3px var(--btn-primary-shadow); }
-.view-toggle-btn.is-active:hover { background: var(--primary-500); }
+.view-toggle-btn:hover { color: var(--primary-300); background: var(--primary-soft-bg-8); }
+.view-toggle-btn.is-active, .view-toggle-btn.is-active:hover { background: var(--primary-soft-bg); color: var(--primary-300); }
 
 /* ============================================================
    SWITCH — toggle on/off animado (ex: ativar/desativar serviço)
@@ -903,7 +905,7 @@ a:hover { color: var(--primary-300); }
   width: 32px;
   height: 32px;
   border-radius: var(--radius-full);
-  background: var(--gray-800);
+  background: var(--gray-900);
   border: 1px solid var(--gray-700);
   color: var(--gray-400);
   cursor: pointer;
@@ -914,7 +916,7 @@ a:hover { color: var(--primary-300); }
   transition: all var(--transition-fast);
 }
 
-.modal-close:hover { background: var(--gray-700); color: var(--gray-100); }
+.modal-close:hover { background: var(--primary-soft-bg-8); border-color: var(--primary-200); color: var(--primary-300); }
 
 /* ============================================================
    PÁGINAS DE AUTH
@@ -1171,7 +1173,7 @@ a:hover { color: var(--primary-300); }
   border: 0; border-radius: var(--radius-md); background: transparent;
   color: var(--gray-400); cursor: pointer; transition: all var(--transition-fast);
 }
-.sdh-nav:hover:not(:disabled) { background: var(--gray-850); color: var(--gray-100); }
+.sdh-nav:hover:not(:disabled) { background: var(--primary-soft-bg-8); color: var(--primary-300); }
 .sdh-nav:disabled { opacity: 0.3; cursor: default; }
 .sdh-semana, .sdh-dias { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
 .sdh-semana span { text-align: center; font-size: 0.75rem; font-weight: 500; color: var(--gray-500); padding-bottom: var(--space-2); }
@@ -1546,11 +1548,11 @@ a:hover { color: var(--primary-300); }
   place-items: center;
   border-radius: var(--radius-sm);
   border: 1px solid var(--gray-700);
-  background: var(--gray-850);
+  background: var(--gray-900);
   color: var(--gray-300);
   cursor: pointer;
 }
-.dash-day-nav button:not(.btn):hover:not(:disabled) { border-color: var(--gray-600); color: var(--gray-100); }
+.dash-day-nav button:not(.btn):hover:not(:disabled) { border-color: var(--primary-200); color: var(--primary-300); background: var(--primary-soft-bg-8); }
 .dash-day-nav button:not(.btn):disabled { opacity: 0.4; cursor: not-allowed; }
 .dash-day-nav svg { width: 15px; height: 15px; }
 
@@ -1652,6 +1654,9 @@ a:hover { color: var(--primary-300); }
 .dash-detail-row span:last-child { color: var(--gray-100); font-weight: 600; text-align: right; min-width: 0; overflow-wrap: anywhere; }
 
 .dash-detail-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
+/* O aviso ("Iniciar e finalizar a partir do dia…") fica numa linha só dele,
+   em cima dos botões — ao lado, espremia e esticava os botões. */
+.dash-detail-actions > span { flex: 1 1 100% !important; }
 
 /* TaxiDog (configuração) no celular: cada região ou faixa vira um bloco com os
    campos empilhados — a tabela de várias colunas não cabe na tela. */
@@ -1699,14 +1704,14 @@ a:hover { color: var(--primary-300); }
   padding: var(--space-3);
   border-radius: var(--radius-md);
   border: 1px solid var(--gray-700);
-  background: var(--gray-850);
+  background: var(--gray-900);
   cursor: pointer;
   transition: all var(--transition-fast);
   text-align: left;
   /* <button> não herda a fonte: sem isto o item sai em Arial. */
   font-family: inherit;
 }
-.picker-item:hover { border-color: var(--gray-600); }
+.picker-item:hover { border-color: var(--primary-200); }
 .picker-item.is-selected { border-color: var(--primary-500); background: var(--slot-hover-bg); }
 .picker-item-main { flex: 1; min-width: 0; }
 .picker-item-title { font-weight: 600; color: var(--gray-100); font-size: 0.9375rem; line-height: 17px; }
@@ -1754,9 +1759,9 @@ a:hover { color: var(--primary-300); }
 .cal-mini-header button {
   width: 26px; height: 26px; display: grid; place-items: center;
   border-radius: var(--radius-sm); border: 1px solid var(--gray-700);
-  background: var(--gray-850); color: var(--gray-400); cursor: pointer;
+  background: var(--gray-900); color: var(--gray-400); cursor: pointer;
 }
-.cal-mini-header button:hover { color: var(--gray-100); border-color: var(--gray-600); }
+.cal-mini-header button:hover { color: var(--primary-300); border-color: var(--primary-200); background: var(--primary-soft-bg-8); }
 .cal-mini-title { font-size: 0.8125rem; font-weight: 700; color: var(--gray-100); text-transform: capitalize; }
 .cal-mini-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 .cal-mini-dow { font-size: 0.625rem; text-align: center; color: var(--gray-500); font-weight: 600; padding-bottom: 4px; }
@@ -1780,9 +1785,9 @@ a:hover { color: var(--primary-300); }
 .cal-nav button {
   width: 30px; height: 30px; display: grid; place-items: center;
   border-radius: var(--radius-sm); border: 1px solid var(--gray-700);
-  background: var(--gray-850); color: var(--gray-300); cursor: pointer;
+  background: var(--gray-900); color: var(--gray-300); cursor: pointer;
 }
-.cal-nav button:hover { color: var(--gray-100); border-color: var(--gray-600); }
+.cal-nav button:hover { color: var(--primary-300); border-color: var(--primary-200); background: var(--primary-soft-bg-8); }
 .cal-toolbar-title { font-weight: 700; color: var(--gray-100); font-size: 1rem; }
 
 .cal-week { background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: var(--radius-lg); overflow: hidden; }
@@ -2005,7 +2010,7 @@ svg.is-da-visita { opacity: 0.45; }
      largura toda; "Relatório" e "Rotas" lado a lado embaixo. */
   .gestor-acoes { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
   .gestor-acoes .btn { width: 100%; justify-content: center; }
-  .gestor-acoes .btn-ghost { background: var(--gray-800); border-color: var(--gray-700); color: var(--gray-100); }
+  .gestor-acoes .btn-ghost { background: var(--gray-900); border-color: var(--gray-700); color: var(--gray-200); }
   .gestor-acoes .gestor-troca-visao { grid-column: 1 / -1; order: -1; }
 }
 
@@ -3880,7 +3885,7 @@ a.tela-app-novo, a.tela-app-novo:hover { color: #fff; text-decoration: none; }
 /* TaxiDog executando */
 .tdm { display: flex; flex-direction: column; gap: var(--space-4); max-width: 640px; }
 .tdm-titulo { font-family: var(--font-heading); font-size: 1.375rem; font-weight: 700; color: var(--gray-100); margin: 0; }
-.tdm-abas { display: flex; gap: var(--space-1); padding: 4px; border-radius: var(--radius-md); background: var(--gray-850); }
+.tdm-abas { display: flex; gap: var(--space-1); padding: 3px; border: 1px solid var(--gray-700); border-radius: var(--radius-md); background: var(--gray-900); }
 .tdm-abas button {
   flex: 1;
   padding: var(--space-2) var(--space-3);
@@ -3893,7 +3898,7 @@ a.tela-app-novo, a.tela-app-novo:hover { color: #fff; text-decoration: none; }
   font-weight: 600;
   cursor: pointer;
 }
-.tdm-abas button.is-ativa { background: var(--gray-900); color: var(--gray-100); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.tdm-abas button.is-ativa { background: var(--primary-soft-bg); color: var(--primary-300); }
 .tdm-andamento {
   display: flex;
   align-items: center;
@@ -4060,7 +4065,7 @@ a.tela-app-novo, a.tela-app-novo:hover { color: #fff; text-decoration: none; }
 .pag-config-linha { padding: var(--space-4) var(--space-5); border-top: 1px solid var(--gray-800); display: flex; flex-direction: column; gap: var(--space-4); }
 .pag-config-pix { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-md); background: var(--gray-850); }
 .pag-resumo-taxidog { padding: var(--space-3); border-radius: var(--radius-md); background: var(--gray-850); margin-bottom: var(--space-4); color: var(--gray-200); }
-.pag-detalhe-campos { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.pag-detalhe-campos { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-1); }
 .pix-loja { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--primary-soft-border); background: var(--primary-soft-bg); text-align: left; }
 .pix-loja-linha { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .pix-loja-linha > .text-xs { width: 44px; flex-shrink: 0; }
@@ -4070,9 +4075,9 @@ a.tela-app-novo, a.tela-app-novo:hover { color: #fff; text-decoration: none; }
 /* ============================================================
    PLANOS RECORRENTES (migration 060)
    ============================================================ */
-.planos-abas { display: flex; gap: var(--space-1); padding: 4px; margin-bottom: var(--space-5); border-radius: var(--radius-md); background: var(--gray-850); width: fit-content; max-width: 100%; overflow-x: auto; }
+.planos-abas { display: flex; gap: var(--space-1); padding: 3px; margin-bottom: var(--space-5); border: 1px solid var(--gray-700); border-radius: var(--radius-md); background: var(--gray-900); width: fit-content; max-width: 100%; overflow-x: auto; }
 .planos-abas a { padding: 6px 14px; border-radius: var(--radius-sm); font-size: 0.875rem; font-weight: 600; color: var(--gray-400); white-space: nowrap; text-decoration: none; }
-.planos-abas a.is-ativa { background: var(--gray-900); color: var(--gray-100); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.planos-abas a.is-ativa { background: var(--primary-soft-bg); color: var(--primary-300); }
 .planos-filtros { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-4); }
 
 .planos-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-4); }

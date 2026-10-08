@@ -231,7 +231,7 @@ export function EtapaTransporte({ idLojista, valor, onChange, loja, compacto }: 
                     <Text style={c.rotulo}>{paraQue}</Text>
                   </View>
                   {!!chaveEndereco && (
-                    <Pressable onPress={() => setFormularioAberto(false)} hitSlop={8} accessibilityRole="button">
+                    <Pressable onPress={() => setFormularioAberto(false)} hitSlop={8} accessibilityRole="button" style={c.botaoLink}>
                       <Text style={c.link}>Pronto</Text>
                     </Pressable>
                   )}
@@ -275,7 +275,7 @@ export function EtapaTransporte({ idLojista, valor, onChange, loja, compacto }: 
                   <Text style={c.enderecoPequeno}>{paraQue}</Text>
                   <Text style={c.enderecoForte}>{enderecoEmUmaLinha(valor.endereco)}</Text>
                 </View>
-                <Pressable onPress={() => setFormularioAberto(true)} hitSlop={8} accessibilityRole="button">
+                <Pressable onPress={() => setFormularioAberto(true)} hitSlop={8} accessibilityRole="button" style={c.botaoLink}>
                   <Text style={c.link}>Alterar</Text>
                 </Pressable>
               </View>
@@ -452,7 +452,9 @@ const c = StyleSheet.create({
   enderecoTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   enderecoRotulo: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   rotulo: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.textDim },
-  link: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.primary600 },
+  // `.tdc-link`: botão pequeno, branco com borda fina.
+  botaoLink: { height: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  link: { fontSize: 13, lineHeight: 13, fontWeight: '600', color: colors.primary600 },
   linha: { flexDirection: 'row', gap: 8 },
   metade: { flex: 1 },
   uf: { width: 84 },

@@ -14,7 +14,18 @@ import {
   type FormaPagamento,
   type StatusPagamento,
 } from '@/lib/pagamento'
-import { IconMoney } from '@/components/icons'
+import { IconCreditCard, IconMoney, IconQrCode } from '@/components/icons'
+import './novo-agendamento.css'
+
+// O desenho de cada forma de pagamento (aqui e na janela "Novo agendamento").
+export const ICONE_FORMA: Record<FormaPagamento, typeof IconMoney> = {
+  pix: IconQrCode,
+  cartao_credito: IconCreditCard,
+  cartao_debito: IconCreditCard,
+  dinheiro: IconMoney,
+}
+
+const STATUS_QUE_A_LOJA_ESCOLHE: StatusPagamento[] = ['pendente', 'pago', 'cancelado']
 
 // Bloco "Pagamento" do detalhe do agendamento (Gestor de Agendamentos e
 // Agenda): forma e status do pedido (migration 057). Mudar aqui vale pros
@@ -63,35 +74,46 @@ export default function PagamentoAgendamento({ idAgendamento, forma, status, for
         <span className="flex items-center gap-1 text-sm font-semibold" style={{ color: 'var(--gray-200)' }}>
           <IconMoney style={{ width: 14, height: 14 }} /> Pagamento
         </span>
-        {statusAtual && (
+        {/* Quem pode alterar vê o status na escolha logo abaixo. */}
+        {statusAtual && !podeAlterar && (
           <span className={`badge ${CLASSE_STATUS_PAGAMENTO[statusAtual]}`}>{ROTULO_STATUS_PAGAMENTO[statusAtual]}</span>
         )}
       </div>
 
       {podeAlterar ? (
         <div className="pag-detalhe-campos">
-          <select
-            className="form-select"
-            value={formaAtual ?? ''}
-            disabled={isPending}
-            onChange={e => { if (ehFormaPagamento(e.target.value)) salvar(e.target.value, null) }}
-            aria-label="Forma de pagamento"
-          >
-            {!formaAtual && <option value="">Não informada</option>}
-            {opcoesForma.map(f => <option key={f} value={f}>{ROTULO_FORMA_PAGAMENTO[f]}</option>)}
-          </select>
-          <select
-            className="form-select"
-            value={statusAtual ?? ''}
-            disabled={isPending || !formaAtual}
-            onChange={e => { if (ehStatusPagamento(e.target.value)) salvar(null, e.target.value) }}
-            aria-label="Status do pagamento"
-          >
-            {!statusAtual && <option value="">—</option>}
-            <option value="pendente">Pendente</option>
-            <option value="pago">Pago</option>
-            <option value="cancelado">Cancelado</option>
-          </select>
+          <div className="na-formas" role="group" aria-label="Forma de pagamento">
+            {opcoesForma.map(f => {
+              const Icone = ICONE_FORMA[f]
+              return (
+                <button
+                  key={f}
+                  type="button"
+                  className={`na-forma ${formaAtual === f ? 'is-ativa' : ''}`}
+                  disabled={isPending}
+                  aria-pressed={formaAtual === f}
+                  onClick={() => { if (f !== formaAtual) salvar(f, null) }}
+                >
+                  <Icone />
+                  {ROTULO_FORMA_PAGAMENTO[f]}
+                </button>
+              )
+            })}
+          </div>
+          <div className="na-seg is-cheio" role="group" aria-label="Status do pagamento">
+            {STATUS_QUE_A_LOJA_ESCOLHE.map(st => (
+              <button
+                key={st}
+                type="button"
+                className={statusAtual === st ? 'is-ativo' : ''}
+                disabled={isPending || !formaAtual}
+                aria-pressed={statusAtual === st}
+                onClick={() => { if (st !== statusAtual) salvar(null, st) }}
+              >
+                {ROTULO_STATUS_PAGAMENTO[st]}
+              </button>
+            ))}
+          </div>
         </div>
       ) : (
         <span className="text-sm">
