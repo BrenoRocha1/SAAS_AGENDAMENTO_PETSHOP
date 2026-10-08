@@ -88,8 +88,9 @@ export default function DetalhesContato({ conversa, podeAgendar, podeVerClientes
           <span className="wa-det-numero">Conversa #{conversa.numero}</span>
         </div>
 
-        {contato === null && !erro ? (
-          <p className="wa-det-vazio">Carregando...</p>
+        {contato === null ? (
+          // Sem os dados (carregando, ou o erro acima): não afirma nada sobre o cadastro.
+          !erro && <p className="wa-det-vazio">Carregando...</p>
         ) : !cliente ? (
           <section className="wa-det-secao">
             <h4>Cliente</h4>

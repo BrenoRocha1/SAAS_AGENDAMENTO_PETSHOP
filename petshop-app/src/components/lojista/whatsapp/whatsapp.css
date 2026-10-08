@@ -150,6 +150,13 @@
   display: flex; align-items: center; gap: var(--space-3); min-height: 64px;
   padding: var(--space-2) var(--space-4); background: var(--gray-900); border-bottom: 1px solid var(--gray-800);
 }
+/* Cabeçalho estreito (informações abertas, tela média): o selo de situação
+   sai para o nome do contato não sumir — a situação continua na lista. A
+   medida é a do próprio cabeçalho, não a da janela. */
+.wa-conversa-topo { container-type: inline-size; }
+@container (max-width: 620px) {
+  .wa-status { display: none; }
+}
 .wa-voltar { display: none; }
 .wa-conversa-quem { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-3); padding: 4px; border: 0; border-radius: var(--radius-md); background: none; font: inherit; text-align: left; cursor: pointer; }
 .wa-conversa-quem:hover { background: var(--gray-950); }
@@ -315,7 +322,6 @@
   .wa.tem-detalhes { grid-template-columns: 340px minmax(0, 1fr); position: relative; }
   .wa { grid-template-columns: 340px minmax(0, 1fr); }
   .wa-detalhes { position: absolute; top: 0; right: 0; bottom: 0; z-index: 30; width: min(340px, 100%); box-shadow: var(--shadow-xl); }
-  .wa-status { display: none; }
 }
 @media (max-width: 1024px) {
   .wa, .wa.tem-detalhes { grid-template-columns: 300px minmax(0, 1fr); }
@@ -323,7 +329,10 @@
 
 /* ---------- Celular: uma tela por vez ---------- */
 @media (max-width: 768px) {
-  .wa-conexao { flex-wrap: wrap; }
+  /* O aviso em duas linhas: o texto inteiro em cima, o botão embaixo. */
+  .wa-conexao { flex-wrap: wrap; align-items: flex-start; }
+  .wa-conexao > span { flex-basis: calc(100% - 34px); }
+  .wa-conexao .btn { margin-left: 30px; }
   .wa, .wa.tem-detalhes {
     display: block; height: auto; min-height: 0; border: 0; border-radius: 0; background: none; overflow: visible;
   }
