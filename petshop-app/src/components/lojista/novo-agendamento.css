@@ -1,0 +1,412 @@
+/* ============================================================
+   Novo agendamento (janela da loja) — no padrão do PDV:
+   à esquerda as escolhas, uma etapa por vez (busca grande e linhas
+   com avatar, como a janela "Cliente da venda"); à direita o resumo
+   com o total e o botão de confirmar, como o carrinho. No celular,
+   uma etapa por tela e o botão fixo embaixo. Nada rola a janela:
+   só uma lista comprida rola por dentro.
+   ============================================================ */
+
+.modal.na {
+  display: flex; flex-direction: column;
+  width: 100%; max-width: 1040px;
+  height: min(700px, calc(100dvh - 2rem)); max-height: none;
+  overflow: hidden;
+}
+
+/* ---------- Topo ---------- */
+.na-topo {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--gray-800);
+}
+.na-topo .modal-title { flex: 1; min-width: 0; }
+.na-voltar {
+  width: 32px; height: 32px; display: none; place-items: center; flex-shrink: 0;
+  margin-left: -6px;
+  background: none; border: 0; border-radius: var(--radius-full); color: var(--gray-200); cursor: pointer;
+}
+.na-voltar svg { width: 20px; height: 20px; }
+
+/* ---------- Estrutura: etapas | resumo ---------- */
+.na-corpo { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 380px; }
+.na-principal {
+  display: flex; flex-direction: column; gap: var(--space-4);
+  min-width: 0; min-height: 0;
+  padding: var(--space-5) var(--space-6);
+}
+
+/* As etapas, como as categorias do PDV. */
+.na-passos { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.na-passo {
+  flex-shrink: 0;
+  height: 34px; padding: 0 0.9rem 0 0.35rem;
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  background: var(--gray-900); border: 1px solid var(--gray-700); border-radius: var(--radius-full);
+  font-family: var(--font-body); font-size: 0.8125rem; font-weight: 600; color: var(--gray-300);
+  cursor: pointer; white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+.na-passo > span {
+  width: 24px; height: 24px; display: grid; place-items: center;
+  background: var(--primary-soft-bg); color: var(--primary-300);
+  border-radius: var(--radius-full); font-size: 0.75rem; font-weight: 700;
+}
+.na-passo > span svg { width: 13px; height: 13px; }
+.na-passo:hover:not(:disabled) { border-color: var(--primary-200); color: var(--gray-100); }
+.na-passo.is-ativo { background: var(--primary-600); border-color: var(--primary-600); color: #fff; }
+.na-passo.is-ativo > span { background: rgba(255,255,255,0.22); color: #fff; }
+.na-passo:disabled { opacity: 0.5; cursor: default; }
+
+/* O conteúdo da etapa ocupa o que sobra; lista comprida rola por dentro.
+   A margem negativa dá espaço pro anel de foco não ser cortado. */
+.na-conteudo {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; gap: var(--space-3);
+  margin: -4px; padding: 4px;
+}
+.na-msg { padding: var(--space-6) 0; text-align: center; font-size: 0.875rem; color: var(--gray-500); }
+
+/* ---------- Busca (a do PDV) ---------- */
+.na-busca { position: relative; flex-shrink: 0; }
+.na-busca > svg {
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  width: 18px; height: 18px; color: var(--gray-500); pointer-events: none;
+}
+.na-busca input {
+  width: 100%; height: 48px; padding: 0 1rem 0 2.75rem;
+  background: var(--gray-900); border: 1px solid var(--gray-700); border-radius: var(--radius-lg);
+  font-family: var(--font-body); font-size: 1rem; color: var(--gray-100); outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.na-busca input::placeholder { color: var(--gray-600); }
+.na-busca input:focus { border-color: var(--primary-500); box-shadow: 0 0 0 3px var(--focus-ring); }
+
+/* ---------- Linhas de escolha (cliente, pet, serviço) ---------- */
+.na-lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px var(--space-3); align-content: start; }
+.na-opcao {
+  display: flex; align-items: center; gap: var(--space-3);
+  min-width: 0; padding: 0.6rem var(--space-2); text-align: left;
+  background: none; border: 0; border-radius: var(--radius-md); cursor: pointer;
+  font-family: var(--font-body); color: var(--gray-100);
+  transition: background var(--transition-fast);
+}
+.na-opcao:hover:not(:disabled) { background: var(--gray-850); }
+.na-opcao:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+.na-opcao.is-selecionado { background: var(--primary-soft-bg-8); }
+.na-opcao:disabled { cursor: default; }
+.na-avatar {
+  position: relative;
+  width: 40px; height: 40px; flex-shrink: 0; display: grid; place-items: center;
+  background: var(--primary-soft-bg); color: var(--primary-300);
+  border-radius: var(--radius-full); font-size: 0.8125rem; font-weight: 700;
+}
+.na-avatar svg { width: 18px; height: 18px; }
+.na-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; }
+.na-avatar.is-grande { width: 48px; height: 48px; }
+.na-avatar.is-grande svg { width: 22px; height: 22px; }
+.na-opcao-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.na-opcao-texto strong { font-size: 0.9375rem; font-weight: 600; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.na-opcao-texto small { font-size: 0.8125rem; line-height: 1.35; color: var(--gray-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.na-opcao-texto small b { font-weight: 600; color: var(--success-400); }
+.na-opcao-valor { flex-shrink: 0; font-family: var(--font-heading); font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; color: var(--gray-50); }
+.na-opcao > svg.na-certo { width: 18px; height: 18px; flex-shrink: 0; color: var(--primary-400); }
+.na-opcao.is-novo { color: var(--primary-400); }
+.na-opcao.is-novo .na-avatar { background: none; border: 1.5px dashed var(--primary-200); color: var(--primary-400); }
+.na-opcao.is-novo strong { font-weight: 600; }
+
+/* ---------- Cadastro rápido de pet ---------- */
+.na-novo-pet { display: flex; flex-direction: column; gap: var(--space-3); max-width: 460px; }
+.na-novo-pet h4 { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-body); font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
+.na-novo-pet h4 svg { width: 16px; height: 16px; color: var(--primary-400); }
+.na-dois { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); }
+.na-novo-pet .form-group { gap: var(--space-1); }
+.na-novo-pet .form-label { font-size: 0.8125rem; }
+.na-acoes { display: flex; justify-content: flex-end; gap: var(--space-3); }
+
+/* Escolha entre duas ou três opções: trilha branca, a escolhida em índigo claro. */
+.na-seg { display: inline-flex; padding: 2px; background: var(--gray-900); border: 1px solid var(--gray-700); border-radius: var(--radius-md); }
+.na-seg button {
+  height: 28px; padding: 0 0.7rem; background: none; border: 0; border-radius: var(--radius-sm); cursor: pointer;
+  font-family: var(--font-body); font-size: 0.8125rem; font-weight: 600; color: var(--gray-400);
+  transition: all var(--transition-fast);
+}
+.na-seg button.is-ativo { background: var(--primary-soft-bg); color: var(--primary-300); }
+.na-seg.is-largo { display: flex; }
+.na-seg.is-largo button { flex: 1; height: 40px; font-size: 0.9375rem; }
+
+/* ---------- Data e horário dentro da janela ---------- */
+.na-conteudo .sdh { flex-shrink: 0; }
+.na-conteudo .sdh-corpo { grid-template-columns: minmax(0, 1fr) 250px; }
+.na-conteudo .sdh-dia { height: 42px; }
+.na-conteudo .sdh-horarios-rolagem { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-content: start; }
+.na-conteudo .sdh-horarios-rolagem .sdh-vazio { grid-column: 1 / -1; }
+
+/* ---------- Transporte (TaxiDogCampos compacto) ---------- */
+.tdc { display: flex; flex-direction: column; gap: var(--space-3); }
+.tdc-opcoes { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.tdc-opcao {
+  display: flex; align-items: center; gap: var(--space-3);
+  min-width: 0; padding: 0.85rem 0.9rem; text-align: left;
+  background: var(--gray-900); border: 1.5px solid var(--gray-700); border-radius: var(--radius-lg);
+  font-family: var(--font-body); color: var(--gray-200); cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.tdc-opcao > svg { width: 22px; height: 22px; flex-shrink: 0; color: var(--primary-400); }
+.tdc-opcao > span { min-width: 0; display: flex; flex-direction: column; }
+.tdc-opcao strong { font-size: 0.9375rem; font-weight: 600; line-height: 1.3; }
+.tdc-opcao small { font-size: 0.8125rem; line-height: 1.35; color: var(--gray-500); }
+.tdc-opcao:hover { border-color: var(--primary-200); }
+.tdc-opcao.is-ativa { border-color: var(--primary-600); background: var(--primary-soft-bg-8); color: var(--primary-300); box-shadow: 0 0 0 3px var(--focus-ring); }
+
+.tdc-modalidades { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.tdc-modalidade {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 0.6rem 0.75rem; text-align: left;
+  background: var(--gray-900); border: 1px solid var(--gray-700); border-radius: var(--radius-md);
+  font-family: var(--font-body); color: var(--gray-200); cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.tdc-modalidade strong { font-size: 0.875rem; font-weight: 600; line-height: 1.3; }
+.tdc-modalidade small { font-size: 0.8125rem; font-weight: 600; color: var(--gray-500); }
+.tdc-modalidade small.is-indisponivel { color: var(--danger-400); }
+.tdc-modalidade:hover { border-color: var(--primary-200); }
+.tdc-modalidade.is-ativa { border-color: var(--primary-600); background: var(--primary-soft-bg-8); color: var(--primary-300); }
+.tdc-modalidade.is-ativa small:not(.is-indisponivel) { color: var(--primary-300); }
+
+.tdc-endereco { display: flex; flex-direction: column; gap: var(--space-2); }
+.tdc-endereco-topo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); font-size: 0.8125rem; font-weight: 600; color: var(--gray-300); }
+.tdc-endereco-topo > span { display: inline-flex; align-items: center; gap: 6px; }
+.tdc-endereco-topo svg { width: 14px; height: 14px; color: var(--primary-400); }
+.tdc-campos {
+  display: grid; gap: var(--space-2);
+  grid-template-columns: 130px minmax(0, 1fr) minmax(0, 1fr) 100px;
+  grid-template-areas:
+    "cep rua rua numero"
+    "complemento bairro cidade uf";
+}
+.tdc-campos .form-input, .tdc-campos .form-select { min-width: 0; width: 100%; }
+.tdc-cep { grid-area: cep; }
+.tdc-rua { grid-area: rua; }
+.tdc-numero { grid-area: numero; }
+.tdc-complemento { grid-area: complemento; }
+.tdc-bairro { grid-area: bairro; }
+.tdc-cidade { grid-area: cidade; }
+.tdc-uf { grid-area: uf; }
+.tdc-endereco-linha {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: 0.6rem 0.75rem;
+  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: var(--radius-md);
+}
+.tdc-endereco-linha > svg { width: 18px; height: 18px; flex-shrink: 0; color: var(--primary-400); }
+.tdc-endereco-linha > span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tdc-endereco-linha small { font-size: 0.75rem; color: var(--gray-500); }
+.tdc-endereco-linha strong { font-size: 0.875rem; font-weight: 600; line-height: 1.35; color: var(--gray-100); }
+.tdc-link { flex-shrink: 0; background: none; border: 0; padding: 4px 2px; cursor: pointer; font-family: var(--font-body); font-size: 0.8125rem; font-weight: 600; color: var(--primary-400); }
+.tdc-link:hover { color: var(--primary-300); text-decoration: underline; }
+.tdc-nota { margin: 0; font-size: 0.8125rem; line-height: 1.4; color: var(--gray-500); }
+.tdc-nota.is-erro { color: var(--danger-400); }
+.tdc-nota.is-aviso { color: var(--warning-400); }
+.tdc-taxa {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: 0.6rem 0.75rem;
+  background: var(--primary-soft-bg-8); border-radius: var(--radius-md);
+  font-size: 0.875rem; font-weight: 600; color: var(--gray-100);
+}
+.tdc-taxa > span { min-width: 0; display: flex; flex-direction: column; }
+.tdc-taxa small { font-size: 0.75rem; font-weight: 400; line-height: 1.35; color: var(--gray-400); }
+.tdc-taxa strong { flex-shrink: 0; font-family: var(--font-heading); font-size: 1rem; font-weight: 800; color: var(--gray-50); }
+
+/* ---------- Resumo (o "carrinho") ---------- */
+.na-resumo { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-left: 1px solid var(--gray-800); }
+.na-resumo-corpo {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; gap: var(--space-4);
+  padding: var(--space-5);
+}
+.na-itens { display: flex; flex-direction: column; flex-shrink: 0; border: 1px solid var(--gray-800); border-radius: var(--radius-lg); overflow: hidden; background: var(--gray-900); }
+.na-item {
+  display: flex; align-items: center; gap: var(--space-3);
+  width: 100%; min-height: 40px; padding: 0 0.75rem; text-align: left;
+  background: none; border: 0; border-bottom: 1px solid var(--gray-800);
+  font-family: var(--font-body); font-size: 0.875rem; color: var(--gray-100); cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.na-item:last-child { border-bottom: 0; }
+.na-item > svg:first-child { width: 16px; height: 16px; flex-shrink: 0; color: var(--primary-400); }
+.na-item-texto { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.na-item-texto small { font-size: 0.8125rem; font-weight: 400; color: var(--gray-500); }
+.na-item.is-vazio .na-item-texto, .na-item.is-vazio select { font-weight: 500; color: var(--gray-500); }
+.na-item-valor { flex-shrink: 0; font-weight: 700; }
+.na-item > svg.na-seta { width: 14px; height: 14px; flex-shrink: 0; color: var(--gray-600); }
+button.na-item:hover:not(:disabled) { background: var(--gray-950); }
+button.na-item:disabled { cursor: default; }
+.na-item select {
+  flex: 1; min-width: 0; height: 38px; padding: 0; margin: 0;
+  background: none; border: 0; outline: none; cursor: pointer;
+  font-family: var(--font-body); font-size: 0.875rem; font-weight: 600; color: var(--gray-100);
+}
+
+.na-rotulo { font-size: 0.8125rem; font-weight: 600; color: var(--gray-300); }
+.na-bloco { display: flex; flex-direction: column; gap: var(--space-2); flex-shrink: 0; }
+.na-bloco-topo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 34px; }
+.na-formas { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.na-forma {
+  display: flex; align-items: center; gap: var(--space-2);
+  min-width: 0; height: 40px; padding: 0 0.7rem; text-align: left;
+  background: var(--gray-900); border: 1.5px solid var(--gray-700); border-radius: var(--radius-md);
+  font-family: var(--font-body); font-size: 0.8125rem; font-weight: 600; color: var(--gray-200);
+  cursor: pointer; white-space: nowrap; transition: all var(--transition-fast);
+}
+.na-forma svg { width: 17px; height: 17px; flex-shrink: 0; color: var(--primary-400); }
+.na-forma:hover:not(:disabled) { border-color: var(--primary-200); }
+.na-forma.is-ativa { border-color: var(--primary-600); background: var(--primary-soft-bg-8); color: var(--primary-300); box-shadow: 0 0 0 3px var(--focus-ring); }
+.na-forma.is-ativa svg { color: var(--primary-600); }
+
+.na-plano {
+  display: flex; align-items: flex-start; gap: var(--space-2); flex-shrink: 0;
+  padding: 0.6rem 0.75rem; border-radius: var(--radius-md);
+  background: var(--primary-soft-bg-8); border: 1px solid var(--primary-soft-border);
+  font-size: 0.8125rem; line-height: 1.4; color: var(--gray-200); cursor: pointer;
+}
+.na-plano input { margin-top: 2px; accent-color: var(--primary-600); }
+.na-plano.is-esgotado { background: var(--gray-950); border-color: var(--gray-800); cursor: default; }
+.na-coberto { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; font-size: 0.8125rem; font-weight: 600; color: var(--success-400); }
+.na-coberto svg { width: 15px; height: 15px; }
+
+.na-link { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--font-body); font-size: 0.8125rem; font-weight: 600; color: var(--primary-400); }
+.na-link svg { width: 13px; height: 13px; }
+.na-link:hover { color: var(--primary-300); text-decoration: underline; }
+.na-obs { flex-shrink: 0; min-height: 52px !important; padding: 0.4rem 0.75rem !important; resize: none; background: var(--gray-900) !important; font-size: 0.875rem !important; line-height: 1.4; }
+
+/* Rodapé do resumo: total grande e o botão, como no carrinho do PDV. */
+.na-rodape { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4) var(--space-5) var(--space-5); border-top: 1px solid var(--gray-800); }
+.na-total { display: flex; align-items: baseline; justify-content: space-between; font-family: var(--font-heading); }
+.na-total span { font-size: 0.9375rem; font-weight: 600; color: var(--gray-400); }
+.na-total strong { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.2; color: var(--gray-50); }
+.na-confirmar { height: 52px; font-size: 1rem; margin-top: var(--space-1); }
+.na-falta { margin: 0; text-align: center; font-size: 0.75rem; color: var(--gray-500); }
+.na-erro {
+  display: flex; align-items: flex-start; gap: var(--space-2);
+  padding: 0.5rem 0.75rem; border-radius: var(--radius-md);
+  background: var(--danger-900); color: var(--danger-400); font-size: 0.8125rem; font-weight: 500; line-height: 1.4;
+}
+.na-erro svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 1px; }
+
+/* ---------- Agendamento criado ---------- */
+.modal.na.is-feito { max-width: 440px; height: auto; }
+.na-sucesso { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-2); padding: var(--space-10) var(--space-6) var(--space-8); }
+.na-sucesso-icone {
+  width: 64px; height: 64px; display: grid; place-items: center;
+  background: var(--success-900); color: var(--success-500);
+  border: 1px solid rgba(16,185,129,0.3); border-radius: var(--radius-full);
+  margin-bottom: var(--space-2);
+  animation: naPop 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.na-sucesso-icone svg { width: 30px; height: 30px; stroke-width: 2.25; }
+@keyframes naPop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.na-sucesso h3 { font-family: var(--font-heading); font-size: 1.25rem; font-weight: 800; color: var(--gray-50); }
+.na-sucesso p { margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--gray-500); }
+.na-sucesso p strong { color: var(--gray-100); }
+.na-sucesso .na-erro { text-align: left; margin-top: var(--space-2); }
+
+/* Tela baixa (notebook): o resumo aperta um pouco pra continuar cabendo. */
+@media (min-width: 769px) and (max-height: 740px) {
+  .na-topo { padding: var(--space-4) var(--space-6); }
+  .na-principal { padding: var(--space-4) var(--space-6); }
+  .na-resumo-corpo { padding: var(--space-4) var(--space-5); gap: var(--space-3); }
+  .na-item { min-height: 36px; }
+  .na-item select { height: 34px; }
+  .na-forma { height: 36px; }
+  .na-rodape { padding: var(--space-3) var(--space-5) var(--space-4); }
+  .na-confirmar { height: 48px; }
+  .na-conteudo .sdh-dia { height: 36px; }
+}
+
+/* ---------- Só no celular ---------- */
+.na-progresso, .na-etapa, .na-barra { display: none; }
+
+@media (max-width: 900px) {
+  .na-corpo { grid-template-columns: minmax(0, 1fr) 320px; }
+  .na-lista { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Celular: uma etapa por tela, do tamanho da janela. O resumo com o
+   pagamento é a última etapa e o botão fica fixo embaixo. */
+@media (max-width: 768px) {
+  .modal.na { height: 92vh; height: 92dvh; max-height: 92vh !important; max-height: 92dvh !important; }
+  .modal.na.is-feito { height: auto; }
+
+  .na-topo { padding: var(--space-3) var(--space-4) var(--space-2); border-bottom: 0; }
+  .na-voltar { display: grid; }
+  .na-voltar:disabled { visibility: hidden; }
+  .na-passos { display: none; }
+
+  .na-progresso { display: flex; gap: 4px; padding: 0 var(--space-4); }
+  .na-progresso span { flex: 1; height: 4px; border-radius: var(--radius-full); background: var(--gray-800); transition: background var(--transition-normal); }
+  .na-progresso span.is-feito { background: var(--primary-600); }
+
+  .na-etapa { display: block; padding: var(--space-3) var(--space-4) var(--space-3); }
+  .na-etapa-linha { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+  .na-etapa h4 { font-family: var(--font-heading); font-size: 1.25rem; font-weight: 800; letter-spacing: -0.01em; color: var(--gray-50); }
+  .na-etapa-linha span { flex-shrink: 0; font-size: 0.8125rem; font-weight: 600; color: var(--gray-500); }
+  .na-etapa p { margin: 2px 0 0; font-size: 0.875rem; color: var(--gray-400); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .na-corpo { display: flex; flex-direction: column; }
+  .na-principal { flex: 1; padding: 0 var(--space-4) var(--space-3); gap: var(--space-3); }
+  .na-lista { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+  /* No celular as linhas viram cartões brancos, como as listas do app. */
+  .na-opcao { min-height: 60px; padding: 0.55rem 0.75rem; background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 12px; }
+  .na-opcao.is-selecionado { border-color: var(--primary-600); background: var(--gray-900); box-shadow: 0 0 0 3px var(--focus-ring); }
+  .na-opcao.is-novo { border-style: dashed; border-color: var(--primary-200); background: none; }
+  .na-busca input { border-color: var(--gray-800); border-radius: 12px; }
+  .na-novo-pet { max-width: none; }
+  .na-seg.is-largo button { height: 44px; }
+
+  .na-conteudo .sdh { display: flex; flex-direction: column; flex: 1; min-height: 0; border-radius: 12px; }
+  .na-conteudo .sdh-corpo { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .na-conteudo .sdh-calendario { padding: var(--space-3); }
+  .na-conteudo .sdh-dia { height: 38px; }
+  .na-conteudo .sdh-horarios { flex: 1; min-height: 96px; border-left: 0; border-top: 1px solid var(--gray-800); }
+  .na-conteudo .sdh-horarios-rolagem { position: absolute; max-height: none; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  .na-conteudo .sdh-slot { height: 38px; padding: 0; }
+  .na-conteudo .sdh-rodape { display: none; }
+
+  .tdc-opcao { gap: var(--space-2); min-height: 52px; padding: 0 0.75rem; border-radius: 12px; border-color: var(--gray-800); }
+  .tdc-opcao small { display: none; }
+  .tdc-opcao strong { font-size: 0.875rem; }
+  .tdc-modalidade { padding: 0.55rem 0.6rem; border-radius: 10px; border-color: var(--gray-800); }
+  .tdc-modalidade strong { font-size: 0.8125rem; }
+  .tdc-campos {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 84px;
+    grid-template-areas:
+      "cep numero numero"
+      "rua rua rua"
+      "complemento complemento complemento"
+      "bairro cidade uf";
+  }
+  .tdc-endereco-linha { border-radius: 12px; }
+
+  .na-resumo { flex: 1; border-left: 0; }
+  .na-resumo-corpo { padding: 0 var(--space-4) var(--space-3); gap: var(--space-3); }
+  .na-itens { border-radius: 12px; }
+  .na-item { min-height: 44px; }
+  .na-forma { height: 44px; border-radius: 10px; border-color: var(--gray-800); font-size: 0.875rem; }
+  .na-seg button { height: 32px; }
+
+  .na-barra {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    border-top: 1px solid var(--gray-800); background: var(--gray-900);
+  }
+  .na-barra-total { flex-shrink: 0; display: flex; flex-direction: column; }
+  .na-barra-total small { font-size: 0.75rem; font-weight: 600; color: var(--gray-500); }
+  .na-barra-total strong { font-family: var(--font-heading); font-size: 1.125rem; font-weight: 800; letter-spacing: -0.02em; color: var(--gray-50); line-height: 1.2; }
+  .na-barra .btn { flex: 1; height: 50px; font-size: 1rem; }
+  .na-barra.is-final { flex-direction: column; align-items: stretch; gap: var(--space-2); }
+  .na-barra.is-final .na-rodape { padding: 0; border-top: 0; }
+  .na-barra.is-final .na-total strong { font-size: 1.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .na-sucesso-icone { animation: none; }
+}

@@ -120,7 +120,7 @@ function estiloOpcao(selecionado: boolean): React.CSSProperties {
   }
 }
 
-export function TaxiDogCampos({ valor, onChange, cotar, modoLoja = false, idCliente, modalidades = MODALIDADES, rotuloLevar }: {
+export function TaxiDogCampos({ valor, onChange, cotar, modoLoja = false, idCliente, modalidades = MODALIDADES, rotuloLevar, compacto = false }: {
   valor: EstadoTransporte
   onChange: Dispatch<SetStateAction<EstadoTransporte>>
   cotar: Cotar
@@ -131,6 +131,10 @@ export function TaxiDogCampos({ valor, onChange, cotar, modoLoja = false, idClie
   // Tipos oferecidos (com o pet já na loja, só a entrega faz sentido).
   modalidades?: readonly ModalidadeTaxiDog[]
   rotuloLevar?: string
+  // Janela "Novo agendamento" da loja: as opções lado a lado e o endereço
+  // numa linha só quando já está completo, pra caber sem rolar
+  // (estilos em lojista/novo-agendamento.css).
+  compacto?: boolean
 }) {
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [erroCep, setErroCep] = useState<string | null>(null)
@@ -138,6 +142,9 @@ export function TaxiDogCampos({ valor, onChange, cotar, modoLoja = false, idClie
   const [erroCotacao, setErroCotacao] = useState<string | null>(null)
   const chaveAtual = useRef('')
   const jaPreencheu = useRef(false)
+  // Só no compacto: o formulário do endereço fica aberto enquanto a pessoa
+  // digita (null = abre sozinho quando falta alguma parte do endereço).
+  const [formularioAberto, setFormularioAberto] = useState<boolean | null>(null)
 
   // Último endereço usado num TaxiDog deste cliente — poupa digitar de
   // novo. No lado do cliente, a RLS "taxidog_corrida: cliente ve proprias"
@@ -201,6 +208,7 @@ export function TaxiDogCampos({ valor, onChange, cotar, modoLoja = false, idClie
 
   function atualizarEndereco(campo: keyof EnderecoTaxiDog, texto: string) {
     setErroCotacao(null)
+    setFormularioAberto(true)
     onChange(prev => ({ ...prev, endereco: { ...prev.endereco, [campo]: texto }, cotacoes: null, precisao: null }))
   }
 
@@ -240,6 +248,118 @@ export function TaxiDogCampos({ valor, onChange, cotar, modoLoja = false, idClie
   }
 
   const cotacaoSelecionada = valor.cotacoes?.[valor.modalidade] ?? null
+
+  if (compacto) {
+    const mostrarFormulario = formularioAberto ?? !chaveEndereco
+    return (
+      <div className="tdc">
+        <div className="tdc-opcoes">
+          <button type="button" className={`tdc-opcao ${valor.opcao === 'levar' ? 'is-ativa' : ''}`} onClick={() => onChange(prev => ({ ...prev, opcao: 'levar' }))} aria-pressed={valor.opcao === 'levar'}>
+            <IconStore />
+            <span>
+              <strong>{rotuloLevar ?? (modoLoja ? 'Cliente leva o pet' : 'Vou levar o pet')}</strong>
+              <small>Sem taxa de transporte</small>
+            </span>
+          </button>
+          <button type="button" className={`tdc-opcao ${valor.opcao === 'taxidog' ? 'is-ativa' : ''}`} onClick={() => onChange(prev => ({ ...prev, opcao: 'taxidog' }))} aria-pressed={valor.opcao === 'taxidog'}>
+            <IconCar />
+            <span>
+              <strong>TaxiDog</strong>
+              <small>Busca e/ou entrega do pet</small>
+            </span>
+          </button>
+        </div>
+
+        {valor.opcao === 'taxidog' && (
+          <>
+            <div className="tdc-modalidades">
+              {modalidades.map(m => {
+                const cot = valor.cotacoes?.[m]
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    className={`tdc-modalidade ${valor.modalidade === m ? 'is-ativa' : ''}`}
+                    onClick={() => onChange(prev => ({ ...prev, modalidade: m }))}
+                    aria-pressed={valor.modalidade === m}
+                  >
+                    <strong>{ROTULO_MODALIDADE[m]}</strong>
+                    <small className={cot && !cot.disponivel ? 'is-indisponivel' : ''}>
+                      {cot ? (cot.disponivel ? formatarReais(cot.valor) : 'Indisponível') : 'Taxa pelo endereço'}
+                    </small>
+                  </button>
+                )
+              })}
+            </div>
+
+            {mostrarFormulario ? (
+              <div className="tdc-endereco">
+                <div className="tdc-endereco-topo">
+                  <span>
+                    <IconMapPin />
+                    Endereço para {valor.modalidade === 'entregar' ? 'entrega' : 'busca'} do pet
+                  </span>
+                  {chaveEndereco && (
+                    <button type="button" className="tdc-link" onClick={() => setFormularioAberto(false)}>Pronto</button>
+                  )}
+                </div>
+                <div className="tdc-campos">
+                  <input className="form-input tdc-cep" placeholder="CEP" inputMode="numeric" value={valor.endereco.cep} onChange={e => handleCep(e.target.value)} maxLength={9} aria-label="CEP" />
+                  <input className="form-input tdc-rua" placeholder="Rua" value={valor.endereco.logradouro} onChange={e => atualizarEndereco('logradouro', e.target.value)} maxLength={150} aria-label="Rua" />
+                  <input className="form-input tdc-numero" placeholder="Número" value={valor.endereco.numero} onChange={e => atualizarEndereco('numero', e.target.value)} maxLength={20} aria-label="Número" />
+                  <input className="form-input tdc-complemento" placeholder="Complemento (opcional)" value={valor.endereco.complemento} onChange={e => atualizarEndereco('complemento', e.target.value)} maxLength={80} aria-label="Complemento" />
+                  <input className="form-input tdc-bairro" placeholder="Bairro" value={valor.endereco.bairro} onChange={e => atualizarEndereco('bairro', e.target.value)} maxLength={80} aria-label="Bairro" />
+                  <input className="form-input tdc-cidade" placeholder="Cidade" value={valor.endereco.cidade} onChange={e => atualizarEndereco('cidade', e.target.value)} maxLength={80} aria-label="Cidade" />
+                  <select className="form-select tdc-uf" value={valor.endereco.uf} onChange={e => atualizarEndereco('uf', e.target.value)} aria-label="UF">
+                    <option value="">UF</option>
+                    {UFS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                  </select>
+                </div>
+                {buscandoCep && <span className="form-hint">Buscando CEP...</span>}
+                {erroCep && <span className="form-error">{erroCep}</span>}
+              </div>
+            ) : (
+              <div className="tdc-endereco-linha">
+                <IconMapPin />
+                <span>
+                  <small>Endereço para {valor.modalidade === 'entregar' ? 'entrega' : 'busca'} do pet</small>
+                  <strong>{enderecoEmUmaLinha(valor.endereco)}</strong>
+                </span>
+                <button type="button" className="tdc-link" onClick={() => setFormularioAberto(true)}>Alterar</button>
+              </div>
+            )}
+
+            {!chaveEndereco ? (
+              <p className="tdc-nota">Preencha o endereço completo para calcular a taxa do TaxiDog.</p>
+            ) : cotando || !valor.cotacoes ? (
+              erroCotacao
+                ? <p className="tdc-nota is-erro">{erroCotacao}</p>
+                : <p className="tdc-nota">Calculando a taxa do TaxiDog...</p>
+            ) : cotacaoSelecionada && !cotacaoSelecionada.disponivel ? (
+              <p className="tdc-nota is-aviso">
+                {cotacaoSelecionada.motivo ?? 'O TaxiDog não está disponível para este endereço.'}
+                {modoLoja ? ' O cliente ainda pode levar o pet até a loja.' : ' Você ainda pode levar o pet até a loja.'}
+              </p>
+            ) : cotacaoSelecionada ? (
+              <div className="tdc-taxa">
+                <span>
+                  Taxa do TaxiDog · {ROTULO_MODALIDADE[valor.modalidade]}
+                  <small>
+                    {[
+                      cotacaoSelecionada.distanciaKm != null ? `${formatarKm(cotacaoSelecionada.distanciaKm)} da loja` : null,
+                      cotacaoSelecionada.criterio,
+                      valor.precisao === 'bairro' ? 'rua não achada no mapa: usamos o centro do bairro' : null,
+                    ].filter(Boolean).join(' · ')}
+                  </small>
+                </span>
+                <strong>{formatarReais(cotacaoSelecionada.valor)}</strong>
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+    )
+  }
 
   return (
     <>
