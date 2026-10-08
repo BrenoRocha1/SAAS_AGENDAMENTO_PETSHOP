@@ -9,7 +9,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { COOKIE_IMPERSONANDO } from '@/lib/impersonar'
-import { getPlatformAdmin } from '@/lib/admin'
+import { getPlatformAdmin, segundoFatorOk } from '@/lib/admin'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ROTA_INTERNA } from '@/lib/rota-interna'
 
@@ -21,6 +21,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 async function exigirAdmin() {
   const admin = await getPlatformAdmin()
   if (!admin) return { erro: 'Sem permissão.' as const }
+  if (!(await segundoFatorOk())) return { erro: 'Confirme o código do app autenticador para continuar.' as const }
   const db = createAdminClient()
   if (!db) return { erro: 'Servidor sem a chave de serviço (SUPABASE_SERVICE_ROLE_KEY).' as const }
   return { admin, db }
@@ -144,6 +145,24 @@ export async function estenderAcessoAction(idLojista: string, dias: number): Pro
   return { success: true }
 }
 
+// Define a data exata em que o acesso termina (para dar mais tempo, ou
+// para encurtar/bloquear: uma data no passado bloqueia na hora).
+export async function definirAcessoAteAction(idLojista: string, quando: string): Promise<Resultado> {
+  const ctx = await exigirAdmin()
+  if ('erro' in ctx) return { error: ctx.erro }
+  if (!UUID_RE.test(idLojista)) return { error: 'Empresa inválida.' }
+  const data = new Date(quando)
+  if (Number.isNaN(data.getTime())) return { error: 'Data inválida.' }
+  if (data.getTime() > Date.now() + 5 * 365 * 86_400_000) return { error: 'Data longe demais (máx. 5 anos).' }
+
+  const iso = data.toISOString()
+  const { error } = await ctx.db.from('lojista').update({ acesso_ate: iso }).eq('id_lojista', idLojista)
+  if (error) return { error: error.message }
+  await auditar(ctx.db, ctx.admin, 'acesso.definir', 'lojista', idLojista, { acesso_ate: iso })
+  revalidarInterno()
+  return { success: true }
+}
+
 export async function definirAcessoLivreAction(idLojista: string, livre: boolean): Promise<Resultado> {
   const ctx = await exigirAdmin()
   if ('erro' in ctx) return { error: ctx.erro }
@@ -201,4 +220,40 @@ export async function sairDaContaAction() {
   ;(await cookies()).delete(COOKIE_IMPERSONANDO)
   revalidatePath('/', 'layout')
   redirect(`${ROTA_INTERNA}/entrar`)
+}
+
+// ── Trocar o e-mail de uma conta ──────────────────────────────────────────
+// Troca no login (Supabase Auth) e no cadastro (lojista/cliente). Se o
+// segundo passo falhar, o primeiro é desfeito. Quem entra com Google segue
+// entrando normalmente (o Google é reconhecido pela identidade, não pelo
+// e-mail); o e-mail novo vale para avisos e para o link de "entrar na conta".
+export async function trocarEmailAction(tipo: 'lojista' | 'cliente', id: string, novoEmail: string): Promise<Resultado> {
+  const ctx = await exigirAdmin()
+  if ('erro' in ctx) return { error: ctx.erro }
+  if (!UUID_RE.test(id) || (tipo !== 'lojista' && tipo !== 'cliente')) return { error: 'Conta inválida.' }
+  const email = novoEmail.trim().toLowerCase()
+  if (!EMAIL_RE.test(email)) return { error: 'E-mail inválido.' }
+
+  const { data: ehAdmin } = await ctx.db.from('admin_usuario').select('id').eq('id', id).maybeSingle()
+  if (ehAdmin) return { error: 'Não é possível trocar o e-mail de um administrador por aqui.' }
+
+  const { data: atual } = await ctx.db.auth.admin.getUserById(id)
+  const emailAntigo = atual?.user?.email
+  if (!emailAntigo) return { error: 'Não achei o login dessa conta.' }
+  if (emailAntigo.toLowerCase() === email) return { error: 'Esse já é o e-mail da conta.' }
+
+  const { error: erroAuth } = await ctx.db.auth.admin.updateUserById(id, { email, email_confirm: true })
+  if (erroAuth) return { error: erroAuth.message }
+
+  const tabela = tipo === 'lojista' ? 'lojista' : 'cliente'
+  const coluna = tipo === 'lojista' ? 'id_lojista' : 'id_cliente'
+  const { error: erroTabela } = await ctx.db.from(tabela).update({ email }).eq(coluna, id)
+  if (erroTabela) {
+    await ctx.db.auth.admin.updateUserById(id, { email: emailAntigo, email_confirm: true })
+    return { error: erroTabela.message }
+  }
+
+  await auditar(ctx.db, ctx.admin, 'conta.trocar_email', tipo, id, { de: emailAntigo, para: email })
+  revalidarInterno()
+  return { success: true }
 }

@@ -6,6 +6,8 @@ import { formatarReais } from '@/lib/taxidog'
 import { dataBRFmt, telefoneBR } from '@/lib/interno-util'
 import BotaoAcao from '@/components/interno/BotaoAcao'
 import FormEmpresa from '@/components/interno/FormEmpresa'
+import EditarAcesso from '@/components/interno/EditarAcesso'
+import TrocarEmail from '@/components/interno/TrocarEmail'
 import { alterarStatusEmpresaAction, definirAcessoLivreAction, entrarComoAction, estenderAcessoAction } from '@/lib/actions-interno'
 import { calcularAcesso } from '@/lib/acesso-loja'
 import { dataHoraBR } from '@/lib/interno-util'
@@ -112,6 +114,18 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
             Entrar na conta
           </BotaoAcao>
         </div>
+      </div>
+
+      {!acesso.livre && (
+        <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-8)' }}>
+          <EditarAcesso idLojista={id} acessoAte={loja.acesso_ate} />
+        </div>
+      )}
+
+      <h2 className="page-title" style={{ fontSize: '1.125rem', marginBottom: 'var(--space-3)' }}>E-mail da conta</h2>
+      <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-8)', display: 'flex', gap: 'var(--space-4)', alignItems: 'center', flexWrap: 'wrap' }}>
+        <span>{loja.email}</span>
+        <TrocarEmail tipo="lojista" id={id} emailAtual={loja.email} />
       </div>
 
       <h2 className="page-title" style={{ fontSize: '1.125rem', marginBottom: 'var(--space-3)' }}>Dados da empresa</h2>

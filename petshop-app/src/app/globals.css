@@ -4466,12 +4466,12 @@ html[data-theme='dark'] {
   --primary-800: #a5b4fc;
   --primary-900: #c7d2fe;
 
-  --gray-950: #0b0d12; /* canvas */
-  --gray-900: #14171f; /* cards */
-  --gray-850: #1b1f29; /* inputs, chips */
-  --gray-800: #262b37; /* bordas suaves */
-  --gray-750: #2e3442;
-  --gray-700: #394052; /* bordas fortes */
+  --gray-950: #040508; /* canvas */
+  --gray-900: #0a0c11; /* cards */
+  --gray-850: #10131a; /* inputs, chips */
+  --gray-800: #181c25; /* bordas suaves */
+  --gray-750: #1f242f;
+  --gray-700: #2a303d; /* bordas fortes */
   --gray-600: #5b6376;
   --gray-500: #7b8497;
   --gray-400: #9aa3b5;
@@ -4500,7 +4500,7 @@ html[data-theme='dark'] {
   --status-cancelado-bg:    rgba(239,68,68,0.18);
   --status-cancelado-fg:    #fca5a5;
 
-  --shadow-sm:  0 1px 2px rgba(0,0,0,0.4);
+  --shadow-sm:  0 1px 2px rgba(0,0,0,0.6);
   --shadow-md:  0 2px 8px rgba(0,0,0,0.45);
   --shadow-lg:  0 8px 24px rgba(0,0,0,0.5);
   --shadow-xl:  0 16px 40px rgba(0,0,0,0.55);
@@ -4524,11 +4524,11 @@ html[data-theme='dark'] .login-shell {
   --lg-accent-700:  #a5b4fc;
   --lg-accent-soft: #1e1b4b;
   --lg-accent-ring: rgba(129,140,248,0.28);
-  --lg-bg:          #0b0d12;
-  --lg-panel:       #14171f;
-  --lg-card:        #14171f;
-  --lg-border:      #262b37;
-  --lg-border-str:  #394052;
+  --lg-bg:          #040508;
+  --lg-panel:       #0a0c11;
+  --lg-card:        #0a0c11;
+  --lg-border:      #181c25;
+  --lg-border-str:  #2a303d;
   --lg-ink:         #eceff5;
   --lg-ink-soft:    #c3c9d6;
   --lg-ink-mute:    #8e97aa;

@@ -3,6 +3,7 @@ import { ROTA_INTERNA } from '@/lib/rota-interna'
 import { TAMANHO_PAGINA, dataBRFmt, numeroPagina, termoSeguro, telefoneBR } from '@/lib/interno-util'
 import Paginacao from '@/components/interno/Paginacao'
 import BotaoAcao from '@/components/interno/BotaoAcao'
+import TrocarEmail from '@/components/interno/TrocarEmail'
 import { alterarStatusClienteAction, entrarComoAction } from '@/lib/actions-interno'
 import type { Metadata } from 'next'
 
@@ -52,7 +53,11 @@ export default async function InternoClientes({ searchParams }: Props) {
               {clientes.map(c => (
                 <tr key={c.id_cliente}>
                   <td className="font-semibold">{c.nome}</td>
-                  <td><div>{c.email}</div><div className="text-sm text-muted">{telefoneBR(c.telefone)}</div></td>
+                  <td>
+                    <div>{c.email}</div>
+                    <div className="text-sm text-muted">{telefoneBR(c.telefone)}</div>
+                    <div style={{ marginTop: 4 }}><TrocarEmail tipo="cliente" id={c.id_cliente} emailAtual={c.email} /></div>
+                  </td>
                   <td><span className={`badge ${c.ativo ? 'badge-ativo' : 'badge-inativo'}`}>{c.ativo ? 'Ativo' : 'Inativo'}</span></td>
                   <td className="text-sm text-muted">{dataBRFmt(c.created_at)}</td>
                   <td style={{ display: 'flex', gap: 'var(--space-2)' }}>
