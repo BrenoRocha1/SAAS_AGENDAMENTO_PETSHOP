@@ -30,7 +30,7 @@ export default function RootLayout({
             a escolha salva no navegador; sem escolha, o tema do sistema. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: "try{var t=localStorage.getItem('saip:tema');if(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark')}catch(e){}",
+            __html: "try{var t=localStorage.getItem('saip:tema');if(/^\\/(login|cadastro|esqueci-senha|redefinir-senha|completar-cadastro|central-k7x2q9\\/entrar)/.test(location.pathname))t='light';else if(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark')}catch(e){}",
           }}
         />
         {/* Inter/Plus Jakarta Sans (usadas em --font-body/--font-heading, ver

@@ -4,7 +4,7 @@ import { ROTA_INTERNA } from '@/lib/rota-interna'
 import { TAMANHO_PAGINA, dataBRFmt, numeroPagina, termoSeguro, telefoneBR } from '@/lib/interno-util'
 import Paginacao from '@/components/interno/Paginacao'
 import BotaoAcao from '@/components/interno/BotaoAcao'
-import { alterarStatusEmpresaAction } from '@/lib/actions-interno'
+import { alterarStatusEmpresaAction, entrarComoAction } from '@/lib/actions-interno'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Empresas — Interno' }
@@ -73,7 +73,14 @@ export default async function InternoEmpresas({ searchParams }: Props) {
                     {l.acesso_livre ? 'Isenta' : l.acesso_ate ? (new Date(l.acesso_ate).getTime() > Date.now() ? `até ${dataBRFmt(l.acesso_ate)}` : 'Encerrado') : '—'}
                   </td>
                   <td className="text-sm text-muted">{dataBRFmt(l.created_at)}</td>
-                  <td>
+                  <td style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                    <BotaoAcao
+                      acao={entrarComoAction.bind(null, 'lojista', l.id_lojista)}
+                      className="btn btn-primary btn-sm"
+                      confirmar={`Entrar na conta de ${l.nome_loja}? Sua sessão atual será trocada pela dela.`}
+                    >
+                      Entrar na conta
+                    </BotaoAcao>
                     <BotaoAcao
                       acao={alterarStatusEmpresaAction.bind(null, l.id_lojista, !l.ativo)}
                       confirmar={l.ativo ? `Desativar ${l.nome_loja}?` : undefined}

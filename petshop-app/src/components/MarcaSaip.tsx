@@ -1,4 +1,5 @@
 import LogoSaip from '@/components/LogoSaip'
+import ForcarTemaClaro from '@/components/ForcarTemaClaro'
 
 export const SLOGAN_SAIP = 'Sistema de agendamento inteligente para petshop'
 
@@ -7,6 +8,7 @@ export const SLOGAN_SAIP = 'Sistema de agendamento inteligente para petshop'
 export default function MarcaSaip() {
   return (
     <div className="login-brand">
+      <ForcarTemaClaro />
       <span className="login-brand-texto">
         <LogoSaip altura={30} />
         <span className="login-brand-slogan">{SLOGAN_SAIP}</span>
