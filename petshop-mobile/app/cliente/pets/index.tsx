@@ -1,12 +1,12 @@
 import { useCallback, useState } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Pressable, StyleSheet, View } from 'react-native'
+import { differenceInDays, differenceInMonths, differenceInYears } from 'date-fns'
 import { IconeApp } from '@/components/IconeApp'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { BarraTopo } from '@/components/BarraTopo'
-import { Card } from '@/components/Card'
-import { Avatar } from '@/components/Avatar'
 import { EmptyState } from '@/components/EmptyState'
+import { PetCartao } from '@/components/PetCartao'
 import { Aviso } from '@/components/Aviso'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
@@ -20,6 +20,23 @@ interface Pet {
   especie: string | null
   porte: string | null
   foto_url: string | null
+  sexo: string | null
+  dt_nasc: string | null
+}
+
+// "3 anos", "1 ano", "5 meses", "20 dias" — a idade a partir do nascimento
+// (curta, para caber na linha do card; a mesma conta do site).
+function idadeDoPet(nascimento: string | null): string | null {
+  if (!nascimento) return null
+  const n = new Date(`${nascimento.slice(0, 10)}T12:00:00`)
+  if (Number.isNaN(n.getTime())) return null
+  const hoje = new Date()
+  const anos = differenceInYears(hoje, n)
+  if (anos >= 1) return `${anos} ${anos === 1 ? 'ano' : 'anos'}`
+  const meses = differenceInMonths(hoje, n)
+  if (meses >= 1) return `${meses} ${meses === 1 ? 'mês' : 'meses'}`
+  const dias = differenceInDays(hoje, n)
+  return dias < 1 ? 'recém-nascido' : `${dias} ${dias === 1 ? 'dia' : 'dias'}`
 }
 
 // Pets do cliente (tabela `pet`, só os dele e ativos).
@@ -35,7 +52,7 @@ export default function PetsClienteScreen() {
     if (!idCliente) return
     const { data, error } = await supabase
       .from('pet')
-      .select('id_pet, nome, raca, especie, porte, foto_url')
+      .select('id_pet, nome, raca, especie, porte, foto_url, sexo, dt_nasc')
       .eq('id_cliente', idCliente)
       .eq('ativo', true)
       .order('nome')
@@ -70,16 +87,17 @@ export default function PetsClienteScreen() {
       {!loading && pets.length === 0 && !erro ? (
         <EmptyState icon="paw-outline" ilustracao="pets" title="Nenhum pet cadastrado" subtitle="Cadastre o seu pet para poder agendar." />
       ) : (
-        <View style={{ gap: spacing.md }}>
+        // Os pets em cards com a foto em cima, dois por linha (a mesma grade
+        // do site): cada caixa tem 50% e 6 de respiro em volta (12 de vão).
+        <View style={styles.grade}>
           {pets.map(p => (
-            <Card key={p.id_pet} style={styles.item} onPress={() => router.push(`/cliente/pets/${p.id_pet}` as never)}>
-              <Avatar nome={p.nome} fotoUrl={p.foto_url} size={52} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={styles.nome} numberOfLines={1}>{p.nome}</Text>
-                <Text style={styles.sub} numberOfLines={1}>{[p.especie, p.raca, p.porte].filter(Boolean).join(' • ')}</Text>
-              </View>
-              <IconeApp name="chevron-forward" size={18} color={colors.textFaint} />
-            </Card>
+            <View key={p.id_pet} style={styles.caixa}>
+              <PetCartao
+                pet={p}
+                detalhe={[p.sexo, idadeDoPet(p.dt_nasc)].filter(Boolean).join(' · ') || null}
+                onPress={() => router.push(`/cliente/pets/${p.id_pet}` as never)}
+              />
+            </View>
           ))}
         </View>
       )}
@@ -101,7 +119,6 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   novoTexto: { ...typography.label.md, color: colors.white },
-  item: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  nome: { ...typography.body.lg, fontWeight: '700', color: colors.text },
-  sub: { ...typography.body.md, color: colors.textMuted },
+  grade: { flexDirection: 'row', flexWrap: 'wrap', margin: -6 },
+  caixa: { width: '50%', padding: 6 },
 })

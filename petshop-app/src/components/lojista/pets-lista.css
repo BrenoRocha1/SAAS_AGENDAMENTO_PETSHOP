@@ -57,6 +57,9 @@
 }
 .pet-card-editar svg { width: 14px; height: 14px; }
 .pet-card-editar:hover { background: var(--gray-900); border-color: var(--primary-200); color: var(--primary-300); }
+/* Na conta do cliente o botão do canto é o de remover o pet. */
+.pet-card-editar.is-perigo:hover { border-color: var(--danger-500); color: var(--danger-400); }
+.pet-card-linha.is-simples { color: var(--gray-400); }
 
 /* Celular: dois cards por linha, como no app; editar fica na ficha do pet. */
 @media (max-width: 768px) {

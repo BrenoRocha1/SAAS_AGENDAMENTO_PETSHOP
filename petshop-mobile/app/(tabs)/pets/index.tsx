@@ -78,7 +78,7 @@ export default function PetsScreen() {
         numColumns={2}
         columnWrapperStyle={styles.linha}
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => (item ? <PetCartao pet={item} onPress={() => router.push(`/pets/${item.id_pet}`)} /> : <View style={styles.vazio} />)}
+        renderItem={({ item }) => (item ? <PetCartao pet={item} tutor={item.nome_cliente} onPress={() => router.push(`/pets/${item.id_pet}`)} /> : <View style={styles.vazio} />)}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         refreshing={loading}
         onRefresh={recarregar}

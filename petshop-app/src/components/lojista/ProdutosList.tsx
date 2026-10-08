@@ -43,6 +43,7 @@ import {
   IconTrash,
 } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
+import './produtos-grade.css'
 
 interface Categoria {
   id_categoria: string
@@ -93,15 +94,16 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
   const [busca, setBusca] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState('')
 
-  // Começa em 'lista' tanto no servidor quanto no primeiro render do
-  // cliente (evita mismatch de hidratação); a preferência salva só é
-  // aplicada depois, no useEffect abaixo.
-  const [modo, setModo] = useState<ModoVisualizacao>('lista')
+  // Lista ou grade (vale para a tela grande e para o celular). Começa em
+  // 'grade' tanto no servidor quanto no primeiro render do cliente (evita
+  // mismatch de hidratação); a preferência salva só é aplicada depois, no
+  // useEffect abaixo.
+  const [modo, setModo] = useState<ModoVisualizacao>('grade')
   useEffect(() => {
     try {
       const salvo = window.localStorage.getItem(MODO_VISUALIZACAO_STORAGE_KEY)
       // eslint-disable-next-line react-hooks/set-state-in-effect -- leitura de localStorage é só possível pós-montagem; não é "espelhar prop", é sincronizar com um sistema externo
-      if (salvo === 'grade') setModo('grade')
+      if (salvo === 'lista') setModo('lista')
     } catch { /* localStorage indisponível (modo privado etc.) — mantém o padrão */ }
   }, [])
   useEffect(() => {
@@ -391,6 +393,101 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
 
   const fotoAtualParaExibir = fotoPendente?.preview ?? (!removerFotoAoSalvar ? editando?.foto_url : null) ?? null
 
+  // Lista | grade: os dois botões, na barra da tela grande e ao lado da
+  // busca no celular.
+  const trocaDeVisualizacao = (
+    <div className="view-toggle" role="group" aria-label="Alternar visualização">
+      <button
+        type="button"
+        className={`view-toggle-btn ${modo === 'lista' ? 'is-active' : ''}`}
+        onClick={() => setModo('lista')}
+        title="Ver em lista"
+        aria-label="Ver em lista"
+        aria-pressed={modo === 'lista'}
+      >
+        <IconList style={{ width: 15, height: 15 }} />
+      </button>
+      <button
+        type="button"
+        className={`view-toggle-btn ${modo === 'grade' ? 'is-active' : ''}`}
+        onClick={() => setModo('grade')}
+        title="Ver em grade"
+        aria-label="Ver em grade"
+        aria-pressed={modo === 'grade'}
+      >
+        <IconGrid style={{ width: 15, height: 15 }} />
+      </button>
+    </div>
+  )
+
+  // O card da grade (estilos em produtos-grade.css): a foto em cima, como
+  // nos Pets. `aoAbrir`: o que o toque no card abre — o estoque, na janela
+  // da tela grande ou no painel do celular.
+  const cartaoDoProduto = (p: Produto, aoAbrir: () => void) => {
+    const st = statusEstoque(p.estoque_atual, p.estoque_minimo)
+    const nomeCategoria = p.id_categoria ? nomeCategoriaPorId.get(p.id_categoria) : null
+    return (
+      <div
+        key={p.id_produto}
+        className={`prod-card ${p.status === 'Inativo' ? 'is-inativo' : ''}`}
+        role="button"
+        tabIndex={0}
+        onClick={aoAbrir}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); aoAbrir() } }}
+        title="Ver/ajustar estoque"
+      >
+        <span className="prod-card-foto">
+          {p.foto_url ? (
+            // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+            <img src={p.foto_url} alt="" loading="lazy" />
+          ) : <IconPackage />}
+          {(st !== 'em_estoque' || p.status === 'Inativo') && (
+            <span className="prod-card-selos">
+              {st !== 'em_estoque' && <span className={`prod-card-selo is-${st === 'zerado' ? 'zerado' : 'baixo'}`}>{ROTULO_STATUS_ESTOQUE[st]}</span>}
+              {p.status === 'Inativo' && <span className="prod-card-selo">Inativo</span>}
+            </span>
+          )}
+        </span>
+        <span className="prod-card-info">
+          <span className="prod-card-nome">{p.nome}</span>
+          <span className="prod-card-sub">{nomeCategoria ?? 'Sem categoria'}</span>
+          <span className="prod-card-preco">
+            {formatarReais(p.preco_venda)} <small>/ {rotuloUnidade(p.unidade_venda).toLowerCase()}</small>
+          </span>
+          <span className="prod-card-pe">
+            <span>{rotuloEstoqueApp(p.estoque_atual, p.unidade_venda)} em estoque</span>
+            <button
+              type="button"
+              className={`switch ${p.status === 'Ativo' ? 'switch-on' : ''}`}
+              onClick={e => { e.stopPropagation(); handleAlternarStatus(p) }}
+              disabled={alternandoId === p.id_produto}
+              role="switch"
+              aria-checked={p.status === 'Ativo'}
+              title={p.status === 'Ativo' ? 'Desativar produto' : 'Ativar produto'}
+            >
+              <span className="switch-thumb" />
+            </button>
+          </span>
+        </span>
+        <div className="prod-card-acoes">
+          <button type="button" className="prod-card-acao" onClick={e => { e.stopPropagation(); abrirEditar(p) }} aria-label="Editar produto" title="Editar produto">
+            <IconPencil />
+          </button>
+          <button
+            type="button"
+            className="prod-card-acao is-perigo"
+            onClick={e => { e.stopPropagation(); handleExcluir(p) }}
+            disabled={excluindoId === p.id_produto}
+            aria-label="Excluir produto"
+            title="Excluir produto"
+          >
+            <IconTrash />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       {/* Celular: a mesma tela de Produtos do app. */}
@@ -399,9 +496,12 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
           <button type="button" className="dash-app-botao" onClick={() => { setTrocouAba(false); abrirNovo() }}>
             <IconPlus style={{ width: 18, height: 18 }} /> Novo produto
           </button>
-          <div className="tela-app-busca">
-            <IconSearch />
-            <input placeholder="Buscar produto..." aria-label="Buscar produto" value={busca} onChange={e => setBusca(e.target.value)} />
+          <div className="prod-busca-linha">
+            <div className="tela-app-busca">
+              <IconSearch />
+              <input placeholder="Buscar produto..." aria-label="Buscar produto" value={busca} onChange={e => setBusca(e.target.value)} />
+            </div>
+            {trocaDeVisualizacao}
           </div>
           <Segmentos
             valor={filtroCelular}
@@ -436,28 +536,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
           </button>
         </div>
         <div className="flex items-center gap-3">
-          <div className="view-toggle" role="group" aria-label="Alternar visualização">
-            <button
-              type="button"
-              className={`view-toggle-btn ${modo === 'lista' ? 'is-active' : ''}`}
-              onClick={() => setModo('lista')}
-              title="Ver em lista"
-              aria-label="Ver em lista"
-              aria-pressed={modo === 'lista'}
-            >
-              <IconList style={{ width: 15, height: 15 }} />
-            </button>
-            <button
-              type="button"
-              className={`view-toggle-btn ${modo === 'grade' ? 'is-active' : ''}`}
-              onClick={() => setModo('grade')}
-              title="Ver em grade"
-              aria-label="Ver em grade"
-              aria-pressed={modo === 'grade'}
-            >
-              <IconGrid style={{ width: 15, height: 15 }} />
-            </button>
-          </div>
+          {trocaDeVisualizacao}
           <button className="btn btn-primary" onClick={abrirNovo} id="btn-novo-produto">
             <IconPlus style={{ width: 16, height: 16 }} /> Novo Produto
           </button>
@@ -486,6 +565,10 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
               : <span className="dash-app-vazio-icone"><IconPackage style={{ width: 26, height: 26 }} /></span>}
             <strong>{produtos.length === 0 ? 'Nenhum produto cadastrado' : 'Nenhum produto encontrado'}</strong>
             <span>{produtos.length === 0 ? 'Cadastre o primeiro produto em "Novo produto".' : 'Tente outro nome ou outro filtro.'}</span>
+          </div>
+        ) : modo === 'grade' ? (
+          <div className="prod-grade">
+            {produtosCelular.map(p => cartaoDoProduto(p, () => { setTrocouAba(false); setFolhaEstoqueId(p.id_produto) }))}
           </div>
         ) : (
           <div className="dash-app-lista">
@@ -533,74 +616,8 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
           <p>Tente outro termo de busca ou outra categoria.</p>
         </div>
       ) : modo === 'grade' ? (
-        <div className="estoque-grid">
-          {produtosFiltrados.map(p => {
-            const st = statusEstoque(p.estoque_atual, p.estoque_minimo)
-            const nomeCategoria = p.id_categoria ? nomeCategoriaPorId.get(p.id_categoria) : null
-            return (
-              <div
-                key={p.id_produto}
-                className="estoque-card"
-                role="button"
-                tabIndex={0}
-                onClick={() => setEstoqueAlvo(p)}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEstoqueAlvo(p) } }}
-                title="Ver/ajustar estoque"
-              >
-                <div className="estoque-card-actions">
-                  <button
-                    type="button"
-                    className="estoque-card-action-btn"
-                    onClick={e => { e.stopPropagation(); abrirEditar(p) }}
-                    aria-label="Editar produto"
-                    title="Editar produto"
-                  >
-                    <IconPencil style={{ width: 13, height: 13 }} />
-                  </button>
-                  <button
-                    type="button"
-                    className="estoque-card-action-btn is-danger"
-                    onClick={e => { e.stopPropagation(); handleExcluir(p) }}
-                    disabled={excluindoId === p.id_produto}
-                    aria-label="Excluir produto"
-                    title="Excluir produto"
-                  >
-                    <IconTrash style={{ width: 13, height: 13 }} />
-                  </button>
-                </div>
-                <div className="flex items-center gap-1" style={{ flexWrap: 'wrap', paddingRight: 64 }}>
-                  <span className={`badge ${BADGE_STATUS_ESTOQUE[st]}`}>{ROTULO_STATUS_ESTOQUE[st]}</span>
-                  {p.status === 'Inativo' && <span className="badge badge-inativo">Inativo</span>}
-                </div>
-                <div className="estoque-card-foto">
-                  {p.foto_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
-                    <img src={p.foto_url} alt={p.nome} />
-                  ) : (
-                    <IconImage style={{ width: 26, height: 26, color: 'var(--gray-600)' }} />
-                  )}
-                </div>
-                <div className="estoque-card-nome">{p.nome}</div>
-                {nomeCategoria && <div className="text-xs text-muted">{nomeCategoria}</div>}
-                <div className="estoque-card-qtd">{rotuloEstoque(p.estoque_atual, p.unidade_venda)}</div>
-                <div className="text-xs text-muted">em estoque</div>
-                <div className="flex items-center justify-between" style={{ width: '100%', marginTop: 4, paddingTop: 'var(--space-2)', borderTop: '1px solid var(--gray-800)' }}>
-                  <span className="text-xs text-muted">{p.status === 'Ativo' ? 'Ativo' : 'Inativo'}</span>
-                  <button
-                    type="button"
-                    className={`switch ${p.status === 'Ativo' ? 'switch-on' : ''}`}
-                    onClick={e => { e.stopPropagation(); handleAlternarStatus(p) }}
-                    disabled={alternandoId === p.id_produto}
-                    role="switch"
-                    aria-checked={p.status === 'Ativo'}
-                    title={p.status === 'Ativo' ? 'Desativar produto' : 'Ativar produto'}
-                  >
-                    <span className="switch-thumb" />
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+        <div className="prod-grade">
+          {produtosFiltrados.map(p => cartaoDoProduto(p, () => setEstoqueAlvo(p)))}
         </div>
       ) : (
         <div className="table-container">

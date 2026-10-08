@@ -2,13 +2,18 @@ import { Image, Pressable, StyleSheet, View } from 'react-native'
 import { IconDog, IconPaw, IconUser } from '@/components/IconesDoSite'
 import { Text } from '@/components/Texto'
 import { colors, shadow } from '@/theme/theme'
-import type { PetLinha } from '@/types/database'
 
-// Card de pet da lista da loja — o `.pet-card` do site no celular
+// Card de pet — o `.pet-card` do site no celular
 // (petshop-app/src/components/lojista/pets-lista.css): a foto em cima
-// (4:3), o nome, raça e porte, e o tutor. Dois por linha; o card inteiro
-// abre a ficha do pet.
-export function PetCartao({ pet, onPress }: { pet: PetLinha; onPress: () => void }) {
+// (4:3), o nome, raça e porte e uma última linha: o tutor (na lista da
+// loja) ou um detalhe em texto (sexo e idade, em "Meus pets" do cliente).
+// Dois por linha; o card inteiro abre a ficha do pet.
+export function PetCartao({ pet, tutor, detalhe, onPress }: {
+  pet: { nome: string; especie?: string | null; raca?: string | null; porte?: string | null; foto_url?: string | null }
+  tutor?: string | null
+  detalhe?: string | null
+  onPress: () => void
+}) {
   const Icone = pet.especie === 'Gato' ? IconPaw : IconDog
   return (
     <Pressable
@@ -30,10 +35,16 @@ export function PetCartao({ pet, onPress }: { pet: PetLinha; onPress: () => void
       <View style={styles.info}>
         <Text style={styles.nome} numberOfLines={1}>{pet.nome}</Text>
         <Text style={styles.sub} numberOfLines={1}>{[pet.raca, pet.porte].filter(Boolean).join(' · ') || 'Pet'}</Text>
-        <View style={styles.linha}>
-          <IconUser size={13} color={colors.primary600} />
-          <Text style={styles.linhaTexto} numberOfLines={1}>{pet.nome_cliente}</Text>
-        </View>
+        {tutor ? (
+          <View style={styles.linha}>
+            <IconUser size={13} color={colors.primary600} />
+            <Text style={styles.linhaTexto} numberOfLines={1}>{tutor}</Text>
+          </View>
+        ) : detalhe ? (
+          <View style={styles.linha}>
+            <Text style={[styles.linhaTexto, styles.linhaSimples]} numberOfLines={1}>{detalhe}</Text>
+          </View>
+        ) : null}
       </View>
     </Pressable>
   )
@@ -51,4 +62,5 @@ const styles = StyleSheet.create({
   sub: { fontSize: 13, lineHeight: 17.55, color: '#858d99' },
   linha: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   linhaTexto: { flexShrink: 1, fontSize: 13, lineHeight: 17.55, color: '#1f2937' },
+  linhaSimples: { color: colors.textMuted },
 })

@@ -1,0 +1,94 @@
+/* ============================================================
+   Produtos da loja (/lojista/produtos) — a visualização em grade:
+   cards com a foto em cima, como os de Pets (pets-lista.css) e os
+   produtos do PDV. A foto, o selo do estoque por cima dela, o nome,
+   a categoria, o preço e quanto tem em estoque. O card abre o estoque
+   do produto; editar, excluir e ligar/desligar ficam nele na tela
+   grande (no celular, dentro da janela do produto).
+   ============================================================ */
+.prod-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+.prod-card {
+  position: relative;
+  display: flex; flex-direction: column;
+  min-width: 0; padding: 0; text-align: left;
+  background: var(--gray-900);
+  border: 1px solid var(--gray-800);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.prod-card:hover { border-color: var(--primary-200); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.prod-card:focus-visible { outline: none; border-color: var(--primary-500); box-shadow: 0 0 0 3px var(--focus-ring); }
+
+.prod-card-foto {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  display: grid; place-items: center;
+  background: var(--primary-soft-bg);
+  color: var(--primary-300);
+}
+.prod-card-foto img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.prod-card-foto > svg { width: 38px; height: 38px; }
+.prod-card.is-inativo .prod-card-foto img, .prod-card.is-inativo .prod-card-foto > svg { opacity: 0.45; filter: grayscale(1); }
+.prod-card-selos { position: absolute; left: 8px; bottom: 8px; right: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
+.prod-card-selo {
+  padding: 3px 9px; border-radius: var(--radius-full);
+  background: rgba(255,255,255,0.94); box-shadow: var(--shadow-sm);
+  font-size: 0.6875rem; font-weight: 700; line-height: 1.6; color: var(--gray-400);
+}
+.prod-card-selo.is-baixo { color: var(--warning-400); }
+.prod-card-selo.is-zerado { color: var(--danger-400); }
+
+.prod-card-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: var(--space-3); }
+.prod-card-nome {
+  font-size: 0.9375rem; font-weight: 700; line-height: 1.3; color: var(--gray-100);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.prod-card-sub { font-size: 0.8125rem; line-height: 1.35; color: var(--gray-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prod-card-preco { margin-top: auto; padding-top: 6px; font-family: var(--font-heading); font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; line-height: 1.35; color: var(--gray-50); }
+.prod-card-preco small { font-family: var(--font-body); font-size: 0.75rem; font-weight: 500; letter-spacing: 0; color: var(--gray-500); }
+.prod-card-pe {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  margin-top: 6px; padding-top: var(--space-2); border-top: 1px solid var(--gray-800);
+  font-size: 0.8125rem; line-height: 1.35; color: var(--gray-300);
+}
+.prod-card-pe > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.prod-card-acoes { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; }
+.prod-card-acao {
+  width: 32px; height: 32px; display: grid; place-items: center;
+  background: rgba(255,255,255,0.94); border: 1px solid var(--gray-800); border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm); color: var(--gray-300); cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.prod-card-acao svg { width: 14px; height: 14px; }
+.prod-card-acao:hover:not(:disabled) { background: var(--gray-900); border-color: var(--primary-200); color: var(--primary-300); }
+.prod-card-acao.is-perigo:hover:not(:disabled) { border-color: var(--danger-500); color: var(--danger-400); }
+.prod-card-acao:disabled { opacity: 0.5; cursor: default; }
+
+/* Celular: a busca com a troca lista/grade ao lado, e dois cards por linha
+   (sem os botões: editar e ligar/desligar ficam na janela do produto). */
+.prod-busca-linha { display: flex; align-items: stretch; gap: var(--space-2); }
+.prod-busca-linha .tela-app-busca { flex: 1; min-width: 0; margin-bottom: 0; }
+.prod-busca-linha .view-toggle { padding: 3px; border-radius: 10px; border-color: var(--gray-800); }
+.prod-busca-linha .view-toggle-btn { width: 38px; height: 36px; border-radius: 8px; }
+
+@media (max-width: 768px) {
+  .prod-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+  .prod-card:hover { transform: none; }
+  .prod-card-acoes, .prod-card-pe .switch { display: none; }
+  /* "5 unidades em estoque" não cabe em meia tela numa linha: pode quebrar. */
+  .prod-card-pe > span { white-space: normal; }
+  .prod-card-info { padding: 10px var(--space-3) var(--space-3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prod-card { transition: none; }
+}

@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect } from 'expo-router'
 import { Image, Platform, Pressable, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
@@ -16,6 +17,7 @@ import { Folha, depoisDeFechar } from '@/components/Folha'
 import { FolhaConfirmar } from '@/components/FolhaConfirmar'
 import { IconCheck, IconClose, IconImage, IconPencil, IconPlus, IconTrash } from '@/components/IconesDoSite'
 import { Interruptor } from '@/components/Interruptor'
+import { ProdutoCartao, TrocaDeVisualizacao, type ModoVisualizacao } from '@/components/ProdutoCartao'
 import { Segmentos } from '@/components/Opcao'
 import { Seletor } from '@/components/Seletor'
 import { Text, TextInput } from '@/components/Texto'
@@ -56,6 +58,9 @@ interface Produto {
 
 interface Categoria { id_categoria: string; nome: string }
 
+// A mesma chave que o site usa para guardar a escolha no navegador.
+const CHAVE_MODO = 'petshop:produtos:modo-visualizacao'
+
 const COR_ESTOQUE: Record<StatusEstoque, { fundo: string; texto: string }> = {
   zerado: { fundo: colors.dangerBg, texto: colors.dangerFg },
   baixo: { fundo: colors.warningBg, texto: colors.warningFg },
@@ -88,6 +93,15 @@ export default function ProdutosScreen() {
   const [erro, setErro] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
   const [filtro, setFiltro] = useState<Filtro>('todos')
+  // Lista ou grade, como no site; a escolha fica guardada no aparelho.
+  const [modo, setModo] = useState<ModoVisualizacao>('grade')
+  useEffect(() => {
+    AsyncStorage.getItem(CHAVE_MODO).then(salvo => { if (salvo === 'lista') setModo('lista') }).catch(() => {})
+  }, [])
+  const trocarModo = (novo: ModoVisualizacao) => {
+    setModo(novo)
+    AsyncStorage.setItem(CHAVE_MODO, novo).catch(() => {})
+  }
 
   // Painel do produto. `aberto` null com painel aberto = produto novo.
   const [painel, setPainel] = useState(false)
@@ -397,7 +411,13 @@ export default function ProdutosScreen() {
 
       <View style={{ gap: spacing.md }}>
         <Botao rotulo="Novo produto" icone="add" onPress={() => abrir(null)} />
-        <SearchField value={busca} onChangeText={setBusca} placeholder="Buscar produto..." />
+        {/* A busca e, ao lado, a troca lista/grade. */}
+        <View style={styles.buscaLinha}>
+          <View style={styles.busca}>
+            <SearchField value={busca} onChangeText={setBusca} placeholder="Buscar produto..." />
+          </View>
+          <TrocaDeVisualizacao modo={modo} onChange={trocarModo} />
+        </View>
         <Segmentos
           valor={filtro}
           onChange={setFiltro}
@@ -418,6 +438,28 @@ export default function ProdutosScreen() {
             title={produtos.length === 0 ? 'Nenhum produto cadastrado' : 'Nenhum produto encontrado'}
             subtitle={produtos.length === 0 ? 'Cadastre o primeiro produto em "Novo produto".' : 'Tente outro nome ou outro filtro.'}
           />
+        ) : modo === 'grade' ? (
+          // Dois por linha com 12 de vão: cada caixa tem 50% e 6 de respiro em volta.
+          <View style={styles.grade}>
+            {visiveis.map(p => {
+              const st = statusEstoque(p.estoque_atual, p.estoque_minimo)
+              return (
+                <View key={p.id_produto} style={styles.gradeCaixa}>
+                  <ProdutoCartao
+                    nome={p.nome}
+                    categoria={(p.id_categoria && nomeCategoria.get(p.id_categoria)) || null}
+                    foto={p.foto_url}
+                    preco={formatarMoeda(p.preco_venda)}
+                    unidade={rotuloUnidade(p.unidade_venda).toLowerCase()}
+                    estoque={rotuloEstoque(p.estoque_atual, p.unidade_venda)}
+                    selo={st === 'em_estoque' ? null : { texto: ROTULO_STATUS_ESTOQUE[st], tom: st === 'zerado' ? 'zerado' : 'baixo' }}
+                    inativo={p.status === 'Inativo'}
+                    onPress={() => abrir(p)}
+                  />
+                </View>
+              )
+            })}
+          </View>
         ) : (
           visiveis.map(p => {
             const st = statusEstoque(p.estoque_atual, p.estoque_minimo)
@@ -622,6 +664,11 @@ export default function ProdutosScreen() {
 
 const styles = StyleSheet.create({
   lista: { marginTop: spacing.lg, gap: spacing.md },
+  // `.prod-busca-linha`: a busca ocupa o que sobra ao lado da troca.
+  buscaLinha: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  busca: { flex: 1 },
+  grade: { flexDirection: 'row', flexWrap: 'wrap', margin: -6 },
+  gradeCaixa: { width: '50%', padding: 6 },
   item: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   nome: { ...typography.body.lg, fontWeight: '700', color: colors.text },
   inativo: { color: colors.textMuted },

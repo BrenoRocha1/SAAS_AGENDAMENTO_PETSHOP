@@ -3,145 +3,89 @@
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { desativarPetAction } from '@/lib/actions'
-import { IconDog, IconPencil, IconTrash } from '@/components/icons'
+import { IconAlert, IconClose, IconDog, IconPaw, IconTrash } from '@/components/icons'
+import '@/components/lojista/pets-lista.css'
 
 interface Pet {
   id_pet: string
   nome: string
   raca: string
   sexo: string
-  dt_nasc: string
-  peso?: number
-  obs?: string
   foto_url?: string | null
+  especie?: string | null
+  porte?: string | null
 }
 
 interface Props {
   pet: Pet
-  idade: number
+  // "3 anos", "5 meses".
+  idade: string
 }
 
+// Card de pet da conta do cliente ("Meus pets") — o mesmo card com a foto em
+// cima da tela de Pets da loja (lojista/pets-lista.css). O card inteiro abre
+// o pet para editar; na tela grande, a lixeira do canto remove (com
+// confirmação). No celular a remoção fica dentro da ficha, como no app.
 export default function PetCard({ pet, idade }: Props) {
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmando, setConfirmando] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  function handleDelete() {
+  function remover() {
     startTransition(async () => {
       await desativarPetAction(pet.id_pet)
-      setConfirmDelete(false)
+      setConfirmando(false)
     })
   }
 
   return (
-    <div className="card animate-slide-up" style={{ position: 'relative', overflow: 'visible' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-3)',
-          marginBottom: 'var(--space-4)',
-          paddingBottom: 'var(--space-4)',
-          borderBottom: '1px solid var(--gray-800)',
-        }}
-      >
-        <div
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 'var(--radius-full)',
-            background: 'var(--primary-soft-bg)',
-            border: '1px solid var(--primary-soft-border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            flexShrink: 0,
-          }}
-        >
+    <div className="pet-card">
+      <Link href={`/cliente/pets/${pet.id_pet}/editar`} className="pet-card-link" aria-label={`Abrir ${pet.nome}`}>
+        <span className="pet-card-foto">
           {pet.foto_url ? (
             // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
-            <img src={pet.foto_url} alt={pet.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <IconDog style={{ width: 24, height: 24, color: 'var(--primary-400)' }} />
-          )}
-        </div>
-        <div>
-          <h4 style={{ marginBottom: 2 }}>{pet.nome}</h4>
-          <span className="text-sm text-muted">{pet.raca}</span>
-        </div>
-        <span
-          className="badge"
-          style={{
-            marginLeft: 'auto',
-            background: pet.sexo === 'Macho' ? 'rgba(96,165,250,0.15)' : 'rgba(251,113,133,0.15)',
-            color: pet.sexo === 'Macho' ? 'var(--info-400)' : '#fb7185',
-            border: `1px solid ${pet.sexo === 'Macho' ? 'rgba(96,165,250,0.3)' : 'rgba(251,113,133,0.3)'}`,
-          }}
-        >
-          {pet.sexo}
+            <img src={pet.foto_url} alt="" loading="lazy" />
+          ) : pet.especie === 'Gato' ? <IconPaw /> : <IconDog />}
+          {pet.especie && <span className="pet-card-selo">{pet.especie}</span>}
         </span>
-      </div>
+        <span className="pet-card-info">
+          <span className="pet-card-nome">{pet.nome}</span>
+          <span className="pet-card-sub">{[pet.raca, pet.porte].filter(Boolean).join(' · ') || 'Pet'}</span>
+          <span className="pet-card-linha is-simples"><span>{pet.sexo} · {idade}</span></span>
+        </span>
+      </Link>
+      <button type="button" className="pet-card-editar is-perigo" title="Remover pet" aria-label={`Remover ${pet.nome}`} onClick={() => setConfirmando(true)}>
+        <IconTrash />
+      </button>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-5)' }}>
-        <div className="flex justify-between">
-          <span className="text-sm text-muted">Idade</span>
-          <span className="text-sm font-semibold">{idade} {idade === 1 ? 'ano' : 'anos'}</span>
-        </div>
-        {pet.peso && (
-          <div className="flex justify-between">
-            <span className="text-sm text-muted">Peso</span>
-            <span className="text-sm font-semibold">{pet.peso} kg</span>
-          </div>
-        )}
-        {pet.obs && (
-          <div
-            style={{
-              background: 'var(--gray-850)',
-              border: '1px solid var(--gray-800)',
-              borderRadius: 'var(--radius-sm)',
-              padding: 'var(--space-2) var(--space-3)',
-              fontSize: '0.8125rem',
-              color: 'var(--gray-400)',
-            }}
-          >
-            {pet.obs}
-          </div>
-        )}
-      </div>
-
-      {!confirmDelete ? (
-        <div className="flex gap-2">
-          <Link href={`/cliente/pets/${pet.id_pet}/editar`} className="btn btn-secondary btn-sm" style={{ flex: 1 }}>
-            <IconPencil style={{ width: 14, height: 14 }} /> Editar
-          </Link>
-          <button
-            className="btn btn-danger btn-sm"
-            onClick={() => setConfirmDelete(true)}
-          >
-            <IconTrash style={{ width: 14, height: 14 }} />
-          </button>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          <p className="text-sm text-danger" style={{ textAlign: 'center' }}>
-            Tem certeza que deseja remover {pet.nome}?
-          </p>
-          <div className="flex gap-2">
-            <button
-              className="btn btn-danger btn-sm"
-              style={{ flex: 1 }}
-              onClick={handleDelete}
-              disabled={isPending}
-            >
-              {isPending ? 'Removendo...' : 'Confirmar'}
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              style={{ flex: 1 }}
-              onClick={() => setConfirmDelete(false)}
-            >
-              Cancelar
-            </button>
+      {confirmando && (
+        <div className="modal-overlay" onClick={() => !isPending && setConfirmando(false)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Remover pet</h3>
+              <button type="button" className="modal-close" onClick={() => setConfirmando(false)} aria-label="Fechar" disabled={isPending}>
+                <IconClose style={{ width: 15, height: 15 }} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="flex gap-3" style={{ alignItems: 'flex-start' }}>
+                <span style={{
+                  width: 36, height: 36, borderRadius: 'var(--radius-full)', flexShrink: 0,
+                  background: 'rgba(239,68,68,0.1)', color: 'var(--danger-400)',
+                  display: 'grid', placeItems: 'center',
+                }}>
+                  <IconAlert style={{ width: 18, height: 18 }} />
+                </span>
+                <p style={{ color: 'var(--gray-200)' }}>
+                  Tem certeza que deseja remover <strong style={{ color: 'var(--gray-100)' }}>{pet.nome}</strong>?
+                </p>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setConfirmando(false)} disabled={isPending}>Cancelar</button>
+              <button type="button" className={`btn btn-danger ${isPending ? 'btn-loading' : ''}`} onClick={remover} disabled={isPending}>
+                {isPending ? 'Removendo...' : 'Remover'}
+              </button>
+            </div>
           </div>
         </div>
       )}

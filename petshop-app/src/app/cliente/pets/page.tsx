@@ -1,10 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { obterUsuario } from '@/lib/supabase/usuario'
 import Link from 'next/link'
-import { differenceInYears } from 'date-fns'
+import { differenceInDays, differenceInMonths, differenceInYears } from 'date-fns'
 import PetCard from '@/components/cliente/PetCard'
-import { IconChevronRight, IconPlus } from '@/components/icons'
-import { iniciais } from '@/lib/format'
+import { IconPlus } from '@/components/icons'
 import type { Metadata } from 'next'
 import Ilustracao from '@/components/Ilustracao'
 
@@ -23,6 +22,19 @@ interface PetRow {
   porte?: string | null
 }
 
+// "3 anos", "1 ano", "5 meses", "20 dias" — a idade a partir do nascimento
+// (curta, para caber na linha do card).
+function idadeDoPet(nascimento: string): string {
+  const hoje = new Date()
+  const n = new Date(`${nascimento.slice(0, 10)}T12:00:00`)
+  const anos = differenceInYears(hoje, n)
+  if (anos >= 1) return `${anos} ${anos === 1 ? 'ano' : 'anos'}`
+  const meses = differenceInMonths(hoje, n)
+  if (meses >= 1) return `${meses} ${meses === 1 ? 'mês' : 'meses'}`
+  const dias = differenceInDays(hoje, n)
+  return dias < 1 ? 'recém-nascido' : `${dias} ${dias === 1 ? 'dia' : 'dias'}`
+}
+
 export default async function PetsPage() {
   const supabase = await createClient()
   const user = await obterUsuario()
@@ -34,7 +46,16 @@ export default async function PetsPage() {
     .eq('ativo', true)
     .order('created_at', { ascending: false })
 
-  const listaPets = (pets ?? []) as PetRow[]
+  // Em ordem de nome, como no app.
+  const listaPets = ((pets ?? []) as PetRow[]).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+
+  // Os pets em cards com a foto em cima (o mesmo card da tela de Pets da
+  // loja) — a mesma grade na tela grande e no celular.
+  const grade = (
+    <div className="pets-grade">
+      {listaPets.map(pet => <PetCard key={pet.id_pet} pet={pet} idade={idadeDoPet(pet.dt_nasc)} />)}
+    </div>
+  )
 
   return (
     <>
@@ -53,22 +74,7 @@ export default async function PetsPage() {
             <strong>Nenhum pet cadastrado</strong>
             <span>Cadastre o seu pet para poder agendar.</span>
           </div>
-        ) : (
-          <div className="dash-app-lista">
-            {[...listaPets].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map(pet => (
-              <Link key={pet.id_pet} href={`/cliente/pets/${pet.id_pet}/editar`} className="dash-app-linha">
-                <span className="tela-app-avatar is-52" style={pet.foto_url ? { backgroundImage: `url(${pet.foto_url})` } : undefined}>
-                  {!pet.foto_url && iniciais(pet.nome)}
-                </span>
-                <span className="dash-app-linha-info">
-                  <span className="dash-app-linha-pet">{pet.nome}</span>
-                  <span className="dash-app-linha-sub is-media">{[pet.especie, pet.raca, pet.porte].filter(Boolean).join(' • ')}</span>
-                </span>
-                <IconChevronRight className="tela-app-seta" style={{ width: 18, height: 18 }} />
-              </Link>
-            ))}
-          </div>
-        )}
+        ) : grade}
       </div>
 
       <div className="so-desktop">
@@ -93,20 +99,7 @@ export default async function PetsPage() {
             Cadastrar meu pet
           </Link>
         </div>
-      ) : (
-        <div className="grid-3">
-          {listaPets.map(pet => {
-            const idade = differenceInYears(new Date(), new Date(pet.dt_nasc))
-            return (
-              <PetCard
-                key={pet.id_pet}
-                pet={pet}
-                idade={idade}
-              />
-            )
-          })}
-        </div>
-      )}
+      ) : grade}
       </div>
     </>
   )
