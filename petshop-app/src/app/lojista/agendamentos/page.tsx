@@ -16,7 +16,7 @@ import Ilustracao from '@/components/Ilustracao'
 export const metadata: Metadata = { title: 'Agenda' }
 
 interface Props {
-  searchParams: Promise<{ semana?: string; novoAgendamentoTutor?: string; novoAgendamentoProfissional?: string }>
+  searchParams: Promise<{ semana?: string; novoAgendamentoTutor?: string; novoAgendamentoPet?: string; novoAgendamentoProfissional?: string }>
 }
 
 export default async function AgendamentosLojistaPage({ searchParams }: Props) {
@@ -225,6 +225,7 @@ export default async function AgendamentosLojistaPage({ searchParams }: Props) {
       clientesComPets={clientesComPets}
       servicos={servicos}
       clienteFixoInicial={clienteFixoInicial}
+      petIdInicial={clienteFixoInicial ? (params.novoAgendamentoPet ?? null) : null}
       funcionarioIdPadraoInicial={funcionarioIdPadraoInicial}
       podeAtribuirProfissional={contexto.acessoTotal}
       horaInicioGrade={horaInicioGrade}

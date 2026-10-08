@@ -93,6 +93,9 @@ interface Props {
   // ?novoAgendamentoTutor=<id> (vem de "Novo agendamento" no perfil do
   // cliente) — abre o modal já com esse cliente fixado.
   clienteFixoInicial?: { id_cliente: string; nome: string; telefone: string } | null
+  // ?novoAgendamentoPet=<id> (vem da conversa de WhatsApp) — o pet desse
+  // cliente que já sai escolhido.
+  petIdInicial?: string | null
   // ?novoAgendamentoProfissional=<id> (vem de "Novo Agendamento" no
   // perfil do funcionário) — abre o modal com esse profissional já
   // pré-selecionado (não travado, o campo já era opcional).
@@ -242,6 +245,7 @@ export default function AgendaCalendar({
   clientesComPets,
   servicos,
   clienteFixoInicial,
+  petIdInicial,
   funcionarioIdPadraoInicial,
   podeAtribuirProfissional,
   horaInicioGrade,
@@ -777,6 +781,7 @@ export default function AgendaCalendar({
           funcionarios={funcionarios}
           podeAtribuirProfissional={podeAtribuirProfissional}
           clienteIdFixo={clienteFixoInicial?.id_cliente}
+          petIdInicial={petIdInicial ?? undefined}
           funcionarioIdPadrao={funcionarioIdPadraoInicial ?? undefined}
           onClose={() => {
             setModalAberto(false)

@@ -23,6 +23,9 @@ export interface ItemBarraLateral {
   label: string
   icon: Icone
   ativo: boolean
+  // Seção própria do item ("Comunicação"). Sem ela, fica na seção geral do
+  // menu (`secao`).
+  secao?: string
 }
 
 interface Props {
@@ -106,6 +109,15 @@ export default function BarraLateral({
     else router.push(pathname.split('/').slice(0, -1).join('/') || '/')
   }
 
+  // Itens agrupados por seção, na ordem em que cada seção aparece.
+  const secoes: { rotulo: string; itens: ItemBarraLateral[] }[] = []
+  for (const item of itens) {
+    const rotulo = item.secao ?? secao
+    const grupo = secoes.find(g => g.rotulo === rotulo)
+    if (grupo) grupo.itens.push(item)
+    else secoes.push({ rotulo, itens: [item] })
+  }
+
   return (
     <>
       <BarraMenuMobile
@@ -143,21 +155,25 @@ export default function BarraLateral({
           </SidebarHeader>
 
           <SidebarNav>
-            <SidebarSection label={secao}>
-              {itens.map(item => {
-                const Icon = item.icon
-                return (
-                  <SidebarItem
-                    key={item.href}
-                    href={item.href}
-                    active={item.ativo}
-                    icon={<Icon style={{ width: 20, height: 20 }} />}
-                  >
-                    {item.label}
-                  </SidebarItem>
-                )
-              })}
-            </SidebarSection>
+            {secoes.map(grupo => (
+              // Com mais de uma seção, cada uma fica do tamanho dos seus
+              // itens (globals.css) em vez de dividir a altura por igual.
+              <SidebarSection key={grupo.rotulo} label={grupo.rotulo} className={secoes.length > 1 ? 'sidebar-secao-junta' : undefined}>
+                {grupo.itens.map(item => {
+                  const Icon = item.icon
+                  return (
+                    <SidebarItem
+                      key={item.href}
+                      href={item.href}
+                      active={item.ativo}
+                      icon={<Icon style={{ width: 20, height: 20 }} />}
+                    >
+                      {item.label}
+                    </SidebarItem>
+                  )
+                })}
+              </SidebarSection>
+            ))}
           </SidebarNav>
 
           <SidebarFooter>

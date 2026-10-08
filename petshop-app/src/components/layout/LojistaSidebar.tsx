@@ -18,6 +18,7 @@ import {
   IconRoute,
   IconRepeat,
   IconCart,
+  IconWhatsapp,
 } from '@/components/icons'
 
 // Perfil da Loja e Horários saíram daqui — agora são acessados via
@@ -48,6 +49,9 @@ const navItemsBase = [
   { href: '/lojista/clientes',      icon: IconUsers,     label: 'Clientes', permissao: 'clientesPets' as const },
   { href: '/lojista/pets',          icon: IconDog,       label: 'Pets', permissao: 'clientesPets' as const },
   { href: '/lojista/configuracoes', icon: IconSettings,  label: 'Configurações', restrito: true },
+  // Comunicação → WhatsApp (migration 088): central de atendimento. Tem
+  // permissão própria; dono e administrador sempre veem.
+  { href: '/lojista/whatsapp',      icon: IconWhatsapp,  label: 'WhatsApp', permissao: 'whatsapp' as const, secao: 'Comunicação' },
 ]
 
 const CHAVE_COLAPSADA = 'saip:lojista-sidebar-colapsada'
@@ -78,6 +82,8 @@ interface Props {
   // Função TaxiDog: vê o item mesmo sem permissão de agenda (só as
   // corridas dele aparecem na tela).
   podeTaxidog?: boolean
+  // Atende o WhatsApp da loja (migration 088).
+  podeAtenderWhatsapp?: boolean
 }
 
 export default function LojistaSidebar({
@@ -93,6 +99,7 @@ export default function LojistaSidebar({
   podeGerenciarClientesPets = true,
   acessoTotal = true,
   podeTaxidog = false,
+  podeAtenderWhatsapp = true,
 }: Props) {
   const gestorDaAgenda = role === 'lojista' || acessoTotal || podeGerenciarAgenda
   // Quem só é TaxiDog (sem agenda) vê as telas com as corridas/rotas dele
@@ -113,6 +120,7 @@ export default function LojistaSidebar({
       if (item.permissao === 'servicos') return podeGerenciarServicos
       if (item.permissao === 'produtos') return podeGerenciarProdutos
       if (item.permissao === 'clientesPets') return podeGerenciarClientesPets
+      if (item.permissao === 'whatsapp') return podeAtenderWhatsapp
     }
     return true
   })
@@ -152,6 +160,7 @@ export default function LojistaSidebar({
         icon: item.icon,
         label: rotulo(item),
         ativo: item.href === hrefAtivo,
+        secao: item.secao,
       }))}
       abas={abas}
       iconeMarca={IconPaw}

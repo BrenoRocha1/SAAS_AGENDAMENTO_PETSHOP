@@ -27,6 +27,7 @@ import {
   IconShield,
   IconTrash,
   IconUserPlus,
+  IconWhatsapp,
 } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
 import './equipe-membro.css'
@@ -43,6 +44,8 @@ interface Funcionario {
   // Função (não permissão) — migration 042. Opcional: sem a migration a
   // coluna não vem no select('*').
   pode_taxidog?: boolean
+  // Atende o WhatsApp da loja (migration 088) — opcional pelo mesmo motivo.
+  pode_atender_whatsapp?: boolean
   ativo: boolean
   created_at: string
 }
@@ -72,6 +75,7 @@ function tagsDe(f: Funcionario): string[] {
     f.pode_gerenciar_clientes_pets && 'Clientes e pets',
     f.pode_gerenciar_servicos && 'Serviços',
     f.pode_gerenciar_produtos && 'Produtos',
+    f.pode_atender_whatsapp && 'WhatsApp',
   ].filter(Boolean) as string[]
 }
 
@@ -637,6 +641,7 @@ function PermissoesCampos({
   const [podeClientesPets, setPodeClientesPets] = useState(editFunc?.pode_gerenciar_clientes_pets ?? false)
   const [acessoTotal, setAcessoTotal] = useState(editFunc?.acesso_total ?? false)
   const [podeTaxidog, setPodeTaxidog] = useState(editFunc?.pode_taxidog ?? false)
+  const [podeWhatsapp, setPodeWhatsapp] = useState(editFunc?.pode_atender_whatsapp ?? false)
 
   // "Acesso total" é paridade completa com o lojista — marcar ele já
   // implica todas as outras permissões, então elas seguem juntas (e
@@ -648,6 +653,7 @@ function PermissoesCampos({
     setPodeServicos(checked)
     setPodeProdutos(checked)
     setPodeClientesPets(checked)
+    setPodeWhatsapp(checked)
   }
 
   return (
@@ -671,6 +677,7 @@ function PermissoesCampos({
               <LinhaSwitch titulo="Clientes e pets" detalhe="Consultar clientes e pets." valor={podeClientesPets} onChange={setPodeClientesPets} />
               <LinhaSwitch titulo="Serviços" detalhe="Cadastrar e alterar serviços e preços." valor={podeServicos} onChange={setPodeServicos} />
               <LinhaSwitch titulo="Produtos" detalhe="Catálogo e estoque." valor={podeProdutos} onChange={setPodeProdutos} />
+              <LinhaSwitch titulo="WhatsApp" detalhe="Atender os clientes pelo WhatsApp da loja." valor={podeWhatsapp} onChange={setPodeWhatsapp} />
             </>
           )}
           <LinhaSwitch titulo="TaxiDog" detalhe="Recebe corridas e rotas no app." valor={podeTaxidog} onChange={setPodeTaxidog} />
@@ -701,6 +708,7 @@ function PermissoesCampos({
           <LinhaPermissao icone={IconScissors} nome="pode_gerenciar_servicos" titulo="Serviços" detalhe="Cadastrar e editar os serviços do petshop" valor={podeServicos} desativado={acessoTotal} onChange={setPodeServicos} />
           <LinhaPermissao icone={IconPackage} nome="pode_gerenciar_produtos" titulo="Produtos" detalhe="Cadastrar produtos, categorias e ajustar o estoque" valor={podeProdutos} desativado={acessoTotal} onChange={setPodeProdutos} />
           <LinhaPermissao icone={IconDog} nome="pode_gerenciar_clientes_pets" titulo="Pets e clientes" detalhe="Ver os pets e clientes cadastrados" valor={podeClientesPets} desativado={acessoTotal} onChange={setPodeClientesPets} />
+          <LinhaPermissao icone={IconWhatsapp} nome="pode_atender_whatsapp" titulo="WhatsApp" detalhe="Atender os clientes pelo WhatsApp da loja" valor={podeWhatsapp} desativado={acessoTotal} onChange={setPodeWhatsapp} />
         </div>
 
         {/* Funções — o que a pessoa FAZ na loja, independente do que ela pode
@@ -866,6 +874,20 @@ function FuncCard({
               gap: 4,
             }}>
               <IconPackage style={{ width: 11, height: 11 }} /> Produtos
+            </span>
+          )}
+          {func.pode_atender_whatsapp && (
+            <span style={{
+              fontSize: '0.7rem',
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--success-900)',
+              color: 'var(--success-400)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}>
+              <IconWhatsapp style={{ width: 11, height: 11 }} /> WhatsApp
             </span>
           )}
           {func.pode_gerenciar_clientes_pets && (

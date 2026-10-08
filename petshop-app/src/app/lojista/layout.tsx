@@ -5,6 +5,7 @@ import LojistaSidebar from '@/components/layout/LojistaSidebar'
 import NotificacaoNovoAgendamento from '@/components/lojista/NotificacaoNovoAgendamento'
 import AtualizacaoAoVivo from '@/components/lojista/AtualizacaoAoVivo'
 import NotificacaoTaxiDog from '@/components/lojista/NotificacaoTaxiDog'
+import NotificacaoWhatsApp from '@/components/lojista/whatsapp/NotificacaoWhatsApp'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 import { ehEmailInterno } from '@/lib/email-interno'
@@ -59,7 +60,7 @@ export default async function LojistaLayout({
   let somAtivo = true
   let somTipo = 'sino'
   // As três consultas do menu saem juntas (antes, uma esperava a outra).
-  const [{ data: lojista, error: lojistaError }, { data: taxidogCfg }, { data: funcionario }] = await Promise.all([
+  const [{ data: lojista, error: lojistaError }, { data: taxidogCfg }, { data: funcionario }, { data: whatsapp }] = await Promise.all([
     supabase
       .from('lojista')
       .select('nome_loja, kanban_ativo, som_novo_agendamento_ativo, som_novo_agendamento_tipo')
@@ -76,6 +77,11 @@ export default async function LojistaLayout({
     // logado (não o nome da loja, que já aparece separado).
     contexto.role === 'funcionario'
       ? supabase.from('funcionario').select('nome').eq('id_funcionario', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    // WhatsApp conectado? (migration 088) — tolerante: sem a tabela, ou
+    // sem a permissão, só não liga o aviso de mensagem nova.
+    contexto.podeAtenderWhatsapp
+      ? supabase.from('whatsapp_integracao').select('status').eq('id_lojista', contexto.idLojista).maybeSingle()
       : Promise.resolve({ data: null }),
   ])
 
@@ -113,6 +119,10 @@ export default async function LojistaLayout({
           somTipo={somTipo}
         />
       )}
+      {/* Som de mensagem nova no WhatsApp, em qualquer tela do painel. */}
+      {(whatsapp as { status?: string } | null)?.status === 'conectado' && (
+        <NotificacaoWhatsApp lojistaId={contexto.idLojista} somAtivo={somAtivo} somTipo={somTipo} />
+      )}
       <LojistaSidebar
         nomeLoja={nomeLoja}
         nomeUsuario={nomeUsuario}
@@ -126,6 +136,7 @@ export default async function LojistaLayout({
         podeGerenciarClientesPets={contexto.podeGerenciarClientesPets}
         acessoTotal={contexto.acessoTotal}
         podeTaxidog={contexto.podeTaxidog}
+        podeAtenderWhatsapp={contexto.podeAtenderWhatsapp}
       />
       <main className="app-main">
         <div className="app-content">{children}</div>

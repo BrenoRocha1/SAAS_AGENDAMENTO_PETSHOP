@@ -3158,6 +3158,16 @@ export async function cadastrarFuncionarioAction(formData: FormData) {
     return { error: devError('Não foi possível cadastrar o membro. Tente novamente.', rpcError.message) }
   }
 
+  // Atender o WhatsApp (migration 088) — num update à parte: enquanto a
+  // coluna não existir no banco, só esta permissão deixa de ser gravada.
+  if (!parsed.data.acesso_total && formData.get('pode_atender_whatsapp') === 'true') {
+    await adminClient
+      .from('funcionario')
+      .update({ pode_atender_whatsapp: true })
+      .eq('id_funcionario', authData.user.id)
+      .eq('id_lojista', contexto.idLojista)
+  }
+
   revalidatePath('/lojista/equipe')
   return { success: true }
 }
@@ -3214,6 +3224,14 @@ export async function editarFuncionarioAction(id_funcionario: string, formData: 
     }
     return { error: 'Erro ao atualizar membro.' }
   }
+
+  // Atender o WhatsApp (migration 088) — à parte, pelo mesmo motivo do
+  // cadastro: sem a coluna no banco, o resto da edição continua valendo.
+  await db
+    .from('funcionario')
+    .update({ pode_atender_whatsapp: !parsed.data.acesso_total && formData.get('pode_atender_whatsapp') === 'true' })
+    .eq('id_funcionario', id_funcionario)
+    .eq('id_lojista', contexto.idLojista)
 
   revalidatePath('/lojista/equipe')
   return { success: true }

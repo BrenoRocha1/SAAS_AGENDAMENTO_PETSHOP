@@ -1,0 +1,369 @@
+/* ============================================================
+   Comunicação → WhatsApp (/lojista/whatsapp)
+   Central de atendimento: conversas | conversa aberta | informações.
+   Superfícies brancas, bordas finas e índigo só no que é ação ou destaque
+   (conversa aberta, não lidas, enviar). Usa os tokens do :root.
+   ============================================================ */
+
+/* ---------- Cabeçalho da página ---------- */
+.wa-pagina-topo { margin-bottom: var(--space-4); }
+.wa-trilha { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--gray-500); margin-bottom: 2px; }
+.wa-trilha svg { width: 13px; height: 13px; }
+.wa-pagina-topo h1 { font-size: 1.5rem; }
+
+/* Aviso de WhatsApp não conectado (acima da central). */
+.wa-conexao { align-items: center; margin-bottom: var(--space-4); }
+.wa-conexao > span { flex: 1; min-width: 0; }
+.wa-conexao .btn { flex-shrink: 0; }
+
+/* ---------- Estrutura ---------- */
+.wa {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  /* O que sobra da tela abaixo do topo da central (medido na tela), menos
+     a margem de baixo do conteúdo. */
+  height: calc(100dvh - var(--wa-topo, 150px) - var(--space-8));
+  min-height: 420px;
+  background: var(--gray-900);
+  border: 1px solid var(--gray-800);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.wa.tem-detalhes { grid-template-columns: 360px minmax(0, 1fr) 320px; }
+
+.wa-botao-icone {
+  width: 36px; height: 36px; flex-shrink: 0;
+  display: inline-grid; place-items: center;
+  border: 1px solid transparent; border-radius: var(--radius-md);
+  background: none; color: var(--gray-400); cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.wa-botao-icone:hover { background: var(--gray-850); color: var(--gray-100); }
+.wa-botao-icone:disabled { opacity: 0.5; cursor: default; }
+.wa-botao-icone.is-principal { background: var(--primary-600); color: #fff; }
+.wa-botao-icone.is-principal:hover { background: var(--primary-500); color: #fff; }
+.wa-botao-icone.is-ligado { background: var(--primary-50); color: var(--primary-600); border-color: var(--primary-soft-border); }
+.wa-botao-icone.is-girando svg { animation: wa-girar 0.9s linear infinite; }
+@keyframes wa-girar { to { transform: rotate(360deg); } }
+
+.wa-avatar {
+  flex-shrink: 0; display: inline-grid; place-items: center; overflow: hidden;
+  border-radius: var(--radius-full); background: var(--primary-50); color: var(--primary-600);
+  font-weight: 700; letter-spacing: 0.01em;
+}
+.wa-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ---------- Coluna das conversas ---------- */
+.wa-lista { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--gray-800); background: var(--gray-900); }
+.wa-lista-topo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-4) var(--space-4) var(--space-3); }
+.wa-lista-titulo { display: flex; align-items: center; gap: var(--space-2); min-width: 0; color: var(--gray-100); }
+.wa-lista-titulo h2 { font-size: 1.0625rem; font-weight: 700; }
+.wa-contador {
+  min-width: 24px; padding: 1px 8px; border-radius: var(--radius-full);
+  background: var(--gray-850); font-size: 0.75rem; font-weight: 600; color: var(--gray-400); text-align: center;
+}
+.wa-lista-acoes { display: flex; align-items: center; gap: 2px; }
+
+.wa-abas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; margin: 0 var(--space-4); padding: 3px; background: var(--gray-850); border-radius: var(--radius-md); }
+.wa-aba {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 0;
+  height: 32px; padding: 0 4px; border: 0; border-radius: calc(var(--radius-md) - 2px);
+  background: none; font: inherit; font-size: 0.8125rem; font-weight: 600; color: var(--gray-400); cursor: pointer;
+}
+.wa-aba:hover { color: var(--gray-100); }
+.wa-aba.is-ativa { background: var(--gray-900); color: var(--gray-100); box-shadow: var(--shadow-sm); }
+.wa-aba-numero {
+  min-width: 18px; padding: 0 5px; border-radius: var(--radius-full);
+  background: var(--gray-800); font-size: 0.6875rem; font-weight: 700; line-height: 18px; color: var(--gray-400); text-align: center;
+}
+.wa-aba-numero.is-aviso { background: var(--warning-900); color: var(--warning-400); }
+.wa-aba-numero.is-destaque { background: var(--primary-600); color: #fff; }
+
+.wa-filtros { display: flex; gap: var(--space-2); margin: var(--space-2) var(--space-4) 0; }
+.wa-filtro {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px; padding: 0 var(--space-2); border: 1px solid var(--gray-800); border-radius: var(--radius-md);
+  background: var(--gray-900); font: inherit; font-size: 0.8125rem; font-weight: 600; color: var(--gray-400); cursor: pointer;
+}
+.wa-filtro:hover { border-color: var(--gray-700); color: var(--gray-100); }
+.wa-filtro.is-ativo { border-color: var(--primary-soft-border); background: var(--primary-50); color: var(--primary-600); }
+
+.wa-busca {
+  display: flex; align-items: center; gap: var(--space-2);
+  height: 40px; margin: var(--space-3) var(--space-4); padding: 0 var(--space-3);
+  background: var(--gray-900); border: 1px solid var(--gray-700); border-radius: var(--radius-md); color: var(--gray-600);
+}
+.wa-busca:focus-within { border-color: var(--primary-500); box-shadow: 0 0 0 3px var(--focus-ring); }
+.wa-busca input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; font-size: 0.875rem; color: var(--gray-100); }
+.wa-busca input::placeholder { color: var(--gray-600); }
+.wa-busca input::-webkit-search-cancel-button { cursor: pointer; }
+
+.wa-itens { flex: 1; min-height: 0; overflow-y: auto; border-top: 1px solid var(--gray-800); }
+.wa-item {
+  position: relative; display: flex; gap: var(--space-3); width: 100%;
+  padding: var(--space-3) var(--space-4); border: 0; border-bottom: 1px solid var(--gray-850);
+  background: none; font: inherit; text-align: left; cursor: pointer;
+}
+.wa-item:hover { background: var(--gray-950); }
+.wa-item.is-aberta { background: var(--primary-50); }
+.wa-item.is-aberta::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--primary-600); }
+.wa-item-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.wa-item-linha { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-width: 0; }
+.wa-item-nome { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
+.wa-item-numero { font-weight: 500; color: var(--gray-600); }
+.wa-item-hora { flex-shrink: 0; font-size: 0.75rem; color: var(--gray-500); }
+.wa-item.tem-nao-lidas .wa-item-hora { color: var(--primary-600); font-weight: 600; }
+.wa-item-pets { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; color: var(--gray-400); }
+.wa-item-etiquetas { display: flex; flex-wrap: wrap; gap: 4px; }
+.wa-item-etiquetas:empty { display: none; }
+.wa-etiqueta {
+  display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
+  padding: 1px 8px; border-radius: var(--radius-full); border: 1px solid var(--gray-800);
+  background: var(--gray-850); font-size: 0.6875rem; font-weight: 600; color: var(--gray-400);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wa-etiqueta.is-espera { border-color: rgba(245,158,11,0.3); background: var(--warning-900); color: var(--warning-400); }
+.wa-etiqueta.is-responsavel { border-color: var(--primary-soft-border); background: var(--primary-50); color: var(--primary-300); }
+.wa-item-previa { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; color: var(--gray-500); }
+.wa-item.tem-nao-lidas .wa-item-previa { color: var(--gray-200); font-weight: 500; }
+.wa-nao-lidas {
+  flex-shrink: 0; min-width: 20px; padding: 0 6px; border-radius: var(--radius-full);
+  background: var(--primary-600); font-size: 0.6875rem; font-weight: 700; line-height: 20px; color: #fff; text-align: center;
+}
+.wa-mais { width: 100%; padding: var(--space-3); border: 0; background: none; font: inherit; font-size: 0.8125rem; font-weight: 600; color: var(--primary-600); cursor: pointer; }
+.wa-mais:disabled { color: var(--gray-500); cursor: default; }
+
+.wa-lista-aviso { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding: var(--space-10) var(--space-5); text-align: center; font-size: 0.875rem; color: var(--gray-500); }
+.wa-esqueletos { padding: var(--space-3) var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.wa-esqueleto { height: 62px; border-radius: var(--radius-md); background: var(--gray-850); animation: wa-pulsar 1.2s ease-in-out infinite; }
+@keyframes wa-pulsar { 50% { opacity: 0.5; } }
+
+/* ---------- Conversa ---------- */
+.wa-painel { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--gray-950); }
+
+.wa-vazio { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-8); text-align: center; }
+.wa-vazio-icone { width: 72px; height: 72px; margin-bottom: var(--space-3); display: grid; place-items: center; border-radius: var(--radius-full); background: var(--primary-50); color: var(--primary-600); }
+.wa-vazio h2 { font-size: 1.25rem; font-weight: 700; color: var(--gray-100); }
+.wa-vazio p { max-width: 340px; font-size: 0.9375rem; color: var(--gray-500); }
+
+.wa-conversa-topo {
+  display: flex; align-items: center; gap: var(--space-3); min-height: 64px;
+  padding: var(--space-2) var(--space-4); background: var(--gray-900); border-bottom: 1px solid var(--gray-800);
+}
+.wa-voltar { display: none; }
+.wa-conversa-quem { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-3); padding: 4px; border: 0; border-radius: var(--radius-md); background: none; font: inherit; text-align: left; cursor: pointer; }
+.wa-conversa-quem:hover { background: var(--gray-950); }
+.wa-conversa-dados { min-width: 0; display: flex; flex-direction: column; }
+.wa-conversa-dados strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9375rem; font-weight: 700; color: var(--gray-100); }
+.wa-conversa-dados span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; color: var(--gray-500); }
+.wa-status {
+  flex-shrink: 0; max-width: 240px; padding: 3px 10px; border-radius: var(--radius-full); border: 1px solid var(--gray-800);
+  background: var(--gray-850); font-size: 0.75rem; font-weight: 600; color: var(--gray-400);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wa-status.is-espera { border-color: rgba(245,158,11,0.3); background: var(--warning-900); color: var(--warning-400); }
+.wa-status.is-ativa { border-color: rgba(16,185,129,0.3); background: var(--success-900); color: var(--success-400); }
+.wa-conversa-acoes { flex-shrink: 0; display: flex; align-items: center; gap: var(--space-1); }
+
+.wa-menu-caixa { position: relative; }
+.wa-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; min-width: 230px; padding: 6px;
+  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+  display: flex; flex-direction: column;
+}
+.wa-menu a, .wa-menu button {
+  display: flex; align-items: center; gap: var(--space-2); width: 100%;
+  padding: 9px 10px; border: 0; border-radius: var(--radius-sm); background: none;
+  font: inherit; font-size: 0.875rem; font-weight: 500; color: var(--gray-200); text-align: left; text-decoration: none; cursor: pointer;
+}
+.wa-menu a:hover, .wa-menu button:hover { background: var(--gray-850); }
+.wa-menu svg { color: var(--primary-600); flex-shrink: 0; }
+.wa-menu .is-perigo, .wa-menu .is-perigo svg { color: var(--danger-400); }
+.wa-menu button:disabled { opacity: 0.5; cursor: default; }
+
+.wa-faixa { margin: var(--space-3) var(--space-4) 0; }
+
+.wa-mensagens { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: 4px; }
+.wa-mensagens-centro { margin: auto; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); text-align: center; font-size: 0.875rem; color: var(--gray-500); }
+.wa-linha-mensagem { display: flex; flex-direction: column; }
+.wa-dia { display: flex; justify-content: center; margin: var(--space-3) 0 var(--space-2); }
+.wa-dia span, .wa-sistema span {
+  padding: 3px 12px; border-radius: var(--radius-full); border: 1px solid var(--gray-800);
+  background: var(--gray-900); font-size: 0.75rem; font-weight: 600; color: var(--gray-400);
+}
+.wa-dia span::first-letter { text-transform: uppercase; }
+.wa-sistema { display: flex; justify-content: center; margin: var(--space-2) 0; }
+.wa-sistema span { border-style: dashed; font-weight: 500; text-align: center; }
+
+.wa-bolha {
+  position: relative; max-width: min(72%, 560px); margin: 2px 0; padding: 8px 12px 6px;
+  border-radius: 14px; border: 1px solid var(--gray-800); background: var(--gray-900);
+  font-size: 0.9375rem; line-height: 1.45; color: var(--gray-100);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.wa-bolha.is-entrada { align-self: flex-start; border-bottom-left-radius: 4px; }
+.wa-bolha.is-saida { align-self: flex-end; border-color: var(--primary-200); background: var(--primary-50); border-bottom-right-radius: 4px; }
+.wa-bolha.is-erro { border-color: rgba(239,68,68,0.35); background: var(--danger-900); }
+.wa-texto { white-space: pre-wrap; overflow-wrap: anywhere; }
+.wa-texto a { color: var(--primary-600); text-decoration: underline; }
+.wa-texto-apagado { font-size: 0.8125rem; color: var(--gray-500); }
+.wa-bolha-rodape { align-self: flex-end; display: inline-flex; align-items: center; gap: 4px; font-size: 0.6875rem; color: var(--gray-500); }
+.wa-bolha-erro { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding-top: 4px; border-top: 1px solid rgba(239,68,68,0.25); font-size: 0.8125rem; color: var(--danger-400); }
+.wa-bolha-erro button { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--danger-400); text-decoration: underline; cursor: pointer; }
+.wa-bolha-erro button:disabled { opacity: 0.6; cursor: default; }
+
+.wa-imagem { display: block; }
+.wa-imagem img, .wa-video { display: block; max-width: 100%; max-height: 320px; min-height: 80px; border-radius: 10px; background: var(--gray-850); }
+.wa-figurinha { width: 120px; height: 120px; object-fit: contain; }
+.wa-bolha audio { max-width: 100%; width: 260px; height: 40px; }
+.wa-documento {
+  display: flex; align-items: center; gap: var(--space-2); padding: 8px 10px; border-radius: 10px;
+  background: var(--gray-850); font-size: 0.875rem; font-weight: 600; color: var(--gray-100); text-decoration: none;
+}
+.wa-bolha.is-saida .wa-documento { background: var(--primary-100); }
+.wa-documento svg { color: var(--primary-600); }
+.wa-documento span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.wa-novas {
+  position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 5;
+  padding: 6px 14px; border: 0; border-radius: var(--radius-full);
+  background: var(--primary-600); box-shadow: var(--shadow-md); font: inherit; font-size: 0.8125rem; font-weight: 600; color: #fff; cursor: pointer;
+}
+
+/* ---------- Campo de envio ---------- */
+.wa-envio { padding: var(--space-3) var(--space-4); background: var(--gray-900); border-top: 1px solid var(--gray-800); display: flex; flex-direction: column; gap: var(--space-2); }
+.wa-envio-linha { display: flex; align-items: flex-end; gap: var(--space-2); }
+.wa-envio textarea {
+  flex: 1; min-width: 0; min-height: 40px; max-height: 140px; resize: none;
+  padding: 9px 12px; border: 1px solid var(--gray-700); border-radius: var(--radius-md); outline: 0;
+  background: var(--gray-900); font: inherit; font-size: 0.9375rem; line-height: 1.4; color: var(--gray-100);
+}
+.wa-envio textarea:focus { border-color: var(--primary-500); box-shadow: 0 0 0 3px var(--focus-ring); }
+.wa-envio textarea::placeholder { color: var(--gray-600); }
+.wa-envio .wa-botao-icone { width: 40px; height: 40px; }
+.wa-enviar {
+  width: 40px; height: 40px; flex-shrink: 0; display: inline-grid; place-items: center;
+  border: 0; border-radius: var(--radius-md); background: var(--primary-600); color: #fff; cursor: pointer;
+}
+.wa-enviar:hover { background: var(--primary-500); }
+.wa-enviar:disabled { background: var(--gray-800); color: var(--gray-500); cursor: default; }
+.wa-envio-erro { align-items: flex-start; }
+.wa-envio-erro > span { flex: 1; min-width: 0; }
+.wa-envio-erro button { border: 0; background: none; padding: 2px; color: inherit; cursor: pointer; }
+.wa-envio-aviso {
+  display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3);
+  border-radius: var(--radius-md); background: var(--gray-850); font-size: 0.8125rem; line-height: 1.45; color: var(--gray-300);
+}
+.wa-envio-aviso > span { flex: 1; min-width: 0; }
+.wa-envio-nota { font-size: 0.75rem; color: var(--gray-500); }
+.wa-anexo {
+  display: flex; align-items: center; gap: var(--space-2); align-self: flex-start; max-width: 100%;
+  padding: 6px 10px; border-radius: var(--radius-md); border: 1px solid var(--primary-soft-border);
+  background: var(--primary-50); font-size: 0.8125rem; font-weight: 600; color: var(--primary-300);
+}
+.wa-anexo span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wa-anexo button { border: 0; background: none; padding: 2px; display: grid; color: inherit; cursor: pointer; }
+
+/* ---------- Informações do contato ---------- */
+.wa-detalhes { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-left: 1px solid var(--gray-800); background: var(--gray-900); }
+.wa-detalhes-topo { display: flex; align-items: center; justify-content: space-between; min-height: 64px; padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4); border-bottom: 1px solid var(--gray-800); }
+.wa-detalhes-topo h3 { font-size: 1rem; font-weight: 700; color: var(--gray-100); }
+.wa-detalhes-corpo { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-5); }
+.wa-det-perfil { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.wa-det-perfil strong { margin-top: var(--space-2); font-size: 1rem; color: var(--gray-100); overflow-wrap: anywhere; }
+.wa-det-perfil span { font-size: 0.8125rem; color: var(--gray-500); }
+.wa-det-numero { margin-top: 4px; }
+.wa-det-secao { display: flex; flex-direction: column; gap: var(--space-3); }
+.wa-det-secao h4 { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray-400); }
+.wa-det-texto, .wa-det-vazio { font-size: 0.875rem; color: var(--gray-500); }
+.wa-det-dados { display: flex; flex-direction: column; gap: var(--space-2); }
+.wa-det-dados > div { display: flex; flex-direction: column; }
+.wa-det-dados dt { font-size: 0.75rem; color: var(--gray-500); }
+.wa-det-dados dd { font-size: 0.875rem; font-weight: 500; color: var(--gray-100); overflow-wrap: anywhere; }
+.wa-det-acoes { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.wa-det-pets { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); }
+.wa-det-pets li { display: flex; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--gray-800); border-radius: var(--radius-md); }
+.wa-det-pets li.is-da-conversa { border-color: var(--primary-soft-border); background: var(--primary-50); }
+.wa-det-pet-foto { width: 40px; height: 40px; flex-shrink: 0; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-full); background: var(--primary-50); color: var(--primary-600); }
+.wa-det-pet-foto img { width: 100%; height: 100%; object-fit: cover; }
+.wa-det-pet-dados { min-width: 0; display: flex; flex-direction: column; gap: 1px; font-size: 0.8125rem; color: var(--gray-500); }
+.wa-det-pet-dados strong { font-size: 0.9375rem; color: var(--gray-100); }
+.wa-det-pet-acoes { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: 4px; }
+.wa-det-pet-acoes a, .wa-det-pet-acoes button { border: 0; background: none; padding: 0; font: inherit; font-size: 0.8125rem; font-weight: 600; color: var(--primary-600); text-decoration: none; cursor: pointer; }
+.wa-det-pet-acoes button:disabled { opacity: 0.5; cursor: default; }
+.wa-det-desvincular { align-self: flex-start; border: 0; background: none; padding: 0; font: inherit; font-size: 0.8125rem; color: var(--gray-500); text-decoration: underline; cursor: pointer; }
+.wa-det-desvincular:disabled { opacity: 0.5; cursor: default; }
+
+/* Busca de cliente (vincular e nova conversa). */
+.wa-busca-cliente { display: flex; flex-direction: column; gap: var(--space-2); }
+.wa-busca-cliente .wa-busca { margin: 0; }
+.wa-busca-cliente-lista { display: flex; flex-direction: column; max-height: 300px; overflow-y: auto; border: 1px solid var(--gray-800); border-radius: var(--radius-md); }
+.wa-busca-cliente-lista > p { padding: var(--space-4); text-align: center; }
+.wa-busca-cliente-lista button {
+  display: flex; align-items: center; gap: var(--space-3); width: 100%; padding: var(--space-2) var(--space-3);
+  border: 0; border-bottom: 1px solid var(--gray-850); background: none; font: inherit; text-align: left; cursor: pointer;
+}
+.wa-busca-cliente-lista button:last-child { border-bottom: 0; }
+.wa-busca-cliente-lista button:hover { background: var(--gray-950); }
+.wa-busca-cliente-lista button:disabled { opacity: 0.6; cursor: default; }
+.wa-busca-cliente-lista button > span:last-child { min-width: 0; display: flex; flex-direction: column; }
+.wa-busca-cliente-lista strong { font-size: 0.875rem; color: var(--gray-100); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wa-busca-cliente-lista small { font-size: 0.75rem; color: var(--gray-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- Telas médias: as informações entram por cima da conversa ---------- */
+@media (max-width: 1280px) {
+  .wa.tem-detalhes { grid-template-columns: 340px minmax(0, 1fr); position: relative; }
+  .wa { grid-template-columns: 340px minmax(0, 1fr); }
+  .wa-detalhes { position: absolute; top: 0; right: 0; bottom: 0; z-index: 30; width: min(340px, 100%); box-shadow: var(--shadow-xl); }
+  .wa-status { display: none; }
+}
+@media (max-width: 1024px) {
+  .wa, .wa.tem-detalhes { grid-template-columns: 300px minmax(0, 1fr); }
+}
+
+/* ---------- Celular: uma tela por vez ---------- */
+@media (max-width: 768px) {
+  .wa-conexao { flex-wrap: wrap; }
+  .wa, .wa.tem-detalhes {
+    display: block; height: auto; min-height: 0; border: 0; border-radius: 0; background: none; overflow: visible;
+  }
+  /* A lista é a tela: sem moldura, rolando com a página (como as outras
+     telas do painel no celular). */
+  .wa-lista { border: 1px solid var(--gray-800); border-radius: 14px; overflow: hidden; }
+  .wa-itens { overflow: visible; }
+  .wa-painel { display: none; }
+
+  /* Conversa aberta: tela inteira, por cima das barras do painel. */
+  .wa.tem-conversa .wa-painel {
+    display: flex; position: fixed; inset: 0; z-index: 60;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .wa-voltar { display: inline-grid; }
+  .wa-conversa-topo { padding: var(--space-2); gap: var(--space-1); }
+  .wa-conversa-acoes .btn { padding-inline: var(--space-2); }
+  .wa-mensagens { padding: var(--space-3); }
+  .wa-bolha { max-width: 86%; }
+  .wa-envio { padding: var(--space-2) var(--space-3); }
+  .wa-envio textarea { font-size: 1rem; }
+
+  /* Informações: outra tela inteira, por cima da conversa. */
+  .wa-detalhes { position: fixed; inset: 0; z-index: 61; width: auto; border-left: 0; box-shadow: none; padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* ============================================================
+   Configurações → WhatsApp
+   ============================================================ */
+.wa-config { display: flex; flex-direction: column; gap: var(--space-5); max-width: 760px; }
+.wa-config-estado { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.wa-config-estado strong { font-size: 1rem; color: var(--gray-100); }
+.wa-config-estado span { font-size: 0.875rem; color: var(--gray-500); }
+.wa-config-bolinha { width: 10px; height: 10px; flex-shrink: 0; border-radius: var(--radius-full); background: var(--gray-600); }
+.wa-config-bolinha.is-conectado { background: var(--success-500); }
+.wa-config-bolinha.is-erro { background: var(--danger-500); }
+.wa-config-passos { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: var(--space-2); font-size: 0.875rem; line-height: 1.5; color: var(--gray-300); }
+.wa-config-copia { display: flex; align-items: center; gap: var(--space-2); }
+.wa-config-copia code {
+  flex: 1; min-width: 0; padding: 9px 12px; border: 1px solid var(--gray-800); border-radius: var(--radius-md);
+  background: var(--gray-850); font-size: 0.8125rem; color: var(--gray-100); overflow-x: auto; white-space: nowrap;
+}
+.wa-config-acoes { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }

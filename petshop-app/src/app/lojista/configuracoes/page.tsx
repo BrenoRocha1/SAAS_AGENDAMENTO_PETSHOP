@@ -13,6 +13,7 @@ import {
   IconShield,
   IconStar,
   IconStore,
+  IconWhatsapp,
 } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'Configurações — Lojista' }
@@ -53,6 +54,14 @@ export default async function ConfiguracoesPage() {
     .eq('id_lojista', contexto.idLojista)
     .maybeSingle()
   const taxidogAtivo = !!taxidog?.ativo
+
+  // Tolerante do mesmo jeito: sem a migration 088, o selo some.
+  const { data: whatsapp, error: whatsappError } = await supabase
+    .from('whatsapp_integracao')
+    .select('status')
+    .eq('id_lojista', contexto.idLojista)
+    .maybeSingle()
+  const whatsappConectado = (whatsapp as { status?: string } | null)?.status === 'conectado'
 
   const grupos: { titulo: string; itens: ItemConfig[] }[] = [
     {
@@ -114,6 +123,18 @@ export default async function ConfiguracoesPage() {
           titulo: 'TaxiDog',
           descricao: 'Busca e entrega dos pets: preços, regiões atendidas e quem faz as corridas',
           status: taxidogError ? undefined : [{ texto: taxidogAtivo ? 'Ativado' : 'Desativado', ativo: taxidogAtivo }],
+        },
+      ],
+    },
+    {
+      titulo: 'Comunicação',
+      itens: [
+        {
+          href: '/lojista/configuracoes/whatsapp',
+          icon: <IconWhatsapp style={{ width: 18, height: 18 }} />,
+          titulo: 'WhatsApp',
+          descricao: 'Conecte o número da loja para atender os clientes pela central de WhatsApp',
+          status: whatsappError ? undefined : [{ texto: whatsappConectado ? 'Conectado' : 'Desconectado', ativo: whatsappConectado }],
         },
       ],
     },

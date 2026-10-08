@@ -107,7 +107,18 @@ export default async function PerfilFuncionarioPage({ params, searchParams }: Pr
     .eq('id_funcionario', id)
     .eq('id_lojista', lojistaId)
     .maybeSingle()
-  const funcionario: FuncionarioInfo = { ...funcionarioRow, pode_taxidog: !!taxidogRow?.pode_taxidog }
+  // pode_atender_whatsapp (migration 088), à parte pelo mesmo motivo.
+  const { data: whatsappRow } = await supabase
+    .from('funcionario')
+    .select('pode_atender_whatsapp')
+    .eq('id_funcionario', id)
+    .eq('id_lojista', lojistaId)
+    .maybeSingle()
+  const funcionario: FuncionarioInfo = {
+    ...funcionarioRow,
+    pode_taxidog: !!taxidogRow?.pode_taxidog,
+    pode_atender_whatsapp: !!(whatsappRow as { pode_atender_whatsapp?: boolean } | null)?.pode_atender_whatsapp,
+  }
 
   if (agendaErro) {
     return (
