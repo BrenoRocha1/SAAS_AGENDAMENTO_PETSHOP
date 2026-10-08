@@ -212,12 +212,14 @@ export function LinhaDoCartao({ icone: Icone, children, final }: { icone: Compon
 
 // Selo de texto comum (`.badge` sem maiúsculas): tipo de transporte, rota,
 // situação da corrida. `tom` = etapa de onde vêm as cores, ou cinza.
-export function EtiquetaDoQuadro({ tom = 'neutro', children }: { tom?: string; children: ReactNode }) {
+// `icone`: o desenho antes do texto (o carro, na etiqueta do TaxiDog).
+export function EtiquetaDoQuadro({ tom = 'neutro', icone: Icone, children }: { tom?: string; icone?: ComponentType<IconeProps>; children: ReactNode }) {
   // A neutra é branca com borda fina (`.kanban-card-tag`), sem cinza.
   const cor = tom === 'neutro' ? { bg: colors.surface, fg: colors.textDim, ring: colors.borderStrong } : coresStatus(tom)
   return (
     <View style={[styles.etiqueta, { backgroundColor: cor.bg, borderColor: cor.ring }]}>
-      <Text style={[styles.etiquetaTexto, { color: cor.fg }]}>{children}</Text>
+      {Icone && <Icone size={13} color={cor.fg} />}
+      <Text style={[styles.etiquetaTexto, { color: cor.fg }]} numberOfLines={1}>{children}</Text>
     </View>
   )
 }
@@ -304,8 +306,8 @@ const styles = StyleSheet.create({
   linhaTexto: { flexShrink: 1, fontSize: 13, lineHeight: 20.8, color: '#1f2937' },
   linhaFinal: { marginBottom: 0 },
   etiquetas: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
-  etiqueta: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 9999, borderWidth: 1 },
-  etiquetaTexto: { fontSize: 12, lineHeight: 19.2, fontWeight: '600' },
+  etiqueta: { maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 9999, borderWidth: 1 },
+  etiquetaTexto: { flexShrink: 1, fontSize: 12, lineHeight: 19.2, fontWeight: '600' },
   pe: {
     flexDirection: 'row',
     alignItems: 'center',

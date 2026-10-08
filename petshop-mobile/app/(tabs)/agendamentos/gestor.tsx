@@ -6,13 +6,14 @@ import { BarraDoDia } from '@/components/BarraDoDia'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { CartaoVazio } from '@/components/CartaoVazio'
 import { DetailHeader } from '@/components/DetailHeader'
-import { IconCheck, IconKanban, IconScissors, IconUser, IconUserBadge } from '@/components/IconesDoSite'
+import { IconCar, IconCheck, IconKanban, IconScissors, IconUser, IconUserBadge } from '@/components/IconesDoSite'
 import {
   AcaoDoCartao,
   CartaoDoQuadro,
   CartoesDaEtapa,
   EtapaVazia,
   EtapasDoQuadro,
+  EtiquetaDoQuadro,
   FiltroDoQuadro,
   LinhaDoCartao,
   NotaDoCartao,
@@ -27,12 +28,12 @@ import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAgendamentosDoDia } from '@/hooks/useAgendamentosHoje'
 import { hojeBrasilISO } from '@/lib/agenda'
-import { atualizarStatus } from '@/lib/agendamentos'
+import { atualizarStatus, carregarTransportesDoDia, type TransporteDoCard } from '@/lib/agendamentos'
 import { dialogo } from '@/lib/dialogo'
 import { perguntarBuscaTaxiDog } from '@/lib/perguntarTaxiDog'
 import { ORDEM_ETAPA, PROXIMA_ETAPA, podeAvancarEtapa } from '@/lib/statusAgendamento'
 import { supabase } from '@/lib/supabase'
-import { formatarReais } from '@/lib/taxidog'
+import { formatarReais, situacaoDoTaxiDog, type TomTaxiDog } from '@/lib/taxidog'
 import { colors } from '@/theme/theme'
 import type { Agendamento } from '@/types/database'
 
@@ -47,6 +48,14 @@ const COLUNAS: { status: Etapa; aba: string }[] = [
   { status: 'Em andamento', aba: 'Andamento' },
   { status: 'Concluído', aba: 'Finalizados' },
 ]
+
+// A cor da etiqueta do TaxiDog no card: as mesmas das etapas do atendimento.
+const ETAPA_DO_TOM: Record<TomTaxiDog, Etapa> = {
+  aguardando: 'Pendente',
+  aceito: 'Confirmado',
+  andamento: 'Em andamento',
+  concluido: 'Concluído',
+}
 
 function descricaoPet(item: Agendamento) {
   const partes = [item.pet?.especie, item.pet?.porte, item.pet?.raca].filter(Boolean)
@@ -86,6 +95,8 @@ export default function GestorScreen() {
   const [filtroFuncionario, setFiltroFuncionario] = useState('')
   const [filtroServico, setFiltroServico] = useState('')
   const [etapaEscolhida, setEtapaEscolhida] = useState<Etapa | null>(null)
+  // O TaxiDog de cada agendamento do dia (a etiqueta do card).
+  const [transportes, setTransportes] = useState<Record<string, TransporteDoCard>>({})
 
   const carregarBase = useCallback(async () => {
     if (!idLojista || !pode) return
@@ -110,6 +121,26 @@ export default function GestorScreen() {
   useFocusEffect(useCallback(() => { carregarBase(); recarregar() }, [carregarBase, recarregar]))
 
   useEffect(() => { setItens(doDia.filter(a => a.status !== 'Cancelado')) }, [doDia])
+
+  // A etiqueta do TaxiDog: carrega com os agendamentos do dia e de novo a
+  // cada mudança numa corrida da loja (o TaxiDog apertou "Cheguei", "Pet
+  // embarcado"…).
+  useEffect(() => {
+    if (!idLojista) return
+    let vivo = true
+    const carregar = () => {
+      carregarTransportesDoDia(doDia).then(t => { if (vivo) setTransportes(t) })
+    }
+    carregar()
+    const canal = supabase
+      .channel(`gestor-taxidog-${idLojista}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'taxidog_corrida', filter: `id_lojista=eq.${idLojista}` }, carregar)
+      .subscribe()
+    return () => {
+      vivo = false
+      supabase.removeChannel(canal)
+    }
+  }, [idLojista, doDia])
 
   // "Alterado pelo cliente" (trocou serviço/pet ou remarcou) — só importa
   // antes de a loja aceitar. Consultas tolerantes, como no site.
@@ -296,6 +327,14 @@ export default function GestorScreen() {
                       <PetDoCartao foto={item.pet?.foto_url} nome={item.pet?.nome ?? 'Pet'} descricao={descricaoPet(item)} />
                       <LinhaDoCartao icone={IconUser}>{item.cliente?.nome ?? '—'}</LinhaDoCartao>
                       <LinhaDoCartao icone={IconScissors} final>{item.servico?.nome ?? 'Serviço'}</LinhaDoCartao>
+                      {/* Tem TaxiDog? A etiqueta diz em que pé está (aguardando, a caminho, chegou…). */}
+                      {transportes[item.id_agendamento] && (
+                        <View style={styles.taxidog}>
+                          <EtiquetaDoQuadro icone={IconCar} tom={ETAPA_DO_TOM[situacaoDoTaxiDog(transportes[item.id_agendamento]).tom]}>
+                            {situacaoDoTaxiDog(transportes[item.id_agendamento]).texto}
+                          </EtiquetaDoQuadro>
+                        </View>
+                      )}
                       {alterados.has(item.id_agendamento) && item.status === 'Pendente' && (
                         <View style={styles.alterado}>
                           <Text style={styles.alteradoTexto}>Alterado pelo cliente</Text>
@@ -340,6 +379,8 @@ const styles = StyleSheet.create({
   filtros: { flexDirection: 'row', gap: 8 },
   aviso: { marginBottom: 16 },
   carregando: { opacity: 0.6 },
+  // `.kanban-card-taxidog`: a etiqueta na própria linha, 6 abaixo do serviço.
+  taxidog: { flexDirection: 'row', marginTop: 6 },
   alterado: {
     alignSelf: 'flex-start',
     marginTop: 6,

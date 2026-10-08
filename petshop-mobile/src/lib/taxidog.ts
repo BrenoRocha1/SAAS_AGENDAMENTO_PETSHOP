@@ -109,6 +109,32 @@ export function rotuloDaCorridaNoQuadro(c: { status: string; modalidade: string;
   }
 }
 
+// A situação do TaxiDog de um agendamento, do ponto de vista da LOJA — a
+// etiqueta do card no Gestor de Agendamentos: o pet já chegou? está a
+// caminho? ainda falta alguém pegar a corrida? `tom` é a cor (as mesmas das
+// etapas: amarelo = esperando, azul = combinado, roxo = na rua, verde = feito).
+export type TomTaxiDog = 'aguardando' | 'aceito' | 'andamento' | 'concluido'
+export function situacaoDoTaxiDog(t: { status: string; modalidade: string; temTaxiDog?: boolean; naRota?: boolean }): { texto: string; tom: TomTaxiDog } {
+  const comQuem = !!t.temTaxiDog || !!t.naRota
+  switch (t.status) {
+    case 'agendada':
+      // "Só entregar": o cliente traz o pet; o TaxiDog entra depois do serviço.
+      if (t.modalidade === 'entregar') return { texto: 'Entrega depois do serviço', tom: 'aceito' }
+      return comQuem ? { texto: 'Busca agendada', tom: 'aceito' } : { texto: 'Aguardando TaxiDog', tom: 'aguardando' }
+    case 'a_caminho_cliente': return { texto: 'Indo buscar o pet', tom: 'andamento' }
+    case 'no_endereco': return { texto: 'No endereço do cliente', tom: 'andamento' }
+    case 'pet_embarcado': return { texto: 'Pet a caminho da loja', tom: 'andamento' }
+    case 'entregue_loja': return { texto: 'Pet chegou à loja', tom: 'concluido' }
+    case 'pronto_entrega':
+      return comQuem ? { texto: 'Entrega agendada', tom: 'aceito' } : { texto: 'Aguardando TaxiDog para entrega', tom: 'aguardando' }
+    case 'a_caminho_entrega': return { texto: 'Levando o pet para casa', tom: 'andamento' }
+    case 'no_endereco_entrega': return { texto: 'No endereço da entrega', tom: 'andamento' }
+    // Corrida de "só buscar" termina com o pet na loja.
+    case 'concluida': return { texto: t.modalidade === 'buscar' ? 'Pet chegou à loja' : 'Pet entregue em casa', tom: 'concluido' }
+    default: return { texto: 'TaxiDog', tom: 'aceito' }
+  }
+}
+
 export type GrupoCorrida = 'pendentes' | 'atribuidas' | 'andamento' | 'concluidas'
 
 export const ROTULO_GRUPO: Record<GrupoCorrida, string> = {

@@ -168,6 +168,51 @@ async function carregarTransporteDaVisita(a: { id_agendamento: string; id_lojist
   }
 }
 
+// O TaxiDog de cada agendamento de UM dia, para a etiqueta do card no Gestor
+// de Agendamentos — a mesma escolha do site (lib/taxidog-visita.ts): vale o
+// do próprio agendamento; sem ele, o da visita (mesmo pet no dia). Entre
+// várias, a em aberto vence a concluída; canceladas não contam. Tolerante:
+// sem as tabelas do TaxiDog, ninguém tem etiqueta.
+export interface TransporteDoCard { status: string; modalidade: ModalidadeTaxiDog; temTaxiDog: boolean; naRota: boolean }
+
+export async function carregarTransportesDoDia(agendamentos: { id_agendamento: string; id_pet?: string | null }[]): Promise<Record<string, TransporteDoCard>> {
+  if (agendamentos.length === 0) return {}
+  const { data, error } = await supabase
+    .from('taxidog_corrida')
+    .select('id_corrida, id_agendamento, status, modalidade, id_funcionario')
+    .in('id_agendamento', agendamentos.map(a => a.id_agendamento))
+    .neq('status', 'cancelada')
+    .order('created_at')
+  if (error || !data || data.length === 0) return {}
+  const linhas = data as { id_corrida: string; id_agendamento: string; status: string; modalidade: ModalidadeTaxiDog; id_funcionario: string | null }[]
+  // Na rota = tem parada ainda por fazer.
+  const { data: itens } = await supabase.from('taxidog_parada_item').select('id_corrida').eq('feito', false).in('id_corrida', linhas.map(c => c.id_corrida))
+  const naRota = new Set(((itens ?? []) as { id_corrida: string }[]).map(i => i.id_corrida))
+
+  const petDe = new Map(agendamentos.map(a => [a.id_agendamento, a.id_pet ?? null]))
+  const aberta = (s: string) => s !== 'concluida'
+  const doAgendamento = new Map<string, TransporteDoCard>()
+  const daVisita = new Map<string, TransporteDoCard>()
+  // Em ordem de criação: a última concluída vence as anteriores, e a em
+  // aberto vence qualquer concluída.
+  const guardar = (onde: Map<string, TransporteDoCard>, chave: string, t: TransporteDoCard) => {
+    const atual = onde.get(chave)
+    if (!(atual && aberta(atual.status) && !aberta(t.status))) onde.set(chave, t)
+  }
+  for (const c of linhas) {
+    const t = { status: c.status, modalidade: c.modalidade, temTaxiDog: !!c.id_funcionario, naRota: naRota.has(c.id_corrida) }
+    guardar(doAgendamento, c.id_agendamento, t)
+    const pet = petDe.get(c.id_agendamento)
+    if (pet) guardar(daVisita, pet, t)
+  }
+  const resultado: Record<string, TransporteDoCard> = {}
+  for (const a of agendamentos) {
+    const t = doAgendamento.get(a.id_agendamento) ?? (a.id_pet ? daVisita.get(a.id_pet) : undefined)
+    if (t) resultado[a.id_agendamento] = t
+  }
+  return resultado
+}
+
 // Itens e depois os nomes (sem embed: a relação é de uma migration nova,
 // e o cache de schema do PostgREST já deu trabalho com isso no web).
 async function carregarProdutos(id: string): Promise<ProdutoDoAgendamento[]> {

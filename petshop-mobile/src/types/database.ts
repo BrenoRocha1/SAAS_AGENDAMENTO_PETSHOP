@@ -17,6 +17,8 @@ export interface Agendamento {
   id_funcionario: string | null
   id_servico: string
   id_cliente: string | null
+  // Vem na lista do dia (useAgendamentosDoDia): junta os agendamentos da mesma visita.
+  id_pet?: string | null
   pet: { nome: string; raca: string; especie: Especie | null; porte: Porte | null; foto_url: string | null } | null
   servico: { nome: string } | null
   cliente: { nome: string } | null

@@ -46,6 +46,11 @@
   opacity: 0; cursor: pointer; border: 0; font-size: 1rem; appearance: none;
 }
 
+/* ---------- Etiqueta do TaxiDog no card do Gestor ---------- */
+.kanban-card-taxidog { display: flex; margin-top: 6px; }
+.kanban-card-taxidog .badge { gap: 6px; max-width: 100%; text-transform: none; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kanban-card-taxidog .badge svg { width: 13px; height: 13px; flex-shrink: 0; }
+
 /* ---------- Só no celular ---------- */
 .gestor-dia-linha, .quadro-etapas { display: none; }
 

@@ -16,7 +16,7 @@ import HistoricoAlteracoes from '@/components/lojista/HistoricoAlteracoes'
 import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
 import type { TaxiDogPendente } from '@/lib/actions'
 import { rotuloEstoque } from '@/lib/produto'
-import { formatarReais } from '@/lib/taxidog'
+import { formatarReais, situacaoDoTaxiDog, type TomTaxiDog } from '@/lib/taxidog'
 import { origemTaxiDogDaVisita, type TransporteVisita } from '@/lib/taxidog-visita'
 import TransporteAgendamento from '@/components/lojista/TransporteAgendamento'
 import PagamentoAgendamento from '@/components/lojista/PagamentoAgendamento'
@@ -26,6 +26,7 @@ import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/Dashboar
 import type { FormaPagamento } from '@/lib/pagamento'
 import {
   IconAlert,
+  IconCar,
   IconCheck,
   IconChevronLeft,
   IconChevronRight,
@@ -100,6 +101,14 @@ const COLUNAS: { status: KanbanItem['status']; titulo: string; aba: string; bord
   { status: 'Em andamento', titulo: 'Em Andamento', aba: 'Andamento', borda: 'var(--status-andamento-solid)' },
   { status: 'Concluído', titulo: 'Finalizado', aba: 'Finalizados', borda: 'var(--status-concluido-solid)' },
 ]
+
+// A cor da etiqueta do TaxiDog no card: as mesmas dos selos das etapas.
+const SELO_TAXIDOG: Record<TomTaxiDog, string> = {
+  aguardando: 'badge-pendente',
+  aceito: 'badge-aceito',
+  andamento: 'badge-em-andamento',
+  concluido: 'badge-concluido',
+}
 
 function ehColuna(v: string | null): v is KanbanItem['status'] {
   return COLUNAS.some(c => c.status === v)
@@ -492,6 +501,15 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
 
                           <div className="kanban-card-line"><IconUser /><span>{item.nome_cliente}</span></div>
                           <div className="kanban-card-line"><IconScissors /><span>{item.nome_servico}</span></div>
+                          {/* Tem TaxiDog? A etiqueta diz em que pé está (aguardando, a caminho, chegou…). */}
+                          {item.taxidog && (
+                            <div className="kanban-card-taxidog">
+                              <span className={`badge ${SELO_TAXIDOG[situacaoDoTaxiDog(item.taxidog).tom]}`}>
+                                <IconCar />
+                                {situacaoDoTaxiDog(item.taxidog).texto}
+                              </span>
+                            </div>
+                          )}
                           {item.alterado_cliente && item.status === 'Pendente' && <span className="tag-alterado-cliente">Alterado pelo cliente</span>}
 
                           <div className="kanban-card-prof">
