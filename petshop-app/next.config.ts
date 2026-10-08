@@ -19,6 +19,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // Painel interno: nunca em cache nem em buscador (ver lib/rota-interna).
+        source: '/central-k7x2q9/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, max-age=0' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: [
           // Impede clickjacking
