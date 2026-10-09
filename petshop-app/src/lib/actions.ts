@@ -145,7 +145,7 @@ export async function getGoogleOAuthUrlInternoAction(): Promise<{ error?: string
   })
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: `${origin}/auth/callback`, skipBrowserRedirect: true },
+    options: { redirectTo: `${origin}/auth/callback`, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
   })
   if (error || !data.url) return { error: `Não foi possível conectar com o Google: ${error?.message ?? 'URL não retornada'}` }
   return { url: data.url }
