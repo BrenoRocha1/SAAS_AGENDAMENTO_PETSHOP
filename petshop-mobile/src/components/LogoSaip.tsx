@@ -18,16 +18,16 @@ export function LogoSimbolo({ altura = 28, cor = '#4343e0' }: { altura?: number;
 
 export function LogoSaip({ altura = 28, cor = '#4343e0', corTexto = '#0f1535' }: { altura?: number; cor?: string; corTexto?: string }) {
   return (
-    <Svg width={(altura * 990) / 250} height={altura} viewBox="0 0 990 250">
+    <Svg width={(altura * 930) / 250} height={altura} viewBox="0 0 930 250">
       <G fill={cor}>
         <Path d={FOLHA_GRANDE} />
         <Path d={FOLHA_PEQUENA} />
       </G>
-      <G transform="translate(440 55)" fill="none" stroke={corTexto} strokeWidth={14} strokeLinejoin="miter">
+      <G transform="translate(440 63)" fill="none" stroke={corTexto} strokeWidth={14} strokeLinejoin="miter">
         <Path d="M82 22C72 12 58 9 46 9C26 9 12 19 12 33C12 47 26 53 46 58C66 63 84 70 84 88C84 102 70 112 48 112C30 112 14 106 6 96" />
-        <Path d="M157 120L215 10L273 120M181 90H249" />
-        <Path d="M355 5V120" />
-        <Path d="M450 5V120M450 11H490C520 11 535 25 535 45C535 65 520 79 490 79H450" />
+        <Path d="M148 120L206 10L264 120M172 90H240" />
+        <Path d="M328 5V120" />
+        <Path d="M392 5V120M392 11H432C462 11 477 25 477 45C477 65 462 79 432 79H392" />
       </G>
     </Svg>
   )

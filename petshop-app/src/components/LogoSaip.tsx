@@ -14,9 +14,9 @@ const FOLHAS = (
 const NOME = (
   <g fill="none" stroke="var(--logo-texto, currentColor)" strokeWidth="14" strokeLinejoin="miter">
     <path d="M82 22C72 12 58 9 46 9C26 9 12 19 12 33C12 47 26 53 46 58C66 63 84 70 84 88C84 102 70 112 48 112C30 112 14 106 6 96" />
-    <path d="M157 120L215 10L273 120M181 90H249" />
-    <path d="M355 5V120" />
-    <path d="M450 5V120M450 11H490C520 11 535 25 535 45C535 65 520 79 490 79H450" />
+    <path d="M148 120L206 10L264 120M172 90H240" />
+    <path d="M328 5V120" />
+    <path d="M392 5V120M392 11H432C462 11 477 25 477 45C477 65 462 79 432 79H392" />
   </g>
 )
 
@@ -33,9 +33,9 @@ export function LogoSimbolo({ altura = 28, className, style }: { altura?: number
 export default function LogoSaip({ altura = 28, sufixo, className }: { altura?: number; sufixo?: string; className?: string }) {
   return (
     <span className={`logo-saip ${className ?? ''}`} role="img" aria-label={sufixo ? `SAIP ${sufixo}` : 'SAIP'}>
-      <svg viewBox="0 0 990 250" height={altura} width={(altura * 990) / 250} style={{ flexShrink: 0 }} aria-hidden="true" focusable="false">
+      <svg viewBox="0 0 930 250" height={altura} width={(altura * 930) / 250} style={{ flexShrink: 0 }} aria-hidden="true" focusable="false">
         {FOLHAS}
-        <g transform="translate(440 55)">{NOME}</g>
+        <g transform="translate(440 63)">{NOME}</g>
       </svg>
       {sufixo && <span className="logo-saip-sufixo">{sufixo}</span>}
     </span>
