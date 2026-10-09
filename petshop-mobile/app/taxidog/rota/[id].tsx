@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLocalSearchParams } from 'expo-router'
 import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
@@ -39,7 +39,20 @@ import { dialogo } from '@/lib/dialogo'
 // (fn_iniciar_rota / fn_chegar_parada / fn_concluir_parada, migration 052).
 export default function RotaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  const { rota, loading, erro: erroCarga, recarregar } = useRota(id)
+  const { rota: rotaDoBanco, loading, erro: erroCarga, recarregar } = useRota(id)
+  // O que o toque já mudou na tela, antes de o banco responder: a rota que
+  // saiu, a parada em que chegou, a parada concluída. Com o celular na mão,
+  // na rua, a rede demora — a tela não espera por ela. Quando a gravação
+  // termina (ou é recusada), vale de novo o que vem do banco.
+  const [adiantado, setAdiantado] = useState<{ rota?: 'em_andamento'; paradas: Record<string, 'chegou' | 'concluida'> } | null>(null)
+  const gravando = useRef(false)
+  const rota = rotaDoBanco && adiantado
+    ? {
+        ...rotaDoBanco,
+        status: adiantado.rota ?? rotaDoBanco.status,
+        paradas: rotaDoBanco.paradas.map(p => (adiantado.paradas[p.id_parada] ? { ...p, status: adiantado.paradas[p.id_parada] } : p)),
+      }
+    : rotaDoBanco
   const enderecoLoja = useEnderecoLoja()
   const { marcarFeitoPorMim } = useTaxiDogTempoReal()
   const [enviando, setEnviando] = useState(false)
@@ -61,13 +74,21 @@ export default function RotaScreen() {
     ])
   }
 
-  async function chamar(fn: string, params: Record<string, unknown>) {
+  // `adiantar`: como a tela fica se der certo. Sem ele, o botão espera o banco.
+  async function chamar(fn: string, params: Record<string, unknown>, adiantar?: NonNullable<typeof adiantado>) {
+    if (gravando.current) return
+    gravando.current = true
     setErro(null)
-    setEnviando(true)
+    if (adiantar) setAdiantado(adiantar)
+    else setEnviando(true)
     const { error } = await supabase.rpc(fn, params)
-    setEnviando(false)
     if (error) setErro(error.message)
-    recarregar()
+    // Primeiro chega a rota de verdade; só então sai o que foi adiantado,
+    // para a tela não piscar de volta para a etapa antiga.
+    await recarregar()
+    setAdiantado(null)
+    setEnviando(false)
+    gravando.current = false
   }
 
   if (loading) {
@@ -167,7 +188,7 @@ export default function RotaScreen() {
             <BotaoGrande
               rotulo="INICIAR ROTA"
               carregando={enviando}
-              onPress={() => chamar('fn_iniciar_rota', { p_id_rota: r.id_rota })}
+              onPress={() => chamar('fn_iniciar_rota', { p_id_rota: r.id_rota }, { rota: 'em_andamento', paradas: {} })}
             />
           )}
           {r.status !== 'planejamento' && (
@@ -187,10 +208,17 @@ export default function RotaScreen() {
           total={r.paradas.length}
           enderecoLoja={enderecoLoja}
           enviando={enviando}
-          onChegar={() => chamar('fn_chegar_parada', { p_id_parada: proxima.id_parada })}
+          onChegar={() => chamar('fn_chegar_parada', { p_id_parada: proxima.id_parada }, { paradas: { [proxima.id_parada]: 'chegou' } })}
           onConfirmar={itens => {
             if (itens) marcarFeitoPorMim(r.id_rota)
-            chamar('fn_concluir_parada', { p_id_parada: proxima.id_parada, p_itens: itens })
+            // A próxima parada já aparece. Na última (a rota termina) e
+            // quando algum pet ficou de fora (a rota muda), espera o banco.
+            const temMais = r.paradas.some(p => p.status !== 'concluida' && p.id_parada !== proxima.id_parada)
+            chamar(
+              'fn_concluir_parada',
+              { p_id_parada: proxima.id_parada, p_itens: itens },
+              temMais && !itens ? { paradas: { [proxima.id_parada]: 'concluida' } } : undefined,
+            )
           }}
         />
       )}
