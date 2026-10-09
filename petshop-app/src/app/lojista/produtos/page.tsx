@@ -3,6 +3,7 @@ import { obterUsuario } from '@/lib/supabase/usuario'
 import ProdutosList from '@/components/lojista/ProdutosList'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
+import type { ProdutoFiscal } from '@/lib/fiscal'
 import Ilustracao from '@/components/Ilustracao'
 
 export const metadata: Metadata = { title: 'Produtos' }
@@ -34,7 +35,7 @@ export default async function ProdutosPage() {
   // select — o embed depende do PostgREST reconhecer a FK no cache de
   // schema, e isso já se mostrou frágil logo após rodar a migration.
   // Um select plano não tem essa dependência.
-  const [{ data: produtos }, { data: categorias }, custosRes] = await Promise.all([
+  const [{ data: produtos }, { data: categorias }, custosRes, fiscalRes] = await Promise.all([
     supabase
       .from('produto')
       .select('*')
@@ -51,16 +52,25 @@ export default async function ProdutosPage() {
       .from('produto_custo')
       .select('id_produto, custo_unitario')
       .eq('id_lojista', contexto.idLojista),
+    // Informações fiscais (migration 094) — também à parte e tolerante.
+    supabase
+      .from('produto_fiscal')
+      .select('id_produto, codigo_barras, ncm, cest, cfop, origem, cst_csosn')
+      .eq('id_lojista', contexto.idLojista),
   ])
   const custoPorProduto = new Map(
     ((custosRes.error ? [] : custosRes.data ?? []) as { id_produto: string; custo_unitario: number }[])
       .map(c => [c.id_produto, Number(c.custo_unitario)]),
   )
+  const fiscalPorProduto = new Map(
+    ((fiscalRes.error ? [] : fiscalRes.data ?? []) as (ProdutoFiscal & { id_produto: string })[])
+      .map(({ id_produto, ...f }) => [id_produto, f]),
+  )
   // Produto excluído depois de vendido (migration 087) continua no banco
   // pelo histórico, mas não aparece mais aqui. Sem a coluna, ninguém sai.
   const produtosComCusto = (produtos ?? [])
     .filter(p => !p.excluido_em)
-    .map(p => ({ ...p, custo_unitario: custoPorProduto.get(p.id_produto) ?? null }))
+    .map(p => ({ ...p, custo_unitario: custoPorProduto.get(p.id_produto) ?? null, fiscal: fiscalPorProduto.get(p.id_produto) ?? null }))
 
   return (
     <>
@@ -68,7 +78,7 @@ export default async function ProdutosPage() {
         <h1 className="page-title">Produtos</h1>
         <p className="page-subtitle">Cadastre e controle os produtos vendidos pelo seu petshop</p>
       </div>
-      <ProdutosList produtos={produtosComCusto} categorias={categorias ?? []} cmvAtivo={!custosRes.error} />
+      <ProdutosList produtos={produtosComCusto} categorias={categorias ?? []} cmvAtivo={!custosRes.error} fiscalAtivo={!fiscalRes.error} />
     </>
   )
 }

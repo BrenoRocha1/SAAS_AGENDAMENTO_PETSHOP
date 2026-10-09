@@ -39,12 +39,13 @@ export default async function PdvPage() {
   const hoje = hojeBrasilISO()
   const inicioHoje = `${hoje}T00:00:00-03:00`
 
-  const [produtosRes, categoriasRes, formasRes, lojaRes, hojeRes] = await Promise.all([
+  const [produtosRes, categoriasRes, formasRes, lojaRes, hojeRes, barrasRes] = await Promise.all([
     supabase
       .from('produto')
       .select('id_produto, nome, id_categoria, unidade_venda, preco_venda, estoque_atual, estoque_minimo, foto_url')
       .eq('id_lojista', contexto.idLojista)
       .eq('status', 'Ativo')
+      .is('excluido_em', null)
       .order('nome'),
     supabase
       .from('categoria_produto')
@@ -60,6 +61,13 @@ export default async function PdvPage() {
       .eq('id_lojista', contexto.idLojista)
       .eq('status', 'concluida')
       .gte('created_at', inicioHoje),
+    // Código de barras (migration 094) — tolerante: sem a tabela, o leitor
+    // só não acha por código.
+    supabase
+      .from('produto_fiscal')
+      .select('id_produto, codigo_barras')
+      .eq('id_lojista', contexto.idLojista)
+      .not('codigo_barras', 'is', null),
   ])
 
   if (hojeRes.error) {
@@ -79,6 +87,10 @@ export default async function PdvPage() {
     )
   }
 
+  const barrasPorProduto = new Map(
+    ((barrasRes.error ? [] : barrasRes.data ?? []) as { id_produto: string; codigo_barras: string }[])
+      .map(b => [b.id_produto, b.codigo_barras]),
+  )
   const produtos: ProdutoPdv[] = (produtosRes.data ?? []).map(p => ({
     id_produto: p.id_produto,
     nome: p.nome,
@@ -88,6 +100,7 @@ export default async function PdvPage() {
     estoque_atual: Number(p.estoque_atual),
     estoque_minimo: Number(p.estoque_minimo),
     foto_url: p.foto_url,
+    codigo_barras: barrasPorProduto.get(p.id_produto) ?? null,
   }))
 
   const vendasHoje = hojeRes.data ?? []

@@ -44,6 +44,8 @@ import {
 } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
 import './produtos-grade.css'
+import CamposFiscaisProduto from '@/components/lojista/CamposFiscaisProduto'
+import type { ProdutoFiscal } from '@/lib/fiscal'
 
 interface Categoria {
   id_categoria: string
@@ -63,6 +65,8 @@ interface Produto {
   disponivel_agendamento_online: boolean
   // Custo por unidade (CMV, migration 062) — vem de produto_custo.
   custo_unitario?: number | null
+  // Informações fiscais (migration 094) — vem de produto_fiscal.
+  fiscal?: ProdutoFiscal | null
 }
 
 interface Props {
@@ -70,6 +74,8 @@ interface Props {
   categorias: Categoria[]
   // false = migration 062 ainda não rodou (campo de custo escondido).
   cmvAtivo?: boolean
+  // false = migration 094 ainda não rodou (seção fiscal escondida).
+  fiscalAtivo?: boolean
 }
 
 // "32,5% (R$ 6,40 por unidade)" — margem sobre o preço de venda.
@@ -88,7 +94,7 @@ const TIPOS_IMAGEM_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
 const IMAGEM_TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB — mesmo limite do servidor
 const MODO_VISUALIZACAO_STORAGE_KEY = 'petshop:produtos:modo-visualizacao'
 
-export default function ProdutosList({ produtos: inicial, categorias: categoriasIniciais, cmvAtivo = false }: Props) {
+export default function ProdutosList({ produtos: inicial, categorias: categoriasIniciais, cmvAtivo = false, fiscalAtivo = false }: Props) {
   const [produtos, setProdutos] = useState<Produto[]>(inicial)
   const [categorias, setCategorias] = useState<Categoria[]>(categoriasIniciais)
   const [busca, setBusca] = useState('')
@@ -885,6 +891,8 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                     </p>
                   </>
                 )}
+
+                {fiscalAtivo && <CamposFiscaisProduto inicial={editando?.fiscal} />}
 
                 <div className="flex items-center justify-between gap-3" style={{ padding: 'var(--space-3)', background: 'var(--gray-850)', borderRadius: 'var(--radius-md)' }}>
                   <div>
