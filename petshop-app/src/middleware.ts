@@ -84,8 +84,6 @@ export async function middleware(request: NextRequest) {
       const areasPermitidas = [
         '/lojista/agendamentos', '/lojista/kanban', '/lojista/taxidog', '/lojista/servicos',
         '/lojista/produtos', '/lojista/pdv', '/lojista/clientes', '/lojista/pets',
-        // WhatsApp (permissão própria, migration 088).
-        '/lojista/whatsapp',
       ]
       const permitido = areasPermitidas.some(p => pathname === p || pathname.startsWith(`${p}/`))
       if (!permitido) {

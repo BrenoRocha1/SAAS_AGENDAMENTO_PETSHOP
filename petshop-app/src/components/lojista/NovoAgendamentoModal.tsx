@@ -67,9 +67,6 @@ interface Props {
   // selecionado e travado, sem precisar buscar de novo quem já está na
   // tela de origem.
   clienteIdFixo?: string
-  // Pet que já sai escolhido junto com o cliente fixo (vem da conversa de
-  // WhatsApp que trata de um pet). Continua dando para trocar.
-  petIdInicial?: string
   // Vem do perfil do funcionário ("Novo Agendamento") — só um valor
   // inicial pro select de profissional (esse campo já era opcional e
   // continua editável, diferente do cliente, que vem travado).
@@ -142,7 +139,7 @@ function ItemDoResumo({ icone: Icone, texto, detalhe, vazio, valor, onClick, des
   )
 }
 
-export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes, servicos, funcionarios, clienteIdFixo, petIdInicial, funcionarioIdPadrao, podeAtribuirProfissional = true, onClose, onCreated }: Props) {
+export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes, servicos, funcionarios, clienteIdFixo, funcionarioIdPadrao, podeAtribuirProfissional = true, onClose, onCreated }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [isPending, startTransition] = useTransition()
   const [isPendingPet, startPetTransition] = useTransition()
@@ -152,7 +149,6 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
   // Cliente com um pet só: o pet já sai escolhido (aqui e em escolherCliente).
   const [petId, setPetId] = useState(() => {
     const pets = clientes.find(c => c.id_cliente === clienteIdFixo)?.pets ?? []
-    if (petIdInicial && pets.some(p => p.id_pet === petIdInicial)) return petIdInicial
     return pets.length === 1 ? pets[0].id_pet : ''
   })
   const [etapaEscolhida, setEtapa] = useState<Etapa>(!clienteIdFixo ? 'cliente' : petId ? 'servico' : 'pet')

@@ -23,9 +23,6 @@ export interface ContextoLojista {
   // Função TaxiDog (migration 042) — não é permissão: dá acesso só às
   // corridas atribuídas a ele, nada mais.
   podeTaxidog: boolean
-  // Atender o WhatsApp da loja (migration 088). Dono e administrador
-  // sempre podem.
-  podeAtenderWhatsapp: boolean
 }
 
 export async function obterContextoLojista(
@@ -43,7 +40,6 @@ export async function obterContextoLojista(
       podeGerenciarClientesPets: true,
       acessoTotal: true,
       podeTaxidog: false,
-      podeAtenderWhatsapp: true,
     }
   }
 
@@ -65,14 +61,6 @@ export async function obterContextoLojista(
 
     if (!data) return null
 
-    // pode_atender_whatsapp (migration 088) numa consulta à parte: enquanto
-    // a coluna não existir, ela falha sozinha e o resto segue igual.
-    let podeAtenderWhatsapp = data.acesso_total
-    if (!podeAtenderWhatsapp) {
-      const whatsapp = await supabase.from('funcionario').select('pode_atender_whatsapp').eq('id_funcionario', userId).maybeSingle()
-      podeAtenderWhatsapp = !!(whatsapp.data as { pode_atender_whatsapp?: boolean } | null)?.pode_atender_whatsapp
-    }
-
     return {
       idLojista: data.id_lojista,
       role: 'funcionario',
@@ -82,7 +70,6 @@ export async function obterContextoLojista(
       podeGerenciarClientesPets: data.pode_gerenciar_clientes_pets || data.acesso_total,
       acessoTotal: data.acesso_total,
       podeTaxidog: !!data.pode_taxidog,
-      podeAtenderWhatsapp,
     }
   }
 

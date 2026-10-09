@@ -245,10 +245,6 @@ a:hover { color: var(--primary-300); }
 .app-sidebar [data-slot="sidebar-section"] > div:first-child:not(:last-child) { flex-shrink: 0; }
 .app-sidebar [data-slot="sidebar-section"] > div:last-child { flex: 1 1 0; min-height: 0; gap: 2px; }
 .app-sidebar [data-slot="sidebar-nav"] [data-slot="sidebar-item"] { flex: 0 1 44px; min-height: 28px; }
-/* Menu com mais de uma seção ("Menu" e "Comunicação"): cada seção ocupa o
-   que os seus itens pedem, e encolhem juntas quando a tela é baixa. */
-.app-sidebar [data-slot="sidebar-section"].sidebar-secao-junta { flex: 0 1 auto; }
-.app-sidebar [data-slot="sidebar-section"].sidebar-secao-junta > div:last-child { flex: 0 1 auto; }
 .app-sidebar [data-slot="sidebar-footer"] [data-slot="sidebar-item"] { height: 40px; flex-shrink: 0; }
 @media (max-height: 600px) {
   .app-sidebar [data-slot="sidebar-item"] { font-size: 0.875rem; }
