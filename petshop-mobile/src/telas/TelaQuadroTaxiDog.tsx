@@ -108,10 +108,13 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
   const { versao, marcarFeitoPorMim } = useTaxiDogTempoReal()
   const motorista = modo === 'motorista'
   const idLojista = contexto?.idLojista
-  const podeAtribuir = !!contexto?.podeGerenciarAgenda
+  // Em "Minhas corridas" ninguém distribui corridas — nem quem também
+  // gerencia a agenda: ali ele é TaxiDog.
+  const gestor = !!contexto?.podeGerenciarAgenda
+  const podeAtribuir = gestor && !motorista
   // "Atribuir para mim": quem é TaxiDog e não distribui as corridas.
   const podeAssumir = !!contexto?.podeTaxidog && !podeAtribuir
-  const pode = motorista ? !!contexto?.podeTaxidog : podeAtribuir
+  const pode = motorista ? !!contexto?.podeTaxidog : gestor
 
   const hoje = hojeBrasilISO()
   // `data`: o dia em que a pessoa estava no Gestor de Agendamentos.
@@ -155,7 +158,10 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
     } else {
       const todas = ((lista.data ?? []) as Record<string, unknown>[]).map(normalizarCorrida)
       // De dias anteriores, só o que ainda está aberto.
-      const doQuadro = todas.filter(c => c.dt_agendamento === data || (motorista && c.dt_agendamento < data && !encerrada(c.status)))
+      // Quem gerencia a agenda recebe todas as corridas da loja; em "Minhas
+      // corridas" ficam só as dele e as ainda sem TaxiDog.
+      const minhas = motorista && gestor ? todas.filter(c => !c.id_funcionario || c.id_funcionario === user?.id) : todas
+      const doQuadro = minhas.filter(c => c.dt_agendamento === data || (motorista && c.dt_agendamento < data && !encerrada(c.status)))
       setErroCarga(null)
       setCorridas(doQuadro.map(c => {
         const mudanca = pendentes.current.get(c.id_corrida)
@@ -167,7 +173,7 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
     setTaxidogs((publicos.data ?? []) as { id_funcionario: string; nome: string }[])
     setCarregadoEm(data)
     setLoading(false)
-  }, [idLojista, pode, motorista, podeAtribuir, data])
+  }, [idLojista, pode, motorista, podeAtribuir, gestor, user?.id, data])
 
   useFocusEffect(useCallback(() => { carregar() }, [carregar]))
   useEffect(() => { if (versao > 0) carregar() }, [versao, carregar])

@@ -23,7 +23,7 @@ import Ilustracao from '@/components/Ilustracao'
 export const metadata: Metadata = { title: 'Relatório de corridas — TaxiDog' }
 
 interface Props {
-  searchParams: Promise<{ de?: string; ate?: string; taxidog?: string }>
+  searchParams: Promise<{ de?: string; ate?: string; taxidog?: string; modo?: string }>
 }
 
 const DATA_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -48,7 +48,9 @@ export default async function RelatorioCorridasPage({ searchParams }: Props) {
   // Quem gerencia a agenda vê todas as corridas da loja; o TaxiDog, só as
   // dele (fn_listar_corridas ainda devolve as sem TaxiDog pra ele poder
   // pegar — aqui elas não contam, não são dele).
-  const gestor = contexto.podeGerenciarAgenda
+  // ?modo=minhas: quem gerencia a agenda E é TaxiDog vê só as corridas dele.
+  const minhas = params.modo === 'minhas' && contexto.podeTaxidog
+  const gestor = contexto.podeGerenciarAgenda && !minhas
   const modoMotorista = !gestor && contexto.podeTaxidog
 
   const cabecalho = (
@@ -57,7 +59,7 @@ export default async function RelatorioCorridasPage({ searchParams }: Props) {
         <h1 className="page-title">Relatório de corridas</h1>
         <p className="page-subtitle">{modoMotorista ? 'As corridas que você fez no período' : 'Corridas do TaxiDog da loja no período'}</p>
       </div>
-      <Link href={modoMotorista ? '/lojista/taxidog' : '/lojista/kanban?visao=taxidog'} className="btn btn-ghost btn-sm">
+      <Link href={modoMotorista ? (minhas ? '/lojista/taxidog?modo=minhas' : '/lojista/taxidog') : '/lojista/kanban?visao=taxidog'} className="btn btn-ghost btn-sm">
         <IconChevronLeft style={{ width: 14, height: 14 }} /> {modoMotorista ? 'Minhas corridas' : 'Corridas do TaxiDog'}
       </Link>
     </div>
@@ -154,6 +156,7 @@ export default async function RelatorioCorridasPage({ searchParams }: Props) {
           ate={ate}
           filtroTaxidog={filtroTaxidog}
           dataMax={modoMotorista ? hoje : undefined}
+          minhas={minhas}
         />
         {/* Filtro por TaxiDog (formulário GET), mantendo o período. */}
         {gestor && taxidogsDoPeriodo.length > 0 && (

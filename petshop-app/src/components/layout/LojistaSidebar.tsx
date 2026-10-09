@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import BarraLateral from '@/components/layout/BarraLateral'
 import {
   IconPaw,
@@ -38,6 +38,10 @@ const navItemsBase = [
   // "Minhas rotas") e pra loja com o Kanban desativado.
   { href: '/lojista/taxidog',       icon: IconCar,       label: 'TaxiDog', condicao: 'taxidog' as const, permissao: 'agenda' as const },
   { href: '/lojista/taxidog/rotas', icon: IconRoute,     label: 'Rotas do TaxiDog', condicao: 'taxidogRotas' as const },
+  // Quem gerencia a agenda E é TaxiDog: as próprias corridas e rotas, além
+  // da visão de gestor (?modo=minhas abre as telas como TaxiDog).
+  { href: '/lojista/taxidog?modo=minhas', icon: IconCar, label: 'Minhas corridas', condicao: 'minhas' as const },
+  { href: '/lojista/taxidog/rotas?modo=minhas', icon: IconRoute, label: 'Minhas rotas', condicao: 'minhas' as const },
   { href: '/lojista/taxidog/relatorio', icon: IconChartBar, label: 'Relatório de corridas', condicao: 'taxidogRelatorio' as const },
   { href: '/lojista/relatorios',    icon: IconChartBar,  label: 'Relatórios de Vendas', restrito: true },
   // Planos recorrentes (migration 060) — financeiro: dono/administrador.
@@ -107,6 +111,7 @@ export default function LojistaSidebar({
     if (item.condicao === 'taxidog') return soMotorista || (gestorDaAgenda && taxidogAtivo && !kanbanAtivo)
     if (item.condicao === 'taxidogRotas') return soMotorista || (gestorDaAgenda && taxidogAtivo && !kanbanAtivo)
     if (item.condicao === 'taxidogRelatorio') return podeTaxidog
+    if (item.condicao === 'minhas') return podeTaxidog && gestorDaAgenda
     if (role === 'funcionario' && !acessoTotal) {
       if (item.restrito) return false
       if (item.permissao === 'agenda') return podeGerenciarAgenda
@@ -117,13 +122,17 @@ export default function LojistaSidebar({
     return true
   })
   const pathname = usePathname()
+  const modoMinhas = useSearchParams()?.get('modo') === 'minhas'
   // Item ativo = o de caminho mais específico ("/lojista/taxidog/relatorio"
   // não acende também "/lojista/taxidog"). `tambem` = outras telas que
   // pertencem ao item.
+  // Os itens "Minhas …" (com ?modo=minhas) acendem só nesse modo, e os
+  // outros não acendem nele.
   const hrefAtivo = navItems
+    .filter(i => i.href.includes('?modo=minhas') === (modoMinhas && pathname.startsWith('/lojista/taxidog')))
     .map(i => ({
       href: i.href,
-      alcance: [i.href, ...(i.tambem ?? [])]
+      alcance: [i.href.split('?')[0], ...(i.tambem ?? [])]
         .filter(h => pathname === h || pathname.startsWith(`${h}/`))
         .reduce((maior, h) => Math.max(maior, h.length), -1),
     }))

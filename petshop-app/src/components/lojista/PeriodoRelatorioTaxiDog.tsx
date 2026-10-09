@@ -14,12 +14,14 @@ interface Props {
   filtroTaxidog: string
   // Último dia que dá pra escolher (o TaxiDog não vê dia que ainda não chegou).
   dataMax?: string
+  // "Minhas corridas" de quem gerencia a agenda E é TaxiDog (?modo=minhas).
+  minhas?: boolean
 }
 
 // Período do relatório de corridas do TaxiDog. Lá o período mora na URL
 // como de/até (sem "periodo="): vale o pronto que bate com as datas e,
 // se nenhum bate, "Personalizado".
-export default function PeriodoRelatorioTaxiDog({ presets, de, ate, filtroTaxidog, dataMax }: Props) {
+export default function PeriodoRelatorioTaxiDog({ presets, de, ate, filtroTaxidog, dataMax, minhas = false }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   // A pessoa escolheu "Personalizado" e ainda não aplicou um período.
@@ -31,6 +33,7 @@ export default function PeriodoRelatorioTaxiDog({ presets, de, ate, filtroTaxido
   function ir(novoDe: string, novoAte: string) {
     const qs = new URLSearchParams({ de: novoDe, ate: novoAte })
     if (filtroTaxidog) qs.set('taxidog', filtroTaxidog)
+    if (minhas) qs.set('modo', 'minhas')
     startTransition(() => router.push(`/lojista/taxidog/relatorio?${qs}`))
   }
 

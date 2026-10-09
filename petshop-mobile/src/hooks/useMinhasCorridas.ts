@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { normalizarCorrida, type Corrida } from '@/lib/taxidog'
+import { useAuth } from '@/contexts/AuthContext'
 import { useTaxiDogTempoReal } from '@/contexts/TaxiDogContext'
 
 // Rota ativa em que a corrida ainda tem parada por fazer (migration 053):
@@ -39,6 +40,8 @@ export function useMinhasCorridas(dataIni: string, dataFim: string) {
   const [rotaPorCorrida, setRotaPorCorrida] = useState<Record<string, RotaDaCorrida>>({})
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const { session } = useAuth()
+  const userId = session?.user.id
 
   const carregar = useCallback(async () => {
     const { data, error } = await supabase.rpc('fn_listar_corridas', { p_data_ini: dataIni, p_data_fim: dataFim })
@@ -47,13 +50,16 @@ export function useMinhasCorridas(dataIni: string, dataFim: string) {
         ? 'O TaxiDog ainda não foi ativado no sistema da loja.'
         : 'Não foi possível carregar as corridas.')
     } else {
+      // Para quem também gerencia a agenda o banco devolve todas as corridas
+      // da loja: aqui ficam só as dele e as ainda sem TaxiDog.
       const lista = ((data ?? []) as Record<string, unknown>[]).map(normalizarCorrida)
+        .filter(c => !c.id_funcionario || c.id_funcionario === userId)
       setErro(null)
       setCorridas(lista)
       setRotaPorCorrida(await rotasDasCorridas(lista.map(c => c.id_corrida)))
     }
     setLoading(false)
-  }, [dataIni, dataFim])
+  }, [dataIni, dataFim, userId])
 
   useFocusEffect(useCallback(() => { carregar() }, [carregar]))
 

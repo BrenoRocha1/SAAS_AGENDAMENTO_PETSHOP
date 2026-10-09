@@ -41,7 +41,7 @@ function descreverPlano(plano: ParadaPlano[], trechos: TrechoPendente[]): string
 
 export default function MontarRotaScreen() {
   const router = useRouter()
-  const { contexto } = useAuth()
+  const { contexto, user } = useAuth()
   const { marcarFeitoPorMim } = useTaxiDogTempoReal()
   // Só com as corridas de hoje — o TaxiDog não vê os dias seguintes.
   const dia = hojeBrasilISO()
@@ -66,12 +66,15 @@ export default function MontarRotaScreen() {
       setTrechos([])
     } else {
       setErro(null)
-      setTrechos(((pend.data ?? []) as Record<string, unknown>[]).map(normalizarTrecho))
+      // Quem também gerencia a agenda recebe as solicitações de todos os
+      // TaxiDogs: aqui só as dele e as ainda sem TaxiDog.
+      setTrechos(((pend.data ?? []) as Record<string, unknown>[]).map(normalizarTrecho)
+        .filter(t => !t.id_funcionario || t.id_funcionario === user?.id))
     }
     setPrecisaAprovacao(aprov.data !== false)
     setMarcados(new Set())
     setLoading(false)
-  }, [dia, idLojista])
+  }, [dia, idLojista, user?.id])
 
   useFocusEffect(useCallback(() => { carregar() }, [carregar]))
 
@@ -93,7 +96,8 @@ export default function MontarRotaScreen() {
     setEnviando(true)
     const { data, error } = await supabase.rpc('fn_criar_rota', {
       p_data: dia,
-      p_id_funcionario: null,
+      // Gestor que também é TaxiDog: sem isto a rota sairia sem TaxiDog.
+      p_id_funcionario: contexto?.podeGerenciarAgenda ? user?.id ?? null : null,
       p_paradas: montarPlanoInicial(escolhidos),
     })
     setEnviando(false)

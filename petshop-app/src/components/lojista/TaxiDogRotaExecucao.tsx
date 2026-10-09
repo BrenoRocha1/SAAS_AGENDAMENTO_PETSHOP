@@ -126,7 +126,7 @@ export default function TaxiDogRotaExecucao({ rota: r, perfil, precisaAprovacao,
 
   return (
     <div className="tdm">
-      <Link href={`${caminho}?data=${r.data}`} className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }}>
+      <Link href={`${caminho}${caminho.includes('?') ? '&' : '?'}data=${r.data}`} className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }}>
         <IconChevronLeft style={{ width: 14, height: 14 }} /> Rotas do dia
       </Link>
 

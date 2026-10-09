@@ -16,7 +16,7 @@ import Ilustracao from '@/components/Ilustracao'
 export const metadata: Metadata = { title: 'TaxiDog — Rotas' }
 
 interface Props {
-  searchParams: Promise<{ data?: string; rota?: string }>
+  searchParams: Promise<{ data?: string; rota?: string; modo?: string }>
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -33,12 +33,15 @@ export default async function RotasTaxiDogPage({ searchParams }: Props) {
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
   if (!contexto) return null
 
-  const perfil: PerfilRotas = contexto.podeGerenciarAgenda ? 'gestor' : 'taxidog'
+  // ?modo=minhas: quem gerencia a agenda E é TaxiDog vê "Minhas rotas"
+  // (só as dele, e a rota que montar já fica com ele).
+  const minhas = params.modo === 'minhas' && contexto.podeTaxidog
+  const perfil: PerfilRotas = contexto.podeGerenciarAgenda && !minhas ? 'gestor' : 'taxidog'
   const hojeISO = hojeBrasilISO()
   // O TaxiDog vê só as rotas de hoje; a gestão navega pelos dias.
   let data = perfil === 'gestor' && params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO
   const idRota = params.rota && UUID_RE.test(params.rota) ? params.rota : null
-  const caminho = '/lojista/taxidog/rotas'
+  const caminho = minhas ? '/lojista/taxidog/rotas?modo=minhas' : '/lojista/taxidog/rotas'
 
   const cabecalho = (
     <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
@@ -46,7 +49,7 @@ export default async function RotasTaxiDogPage({ searchParams }: Props) {
         <h1 className="page-title">{perfil === 'taxidog' ? 'Minhas rotas' : 'Rotas do TaxiDog'}</h1>
         <p className="page-subtitle">Junte várias buscas e entregas numa rota só</p>
       </div>
-      <Link href={perfil === 'taxidog' ? '/lojista/taxidog' : `/lojista/kanban?visao=taxidog&data=${data}`} className="btn btn-ghost btn-sm">
+      <Link href={perfil === 'taxidog' ? (minhas ? '/lojista/taxidog?modo=minhas' : '/lojista/taxidog') : `/lojista/kanban?visao=taxidog&data=${data}`} className="btn btn-ghost btn-sm">
         <IconKanban style={{ width: 14, height: 14 }} /> {perfil === 'taxidog' ? 'Minhas corridas' : 'Corridas do TaxiDog'}
       </Link>
     </div>
@@ -109,7 +112,12 @@ export default async function RotasTaxiDogPage({ searchParams }: Props) {
   const enderecoLoja = lojaRow ? formatarEnderecoLoja(lojaRow) : ''
   // Sem a coluna (migration 053 não rodou) conta como "precisa aprovar".
   const precisaAprovacao = !(configRes.data as { taxidog_cria_rotas?: boolean } | null)?.taxidog_cria_rotas
-  const pendentes = ((pendentesRes.data ?? []) as Record<string, unknown>[]).map(normalizarTrecho)
+  let pendentes = ((pendentesRes.data ?? []) as Record<string, unknown>[]).map(normalizarTrecho)
+  // "Minhas rotas" de quem também gerencia a agenda: o banco devolve as
+  // solicitações de todos; ficam só as dele e as ainda sem TaxiDog.
+  if (minhas && contexto.podeGerenciarAgenda) {
+    pendentes = pendentes.filter(t => !t.id_funcionario || t.id_funcionario === user!.id)
+  }
 
   if (idRota) {
     return (
@@ -156,6 +164,7 @@ export default async function RotasTaxiDogPage({ searchParams }: Props) {
         taxidogs={(taxidogs ?? []) as TaxiDogOpcao[]}
         enderecoLoja={enderecoLoja}
         googleConfigurado={googleMapsConfigurado()}
+        idTaxidogProprio={minhas && contexto.podeGerenciarAgenda ? user!.id : null}
       />
     </>
   )
