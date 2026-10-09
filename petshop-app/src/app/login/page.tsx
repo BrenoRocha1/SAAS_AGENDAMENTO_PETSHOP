@@ -315,6 +315,7 @@ function LoginFormPane() {
           {oauthPending ? 'Conectando...' : 'Continuar com o Google'}
         </button>
 
+
         {/* Equipe do petshop: entra só com o código de 6 dígitos que o
             responsável gera (sem e-mail nem senha). */}
         <Link href="/login/funcionario" className="login-btn-outline">
@@ -322,37 +323,6 @@ function LoginFormPane() {
           Código de acesso rápido
         </Link>
 
-        <div className="login-switch-perfil">
-          {isLojista ? (
-            <>
-              <span>É cliente?</span>
-              <button type="button" className="login-switch-link" onClick={() => { setPerfil('cliente'); setError(null) }}>
-                Entrar como cliente
-              </button>
-            </>
-          ) : (
-            <>
-              <span>É lojista / petshop?</span>
-              <button type="button" className="login-switch-link" onClick={() => { setPerfil('lojista'); setError(null) }}>
-                Entrar como lojista
-              </button>
-            </>
-          )}
-        </div>
-
-        <div className="login-register-hint">
-          {isLojista ? (
-            <>
-              Não tem conta?{' '}
-              <Link href="/cadastro/lojista">Cadastrar meu petshop</Link>
-            </>
-          ) : (
-            <>
-              Não tem conta?{' '}
-              <Link href={redirectTo ? `/cadastro?redirectTo=${encodeURIComponent(redirectTo)}` : '/cadastro'}>Criar conta como cliente</Link>
-            </>
-          )}
-        </div>
       </div>
     </div>
   )

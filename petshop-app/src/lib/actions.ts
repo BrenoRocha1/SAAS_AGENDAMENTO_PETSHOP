@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
+import { cookies, headers } from 'next/headers'
+import { COOKIE_LOGIN_INTERNO } from '@/lib/impersonar'
 import { gerarEmailInterno } from '@/lib/email-interno'
 import { trocarCodigoPorToken } from '@/lib/codigo-acesso'
 import {
@@ -118,6 +119,9 @@ export async function getGoogleOAuthUrlAction(role?: string, voltarPara?: string
     options: {
       redirectTo: callbackUrl,
       skipBrowserRedirect: true,
+      // Sem isto o Google reaproveita a conta que já está aberta no navegador e
+      // entra sozinho depois do "Sair". Assim ele sempre mostra a escolha de conta.
+      queryParams: { prompt: 'select_account' },
     },
   })
 
@@ -127,6 +131,23 @@ export async function getGoogleOAuthUrlAction(role?: string, voltarPara?: string
   
   // Retorna a URL para o cliente fazer o redirecionamento.
   // Isso evita o bug do Next.js/Vercel onde Set-Cookie é perdido em redirects 30x para URLs externas.
+  return { url: data.url }
+}
+
+// Login do painel interno (/central-…/entrar): mesmo fluxo do Google, mas
+// deixa um cookie curto para o callback mandar de volta ao painel (só se a
+// conta for mesmo de administrador — o callback confere).
+export async function getGoogleOAuthUrlInternoAction(): Promise<{ error?: string; url?: string }> {
+  const supabase = await createClient()
+  const origin = await obterOriginDaRequisicao()
+  ;(await cookies()).set(COOKIE_LOGIN_INTERNO, '1', {
+    httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 10,
+  })
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${origin}/auth/callback`, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
+  })
+  if (error || !data.url) return { error: `Não foi possível conectar com o Google: ${error?.message ?? 'URL não retornada'}` }
   return { url: data.url }
 }
 
@@ -371,6 +392,15 @@ export async function cadastroClienteAction(formData: FormData) {
   redirect(volta ?? '/cliente/dashboard')
 }
 
+// CPF/CNPJ da loja (migration 092): fica numa coluna própria, fora do RPC
+// de cadastro. Gravar dispara a trava do período de teste no banco (documento
+// já usado por outra conta = teste encerrado). Sem a migration a coluna não
+// existe e o cadastro segue — só sem a trava de documento.
+async function gravarDocumentoLoja(db: NonNullable<ReturnType<typeof createAdminClient>>, idLojista: string, documento: string) {
+  const { error } = await db.from('lojista').update({ documento }).eq('id_lojista', idLojista)
+  if (error) console.error('[cadastro lojista] não gravou o documento:', error.message)
+}
+
 export async function cadastroLojistaAction(formData: FormData) {
   // Campos opcionais do schema (descricao/endereco/cidade/estado/cep) só devem
   // ir para o Zod como `undefined` quando não preenchidos. Vindos de <input>/
@@ -382,6 +412,7 @@ export async function cadastroLojistaAction(formData: FormData) {
     nome_loja: formData.get('nome_loja') as string,
     email: formData.get('email') as string,
     telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
+    documento: ((formData.get('documento') as string) ?? '').replace(/\D/g, ''),
     descricao: (formData.get('descricao') as string) || undefined,
     endereco: (formData.get('endereco') as string) || undefined,
     cidade: (formData.get('cidade') as string) || undefined,
@@ -498,6 +529,7 @@ export async function cadastroLojistaAction(formData: FormData) {
   if (numeroLoja) {
     await adminClient.from('lojista').update({ numero: numeroLoja }).eq('id_lojista', authData.user.id)
   }
+  await gravarDocumentoLoja(adminClient, authData.user.id, parsed.data.documento)
 
   // ── PASSO 4: Estabelecer sessão para o redirect ───────────────────────────
   // O adminClient não lida com cookies/sessão do browser.
@@ -617,6 +649,7 @@ export async function completarCadastroLojistaGoogleAction(formData: FormData) {
   const raw = {
     nome_loja: formData.get('nome_loja') as string,
     telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
+    documento: ((formData.get('documento') as string) ?? '').replace(/\D/g, ''),
     descricao: (formData.get('descricao') as string) || undefined,
     endereco: (formData.get('endereco') as string) || undefined,
     cidade: (formData.get('cidade') as string) || undefined,
@@ -656,6 +689,7 @@ export async function completarCadastroLojistaGoogleAction(formData: FormData) {
   }
 
   // Número da loja em campo próprio (migration 045) — ver cadastroLojistaAction.
+  await gravarDocumentoLoja(adminClient, user.id, parsed.data.documento)
   const numeroLoja = (formData.get('numero') as string)?.trim().slice(0, 20)
   if (numeroLoja) {
     await adminClient.from('lojista').update({ numero: numeroLoja }).eq('id_lojista', user.id)

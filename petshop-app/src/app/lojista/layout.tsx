@@ -8,6 +8,10 @@ import NotificacaoTaxiDog from '@/components/lojista/NotificacaoTaxiDog'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 import { ehEmailInterno } from '@/lib/email-interno'
+import { acessoDaLoja, testeBloqueado } from '@/lib/acesso-loja'
+import AcessoExpirado from '@/components/acesso/AcessoExpirado'
+import FaixaTeste from '@/components/acesso/FaixaTeste'
+import FaixaImpersonando from '@/components/acesso/FaixaImpersonando'
 
 export const metadata: Metadata = { title: 'Dashboard — Lojista' }
 
@@ -97,8 +101,15 @@ export default async function LojistaLayout({
     ? ((funcionario as { nome: string } | null)?.nome ?? 'Funcionário')
     : nomeLoja
 
+  // Período de teste de 30 dias (migration 088): acabou → só a tela de aviso.
+  const acesso = await acessoDaLoja(supabase, contexto.idLojista)
+  if (!acesso.liberado) {
+    return <AcessoExpirado nomeLoja={nomeLoja} ehDono={contexto.role === 'lojista'} repetido={await testeBloqueado(supabase, contexto.idLojista)} />
+  }
+
   return (
     <div className="app-layout lojista-shell">
+      <FaixaImpersonando />
       <NotificacaoNovoAgendamento lojistaId={contexto.idLojista} somAtivo={somAtivo} somTipo={somTipo} />
       <AtualizacaoAoVivo lojistaId={contexto.idLojista} />
       {/* Avisos do TaxiDog: corridas/rotas pra quem é TaxiDog, rota para
@@ -128,7 +139,12 @@ export default async function LojistaLayout({
         podeTaxidog={contexto.podeTaxidog}
       />
       <main className="app-main">
-        <div className="app-content">{children}</div>
+        <div className="app-content">
+          {!acesso.livre && acesso.diasRestantes !== null && acesso.diasRestantes <= 7 && contexto.role === 'lojista' && (
+            <FaixaTeste dias={acesso.diasRestantes} />
+          )}
+          {children}
+        </div>
       </main>
     </div>
   )

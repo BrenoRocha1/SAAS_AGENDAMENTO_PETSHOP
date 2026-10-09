@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { acessoDaLoja } from '@/lib/acesso-loja'
 import { obterUsuario } from '@/lib/supabase/usuario'
 import type { Metadata } from 'next'
 import { diaSemanaBrasil, agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
@@ -66,7 +67,9 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
         .maybeSingle()
     : { data: null, error: null }
 
-  if (lojistaError || !lojista || !lojista.ativo) {
+  const acessoLiberado = lojista ? (await acessoDaLoja(supabase, lojista.id_lojista)).liberado : true
+
+  if (lojistaError || !lojista || !lojista.ativo || !acessoLiberado) {
     return (
       <AvisoShell>
         <IconAlert style={{ width: 32, height: 32, color: 'var(--gray-600)', margin: '0 auto var(--space-4)' }} />

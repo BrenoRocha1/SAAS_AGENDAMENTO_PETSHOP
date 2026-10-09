@@ -179,23 +179,35 @@ export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLo
     })
   }, [produtos, busca, categoria])
 
-  // ---------- Atalhos: "/" busca, F2 finaliza ----------
+  // ---------- Atalhos: F1 / "/" busca, F2 finaliza, F3 cliente, F4 desconto, F9 limpa, Esc fecha ----------
   useEffect(() => {
     function aoTeclar(e: KeyboardEvent) {
       const alvo = e.target as HTMLElement | null
       const digitando = !!alvo && (alvo.tagName === 'INPUT' || alvo.tagName === 'TEXTAREA' || alvo.isContentEditable)
-      if (e.key === '/' && !digitando && !checkoutAberto && !clienteAberto) {
+      const livre = !checkoutAberto && !clienteAberto
+      if (!livre) return
+      if ((e.key === '/' && !digitando) || e.key === 'F1') {
         e.preventDefault()
+        setCarrinhoMobile(false)
         buscaRef.current?.focus()
-      }
-      if (e.key === 'F2' && !checkoutAberto && !clienteAberto && carrinho.length > 0) {
+      } else if (e.key === 'F2' && carrinho.length > 0) {
         e.preventDefault()
         setCheckoutAberto(true)
+      } else if (e.key === 'F3') {
+        e.preventDefault()
+        setClienteAberto(true)
+      } else if (e.key === 'F4' && carrinho.length > 0) {
+        e.preventDefault()
+        setDescontoAberto(true)
+      } else if (e.key === 'F9' && (carrinho.length > 0 || cliente)) {
+        e.preventDefault()
+        limparVenda()
       }
     }
     window.addEventListener('keydown', aoTeclar)
     return () => window.removeEventListener('keydown', aoTeclar)
-  }, [checkoutAberto, clienteAberto, carrinho.length])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- limparVenda só usa setters estáveis
+  }, [checkoutAberto, clienteAberto, carrinho.length, cliente])
 
   function aoTeclarBusca(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter' && filtrados.length > 0) {
@@ -248,7 +260,7 @@ export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLo
               aria-label="Buscar produto"
               autoFocus
             />
-            <kbd aria-hidden="true">/</kbd>
+            <kbd aria-hidden="true">F1</kbd>
           </div>
 
           {(categoriasUsadas.length > 0 || haSemCategoria) && (
@@ -339,7 +351,7 @@ export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLo
               {qtdLinhas > 0 && <span>{qtdLinhas}</span>}
             </div>
             <button type="button" className="pdv-texto-btn" onClick={limparVenda} disabled={qtdLinhas === 0 && !cliente}>
-              Limpar
+              Limpar <kbd aria-hidden="true">F9</kbd>
             </button>
           </div>
 
@@ -353,7 +365,7 @@ export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLo
             </div>
           ) : (
             <button type="button" className="pdv-cliente" onClick={() => setClienteAberto(true)}>
-              <IconUser /> Adicionar cliente (opcional)
+              <IconUser /> Adicionar cliente (opcional) <kbd aria-hidden="true">F3</kbd>
             </button>
           )}
 
@@ -448,7 +460,7 @@ export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLo
             ) : (
               <div className="pdv-linha">
                 <button type="button" className="pdv-link-btn" onClick={() => setDescontoAberto(true)} disabled={qtdLinhas === 0} style={qtdLinhas === 0 ? { opacity: 0.4, cursor: 'default' } : undefined}>
-                  + Adicionar desconto
+                  + Adicionar desconto <kbd aria-hidden="true">F4</kbd>
                 </button>
               </div>
             )}

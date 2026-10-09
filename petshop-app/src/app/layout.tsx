@@ -13,6 +13,7 @@ export const metadata: Metadata = {
     'Plataforma SaaS completa para agendamento de banho e tosa. Gerencie seu petshop com facilidade e segurança.',
   keywords: ['petshop', 'agendamento', 'banho e tosa', 'pet', 'veterinário'],
   authors: [{ name: 'SAIP' }],
+  openGraph: { images: [{ url: '/logo-saip.webp', width: 1774, height: 887, alt: 'SAIP' }] },
   viewport: 'width=device-width, initial-scale=1',
   themeColor: '#4f46e5',
 }
@@ -23,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         {/* Inter/Plus Jakarta Sans (usadas em --font-body/--font-heading, ver
             globals.css) — carregadas aqui via <link>, não via @import dentro

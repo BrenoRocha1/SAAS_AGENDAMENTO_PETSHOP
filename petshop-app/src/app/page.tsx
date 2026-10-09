@@ -1,5 +1,6 @@
 'use client'
 
+import LogoSaip from '@/components/LogoSaip'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import CenaCelular from '@/components/landing/CenaCelular'
@@ -197,7 +198,7 @@ export default function LandingPage() {
         <div className="lp-container">
           <div className="lp-nav-inner">
             <Link href="/" className="lp-nav-brand">
-              SAIP<span>.</span>
+              <LogoSaip altura={26} />
             </Link>
 
             <ul className="lp-nav-links">
@@ -561,7 +562,7 @@ export default function LandingPage() {
         <div className="lp-container">
           <div className="lp-footer-inner">
             <div>
-              <div className="lp-footer-brand">SAIP<span>.</span></div>
+              <div className="lp-footer-brand"><LogoSaip altura={22} /></div>
               <div className="lp-footer-copy">
                 Sistema de Agendamento Inteligente para Petshop<br />
                 © {new Date().getFullYear()} SAIP. Todos os direitos reservados.

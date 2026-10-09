@@ -31,3 +31,4 @@ export async function getPlatformAdmin(): Promise<PlatformAdmin | null> {
 
   return (data as PlatformAdmin | null) ?? null
 }
+

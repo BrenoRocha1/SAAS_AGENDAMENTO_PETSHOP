@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { logoutAction } from '@/lib/actions'
 import { BarraMenuMobile, useMenuMobile, useTituloInterno } from '@/components/layout/MenuMobile'
 import { IconLogout } from '@/components/icons'
+import LogoSaip, { LogoSimbolo } from '@/components/LogoSaip'
 import {
   Sidebar,
   SidebarFooter,
@@ -53,7 +54,6 @@ export default function BarraLateral({
   secao,
   itens,
   abas,
-  iconeMarca: IconeMarca,
   sufixoMarca,
   tituloMobile,
   usuario,
@@ -130,14 +130,7 @@ export default function BarraLateral({
             title={recolhida ? 'Expandir menu' : undefined}
           >
             <div className="sidebar-marca">
-              <div className="sidebar-logo-icon">
-                <IconeMarca style={{ width: 16, height: 16 }} />
-              </div>
-              {!recolhida && (
-                <span className="sidebar-logo-text">
-                  SA<span>IP</span>{sufixoMarca ? ` ${sufixoMarca}` : ''}
-                </span>
-              )}
+              {recolhida ? <LogoSimbolo altura={22} /> : <LogoSaip altura={24} sufixo={sufixoMarca} />}
             </div>
             <SidebarToggle style={{ marginLeft: 'auto' }} aria-label="Recolher menu" title="Recolher menu" />
           </SidebarHeader>

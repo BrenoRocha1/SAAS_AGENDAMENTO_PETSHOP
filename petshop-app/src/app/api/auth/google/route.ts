@@ -57,6 +57,7 @@ export async function GET(request: Request) {
     options: {
       redirectTo: callbackUrl,
       skipBrowserRedirect: true,
+      queryParams: { prompt: 'select_account' },
     },
   })
 

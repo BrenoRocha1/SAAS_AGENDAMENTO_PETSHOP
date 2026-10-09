@@ -1,4 +1,4 @@
-import { IconPaw } from '@/components/icons'
+import LogoSaip from '@/components/LogoSaip'
 
 export const SLOGAN_SAIP = 'Sistema de agendamento inteligente para petshop'
 
@@ -7,11 +7,8 @@ export const SLOGAN_SAIP = 'Sistema de agendamento inteligente para petshop'
 export default function MarcaSaip() {
   return (
     <div className="login-brand">
-      <span className="login-brand-mark">
-        <IconPaw />
-      </span>
       <span className="login-brand-texto">
-        <span className="login-brand-name">SA<span>IP</span></span>
+        <LogoSaip altura={30} />
         <span className="login-brand-slogan">{SLOGAN_SAIP}</span>
       </span>
     </div>

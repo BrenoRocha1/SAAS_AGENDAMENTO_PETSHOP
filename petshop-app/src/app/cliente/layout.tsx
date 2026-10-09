@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { obterUsuario } from '@/lib/supabase/usuario'
 import { redirect } from 'next/navigation'
 import ClienteSidebar from '@/components/layout/ClienteSidebar'
+import FaixaImpersonando from '@/components/acesso/FaixaImpersonando'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Dashboard — Cliente' }
@@ -42,6 +43,7 @@ export default async function ClienteLayout({
 
   return (
     <div className="app-layout cliente-shell">
+      <FaixaImpersonando />
       <ClienteSidebar
         userName={cliente?.nome ?? user.email ?? 'Cliente'}
         userEmail={user.email ?? ''}

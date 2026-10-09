@@ -74,10 +74,16 @@ export const redefinirSenhaSchema = z.object({
   path: ['confirmaSenha'],
 })
 
+const documentoLojaSchema = z
+  .string()
+  .regex(/^(\d{11}|\d{14})$/, 'Informe o CPF (11 dígitos) ou o CNPJ (14 dígitos) do responsável pela loja')
+  .refine(validarDocumento, 'CPF ou CNPJ inválido')
+
 export const cadastroLojistSchema = z.object({
   nome_loja: z.string().min(2).max(150),
   email: z.string().email('E-mail inválido'),
   telefone: z.string().regex(/^\d{10,11}$/, 'Telefone inválido'),
+  documento: documentoLojaSchema,
   descricao: z.string().max(500).optional(),
   endereco: z.string().max(200).optional(),
   cidade: z.string().max(100).optional(),
@@ -415,6 +421,24 @@ function validarCPF(cpf: string): boolean {
   return resto === parseInt(cpf[10])
 }
 
+// CNPJ (algoritmo oficial)
+function validarCNPJ(cnpj: string): boolean {
+  if (cnpj.length !== 14 || /^(\d)\1+$/.test(cnpj)) return false
+  const digito = (base: string, pesos: number[]) => {
+    const soma = pesos.reduce((acc, p, i) => acc + parseInt(base[i]) * p, 0)
+    const resto = soma % 11
+    return resto < 2 ? 0 : 11 - resto
+  }
+  const d1 = digito(cnpj.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+  const d2 = digito(cnpj.slice(0, 13), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+  return d1 === parseInt(cnpj[12]) && d2 === parseInt(cnpj[13])
+}
+
+// CPF (11 dígitos) ou CNPJ (14) da loja, só números.
+export function validarDocumento(doc: string): boolean {
+  return doc.length === 11 ? validarCPF(doc) : doc.length === 14 ? validarCNPJ(doc) : false
+}
+
 // ============================================================
 // Schemas para "completar cadastro" via Google OAuth
 // (o usuário já tem conta auth, falta os dados de perfil)
@@ -436,6 +460,7 @@ export const completarCadastroClienteGoogleSchema = z.object({
 export const completarCadastroLojistaGoogleSchema = z.object({
   nome_loja: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(150),
   telefone: z.string().regex(/^\d{10,11}$/, 'Telefone inválido'),
+  documento: documentoLojaSchema,
   descricao: z.string().max(500).optional(),
   endereco: z.string().max(200).optional(),
   cidade: z.string().max(100).optional(),
