@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { completarCadastroLojistaGoogleAction } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
-import { IconMapPin, IconPhone, IconStore } from '@/components/icons'
+import { IconIdCard, IconMapPin, IconPhone, IconStore } from '@/components/icons'
 import MarcaSaip from '@/components/MarcaSaip'
 
 const UF = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
@@ -136,6 +136,15 @@ export default function CompletarCadastroLojistaPage() {
                 <IconPhone />
                 <input id="telefone" name="telefone" type="tel" className="login-input" placeholder="(11) 99999-9999" required />
               </div>
+            </div>
+
+            <div className="login-field">
+              <label htmlFor="documento" className="login-label">CPF ou CNPJ</label>
+              <div className="login-input-wrap">
+                <IconIdCard />
+                <input id="documento" name="documento" type="text" inputMode="numeric" autoComplete="off" className="login-input" placeholder="Só números — do responsável ou da empresa" required />
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--lg-ink-mute)', marginTop: 4 }}>Usado para confirmar a loja e não pode se repetir entre contas.</p>
             </div>
 
             <div className="login-field">

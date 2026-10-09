@@ -389,6 +389,15 @@ export async function cadastroClienteAction(formData: FormData) {
   redirect(volta ?? '/cliente/dashboard')
 }
 
+// CPF/CNPJ da loja (migration 092): fica numa coluna própria, fora do RPC
+// de cadastro. Gravar dispara a trava do período de teste no banco (documento
+// já usado por outra conta = teste encerrado). Sem a migration a coluna não
+// existe e o cadastro segue — só sem a trava de documento.
+async function gravarDocumentoLoja(db: NonNullable<ReturnType<typeof createAdminClient>>, idLojista: string, documento: string) {
+  const { error } = await db.from('lojista').update({ documento }).eq('id_lojista', idLojista)
+  if (error) console.error('[cadastro lojista] não gravou o documento:', error.message)
+}
+
 export async function cadastroLojistaAction(formData: FormData) {
   // Campos opcionais do schema (descricao/endereco/cidade/estado/cep) só devem
   // ir para o Zod como `undefined` quando não preenchidos. Vindos de <input>/
@@ -400,6 +409,7 @@ export async function cadastroLojistaAction(formData: FormData) {
     nome_loja: formData.get('nome_loja') as string,
     email: formData.get('email') as string,
     telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
+    documento: ((formData.get('documento') as string) ?? '').replace(/\D/g, ''),
     descricao: (formData.get('descricao') as string) || undefined,
     endereco: (formData.get('endereco') as string) || undefined,
     cidade: (formData.get('cidade') as string) || undefined,
@@ -516,6 +526,7 @@ export async function cadastroLojistaAction(formData: FormData) {
   if (numeroLoja) {
     await adminClient.from('lojista').update({ numero: numeroLoja }).eq('id_lojista', authData.user.id)
   }
+  await gravarDocumentoLoja(adminClient, authData.user.id, parsed.data.documento)
 
   // ── PASSO 4: Estabelecer sessão para o redirect ───────────────────────────
   // O adminClient não lida com cookies/sessão do browser.
@@ -635,6 +646,7 @@ export async function completarCadastroLojistaGoogleAction(formData: FormData) {
   const raw = {
     nome_loja: formData.get('nome_loja') as string,
     telefone: (formData.get('telefone') as string).replace(/\D/g, ''),
+    documento: ((formData.get('documento') as string) ?? '').replace(/\D/g, ''),
     descricao: (formData.get('descricao') as string) || undefined,
     endereco: (formData.get('endereco') as string) || undefined,
     cidade: (formData.get('cidade') as string) || undefined,
@@ -674,6 +686,7 @@ export async function completarCadastroLojistaGoogleAction(formData: FormData) {
   }
 
   // Número da loja em campo próprio (migration 045) — ver cadastroLojistaAction.
+  await gravarDocumentoLoja(adminClient, user.id, parsed.data.documento)
   const numeroLoja = (formData.get('numero') as string)?.trim().slice(0, 20)
   if (numeroLoja) {
     await adminClient.from('lojista').update({ numero: numeroLoja }).eq('id_lojista', user.id)

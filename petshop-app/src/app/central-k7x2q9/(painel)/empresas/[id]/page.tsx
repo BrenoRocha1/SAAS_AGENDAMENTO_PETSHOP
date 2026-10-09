@@ -65,7 +65,7 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
           <Link href={`${ROTA_INTERNA}/empresas`} className="text-sm text-muted">← Empresas</Link>
           <h1 className="page-title">{loja.nome_loja}</h1>
           <p className="page-subtitle">
-            {loja.email} · {telefoneBR(loja.telefone)} · cadastrada em {dataBRFmt(loja.created_at)}
+            {loja.email} · {telefoneBR(loja.telefone)}{loja.documento ? ` · ${loja.documento.length === 14 ? 'CNPJ' : 'CPF'} ${loja.documento}` : ' · sem CPF/CNPJ'} · cadastrada em {dataBRFmt(loja.created_at)}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
