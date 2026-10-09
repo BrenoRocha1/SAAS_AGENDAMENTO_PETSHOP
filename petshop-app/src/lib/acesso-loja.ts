@@ -27,6 +27,13 @@ export function calcularAcesso(acessoAte: string | null | undefined, livre: bool
   }
 }
 
+// Teste encerrado por repetição de telefone (migration 091). Consulta à parte
+// e tolerante: sem a coluna, só devolve false.
+export async function testeBloqueado(db: Db, idLojista: string): Promise<boolean> {
+  const { data, error } = await db.from('lojista').select('teste_bloqueado').eq('id_lojista', idLojista).maybeSingle()
+  return !error && !!data?.teste_bloqueado
+}
+
 export async function acessoDaLoja(db: Db, idLojista: string): Promise<AcessoLoja> {
   const { data, error } = await db
     .from('lojista')

@@ -138,7 +138,7 @@ export async function estenderAcessoAction(idLojista: string, dias: number): Pro
   const base = Math.max(Date.now(), new Date(data.acesso_ate).getTime())
   const novo = new Date(base + dias * 86_400_000).toISOString()
 
-  const { error } = await ctx.db.from('lojista').update({ acesso_ate: novo }).eq('id_lojista', idLojista)
+  const { error } = await ctx.db.from('lojista').update({ acesso_ate: novo, teste_bloqueado: false }).eq('id_lojista', idLojista)
   if (error) return { error: error.message }
   await auditar(ctx.db, ctx.admin, 'acesso.estender', 'lojista', idLojista, { dias, acesso_ate: novo })
   revalidarInterno()
@@ -156,7 +156,7 @@ export async function definirAcessoAteAction(idLojista: string, quando: string):
   if (data.getTime() > Date.now() + 5 * 365 * 86_400_000) return { error: 'Data longe demais (máx. 5 anos).' }
 
   const iso = data.toISOString()
-  const { error } = await ctx.db.from('lojista').update({ acesso_ate: iso }).eq('id_lojista', idLojista)
+  const { error } = await ctx.db.from('lojista').update({ acesso_ate: iso, teste_bloqueado: false }).eq('id_lojista', idLojista)
   if (error) return { error: error.message }
   await auditar(ctx.db, ctx.admin, 'acesso.definir', 'lojista', idLojista, { acesso_ate: iso })
   revalidarInterno()

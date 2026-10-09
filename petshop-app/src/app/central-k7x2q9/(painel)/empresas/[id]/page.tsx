@@ -90,6 +90,11 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
       </div>
 
       <h2 className="page-title" style={{ fontSize: '1.125rem', marginBottom: 'var(--space-3)' }}>Acesso e teste</h2>
+      {loja.teste_bloqueado && (
+        <div className="alert alert-warning" role="status" style={{ marginBottom: 'var(--space-3)' }}>
+          <span>Teste bloqueado: {loja.teste_bloqueado_motivo ?? 'telefone já usado em outra conta.'} Para liberar, dê mais dias ou defina uma data abaixo.</span>
+        </div>
+      )}
       <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-8)', display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <span className={`badge ${acesso.liberado ? 'badge-ativo' : 'badge-cancelado'}`}>

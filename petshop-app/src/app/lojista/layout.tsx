@@ -8,7 +8,7 @@ import NotificacaoTaxiDog from '@/components/lojista/NotificacaoTaxiDog'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 import { ehEmailInterno } from '@/lib/email-interno'
-import { acessoDaLoja } from '@/lib/acesso-loja'
+import { acessoDaLoja, testeBloqueado } from '@/lib/acesso-loja'
 import AcessoExpirado from '@/components/acesso/AcessoExpirado'
 import FaixaTeste from '@/components/acesso/FaixaTeste'
 import FaixaImpersonando from '@/components/acesso/FaixaImpersonando'
@@ -104,7 +104,7 @@ export default async function LojistaLayout({
   // Período de teste de 30 dias (migration 088): acabou → só a tela de aviso.
   const acesso = await acessoDaLoja(supabase, contexto.idLojista)
   if (!acesso.liberado) {
-    return <AcessoExpirado nomeLoja={nomeLoja} ehDono={contexto.role === 'lojista'} />
+    return <AcessoExpirado nomeLoja={nomeLoja} ehDono={contexto.role === 'lojista'} repetido={await testeBloqueado(supabase, contexto.idLojista)} />
   }
 
   return (
