@@ -28,6 +28,7 @@ import { dialogo } from '@/lib/dialogo'
 import { mensagemDoBanco } from '@/lib/erros'
 import { escolherImagem } from '@/lib/imagem'
 import { formatarMoeda } from '@/lib/format'
+import { ORIGENS_MERCADORIA, type ProdutoFiscal } from '@/lib/fiscal'
 import { numeroParaCampo, paraNumero } from '@/lib/mascaras'
 import {
   ROTULO_STATUS_ESTOQUE,
@@ -119,6 +120,15 @@ export default function ProdutosScreen() {
   const [unidade, setUnidade] = useState<UnidadeVenda>('unidade')
   const [preco, setPreco] = useState('')
   const [custo, setCusto] = useState('')
+  // Informações fiscais (migration 094): null = a tabela ainda não existe.
+  const [fiscais, setFiscais] = useState<Map<string, ProdutoFiscal> | null>(null)
+  const [verFiscal, setVerFiscal] = useState(false)
+  const [codigoBarras, setCodigoBarras] = useState('')
+  const [ncm, setNcm] = useState('')
+  const [cest, setCest] = useState('')
+  const [cfop, setCfop] = useState('')
+  const [cstCsosn, setCstCsosn] = useState('')
+  const [origem, setOrigem] = useState('')
   const [estoqueInicial, setEstoqueInicial] = useState('')
   const [estoqueMinimo, setEstoqueMinimo] = useState('')
   const [online, setOnline] = useState(false)
@@ -141,10 +151,11 @@ export default function ProdutosScreen() {
   const carregar = useCallback(async () => {
     if (!idLojista || !pode) return
     // Categoria resolvida aqui por id (sem embed), como no painel web.
-    const [prods, cats, custosRes] = await Promise.all([
+    const [prods, cats, custosRes, fiscalRes] = await Promise.all([
       supabase.from('produto').select('*').eq('id_lojista', idLojista).order('nome'),
       supabase.from('categoria_produto').select('id_categoria, nome').eq('id_lojista', idLojista).order('nome'),
       supabase.from('produto_custo').select('id_produto, custo_unitario').eq('id_lojista', idLojista),
+      supabase.from('produto_fiscal').select('id_produto, codigo_barras, ncm, cest, cfop, origem, cst_csosn').eq('id_lojista', idLojista),
     ])
     if (prods.error) {
       setErro('Não foi possível carregar os produtos.')
@@ -163,6 +174,9 @@ export default function ProdutosScreen() {
     setCustos(custosRes.error
       ? null
       : new Map(((custosRes.data ?? []) as { id_produto: string; custo_unitario: number }[]).map(c => [c.id_produto, Number(c.custo_unitario)])))
+    setFiscais(fiscalRes.error
+      ? null
+      : new Map(((fiscalRes.data ?? []) as (ProdutoFiscal & { id_produto: string })[]).map(({ id_produto, ...f }) => [id_produto, f])))
     setLoading(false)
   }, [idLojista, pode])
 
@@ -201,6 +215,14 @@ export default function ProdutosScreen() {
     setUnidade(p?.unidade_venda ?? 'unidade')
     setPreco(p ? numeroParaCampo(p.preco_venda) : '')
     setCusto(p && custos?.has(p.id_produto) ? numeroParaCampo(custos.get(p.id_produto)) : '')
+    const f = p ? fiscais?.get(p.id_produto) : undefined
+    setCodigoBarras(f?.codigo_barras ?? '')
+    setNcm(f?.ncm ?? '')
+    setCest(f?.cest ?? '')
+    setCfop(f?.cfop ?? '')
+    setCstCsosn(f?.cst_csosn ?? '')
+    setOrigem(f?.origem != null ? String(f.origem) : '')
+    setVerFiscal(!!f && Object.values(f).some(v => v !== null && v !== ''))
     setEstoqueInicial('')
     setEstoqueMinimo(p ? formatarQuantidade(p.estoque_minimo) : '0')
     setOnline(!!p?.disponivel_agendamento_online)
@@ -252,6 +274,16 @@ export default function ProdutosScreen() {
       disponivel_agendamento_online: online,
       // Só vai quando o custo existe no banco (migration 062).
       ...(custos ? { custo_unitario: custo.trim() ? String(paraNumero(custo)) : '' } : {}),
+      // Só vai quando a tabela fiscal existe no banco (migration 094).
+      ...(fiscais ? {
+        fiscal_presente: '1',
+        fiscal_codigo_barras: codigoBarras,
+        fiscal_ncm: ncm,
+        fiscal_cest: cest,
+        fiscal_cfop: cfop,
+        fiscal_cst_csosn: cstCsosn,
+        fiscal_origem: origem,
+      } : {}),
     }
     const r = aberto
       ? await chamarAcao<{ produto: { id_produto: string } }>('editarProdutoAction', aberto.id_produto, form(campos))
@@ -576,6 +608,30 @@ export default function ProdutosScreen() {
               />
             )}
 
+            {fiscais && (
+              <View style={styles.fiscal}>
+                <Pressable onPress={() => setVerFiscal(v => !v)} accessibilityRole="button" accessibilityState={{ expanded: verFiscal }}>
+                  <Text style={styles.onlineTitulo}>Informações fiscais</Text>
+                  <Text style={styles.nota}>NCM, CEST, CFOP, origem e código de barras — para a emissão de nota no futuro.</Text>
+                  <Text style={styles.link}>{verFiscal ? 'Esconder ▴' : 'Mostrar ▾'}</Text>
+                </Pressable>
+                {verFiscal && (
+                  <>
+                    <Campo rotulo="Código de barras (GTIN/EAN)" value={codigoBarras} onChangeText={v => setCodigoBarras(v.replace(/\D/g, ''))} keyboardType="number-pad" placeholder="Ex.: 7891234567895" maxLength={14} nota="Com ele, o Caixa acha o produto pelo leitor de código de barras." />
+                    <Campo rotulo="NCM" value={ncm} onChangeText={v => setNcm(v.replace(/\D/g, ''))} keyboardType="number-pad" placeholder="Ex.: 23091000" maxLength={8} />
+                    <Campo rotulo="CEST (se houver)" value={cest} onChangeText={v => setCest(v.replace(/\D/g, ''))} keyboardType="number-pad" placeholder="7 dígitos" maxLength={7} />
+                    <Campo rotulo="CFOP" value={cfop} onChangeText={v => setCfop(v.replace(/\D/g, ''))} keyboardType="number-pad" placeholder="Ex.: 5102" maxLength={4} />
+                    <Campo rotulo="CST / CSOSN" value={cstCsosn} onChangeText={v => setCstCsosn(v.replace(/\D/g, ''))} keyboardType="number-pad" placeholder="Ex.: 102" maxLength={3} />
+                    <View style={styles.grupo}>
+                      <Text style={styles.rotulo}>Origem da mercadoria</Text>
+                      <Seletor titulo="Origem da mercadoria" valor={origem} opcoes={ORIGENS_MERCADORIA} onChange={setOrigem} />
+                    </View>
+                    <Text style={styles.nota}>Na dúvida, confirme os códigos com o seu contador. Tudo é opcional.</Text>
+                  </>
+                )}
+              </View>
+            )}
+
             {!aberto && (
               <CampoQuantidade
                 rotulo="Estoque atual"
@@ -663,6 +719,7 @@ export default function ProdutosScreen() {
 }
 
 const styles = StyleSheet.create({
+  fiscal: { gap: 12, padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12 },
   lista: { marginTop: spacing.lg, gap: spacing.md },
   // `.prod-busca-linha`: a busca ocupa o que sobra ao lado da troca.
   buscaLinha: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
