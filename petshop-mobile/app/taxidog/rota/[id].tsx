@@ -3,6 +3,7 @@ import { useLocalSearchParams } from 'expo-router'
 import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { IconeApp } from '@/components/IconeApp'
+import { EsperaRetirada } from '@/components/EsperaRetirada'
 import { format } from 'date-fns'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
@@ -441,6 +442,9 @@ function ItemPet({ item: i, naLoja, marcado, onAlternar }: { item: ItemParada; n
           {naoPronto && <Text style={styles.petAlerta}>Ainda não está pronto</Text>}
         </View>
       </View>
+      {i.acao === 'embarcar' && i.status_corrida === 'no_endereco' && (
+        <EsperaRetirada idCorrida={i.id_corrida} pet={i.pet_nome} />
+      )}
       {(comportamento.length > 0 || observacoes.length > 0) && (
         <View style={styles.petObs}>
           {comportamento.length > 0 && (

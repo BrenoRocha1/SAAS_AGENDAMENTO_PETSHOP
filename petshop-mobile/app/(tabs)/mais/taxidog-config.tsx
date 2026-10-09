@@ -75,6 +75,12 @@ export default function TaxiDogConfigScreen() {
   const [rotasErro, setRotasErro] = useState<string | null>(null)
   const [rotasSalvo, setRotasSalvo] = useState(false)
   const [rotasOcupado, setRotasOcupado] = useState(false)
+  // Tempo limite de espera na retirada (migration 093): '' = sem limite.
+  const [espera, setEspera] = useState('')
+  const [esperaDisponivel, setEsperaDisponivel] = useState(false)
+  const [esperaErro, setEsperaErro] = useState<string | null>(null)
+  const [esperaSalvo, setEsperaSalvo] = useState(false)
+  const [esperaOcupado, setEsperaOcupado] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [salvo, setSalvo] = useState(false)
@@ -103,6 +109,8 @@ export default function TaxiDogConfigScreen() {
     setTemOrigem(cfg?.origem_lat != null && cfg?.origem_lng != null)
     setCriaRotas(cfg ? !!cfg.taxidog_cria_rotas : null)
     setRotasDisponivel(!!cfg && 'taxidog_cria_rotas' in cfg)
+    setEspera(cfg?.tempo_espera_retirada_min != null ? String(cfg.tempo_espera_retirada_min) : '')
+    setEsperaDisponivel(!!cfg && 'tempo_espera_retirada_min' in cfg)
     setFaixas(((faixasRes.data ?? []) as { km_ate: number; valor_trecho: number; valor_ida_volta: number | null }[])
       .map(f => ({ km_ate: txt(f.km_ate), valor_trecho: txt(f.valor_trecho), valor_ida_volta: txt(f.valor_ida_volta) })))
     setRegioes(((regioesRes.data ?? []) as { bairro: string | null; cidade: string; uf: string | null; valor_trecho: number; valor_ida_volta: number | null; ativo: boolean }[])
@@ -203,6 +211,17 @@ export default function TaxiDogConfigScreen() {
       return setRotasErro(r.error)
     }
     setRotasSalvo(true)
+  }
+
+  async function salvarEspera() {
+    setEsperaErro(null)
+    setEsperaSalvo(false)
+    const minutos = espera.trim() === '' ? null : Number(espera)
+    setEsperaOcupado(true)
+    const r = await chamarAcao('salvarTempoEsperaRetiradaAction', minutos)
+    setEsperaOcupado(false)
+    if (r.error) return setEsperaErro(r.error)
+    setEsperaSalvo(true)
   }
 
   const atualizarFaixa = (i: number, campo: keyof FaixaForm, valor: string) => {
@@ -486,6 +505,40 @@ export default function TaxiDogConfigScreen() {
               {rotasSalvo && !rotasErro && <Text style={[styles.nota, { color: colors.successFg }]}>Salvo.</Text>}
             </View>
           )}
+
+          {/* Tempo de espera na retirada — também só depois de salvar a configuração. */}
+          {criaRotas !== null && (
+            <View style={styles.cartao}>
+              <View style={[styles.topo, styles.rotasTopo]}>
+                <View style={styles.icone}><IconCar size={18} color={colors.textDim} /></View>
+                <View style={styles.cresce}>
+                  <Text style={styles.titulo}>Tempo de espera na retirada</Text>
+                  <Text style={styles.descricao}>
+                    Quanto o TaxiDog espera no endereço do cliente. Passado esse tempo sem o pet ser entregue, aparece "Cancelar retirada":
+                    o agendamento é cancelado e o WhatsApp abre com o aviso pronto para o cliente.
+                  </Text>
+                </View>
+              </View>
+              <View style={[styles.linhaEspera, !esperaDisponivel && styles.meioApagado]}>
+                <TextInput
+                  value={espera}
+                  onChangeText={v => { setEspera(v.replace(/\D/g, '').slice(0, 3)); setEsperaSalvo(false) }}
+                  keyboardType="number-pad"
+                  placeholder="Sem limite"
+                  placeholderTextColor={colors.textFaint}
+                  editable={esperaDisponivel && !esperaOcupado}
+                  accessibilityLabel="Tempo de espera em minutos"
+                  style={styles.campoEspera}
+                />
+                <Text style={styles.descricao}>minutos</Text>
+                <BotaoPequeno variante="primario" rotulo="Salvar" carregando={esperaOcupado} desativado={!esperaDisponivel || esperaOcupado} onPress={salvarEspera} />
+              </View>
+              <Text style={styles.nota}>Deixe em branco para não ter limite (de 1 a 180 minutos).</Text>
+              {!esperaDisponivel && <Text style={styles.nota}>Execute a migration 093_taxidog_tempo_espera_retirada.sql para usar esta opção.</Text>}
+              {esperaErro && <Aviso tipo="erro" texto={esperaErro} style={styles.rotasErro} />}
+              {esperaSalvo && !esperaErro && <Text style={[styles.nota, { color: colors.successFg }]}>Salvo.</Text>}
+            </View>
+          )}
         </View>
       )}
     </ScreenContainer>
@@ -552,6 +605,11 @@ function CampoValor({ rotulo, valor, onChange, placeholder }: { rotulo: string; 
 
 // Medidas da página do site em 375 de largura.
 const styles = StyleSheet.create({
+  linhaEspera: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
+  campoEspera: {
+    width: 96, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+    fontSize: 15, color: colors.text, backgroundColor: colors.surface,
+  },
   pilha: { gap: 24 },
   cartao: { padding: 16, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   resumo: { gap: 12 },

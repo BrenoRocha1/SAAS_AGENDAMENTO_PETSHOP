@@ -345,3 +345,21 @@ export async function alternarPrecosEstimadosAction(ativo: boolean) {
   revalidatePath('/lojista/configuracoes/agendamentos')
   return { success: true }
 }
+
+// Tempo limite de espera na retirada (migration 093), em minutos; null
+// desliga. Só dono/administrador (conferido no banco).
+export async function salvarTempoEsperaRetiradaAction(minutos: number | null) {
+  if (minutos !== null && (!Number.isInteger(minutos) || minutos < 1 || minutos > 180)) {
+    return { error: 'Informe de 1 a 180 minutos, ou deixe em branco para não ter limite.' }
+  }
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('fn_salvar_tempo_espera_retirada', { p_minutos: minutos })
+  if (error) {
+    if (error.code === 'PGRST202' || error.message.includes('Could not find the function')) {
+      return { error: 'Execute a migration 093_taxidog_tempo_espera_retirada.sql para usar esta opção.' }
+    }
+    return { error: mensagemRpc(error, 'Não foi possível salvar.') }
+  }
+  revalidatePath('/lojista/configuracoes/taxidog')
+  return { success: true }
+}

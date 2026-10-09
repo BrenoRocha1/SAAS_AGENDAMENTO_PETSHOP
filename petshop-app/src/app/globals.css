@@ -4537,3 +4537,6 @@ html[data-theme='dark'] .botao-app.is-perigo { border-color: rgba(248,113,113,0.
 html[data-theme='dark'] { --logo-saip: #6366f1; --logo-texto: #eceff5; }
 .logo-saip { display: inline-flex; align-items: center; gap: 0.5rem; line-height: 1; }
 .logo-saip-sufixo { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gray-400); }
+
+/* Tempo limite de espera na retirada (TaxiDog) */
+.espera-retirada { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
