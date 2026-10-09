@@ -13,6 +13,7 @@ import { formatarCpf, formatarEnderecoLoja, formatarTelefone } from '@/lib/forma
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
+import ProdutosDoAgendamento from './ProdutosDoAgendamento'
 import type { BloqueioLoja } from '@/lib/bloqueios'
 import ConfirmacaoAgendamento from './ConfirmacaoAgendamento'
 import PagamentoEtapa, { PixDaLoja } from './PagamentoEtapa'
@@ -34,7 +35,6 @@ import {
   IconClock,
   IconClose,
   IconDog,
-  IconPackage,
   IconPaw,
   IconPlus,
   IconScissors,
@@ -199,7 +199,7 @@ export default function AgendamentoOnlineWizard({
   const [obs, setObs] = useState('')
   const [slots, setSlots] = useState<Slot[] | null>(null)
   const [precos, setPrecos] = useState<Record<string, number>>({})
-  const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, string>>({})
+  const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, number>>({})
 
   // Classificação pendente (espécie/porte) do pet escolhido, quando falta
   const [especieForm, setEspecieForm] = useState<'Cão' | 'Gato' | ''>('')
@@ -219,7 +219,7 @@ export default function AgendamentoOnlineWizard({
   const precisaClassificar = !!petSel && (!petSel.especie || !petSel.porte)
   const itensCarrinhoProdutos = useMemo(() =>
     produtos
-      .map(produto => ({ produto, quantidade: parseFloat(quantidadesProdutos[produto.id_produto] || '0') }))
+      .map(produto => ({ produto, quantidade: quantidadesProdutos[produto.id_produto] ?? 0 }))
       .filter(item => item.quantidade > 0),
     [produtos, quantidadesProdutos]
   )
@@ -831,42 +831,11 @@ export default function AgendamentoOnlineWizard({
             )}
           </div>
 
-          {produtos.length > 0 && (
-            <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
-              <label className="form-label">Adicionar produtos (opcional)</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                {produtos.map(p => (
-                  <div
-                    key={p.id_produto}
-                    className="flex items-center gap-3"
-                    style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--gray-850)', border: '1px solid var(--gray-800)', borderRadius: 'var(--radius-sm)' }}
-                  >
-                    <IconPackage style={{ width: 15, height: 15, color: 'var(--gray-500)', flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}>
-                      <div className="text-sm font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</div>
-                      <div className="text-xs text-muted">{formatarReais(p.preco_venda)} / {rotuloUnidade(p.unidade_venda)}</div>
-                    </div>
-                    <input
-                      type="number"
-                      className="form-input"
-                      style={{ width: 90 }}
-                      min="0"
-                      max={p.estoque_atual}
-                      step={p.unidade_venda === 'kg' || p.unidade_venda === 'litro' ? '0.1' : '1'}
-                      placeholder="0"
-                      value={quantidadesProdutos[p.id_produto] ?? ''}
-                      onChange={e => setQuantidadesProdutos(prev => ({ ...prev, [p.id_produto]: e.target.value }))}
-                    />
-                  </div>
-                ))}
-              </div>
-              {totalProdutos > 0 && (
-                <p className="text-sm text-success font-semibold" style={{ marginTop: 'var(--space-2)' }}>
-                  Subtotal produtos: {formatarReais(totalProdutos)}
-                </p>
-              )}
-            </div>
-          )}
+          <ProdutosDoAgendamento
+            produtos={produtos}
+            quantidades={quantidadesProdutos}
+            onChange={(id, quantidade) => setQuantidadesProdutos(prev => ({ ...prev, [id]: quantidade }))}
+          />
 
           <div className="form-group">
             <label className="form-label">Observações (opcional)</label>

@@ -10,6 +10,7 @@ import { normalizarBloqueios, type BloqueioLoja } from '@/lib/bloqueios'
 import { rotuloUnidade } from '@/lib/produto'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
+import ProdutosDoAgendamento from './ProdutosDoAgendamento'
 import ConfirmacaoAgendamento from './ConfirmacaoAgendamento'
 import PagamentoEtapa, { PixDaLoja } from './PagamentoEtapa'
 import PlanoNoPedido, { useMeusBeneficios } from './PlanoNoPedido'
@@ -159,7 +160,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const [servicos, setServicos] = useState<Servico[]>([])
   const [servicoId, setServicoId] = useState('')
   const [produtosDisponiveis, setProdutosDisponiveis] = useState<Produto[]>([])
-  const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, string>>({})
+  const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, number>>({})
   const [horarios, setHorarios] = useState<Horario[]>([])
   // Dias que a loja fechou (feriado, folga — migration 066).
   const [bloqueios, setBloqueios] = useState<BloqueioLoja[]>([])
@@ -287,7 +288,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
 
   const itensCarrinhoProdutos = useMemo(() =>
     produtosDisponiveis
-      .map(produto => ({ produto, quantidade: parseFloat(quantidadesProdutos[produto.id_produto] || '0') }))
+      .map(produto => ({ produto, quantidade: quantidadesProdutos[produto.id_produto] ?? 0 }))
       .filter(item => item.quantidade > 0),
     [produtosDisponiveis, quantidadesProdutos]
   )
@@ -755,42 +756,11 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
             )}
           </div>
 
-          {produtosDisponiveis.length > 0 && (
-            <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
-              <label className="form-label">Adicionar produtos (opcional)</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                {produtosDisponiveis.map(p => (
-                  <div
-                    key={p.id_produto}
-                    className="flex items-center gap-3"
-                    style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--gray-850)', border: '1px solid var(--gray-800)', borderRadius: 'var(--radius-sm)' }}
-                  >
-                    <IconPackage style={{ width: 15, height: 15, color: 'var(--gray-500)', flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}>
-                      <div className="text-sm font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</div>
-                      <div className="text-xs text-muted">{formatarReais(p.preco_venda)} / {rotuloUnidade(p.unidade_venda)}</div>
-                    </div>
-                    <input
-                      type="number"
-                      className="form-input"
-                      style={{ width: 90 }}
-                      min="0"
-                      max={p.estoque_atual}
-                      step={p.unidade_venda === 'kg' || p.unidade_venda === 'litro' ? '0.1' : '1'}
-                      placeholder="0"
-                      value={quantidadesProdutos[p.id_produto] ?? ''}
-                      onChange={e => setQuantidadesProdutos(prev => ({ ...prev, [p.id_produto]: e.target.value }))}
-                    />
-                  </div>
-                ))}
-              </div>
-              {totalProdutos > 0 && (
-                <p className="text-sm text-success font-semibold" style={{ marginTop: 'var(--space-2)' }}>
-                  Subtotal produtos: {formatarReais(totalProdutos)}
-                </p>
-              )}
-            </div>
-          )}
+          <ProdutosDoAgendamento
+            produtos={produtosDisponiveis}
+            quantidades={quantidadesProdutos}
+            onChange={(id, quantidade) => setQuantidadesProdutos(prev => ({ ...prev, [id]: quantidade }))}
+          />
 
           <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
             <label className="form-label">Observações (opcional)</label>
