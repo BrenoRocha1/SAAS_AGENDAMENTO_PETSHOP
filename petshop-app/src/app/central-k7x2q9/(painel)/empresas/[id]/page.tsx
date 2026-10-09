@@ -16,6 +16,8 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Empresa — Interno' }
 export const dynamic = 'force-dynamic'
+// O botão "Preencher com dados de demonstração" roda aqui e faz muitas gravações.
+export const maxDuration = 60
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
