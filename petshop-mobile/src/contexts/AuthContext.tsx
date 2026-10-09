@@ -191,7 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const retorno = Linking.createURL('auth')
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: retorno, skipBrowserRedirect: true },
+      options: { redirectTo: retorno, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
     })
     if (error || !data?.url) return { error: 'Não foi possível abrir o login do Google.' }
 

@@ -119,6 +119,9 @@ export async function getGoogleOAuthUrlAction(role?: string, voltarPara?: string
     options: {
       redirectTo: callbackUrl,
       skipBrowserRedirect: true,
+      // Sem isto o Google reaproveita a conta que já está aberta no navegador e
+      // entra sozinho depois do "Sair". Assim ele sempre mostra a escolha de conta.
+      queryParams: { prompt: 'select_account' },
     },
   })
 
