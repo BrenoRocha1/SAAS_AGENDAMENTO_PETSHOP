@@ -77,7 +77,7 @@ export default async function InternoAgendamentos({ searchParams }: Props) {
           </table>
         </div>
       )}
-      <Paginacao base={`${ROTA_INTERNA}/agendamentos`} params={{ ...(status && { status }) }} pagina={pagina} total={count ?? 0} tamanho={TAMANHO_PAGINA} />
+      <Paginacao base={`${ROTA_INTERNA}/agendamentos`} params={{ ...(status ? { status } : {}) }} pagina={pagina} total={count ?? 0} tamanho={TAMANHO_PAGINA} />
     </>
   )
 }

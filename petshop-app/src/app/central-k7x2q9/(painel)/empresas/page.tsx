@@ -94,7 +94,7 @@ export default async function InternoEmpresas({ searchParams }: Props) {
           </table>
         </div>
       )}
-      <Paginacao base={`${ROTA_INTERNA}/empresas`} params={{ ...(busca && { busca }), ...(status && { status }) }} pagina={pagina} total={count ?? 0} tamanho={TAMANHO_PAGINA} />
+      <Paginacao base={`${ROTA_INTERNA}/empresas`} params={{ ...(busca ? { busca } : {}), ...(status ? { status } : {}) }} pagina={pagina} total={count ?? 0} tamanho={TAMANHO_PAGINA} />
     </>
   )
 }

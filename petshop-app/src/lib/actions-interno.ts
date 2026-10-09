@@ -96,9 +96,12 @@ export async function adicionarAdminAction(email: string, nome: string): Promise
   const mail = email.trim().toLowerCase()
   if (!EMAIL_RE.test(mail)) return { error: 'E-mail inválido.' }
 
+  // ilike com curinga escapado: "_" e "%" são válidos em e-mail e, sem escapar,
+  // casariam com outra conta.
+  const padrao = mail.replace(/[\\%_]/g, c => `\\${c}`)
   const [{ data: lojista }, { data: cliente }] = await Promise.all([
-    ctx.db.from('lojista').select('id_lojista, nome_loja').ilike('email', mail).maybeSingle(),
-    ctx.db.from('cliente').select('id_cliente, nome').ilike('email', mail).maybeSingle(),
+    ctx.db.from('lojista').select('id_lojista, nome_loja').ilike('email', padrao).maybeSingle(),
+    ctx.db.from('cliente').select('id_cliente, nome').ilike('email', padrao).maybeSingle(),
   ])
   const id: string | undefined = lojista?.id_lojista ?? cliente?.id_cliente
   if (!id) return { error: 'Não achei conta com esse e-mail. A pessoa precisa ter entrado no sistema antes.' }

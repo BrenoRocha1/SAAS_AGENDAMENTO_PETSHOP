@@ -80,7 +80,7 @@ export default async function InternoClientes({ searchParams }: Props) {
           </table>
         </div>
       )}
-      <Paginacao base={`${ROTA_INTERNA}/clientes`} params={{ ...(busca && { busca }) }} pagina={pagina} total={count ?? 0} tamanho={TAMANHO_PAGINA} />
+      <Paginacao base={`${ROTA_INTERNA}/clientes`} params={{ ...(busca ? { busca } : {}) }} pagina={pagina} total={count ?? 0} tamanho={TAMANHO_PAGINA} />
     </>
   )
 }

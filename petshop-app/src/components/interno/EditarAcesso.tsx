@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { definirAcessoAteAction } from '@/lib/actions-interno'
 
 // "yyyy-MM-ddTHH:mm" no horário local, que é o que o <input datetime-local> usa.
@@ -11,7 +11,13 @@ function paraCampo(iso: string): string {
 }
 
 export default function EditarAcesso({ idLojista, acessoAte }: { idLojista: string; acessoAte: string }) {
-  const [valor, setValor] = useState(paraCampo(acessoAte))
+  // Vazio no servidor e preenchido no navegador: o fuso do servidor (UTC) é
+  // outro, e o campo mostraria a hora errada.
+  const [valor, setValor] = useState('')
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- depende do fuso do navegador, só conhecido depois de montar
+    setValor(paraCampo(acessoAte))
+  }, [acessoAte])
   const [erro, setErro] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
   const [pendente, iniciar] = useTransition()
