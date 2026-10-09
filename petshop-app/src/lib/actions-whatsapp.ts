@@ -10,15 +10,18 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { obterContextoLojista, type ContextoLojista } from '@/lib/lojista-context'
+import { enderecoDoSite } from '@/lib/whatsapp/endereco'
+import { configEvolution, estadoDaInstancia, nomeDaInstancia, prepararInstancia, qrDaInstancia, removerInstancia } from '@/lib/whatsapp/evolution'
 import { criarProvedorCloudApi } from '@/lib/whatsapp/provedor'
-import { MSG_NAO_CONECTADO, provedorDaLoja, registrarErroDoProvedor } from '@/lib/whatsapp/servico'
-import { COLUNAS_MENSAGEM, janelaAberta, type Mensagem } from '@/lib/whatsapp/tipos'
+import { MSG_NAO_CONECTADO, MSG_SEM_SERVIDOR_QR, provedorDaLoja, registrarErroDoProvedor } from '@/lib/whatsapp/servico'
+import { COLUNAS_MENSAGEM, janelaAberta, type Mensagem, type Midia, type TipoMensagem } from '@/lib/whatsapp/tipos'
 
 type Resultado<T = object> = ({ error: string } | ({ error?: undefined } & T))
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MSG_SERVICO = 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.'
 const MSG_MIGRATION = 'Execute a migration 088_whatsapp.sql para usar o WhatsApp.'
+const MSG_MIGRATION_QR = 'Execute a migration 089_whatsapp_qr.sql para concluir.'
 const MSG_JANELA = 'Passaram mais de 24 horas desde a última mensagem do cliente. A Meta só aceita mensagem livre dentro desse prazo — quando ele escrever de novo, você volta a poder responder.'
 const TEXTO_MAXIMO = 4096
 const ANEXO_MAXIMO = 10 * 1024 * 1024 // 10 MB
@@ -66,8 +69,39 @@ async function conversaParaEnvio(supabase: Supabase, idConversa: string): Promis
     .maybeSingle()
   if (error) return { error: faltaMigration(error) ? MSG_MIGRATION : 'Não foi possível abrir a conversa.' }
   if (!data) return { error: 'Conversa não encontrada.' }
-  if (!janelaAberta(data.ultima_entrada_em)) return { error: MSG_JANELA }
   return { conversa: data as ConversaParaEnvio }
+}
+
+type Admin = NonNullable<ReturnType<typeof createAdminClient>>
+
+// Grava a mensagem que saiu da loja, depois do envio (com o identificador
+// do provedor, ou com o erro), e devolve a linha como a tela usa.
+async function registrarEnvio(admin: Admin, dados: {
+  idLojista: string
+  idConversa: string
+  tipo: TipoMensagem
+  texto: string | null
+  midia: Midia | null
+  status: 'enviada' | 'erro'
+  erro: string | null
+  idProvedor: string | null
+  idAutor: string
+  nomeAutor: string | null
+}): Promise<{ mensagem: Mensagem } | { error: string }> {
+  const { data: id, error } = await admin.rpc('fn_whatsapp_registrar_envio', {
+    p_id_lojista: dados.idLojista, p_id_conversa: dados.idConversa, p_telefone: null, p_tipo: dados.tipo, p_texto: dados.texto,
+    p_midia: dados.midia, p_dados: null, p_status: dados.status, p_erro: dados.erro, p_provider_id: dados.idProvedor,
+    p_id_autor: dados.idAutor, p_nome_autor: dados.nomeAutor,
+  })
+  if (error || typeof id !== 'string') {
+    if (error && (error.code === 'PGRST202' || /Could not find the function|schema cache/i.test(error.message))) return { error: MSG_MIGRATION_QR }
+    return { error: dados.status === 'enviada'
+      ? 'A mensagem foi enviada, mas não ficou registrada na conversa. Atualize a tela.'
+      : (dados.erro ?? 'Não foi possível enviar a mensagem.') }
+  }
+  const { data: linha } = await admin.from('whatsapp_mensagem').select(COLUNAS_MENSAGEM).eq('id_mensagem', id).single()
+  if (!linha) return { error: 'A mensagem foi registrada, mas não pôde ser lida de volta. Atualize a tela.' }
+  return { mensagem: linha as unknown as Mensagem }
 }
 
 // ------------------------------------------------------------
@@ -88,39 +122,27 @@ export async function enviarMensagemWhatsAppAction(idConversa: string, texto: st
   if (!admin) return { error: MSG_SERVICO }
   const loja = await provedorDaLoja(admin, conversa.id_lojista)
   if ('erro' in loja) return { error: loja.erro }
+  // A regra das 24 horas é só da API oficial.
+  if (loja.tipo === 'cloud_api' && !janelaAberta(conversa.ultima_entrada_em)) return { error: MSG_JANELA }
 
-  // Grava primeiro como "enviando": se a chamada à Meta falhar, a mensagem
-  // fica na conversa marcada com erro, e dá para tentar de novo.
-  const { data: nova, error: erroGravar } = await admin
-    .from('whatsapp_mensagem')
-    .insert({
-      id_conversa: conversa.id_conversa,
-      id_lojista: conversa.id_lojista,
-      direcao: 'saida',
-      tipo: 'texto',
-      texto: corpo,
-      status: 'enviando',
-      id_autor: ctx.user.id,
-      nome_autor: await nomeDeQuemAtende(ctx.supabase),
-    })
-    .select(COLUNAS_MENSAGEM)
-    .single()
-  if (erroGravar || !nova) return { error: 'Não foi possível registrar a mensagem. Tente novamente.' }
-
+  // Envia e só então grava: com o identificador do provedor, ou com o erro
+  // (a mensagem fica na conversa marcada como não enviada, e dá para
+  // tentar de novo).
   const envio = await loja.provedor.enviarTexto(conversa.telefone, corpo)
-  const mudanca = envio.ok
-    ? { status: 'enviada', provider_message_id: envio.id, erro: null }
-    : { status: 'erro', erro: envio.erro.mensagem }
   if (!envio.ok) await registrarErroDoProvedor(admin, conversa.id_lojista, envio.erro)
 
-  const { data: final } = await admin
-    .from('whatsapp_mensagem')
-    .update(mudanca)
-    .eq('id_mensagem', (nova as unknown as Mensagem).id_mensagem)
-    .select(COLUNAS_MENSAGEM)
-    .single()
-
-  return { mensagem: (final ?? { ...(nova as unknown as Mensagem), ...mudanca }) as unknown as Mensagem }
+  return registrarEnvio(admin, {
+    idLojista: conversa.id_lojista,
+    idConversa: conversa.id_conversa,
+    tipo: 'texto',
+    texto: corpo,
+    midia: null,
+    status: envio.ok ? 'enviada' : 'erro',
+    erro: envio.ok ? null : envio.erro.mensagem,
+    idProvedor: envio.ok ? envio.id : null,
+    idAutor: ctx.user.id,
+    nomeAutor: await nomeDeQuemAtende(ctx.supabase),
+  })
 }
 
 // ------------------------------------------------------------
@@ -147,23 +169,37 @@ export async function reenviarMensagemWhatsAppAction(idMensagem: string): Promis
   if (!admin) return { error: MSG_SERVICO }
   const loja = await provedorDaLoja(admin, conversa.id_lojista)
   if ('erro' in loja) return { error: loja.erro }
-
-  await admin.from('whatsapp_mensagem').update({ status: 'enviando', erro: null }).eq('id_mensagem', idMensagem).eq('status', 'erro')
+  if (loja.tipo === 'cloud_api' && !janelaAberta(conversa.ultima_entrada_em)) return { error: MSG_JANELA }
 
   const envio = await loja.provedor.enviarTexto(conversa.telefone, original.texto)
-  const mudanca = envio.ok
-    ? { status: 'enviada', provider_message_id: envio.id, erro: null, enviada_em: new Date().toISOString() }
-    : { status: 'erro', erro: envio.erro.mensagem }
-  if (!envio.ok) await registrarErroDoProvedor(admin, conversa.id_lojista, envio.erro)
+  if (!envio.ok) {
+    await registrarErroDoProvedor(admin, conversa.id_lojista, envio.erro)
+    const { data: final } = await admin
+      .from('whatsapp_mensagem')
+      .update({ erro: envio.erro.mensagem })
+      .eq('id_mensagem', idMensagem)
+      .select(COLUNAS_MENSAGEM)
+      .single()
+    if (!final) return { error: envio.erro.mensagem }
+    return { mensagem: final as unknown as Mensagem }
+  }
 
-  const { data: final, error } = await admin
-    .from('whatsapp_mensagem')
-    .update(mudanca)
-    .eq('id_mensagem', idMensagem)
-    .select(COLUNAS_MENSAGEM)
-    .single()
-  if (error || !final) return { error: 'Não foi possível atualizar a mensagem.' }
-  return { mensagem: final as unknown as Mensagem }
+  // Saiu: a tentativa que tinha dado erro dá lugar à mensagem enviada.
+  const registro = await registrarEnvio(admin, {
+    idLojista: conversa.id_lojista,
+    idConversa: conversa.id_conversa,
+    tipo: 'texto',
+    texto: original.texto,
+    midia: null,
+    status: 'enviada',
+    erro: null,
+    idProvedor: envio.id,
+    idAutor: ctx.user.id,
+    nomeAutor: await nomeDeQuemAtende(ctx.supabase),
+  })
+  if ('error' in registro) return registro
+  await admin.from('whatsapp_mensagem').delete().eq('id_mensagem', idMensagem).eq('status', 'erro')
+  return registro
 }
 
 // ------------------------------------------------------------
@@ -188,51 +224,38 @@ export async function enviarAnexoWhatsAppAction(idConversa: string, formData: Fo
   if (!admin) return { error: MSG_SERVICO }
   const loja = await provedorDaLoja(admin, conversa.id_lojista)
   if ('erro' in loja) return { error: loja.erro }
+  if (loja.tipo === 'cloud_api' && !janelaAberta(conversa.ultima_entrada_em)) return { error: MSG_JANELA }
 
-  // Sem o arquivo na Meta não existe o que mostrar na conversa: se a
-  // subida falhar, nada é gravado e o erro volta para a tela.
+  // Arquivo que não saiu não tem o que mostrar na conversa: se o envio
+  // falhar, nada é gravado e o erro volta para a tela.
   const nome = (arquivo.name || (tipo === 'image' ? 'imagem' : 'documento.pdf')).slice(0, 120)
-  const subida = await loja.provedor.subirMidia({ bytes: new Uint8Array(await arquivo.arrayBuffer()), mime: arquivo.type, nome })
-  if (!subida.ok) {
-    await registrarErroDoProvedor(admin, conversa.id_lojista, subida.erro)
-    return { error: subida.erro.mensagem }
+  const envio = await loja.provedor.enviarMidia(
+    conversa.telefone,
+    tipo,
+    { bytes: new Uint8Array(await arquivo.arrayBuffer()), mime: arquivo.type, nome },
+    legenda || undefined
+  )
+  if (!envio.ok) {
+    await registrarErroDoProvedor(admin, conversa.id_lojista, envio.erro)
+    return { error: envio.erro.mensagem }
   }
 
-  const { data: nova, error: erroGravar } = await admin
-    .from('whatsapp_mensagem')
-    .insert({
-      id_conversa: conversa.id_conversa,
-      id_lojista: conversa.id_lojista,
-      direcao: 'saida',
-      tipo: tipo === 'image' ? 'imagem' : 'documento',
-      texto: legenda || null,
-      midia: { id: subida.id, mime: arquivo.type, nome },
-      status: 'enviando',
-      id_autor: ctx.user.id,
-      nome_autor: await nomeDeQuemAtende(ctx.supabase),
-    })
-    .select(COLUNAS_MENSAGEM)
-    .single()
-  if (erroGravar || !nova) return { error: 'Não foi possível registrar a mensagem. Tente novamente.' }
-
-  const envio = await loja.provedor.enviarMidia(conversa.telefone, tipo, subida.id, { legenda: legenda || undefined, nome })
-  const mudanca = envio.ok
-    ? { status: 'enviada', provider_message_id: envio.id, erro: null }
-    : { status: 'erro', erro: envio.erro.mensagem }
-  if (!envio.ok) await registrarErroDoProvedor(admin, conversa.id_lojista, envio.erro)
-
-  const { data: final } = await admin
-    .from('whatsapp_mensagem')
-    .update(mudanca)
-    .eq('id_mensagem', (nova as unknown as Mensagem).id_mensagem)
-    .select(COLUNAS_MENSAGEM)
-    .single()
-
-  return { mensagem: (final ?? { ...(nova as unknown as Mensagem), ...mudanca }) as unknown as Mensagem }
+  return registrarEnvio(admin, {
+    idLojista: conversa.id_lojista,
+    idConversa: conversa.id_conversa,
+    tipo: tipo === 'image' ? 'imagem' : 'documento',
+    texto: legenda || null,
+    midia: { id: envio.idMidia, mime: arquivo.type, nome },
+    status: 'enviada',
+    erro: null,
+    idProvedor: envio.id,
+    idAutor: ctx.user.id,
+    nomeAutor: await nomeDeQuemAtende(ctx.supabase),
+  })
 }
 
 // ------------------------------------------------------------
-// Conectar o número da loja (dono ou administrador)
+// Conectar pela API oficial da Meta (dono ou administrador)
 // ------------------------------------------------------------
 // A loja informa os dados do app dela na Meta. O token e o segredo vão
 // direto para a tabela que só o servidor lê; nunca voltam para a tela.
@@ -261,7 +284,10 @@ export async function conectarWhatsAppAction(formData: FormData): Promise<Result
   const idLojista = ctx.contexto.idLojista
   const agora = new Date().toISOString()
 
-  const { error: erroIntegracao } = await admin.from('whatsapp_integracao').upsert({
+  // Estava conectada por QR code: a sessão de lá é encerrada.
+  await encerrarSessaoQr(admin, idLojista)
+
+  const integracao = {
     id_lojista: idLojista,
     phone_number_id: phoneNumberId,
     waba_id: wabaId || null,
@@ -271,7 +297,12 @@ export async function conectarWhatsAppAction(formData: FormData): Promise<Result
     ultimo_erro: null,
     conectado_em: agora,
     updated_at: agora,
-  })
+  }
+  let { error: erroIntegracao } = await admin.from('whatsapp_integracao').upsert({ ...integracao, provedor: 'cloud_api', instancia: null })
+  // Sem a migration 089 as colunas do QR code não existem: grava sem elas.
+  if (erroIntegracao && /provedor|instancia/.test(erroIntegracao.message)) {
+    erroIntegracao = (await admin.from('whatsapp_integracao').upsert(integracao)).error
+  }
   if (erroIntegracao) {
     if (faltaMigration(erroIntegracao)) return { error: MSG_MIGRATION }
     if (erroIntegracao.code === '23505') return { error: 'Este número já está conectado a outra loja no SAIP.' }
@@ -298,7 +329,127 @@ export async function conectarWhatsAppAction(formData: FormData): Promise<Result
   return { numero: consulta.numero, nome: consulta.nome }
 }
 
-// Desconectar: apaga o token e o segredo. As conversas ficam.
+// ------------------------------------------------------------
+// Conectar por QR code (dono ou administrador)
+// ------------------------------------------------------------
+// A loja escaneia o QR code com o WhatsApp do celular. Quem mantém a sessão
+// é o servidor da Evolution API (um só para todas as lojas, configurado no
+// ambiente do SAIP); aqui a loja ganha a sua instância lá.
+
+// A sessão de QR code da loja, se houver, é encerrada no servidor.
+async function encerrarSessaoQr(admin: Admin, idLojista: string) {
+  const { data } = await admin.from('whatsapp_integracao').select('provedor, instancia').eq('id_lojista', idLojista).maybeSingle()
+  const cfg = configEvolution()
+  if (cfg && data?.provedor === 'evolution' && data.instancia) await removerInstancia(cfg, data.instancia)
+}
+
+// Prepara a conexão e devolve o QR code para a tela mostrar.
+export async function iniciarQrWhatsAppAction(): Promise<Resultado<{ qr: string | null; conectado: boolean }>> {
+  const ctx = await contextoDoWhatsApp()
+  if ('error' in ctx) return { error: ctx.error }
+  if (!ehGestor(ctx.contexto)) return { error: 'Só o responsável pela loja ou um administrador pode conectar o WhatsApp.' }
+  const cfg = configEvolution()
+  if (!cfg) return { error: MSG_SEM_SERVIDOR_QR }
+  const admin = createAdminClient()
+  if (!admin) return { error: MSG_SERVICO }
+
+  const idLojista = ctx.contexto.idLojista
+  const instancia = nomeDaInstancia(idLojista)
+  const agora = new Date().toISOString()
+
+  const { data: atual, error: erroLeitura } = await admin
+    .from('whatsapp_integracao')
+    .select('provedor, status')
+    .eq('id_lojista', idLojista)
+    .maybeSingle()
+  if (erroLeitura) return { error: faltaMigration(erroLeitura) || /provedor/.test(erroLeitura.message) ? MSG_MIGRATION_QR : 'Não foi possível preparar a conexão.' }
+
+  // O endereço do webhook da loja leva um código secreto; o mesmo código
+  // continua valendo enquanto a loja estiver no QR code.
+  const { data: credencial } = await admin.from('whatsapp_credencial').select('verify_token').eq('id_lojista', idLojista).maybeSingle()
+  const codigo = atual?.provedor === 'evolution' && credencial?.verify_token ? credencial.verify_token : randomBytes(24).toString('hex')
+
+  const preparo = await prepararInstancia(cfg, instancia, `${await enderecoDoSite()}/api/whatsapp/evolution/${codigo}`)
+  if (!preparo.ok) return { error: preparo.erro.mensagem }
+
+  // Já estava conectada por QR code e a sessão continua aberta: não troca nada.
+  const jaConectada = atual?.provedor === 'evolution' && atual.status === 'conectado'
+  const { error: erroIntegracao } = await admin.from('whatsapp_integracao').upsert({
+    id_lojista: idLojista,
+    provedor: 'evolution',
+    instancia,
+    phone_number_id: null,
+    waba_id: null,
+    ...(jaConectada ? {} : { status: 'pendente', numero_exibicao: null, nome_verificado: null }),
+    ultimo_erro: null,
+    updated_at: agora,
+  })
+  if (erroIntegracao) return { error: /provedor|instancia|status_check/.test(erroIntegracao.message) ? MSG_MIGRATION_QR : 'Não foi possível salvar a conexão. Tente novamente.' }
+
+  const { error: erroCredencial } = await admin.from('whatsapp_credencial').upsert({
+    id_lojista: idLojista,
+    // Na conexão por QR code não há token da loja: a chave é a do servidor.
+    access_token: '-',
+    app_secret: '-',
+    verify_token: codigo,
+    updated_at: agora,
+  })
+  if (erroCredencial) return { error: 'Não foi possível guardar a conexão. Tente novamente.' }
+
+  const qr = await qrDaInstancia(cfg, instancia)
+  if (!qr.ok) return { error: qr.erro.mensagem }
+  if (qr.conectado) await admin.from('whatsapp_integracao').update({ status: 'conectado', conectado_em: agora }).eq('id_lojista', idLojista)
+
+  revalidatePath('/lojista/configuracoes/whatsapp')
+  revalidatePath('/lojista/whatsapp')
+  return { qr: qr.qr, conectado: qr.conectado }
+}
+
+// A tela pergunta de tempos em tempos enquanto o QR code está aberto: já
+// escaneou? Se não, devolve o QR code do momento (ele muda a cada minuto).
+export async function estadoQrWhatsAppAction(): Promise<Resultado<{ conectado: boolean; qr: string | null; numero: string | null }>> {
+  const ctx = await contextoDoWhatsApp()
+  if ('error' in ctx) return { error: ctx.error }
+  if (!ehGestor(ctx.contexto)) return { error: 'Acesso não autorizado' }
+  const cfg = configEvolution()
+  if (!cfg) return { error: MSG_SEM_SERVIDOR_QR }
+  const admin = createAdminClient()
+  if (!admin) return { error: MSG_SERVICO }
+
+  const idLojista = ctx.contexto.idLojista
+  const { data: integracao } = await admin
+    .from('whatsapp_integracao')
+    .select('provedor, instancia, status, numero_exibicao')
+    .eq('id_lojista', idLojista)
+    .maybeSingle()
+  if (!integracao || integracao.provedor !== 'evolution' || !integracao.instancia) return { error: 'Gere o QR code primeiro.' }
+
+  const estado = await estadoDaInstancia(cfg, integracao.instancia)
+  if (!estado.ok) return { error: estado.erro.mensagem }
+
+  if (estado.estado === 'open') {
+    // O aviso do servidor (com o número) costuma chegar antes; isto garante
+    // o status mesmo se ele atrasar.
+    if (integracao.status !== 'conectado') {
+      const agora = new Date().toISOString()
+      await admin.from('whatsapp_integracao').update({ status: 'conectado', ultimo_erro: null, conectado_em: agora, updated_at: agora }).eq('id_lojista', idLojista)
+      revalidatePath('/lojista/configuracoes/whatsapp')
+      revalidatePath('/lojista/whatsapp')
+    }
+    return { conectado: true, qr: null, numero: integracao.numero_exibicao }
+  }
+
+  const qr = await qrDaInstancia(cfg, integracao.instancia)
+  if (!qr.ok) return { error: qr.erro.mensagem }
+  return { conectado: qr.conectado, qr: qr.qr, numero: null }
+}
+
+// ------------------------------------------------------------
+// Desconectar e testar (valem para os dois jeitos de conectar)
+// ------------------------------------------------------------
+
+// Desconectar: apaga o token (ou encerra a sessão do QR code). As
+// conversas ficam.
 export async function desconectarWhatsAppAction(): Promise<Resultado> {
   const ctx = await contextoDoWhatsApp()
   if ('error' in ctx) return { error: ctx.error }
@@ -307,6 +458,7 @@ export async function desconectarWhatsAppAction(): Promise<Resultado> {
   const admin = createAdminClient()
   if (!admin) return { error: MSG_SERVICO }
   const idLojista = ctx.contexto.idLojista
+  await encerrarSessaoQr(admin, idLojista)
   const { error: erroCredencial } = await admin.from('whatsapp_credencial').delete().eq('id_lojista', idLojista)
   const { error } = await admin
     .from('whatsapp_integracao')
@@ -319,7 +471,7 @@ export async function desconectarWhatsAppAction(): Promise<Resultado> {
   return {}
 }
 
-// Confere com a Meta se o token ainda vale (botão "Testar conexão").
+// Confere se a conexão continua de pé (botão "Testar conexão").
 export async function testarWhatsAppAction(): Promise<Resultado<{ numero: string | null; nome: string | null }>> {
   const ctx = await contextoDoWhatsApp()
   if ('error' in ctx) return { error: ctx.error }
@@ -328,16 +480,35 @@ export async function testarWhatsAppAction(): Promise<Resultado<{ numero: string
   const admin = createAdminClient()
   if (!admin) return { error: MSG_SERVICO }
   const idLojista = ctx.contexto.idLojista
-  const loja = await provedorDaLoja(admin, idLojista)
-  if ('erro' in loja) return { error: loja.erro === MSG_NAO_CONECTADO ? 'Conecte o WhatsApp primeiro.' : loja.erro }
-
-  const consulta = await loja.provedor.consultarNumero()
   const agora = new Date().toISOString()
-  if (!consulta.ok) {
-    await admin.from('whatsapp_integracao').update({ status: 'erro', ultimo_erro: consulta.erro.mensagem, updated_at: agora }).eq('id_lojista', idLojista)
+  const { data: integracao } = await admin
+    .from('whatsapp_integracao')
+    .select('*')
+    .eq('id_lojista', idLojista)
+    .maybeSingle()
+  if (!integracao || integracao.status === 'desconectado') return { error: 'Conecte o WhatsApp primeiro.' }
+
+  const falhou = async (mensagem: string) => {
+    await admin.from('whatsapp_integracao').update({ status: 'erro', ultimo_erro: mensagem, updated_at: agora }).eq('id_lojista', idLojista)
     revalidatePath('/lojista/configuracoes/whatsapp')
-    return { error: consulta.erro.mensagem }
+    return { error: mensagem }
   }
+
+  if (integracao.provedor === 'evolution') {
+    const cfg = configEvolution()
+    if (!cfg) return { error: MSG_SEM_SERVIDOR_QR }
+    const estado = await estadoDaInstancia(cfg, integracao.instancia ?? nomeDaInstancia(idLojista))
+    if (!estado.ok) return { error: estado.erro.mensagem }
+    if (estado.estado !== 'open') return falhou('O WhatsApp está desconectado no celular. Escaneie o QR code de novo.')
+    await admin.from('whatsapp_integracao').update({ status: 'conectado', ultimo_erro: null, updated_at: agora }).eq('id_lojista', idLojista)
+    revalidatePath('/lojista/configuracoes/whatsapp')
+    return { numero: integracao.numero_exibicao ?? null, nome: integracao.nome_verificado ?? null }
+  }
+
+  const { data: credencial } = await admin.from('whatsapp_credencial').select('access_token').eq('id_lojista', idLojista).maybeSingle()
+  if (!integracao.phone_number_id || !credencial?.access_token) return { error: MSG_NAO_CONECTADO }
+  const consulta = await criarProvedorCloudApi({ phoneNumberId: integracao.phone_number_id, accessToken: credencial.access_token }).consultarNumero()
+  if (!consulta.ok) return falhou(consulta.erro.mensagem)
   await admin
     .from('whatsapp_integracao')
     .update({ status: 'conectado', ultimo_erro: null, numero_exibicao: consulta.numero, nome_verificado: consulta.nome, updated_at: agora })

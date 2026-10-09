@@ -1,6 +1,9 @@
 import type { createAdminClient } from '@/lib/supabase/admin'
+import { configEvolution, criarProvedorEvolution } from './evolution'
 import { criarProvedorCloudApi, type ErroDoProvedor, type ProvedorWhatsApp } from './provedor'
+import type { Provedor } from './tipos'
 import { assinaturaValida, lerWebhook } from './webhook'
+import { lerWebhookEvolution } from './webhook-evolution'
 
 // Serviço de WhatsApp do lado do servidor: liga o provedor (Cloud API da
 // Meta) às tabelas da migration 088. As credenciais só são lidas aqui, com
@@ -10,14 +13,36 @@ type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
 export const MSG_NAO_CONECTADO = 'O WhatsApp da loja não está conectado.'
 
-// O provedor pronto para enviar pela loja, ou o motivo de não dar.
-export async function provedorDaLoja(admin: Admin, idLojista: string): Promise<{ provedor: ProvedorWhatsApp } | { erro: string }> {
-  const [{ data: integracao }, { data: credencial }] = await Promise.all([
-    admin.from('whatsapp_integracao').select('phone_number_id, status').eq('id_lojista', idLojista).maybeSingle(),
-    admin.from('whatsapp_credencial').select('access_token').eq('id_lojista', idLojista).maybeSingle(),
-  ])
-  if (!integracao || integracao.status === 'desconectado' || !credencial?.access_token) return { erro: MSG_NAO_CONECTADO }
-  return { provedor: criarProvedorCloudApi({ phoneNumberId: integracao.phone_number_id, accessToken: credencial.access_token }) }
+export const MSG_SEM_SERVIDOR_QR = 'A conexão por QR code ainda não foi ativada no SAIP (falta configurar o servidor de conexão).'
+
+// O provedor pronto para enviar pela loja (API oficial ou QR code), ou o
+// motivo de não dar.
+export async function provedorDaLoja(
+  admin: Admin,
+  idLojista: string
+): Promise<{ provedor: ProvedorWhatsApp; tipo: Provedor } | { erro: string }> {
+  let { data: integracao } = await admin
+    .from('whatsapp_integracao')
+    .select('provedor, phone_number_id, instancia, status')
+    .eq('id_lojista', idLojista)
+    .maybeSingle<{ provedor: Provedor; phone_number_id: string | null; instancia: string | null; status: string }>()
+  if (!integracao) {
+    // Sem a migration 089 as colunas do QR code não existem: só há a API oficial.
+    const antiga = await admin.from('whatsapp_integracao').select('phone_number_id, status').eq('id_lojista', idLojista).maybeSingle()
+    integracao = antiga.data ? { ...antiga.data, provedor: 'cloud_api', instancia: null } : null
+  }
+  if (!integracao || integracao.status === 'desconectado' || integracao.status === 'pendente') return { erro: MSG_NAO_CONECTADO }
+
+  if (integracao.provedor === 'evolution') {
+    const cfg = configEvolution()
+    if (!cfg) return { erro: MSG_SEM_SERVIDOR_QR }
+    if (!integracao.instancia) return { erro: MSG_NAO_CONECTADO }
+    return { provedor: criarProvedorEvolution(cfg, integracao.instancia), tipo: 'evolution' }
+  }
+
+  const { data: credencial } = await admin.from('whatsapp_credencial').select('access_token').eq('id_lojista', idLojista).maybeSingle()
+  if (!integracao.phone_number_id || !credencial?.access_token) return { erro: MSG_NAO_CONECTADO }
+  return { provedor: criarProvedorCloudApi({ phoneNumberId: integracao.phone_number_id, accessToken: credencial.access_token }), tipo: 'cloud_api' }
 }
 
 // O token deixou de valer: a tela passa a avisar que precisa reconectar.
@@ -126,5 +151,93 @@ export async function processarWebhook(admin: Admin, corpoCru: string, assinatur
     .update({ webhook_em: new Date().toISOString() })
     .in('id_lojista', [...new Set(lojaDoNumero.values())])
 
+  return falhou ? 500 : 200
+}
+
+// ------------------------------------------------------------
+// Conexão por QR code (Evolution API)
+// ------------------------------------------------------------
+
+// Número do WhatsApp como a tela mostra: "+55 11 99999-8888".
+function numeroParaExibir(telefone: string): string {
+  const d = telefone.replace(/\D/g, '')
+  if (d.startsWith('55') && (d.length === 12 || d.length === 13)) {
+    const resto = d.slice(4)
+    return `+55 ${d.slice(2, 4)} ${resto.slice(0, resto.length - 4)}-${resto.slice(-4)}`
+  }
+  return `+${d}`
+}
+
+// Um aviso da Evolution API. O endereço do webhook de cada loja leva um
+// código secreto (whatsapp_credencial.verify_token): é ele que diz de qual
+// loja é o aviso e que garante que quem chamou conhece o endereço.
+// Devolve o código HTTP da resposta.
+export async function processarWebhookEvolution(admin: Admin, codigo: string, corpo: unknown): Promise<number> {
+  if (!/^[0-9a-f]{32,}$/i.test(codigo)) return 404
+  const { data: credencial } = await admin.from('whatsapp_credencial').select('id_lojista').eq('verify_token', codigo).maybeSingle()
+  if (!credencial) return 404
+  const idLojista = credencial.id_lojista as string
+
+  const { data: integracao } = await admin
+    .from('whatsapp_integracao')
+    .select('provedor, instancia, status')
+    .eq('id_lojista', idLojista)
+    .maybeSingle()
+  if (!integracao || integracao.provedor !== 'evolution' || integracao.status === 'desconectado') return 404
+
+  const evento = lerWebhookEvolution(corpo)
+  // Aviso de outra instância com o endereço desta loja: não é dela.
+  if (evento.instancia && integracao.instancia && evento.instancia !== integracao.instancia) return 404
+
+  const agora = new Date().toISOString()
+  let falhou = false
+
+  if (evento.conexao) {
+    const c = evento.conexao
+    const mudanca = c.estado === 'open'
+      ? {
+          status: 'conectado',
+          ultimo_erro: null,
+          ...(c.telefone ? { numero_exibicao: numeroParaExibir(c.telefone) } : {}),
+          ...(c.nome ? { nome_verificado: c.nome } : {}),
+          conectado_em: agora,
+        }
+      : c.estado === 'close' && integracao.status === 'conectado'
+        // Estava conectado e caiu (saiu pelo celular, por exemplo).
+        ? { status: 'erro', ultimo_erro: 'O WhatsApp foi desconectado. Escaneie o QR code de novo em Configurações → WhatsApp.' }
+        : null
+    if (mudanca) {
+      const { error } = await admin.from('whatsapp_integracao').update({ ...mudanca, updated_at: agora }).eq('id_lojista', idLojista)
+      if (error) falhou = true
+    }
+  }
+
+  if (evento.mensagem) {
+    const m = evento.mensagem
+    const { error } = m.daLoja
+      // A loja respondeu (pelo SAIP ou direto pelo celular).
+      ? await admin.rpc('fn_whatsapp_registrar_envio', {
+          p_id_lojista: idLojista, p_id_conversa: null, p_telefone: m.telefone, p_tipo: m.tipo, p_texto: m.texto,
+          p_midia: m.midia, p_dados: m.dados, p_status: 'enviada', p_erro: null, p_provider_id: m.idProvedor,
+          p_id_autor: null, p_nome_autor: 'Celular da loja', p_quando: m.quando,
+        })
+      : await admin.rpc('fn_whatsapp_receber', {
+          p_id_lojista: idLojista, p_telefone: m.telefone, p_nome: m.nome, p_provider_id: m.idProvedor, p_tipo: m.tipo,
+          p_texto: m.texto, p_midia: m.midia, p_dados: m.dados, p_quando: m.quando,
+        })
+    if (error) {
+      console.error('[whatsapp evolution] mensagem não gravada:', error.code, error.message)
+      falhou = true
+    }
+  }
+
+  if (evento.status) {
+    const { error } = await admin.rpc('fn_whatsapp_status', {
+      p_id_lojista: idLojista, p_provider_id: evento.status.idProvedor, p_status: evento.status.status, p_erro: null,
+    })
+    if (error) falhou = true
+  }
+
+  await admin.from('whatsapp_integracao').update({ webhook_em: agora }).eq('id_lojista', idLojista)
   return falhou ? 500 : 200
 }

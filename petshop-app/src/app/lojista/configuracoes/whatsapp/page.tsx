@@ -1,4 +1,3 @@
-import { headers } from 'next/headers'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -6,33 +5,27 @@ import { obterUsuario } from '@/lib/supabase/usuario'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import ConexaoWhatsAppForm, { type IntegracaoCompleta } from '@/components/lojista/whatsapp/ConexaoWhatsAppForm'
 import { IconAlert, IconChevronLeft } from '@/components/icons'
+import { enderecoDoSite } from '@/lib/whatsapp/endereco'
+import { configEvolution } from '@/lib/whatsapp/evolution'
 import type { Metadata } from 'next'
 import '@/components/lojista/whatsapp/whatsapp.css'
 
 export const metadata: Metadata = { title: 'WhatsApp — Configurações' }
 
-// Endereço público do site: é ele que a Meta chama. Em produção vem de
-// NEXT_PUBLIC_SITE_URL; sem ela, do endereço em que a página foi aberta.
-async function enderecoDoSite(): Promise<string> {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '')
-  const h = await headers()
-  const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000'
-  const protocolo = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https')
-  return `${protocolo}://${host}`
-}
-
-// Configurações → WhatsApp: conectar o número da loja à WhatsApp Business
-// Platform (Cloud API oficial da Meta). Só o dono e o administrador chegam
-// aqui (o middleware barra o resto de /lojista/configuracoes).
+// Configurações → WhatsApp: conectar o número da loja, por QR code (como o
+// WhatsApp Web) ou pela API oficial da Meta. Só o dono e o administrador
+// chegam aqui (o middleware barra o resto de /lojista/configuracoes).
 export default async function ConfiguracoesWhatsAppPage() {
   const supabase = await createClient()
   const user = await obterUsuario()
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
   if (!contexto || !(contexto.role === 'lojista' || contexto.acessoTotal)) return null
 
+  // select('*'): `provedor` só existe depois da migration 089 — sem ela, a
+  // tela segue com a API oficial.
   const { data: integracao, error } = await supabase
     .from('whatsapp_integracao')
-    .select('phone_number_id, waba_id, numero_exibicao, nome_verificado, status, ultimo_erro, webhook_em, conectado_em')
+    .select('*')
     .eq('id_lojista', contexto.idLojista)
     .maybeSingle()
 
@@ -40,7 +33,7 @@ export default async function ConfiguracoesWhatsAppPage() {
   // Ele precisa aparecer aqui para a loja colar na Meta; o token de acesso
   // e o segredo do app nunca voltam para a tela.
   let codigoDeVerificacao: string | null = null
-  if (integracao && integracao.status !== 'desconectado') {
+  if (integracao && integracao.status !== 'desconectado' && integracao.provedor !== 'evolution') {
     const admin = createAdminClient()
     const { data: credencial } = admin
       ? await admin.from('whatsapp_credencial').select('verify_token').eq('id_lojista', contexto.idLojista).maybeSingle()
@@ -70,6 +63,7 @@ export default async function ConfiguracoesWhatsAppPage() {
       ) : (
         <ConexaoWhatsAppForm
           integracao={(integracao as IntegracaoCompleta | null) ?? null}
+          servidorQr={!!configEvolution()}
           enderecoWebhook={`${await enderecoDoSite()}/api/whatsapp/webhook`}
           codigoDeVerificacao={codigoDeVerificacao}
         />

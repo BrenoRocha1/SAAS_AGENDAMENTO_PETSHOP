@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { assinarComSessao } from '@/lib/supabase/realtime'
 import { IconAlert, IconChat, IconSettings } from '@/components/icons'
 import {
-  conectado as integracaoConectada, mensagemDoWhatsApp,
+  conectado as integracaoConectada, mensagemDoWhatsApp, temJanelaDeResposta,
   type Conversa, type FiltroConversas, type ResumoWhatsApp,
 } from '@/lib/whatsapp/tipos'
 import ListaConversas from './ListaConversas'
@@ -72,6 +72,8 @@ export default function CentralWhatsApp({
   }, [filtro, buscaAplicada, conversas.length])
 
   const conectado = integracaoConectada(resumo.integracao)
+  // Pela API oficial, a loja só responde até 24 horas depois do cliente.
+  const comJanela = temJanelaDeResposta(resumo.integracao)
 
   // ---------- Lista
   const carregar = useCallback(async (opcoes: { filtro: FiltroConversas; busca: string; quantidade?: number; silencioso?: boolean }) => {
@@ -234,12 +236,14 @@ export default function CentralWhatsApp({
           <span>
             {resumo.integracao?.status === 'erro'
               ? <>O WhatsApp parou de responder: {resumo.integracao.ultimo_erro || 'a conexão com a Meta falhou.'}</>
-              : 'Conecte seu WhatsApp para começar a receber e enviar mensagens pelo SAIP.'}
+              : resumo.integracao?.status === 'pendente'
+                ? 'Falta escanear o QR code para o WhatsApp da loja começar a funcionar no SAIP.'
+                : 'Conecte seu WhatsApp para começar a receber e enviar mensagens pelo SAIP.'}
             {!gestor && ' Peça ao responsável pela loja.'}
           </span>
           {gestor && (
             <Link href="/lojista/configuracoes/whatsapp" className="btn btn-primary btn-sm">
-              <IconSettings style={{ width: 14, height: 14 }} /> {resumo.integracao?.status === 'erro' ? 'Reconectar' : 'Conectar WhatsApp'}
+              <IconSettings style={{ width: 14, height: 14 }} /> {resumo.integracao?.status === 'erro' ? 'Reconectar' : resumo.integracao?.status === 'pendente' ? 'Escanear QR code' : 'Conectar WhatsApp'}
             </Link>
           )}
         </div>
@@ -272,6 +276,7 @@ export default function CentralWhatsApp({
               conversa={aberta}
               idUsuario={idUsuario}
               conectado={conectado}
+              comJanela={comJanela}
               gestor={gestor}
               podeAgendar={podeAgendar}
               podeVerClientes={podeVerClientes}
@@ -304,6 +309,7 @@ export default function CentralWhatsApp({
       {novaConversa && (
         <NovaConversaModal
           conectado={conectado}
+          comJanela={comJanela}
           onFechar={() => setNovaConversa(false)}
           onAberta={idConversa => {
             setNovaConversa(false)

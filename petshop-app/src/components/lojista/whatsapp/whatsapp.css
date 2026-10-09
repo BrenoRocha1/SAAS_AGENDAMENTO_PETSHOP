@@ -376,3 +376,9 @@
   background: var(--gray-850); font-size: 0.8125rem; color: var(--gray-100); overflow-x: auto; white-space: nowrap;
 }
 .wa-config-acoes { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }
+/* QR code para escanear: a imagem centralizada, os passos embaixo. */
+.wa-qr { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); }
+.wa-qr img { width: 264px; height: 264px; max-width: 100%; padding: var(--space-3); border: 1px solid var(--gray-800); border-radius: var(--radius-lg); background: #fff; }
+.wa-qr .wa-config-passos { align-self: stretch; }
+.wa-config .segmentos-app { align-self: flex-start; }
+

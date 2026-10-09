@@ -10,6 +10,8 @@ import { BuscaCliente } from './DetalhesContato'
 
 interface Props {
   conectado: boolean
+  // API oficial: vale a regra de o cliente escrever primeiro.
+  comJanela: boolean
   onFechar: () => void
   // A conversa aberta (nova ou a que o contato já tinha).
   onAberta: (idConversa: string) => void
@@ -18,8 +20,8 @@ interface Props {
 type Modo = 'cliente' | 'telefone'
 
 // "Nova conversa": por um cliente da loja ou por um telefone. Só abre a
-// conversa — nenhuma mensagem é enviada aqui.
-export default function NovaConversaModal({ conectado, onFechar, onAberta }: Props) {
+// conversa — a mensagem é escrita depois, na própria conversa.
+export default function NovaConversaModal({ conectado, comJanela, onFechar, onAberta }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [modo, setModo] = useState<Modo>('cliente')
   const [telefone, setTelefone] = useState('')
@@ -45,10 +47,12 @@ export default function NovaConversaModal({ conectado, onFechar, onAberta }: Pro
           <span>O WhatsApp da loja não está conectado. Dá para abrir a conversa, mas não para enviar mensagens.</span>
         </div>
       )}
-      <div className="alert alert-info">
-        <IconInfo style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-        <span>Pelas regras do WhatsApp, a loja só escreve livremente depois que o cliente manda a primeira mensagem. Abrir a conversa aqui deixa o contato pronto e ligado ao cadastro.</span>
-      </div>
+      {comJanela && (
+        <div className="alert alert-info">
+          <IconInfo style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+          <span>Pela API oficial do WhatsApp, a loja só escreve livremente depois que o cliente manda a primeira mensagem. Abrir a conversa aqui deixa o contato pronto e ligado ao cadastro.</span>
+        </div>
+      )}
 
       <Segmentos<Modo>
         opcoes={[{ valor: 'cliente', rotulo: 'Cliente da loja' }, { valor: 'telefone', rotulo: 'Outro telefone' }]}

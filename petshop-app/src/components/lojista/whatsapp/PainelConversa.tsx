@@ -22,6 +22,9 @@ interface Props {
   idUsuario: string
   // O WhatsApp da loja está conectado (dá para enviar)?
   conectado: boolean
+  // API oficial: só dá para responder até 24 horas depois da última
+  // mensagem do cliente. Pelo QR code não há esse limite.
+  comJanela: boolean
   gestor: boolean
   podeAgendar: boolean
   podeVerClientes: boolean
@@ -62,7 +65,7 @@ function juntar(atuais: MensagemLocal[], m: Mensagem): MensagemLocal[] {
 
 // Painel da direita: cabeçalho do contato, mensagens e o campo de envio.
 export default function PainelConversa({
-  conversa, idUsuario, conectado, gestor, podeAgendar, podeVerClientes, detalhesAbertos, onDetalhes, onVoltar, onMudou,
+  conversa, idUsuario, conectado, comJanela, gestor, podeAgendar, podeVerClientes, detalhesAbertos, onDetalhes, onVoltar, onMudou,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const id = conversa.id_conversa
@@ -304,7 +307,9 @@ export default function PainelConversa({
     const r = await reenviarMensagemWhatsAppAction(idMensagem)
     setReenviando(null)
     if (r.error !== undefined) return setErroEnvio(r.error)
-    setMensagens(atuais => juntar(atuais, r.mensagem))
+    // Quando sai, a tentativa com erro dá lugar à mensagem enviada (que
+    // pode vir com outro identificador).
+    setMensagens(atuais => juntar(r.mensagem.id_mensagem === idMensagem ? atuais : atuais.filter(x => x.id_mensagem !== idMensagem), r.mensagem))
   }
 
   // ---------- Atendimento
@@ -344,7 +349,7 @@ export default function PainelConversa({
   const podeAssumir = conversa.status !== 'ativa' || !meu
   // Antes de o relógio começar (primeira pintura), vale a hora da mensagem
   // mais nova já carregada — o campo não pisca.
-  const janela = janelaAberta(conversa.ultima_entrada_em, agora ?? undefined)
+  const janela = !comJanela || janelaAberta(conversa.ultima_entrada_em, agora ?? undefined)
   const linkAgendar = conversa.id_cliente
     ? `/lojista/agendamentos?novoAgendamentoTutor=${conversa.id_cliente}${conversa.id_pet ? `&novoAgendamentoPet=${conversa.id_pet}` : ''}`
     : null

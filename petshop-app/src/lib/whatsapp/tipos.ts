@@ -60,8 +60,14 @@ export interface Mensagem {
 
 export const COLUNAS_MENSAGEM = 'id_mensagem, id_conversa, direcao, tipo, texto, midia, dados, status, erro, nome_autor, enviada_em'
 
+// cloud_api: a API oficial da Meta · evolution: QR code (não oficial).
+export type Provedor = 'cloud_api' | 'evolution'
+
 export interface IntegracaoResumo {
-  status: 'conectado' | 'erro' | 'desconectado'
+  // pendente: QR code gerado, ainda não escaneado.
+  status: 'conectado' | 'erro' | 'desconectado' | 'pendente'
+  // Antes da migration 089 não vem: vale a API oficial.
+  provedor?: Provedor
   numero: string | null
   nome: string | null
   ultimo_erro: string | null
@@ -124,6 +130,12 @@ export const JANELA_RESPOSTA_MS = 24 * 60 * 60 * 1000
 export function janelaAberta(ultimaEntradaEm: string | null, agora = Date.now()): boolean {
   if (!ultimaEntradaEm) return false
   return agora - new Date(ultimaEntradaEm).getTime() < JANELA_RESPOSTA_MS
+}
+
+// A regra das 24 horas é da API oficial; pelo QR code a loja escreve quando
+// quiser, como no celular.
+export function temJanelaDeResposta(integracao: IntegracaoResumo | null | undefined): boolean {
+  return integracao?.provedor !== 'evolution'
 }
 
 // A integração está pronta para enviar e receber?

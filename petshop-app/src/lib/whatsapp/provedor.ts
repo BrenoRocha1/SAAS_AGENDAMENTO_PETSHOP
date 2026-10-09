@@ -27,14 +27,17 @@ export interface ArquivoParaEnvio {
 }
 
 export interface ProvedorWhatsApp {
-  // Confere se o token e o número valem, e devolve como o número aparece.
-  consultarNumero(): Promise<RespostaDoProvedor<{ numero: string | null; nome: string | null }>>
   enviarTexto(para: string, texto: string): Promise<RespostaDoProvedor<{ id: string }>>
-  // Sobe o arquivo para a Meta; o id devolvido vai em enviarMidia.
-  subirMidia(arquivo: ArquivoParaEnvio): Promise<RespostaDoProvedor<{ id: string }>>
-  enviarMidia(para: string, tipo: 'image' | 'document', idMidia: string, opcoes?: { legenda?: string; nome?: string }): Promise<RespostaDoProvedor<{ id: string }>>
-  // O arquivo de uma mensagem (recebida ou enviada), pelo id da Meta.
+  // Envia imagem ou documento. `id` é o da mensagem no provedor; `idMidia`,
+  // o que baixarMidia usa depois para mostrar o arquivo na conversa.
+  enviarMidia(para: string, tipo: 'image' | 'document', arquivo: ArquivoParaEnvio, legenda?: string): Promise<RespostaDoProvedor<{ id: string; idMidia: string }>>
+  // O arquivo de uma mensagem (recebida ou enviada).
   baixarMidia(idMidia: string): Promise<RespostaDoProvedor<{ corpo: ArrayBuffer; mime: string }>>
+}
+
+// A API oficial também sabe dizer se o token e o número valem.
+export interface ProvedorCloudApi extends ProvedorWhatsApp {
+  consultarNumero(): Promise<RespostaDoProvedor<{ numero: string | null; nome: string | null }>>
 }
 
 const VERSAO_GRAPH = process.env.WHATSAPP_GRAPH_VERSION || 'v23.0'
@@ -88,7 +91,7 @@ async function chamar(url: string, init: RequestInit): Promise<{ status: number;
   }
 }
 
-export function criarProvedorCloudApi(cred: CredenciaisWhatsApp): ProvedorWhatsApp {
+export function criarProvedorCloudApi(cred: CredenciaisWhatsApp): ProvedorCloudApi {
   const autorizacao = { Authorization: `Bearer ${cred.accessToken}` }
   const numero = encodeURIComponent(cred.phoneNumberId)
 
@@ -119,23 +122,25 @@ export function criarProvedorCloudApi(cred: CredenciaisWhatsApp): ProvedorWhatsA
       return enviar({ to: para, type: 'text', text: { preview_url: true, body: texto } })
     },
 
-    async subirMidia(arquivo) {
+    async enviarMidia(para, tipo, arquivo, legenda) {
+      // Primeiro o arquivo sobe para a Meta; depois vai a mensagem com o
+      // identificador dele.
       const form = new FormData()
       form.set('messaging_product', 'whatsapp')
       form.set('type', arquivo.mime)
       form.set('file', new Blob([arquivo.bytes as BlobPart], { type: arquivo.mime }), arquivo.nome)
-      const r = await chamar(`${BASE}/${numero}/media`, { method: 'POST', headers: autorizacao, body: form })
-      if ('falha' in r) return { ok: false, erro: r.falha }
-      const id = (r.json as { id?: string } | null)?.id
-      if (r.status >= 200 && r.status < 300 && id) return { ok: true, id }
-      return { ok: false, erro: traduzirErro(r.status, r.json as ErroGraph | null) }
-    },
+      const subida = await chamar(`${BASE}/${numero}/media`, { method: 'POST', headers: autorizacao, body: form })
+      if ('falha' in subida) return { ok: false, erro: subida.falha }
+      const idMidia = (subida.json as { id?: string } | null)?.id
+      if (!(subida.status >= 200 && subida.status < 300) || !idMidia) {
+        return { ok: false, erro: traduzirErro(subida.status, subida.json as ErroGraph | null) }
+      }
 
-    enviarMidia(para, tipo, idMidia, opcoes) {
       const conteudo: Record<string, unknown> = { id: idMidia }
-      if (opcoes?.legenda) conteudo.caption = opcoes.legenda
-      if (tipo === 'document' && opcoes?.nome) conteudo.filename = opcoes.nome
-      return enviar({ to: para, type: tipo, [tipo]: conteudo })
+      if (legenda) conteudo.caption = legenda
+      if (tipo === 'document') conteudo.filename = arquivo.nome
+      const envio = await enviar({ to: para, type: tipo, [tipo]: conteudo })
+      return envio.ok ? { ok: true, id: envio.id, idMidia } : envio
     },
 
     async baixarMidia(idMidia) {
