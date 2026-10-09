@@ -149,6 +149,8 @@ export default function AgendamentoDetalheScreen() {
   const [erroPagamento, setErroPagamento] = useState<string | null>(null)
   const [equipe, setEquipe] = useState<{ id_funcionario: string; nome: string }[]>([])
   const [taxidogAtivo, setTaxidogAtivo] = useState(false)
+  // A consulta acima já respondeu? Só então dá para afirmar que a loja não usa TaxiDog.
+  const [taxidogSabido, setTaxidogSabido] = useState(false)
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false)
   // Plano
   const [erroPlano, setErroPlano] = useState<string | null>(null)
@@ -181,7 +183,9 @@ export default function AgendamentoDetalheScreen() {
       if (!cancelado) setFormas(formasAtivas(normalizarFormasLoja(data)))
     })
     supabase.from('taxidog_config').select('ativo').eq('id_lojista', idLojista).maybeSingle().then(({ data, error }) => {
-      if (!cancelado) setTaxidogAtivo(!error && !!(data as { ativo: boolean } | null)?.ativo)
+      if (cancelado) return
+      setTaxidogAtivo(!error && !!(data as { ativo: boolean } | null)?.ativo)
+      setTaxidogSabido(!error)
     })
     if (acessoTotal) {
       supabase.from('funcionario').select('id_funcionario, nome').eq('id_lojista', idLojista).eq('ativo', true).order('nome').then(({ data }) => {
@@ -222,15 +226,26 @@ export default function AgendamentoDetalheScreen() {
   async function avancar(status: StatusAgendamento, taxidog?: 'ignorar' | 'cliente_trouxe') {
     setErro(null)
     setAviso(null)
+    // A etapa troca na tela na hora; se o banco recusar, volta.
+    const anterior = a.status
+    const mostrar = (etapa: StatusAgendamento) => setAg(atual => (atual ? { ...atual, status: etapa } : atual))
+    mostrar(status)
     setEnviando(true)
-    const r = await atualizarStatus(ctx, a.id_agendamento, status, taxidog ? { taxidog } : undefined)
+    const r = await atualizarStatus(ctx, a.id_agendamento, status, {
+      ...(taxidog ? { taxidog } : {}),
+      // A tela já tem o agendamento: a gravação não precisa buscá-lo antes.
+      conhecido: { status: anterior, dt_agendamento: a.dt_agendamento, semBusca: taxidogSabido && !taxidogAtivo },
+    })
     setEnviando(false)
     if (r.taxidogPendente) {
+      mostrar(anterior)
       perguntarTaxiDog(status, r.taxidogPendente)
       return
     }
     if (r.erro) {
+      mostrar(anterior)
       setErro(r.erro)
+      carregar()
       return
     }
     if (r.aviso) setAviso(r.aviso)

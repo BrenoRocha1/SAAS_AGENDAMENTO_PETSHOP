@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { Linking, Pressable, StyleSheet, View } from 'react-native'
 import { format, subDays } from 'date-fns'
@@ -102,7 +102,7 @@ function abrirNoMapa(c: Corrida) {
 //     ainda estão sem TaxiDog.
 // Nos dois, a etapa seguinte é um botão no próprio card. Mudou lá, muda aqui.
 export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
-  const { contexto } = useAuth()
+  const { contexto, user } = useAuth()
   const router = useRouter()
   const { versao, marcarFeitoPorMim } = useTaxiDogTempoReal()
   const motorista = modo === 'motorista'
@@ -126,19 +126,29 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
   const [erroCarga, setErroCarga] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [etapaEscolhida, setEtapaEscolhida] = useState<GrupoCorrida | null>(null)
-  // Qual card disparou a ação — só ele mostra o "carregando".
-  const [idEmAcao, setIdEmAcao] = useState<string | null>(null)
-  const [ocupado, setOcupado] = useState(false)
+  // Corridas com uma ação ainda sendo gravada. Cada uma grava por conta
+  // própria: mexer numa não trava as outras.
+  const [emAcao, setEmAcao] = useState<Set<string>>(new Set())
+  const emAcaoAgora = useRef(new Set<string>())
+  // O que cada ação em curso já mudou na tela (a corrida troca de etapa na
+  // hora); uma recarga no meio do caminho não desfaz.
+  const pendentes = useRef(new Map<string, Partial<Corrida>>())
+  // Sobe a cada gravação concluída: uma recarga que começou antes dela traz
+  // a lista antiga e é descartada.
+  const geracao = useRef(0)
   const [abertaId, setAbertaId] = useState<string | null>(null)
 
   const carregar = useCallback(async () => {
     if (!idLojista || !pode) return
+    const geracaoNoInicio = geracao.current
     const inicio = motorista ? format(subDays(agoraBrasil(), DIAS_PARA_TRAS), 'yyyy-MM-dd') : data
     const [lista, config, publicos] = await Promise.all([
       supabase.rpc('fn_listar_corridas', { p_data_ini: inicio, p_data_fim: data }),
       supabase.from('taxidog_config').select('ativo').eq('id_lojista', idLojista).maybeSingle(),
       podeAtribuir ? supabase.rpc('fn_taxidogs_publicos', { p_id_lojista: idLojista }) : Promise.resolve({ data: [] }),
     ])
+    // Uma gravação terminou enquanto esta lista vinha: ela já está velha.
+    if (geracaoNoInicio !== geracao.current) return void carregar()
     if (lista.error) {
       setErroCarga(faltaMigration(lista.error) ? 'O TaxiDog ainda não foi ativado no sistema da loja.' : 'Não foi possível carregar as corridas.')
     } else {
@@ -146,7 +156,10 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
       // De dias anteriores, só o que ainda está aberto.
       const doQuadro = todas.filter(c => c.dt_agendamento === data || (motorista && c.dt_agendamento < data && !encerrada(c.status)))
       setErroCarga(null)
-      setCorridas(doQuadro)
+      setCorridas(doQuadro.map(c => {
+        const mudanca = pendentes.current.get(c.id_corrida)
+        return mudanca ? { ...c, ...mudanca } : c
+      }))
       setRotaPorCorrida(await rotasDasCorridas(doQuadro.map(c => c.id_corrida)))
     }
     setTaxidogAtivo(!!(config.data as { ativo: boolean | null } | null)?.ativo)
@@ -186,33 +199,66 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
   const totalCorridas = contadas.length - canceladas
   const totalDia = contadas.filter(c => c.status !== 'cancelada').reduce((soma, c) => soma + c.valor, 0)
 
-  async function executar(idCorrida: string, acao: () => PromiseLike<{ error: { message?: string; code?: string } | null }>, padrao: string): Promise<boolean> {
+  // `otimista`: como a corrida fica se der certo — aparece na tela na hora,
+  // sem esperar o banco; se ele recusar, a lista volta ao que era.
+  async function executar(
+    idCorrida: string,
+    acao: () => PromiseLike<{ error: { message?: string; code?: string } | null }>,
+    padrao: string,
+    otimista?: Partial<Corrida>,
+  ): Promise<boolean> {
+    if (emAcaoAgora.current.has(idCorrida)) return false
     setErro(null)
-    setIdEmAcao(idCorrida)
-    setOcupado(true)
+    const marcar = (ligado: boolean) => {
+      if (ligado) emAcaoAgora.current.add(idCorrida); else emAcaoAgora.current.delete(idCorrida)
+      setEmAcao(new Set(emAcaoAgora.current))
+    }
+    marcar(true)
+    if (otimista) {
+      pendentes.current.set(idCorrida, otimista)
+      setCorridas(atuais => atuais.map(c => (c.id_corrida === idCorrida ? { ...c, ...otimista } : c)))
+    }
     const { error } = await acao()
-    setOcupado(false)
-    setIdEmAcao(null)
+    pendentes.current.delete(idCorrida)
+    geracao.current += 1
+    marcar(false)
     if (error) {
       setErro(mensagemDoBanco(error, padrao))
+      await carregar()
       return false
     }
-    await carregar()
+    // Confirma com o banco sem segurar a tela.
+    void carregar()
     return true
   }
 
   const atribuir = (c: Corrida, idFuncionario: string | null) =>
-    executar(c.id_corrida, () => supabase.rpc('fn_atribuir_corrida', { p_id_corrida: c.id_corrida, p_id_funcionario: idFuncionario }), 'Não foi possível atribuir a corrida.')
+    executar(
+      c.id_corrida,
+      () => supabase.rpc('fn_atribuir_corrida', { p_id_corrida: c.id_corrida, p_id_funcionario: idFuncionario }),
+      'Não foi possível atribuir a corrida.',
+      { id_funcionario: idFuncionario, funcionario_nome: taxidogs.find(t => t.id_funcionario === idFuncionario)?.nome ?? null },
+    )
 
   function assumir(c: Corrida) {
     marcarFeitoPorMim(c.id_corrida)
-    executar(c.id_corrida, () => supabase.rpc('fn_assumir_corrida', { p_id_corrida: c.id_corrida }), 'Não foi possível assumir a corrida.')
+    executar(
+      c.id_corrida,
+      () => supabase.rpc('fn_assumir_corrida', { p_id_corrida: c.id_corrida }),
+      'Não foi possível assumir a corrida.',
+      user ? { id_funcionario: user.id, funcionario_nome: c.funcionario_nome ?? 'Você' } : undefined,
+    )
   }
 
   function avancar(c: Corrida, novoStatus: string) {
     const seguir = () => {
       marcarFeitoPorMim(c.id_corrida)
-      executar(c.id_corrida, () => supabase.rpc('fn_avancar_corrida', { p_id_corrida: c.id_corrida, p_novo_status: novoStatus }), 'Não foi possível atualizar a corrida.')
+      executar(
+        c.id_corrida,
+        () => supabase.rpc('fn_avancar_corrida', { p_id_corrida: c.id_corrida, p_novo_status: novoStatus }),
+        'Não foi possível atualizar a corrida.',
+        { status: novoStatus as Corrida['status'] },
+      )
     }
     const pergunta = CONFIRMAR[novoStatus]
     if (!pergunta) return seguir()
@@ -244,7 +290,7 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
         titulo="TaxiDog responsável"
         valor={c.id_funcionario ?? ''}
         opcoes={opcoes}
-        desativado={ocupado}
+        desativado={emAcao.has(c.id_corrida)}
         style={styles.seletor}
         onChange={id => { atribuir(c, id || null) }}
       />
@@ -390,8 +436,8 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
                         c={c}
                         podeAssumir={podeAssumir}
                         daLoja={!motorista}
-                        ocupado={ocupado}
-                        carregando={idEmAcao === c.id_corrida}
+                        ocupado={emAcao.has(c.id_corrida)}
+                        carregando={false}
                         onAssumir={() => assumir(c)}
                         onAvancar={status => avancar(c, status)}
                       />
@@ -408,7 +454,7 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
           corrida={aberta}
           rota={rotaPorCorrida[aberta.id_corrida] ?? null}
           erro={erro}
-          ocupado={ocupado}
+          ocupado={emAcao.has(aberta.id_corrida)}
           podeAtribuir={podeAtribuir}
           seletor={seletorDe(aberta)}
           onFechar={() => { setAbertaId(null); setErro(null) }}

@@ -297,24 +297,47 @@ export interface ResultadoStatus {
 // opcoes.taxidog: resposta da loja quando a busca do TaxiDog ainda não
 // chegou — 'cliente_trouxe' tira a busca (a taxa sai, o TaxiDog é avisado)
 // e segue; 'ignorar' segue sem mexer nele.
+// O que a tela já sabe do agendamento que está mostrando. Com isso a
+// mudança de etapa não precisa ir ao banco só para conferir — a própria
+// gravação confere (só altera se o agendamento ainda estiver numa etapa
+// anterior), e é uma ida ao banco em vez de várias.
+export interface AgendamentoConhecido {
+  status: string
+  dt_agendamento: string
+  // A tela sabe que a visita não tem busca do TaxiDog (ou que a loja nem
+  // usa TaxiDog): não precisa procurar.
+  semBusca?: boolean
+}
+
+// As etapas de onde se pode chegar em `status` (o status só anda pra frente).
+function etapasAnteriores(status: StatusAgendamento): string[] {
+  if (status === 'Cancelado') return ['Pendente', 'Confirmado', 'Em andamento']
+  const nova = ORDEM_ETAPA[status as keyof typeof ORDEM_ETAPA] ?? 0
+  return Object.entries(ORDEM_ETAPA).filter(([, ordem]) => ordem < nova).map(([etapa]) => etapa)
+}
+
 export async function atualizarStatus(
   contexto: ContextoLojista,
   idAgendamento: string,
   status: StatusAgendamento,
-  opcoes?: { taxidog?: 'ignorar' | 'cliente_trouxe' },
+  opcoes?: { taxidog?: 'ignorar' | 'cliente_trouxe'; conhecido?: AgendamentoConhecido },
 ): Promise<ResultadoStatus> {
   if (!contexto.podeGerenciarAgenda) return { erro: 'Você não tem permissão para gerenciar a agenda.' }
 
   // O status não volta: confere o atual antes de aceitar a mudança.
-  const { data: atual, error: buscaErro } = await supabase
-    .from('agendamento')
-    .select('status, dt_agendamento')
-    .eq('id_agendamento', idAgendamento)
-    .eq('id_lojista', contexto.idLojista)
-    .maybeSingle()
-  if (buscaErro || !atual) return { erro: 'Agendamento não encontrado.' }
+  let atual: { status: string; dt_agendamento: string } | null = opcoes?.conhecido ?? null
+  if (!atual) {
+    const { data, error: buscaErro } = await supabase
+      .from('agendamento')
+      .select('status, dt_agendamento')
+      .eq('id_agendamento', idAgendamento)
+      .eq('id_lojista', contexto.idLojista)
+      .maybeSingle()
+    if (buscaErro || !data) return { erro: 'Agendamento não encontrado.' }
+    atual = data as { status: string; dt_agendamento: string }
+  }
   if (etapaExigeDia(status) && atual.dt_agendamento > hojeBrasilISO()) {
-    const [, mes, dia] = (atual.dt_agendamento as string).split('-')
+    const [, mes, dia] = atual.dt_agendamento.split('-')
     return { erro: `Este agendamento é para ${dia}/${mes} — o atendimento só pode ser iniciado ou finalizado a partir desse dia.` }
   }
   if (etapaEncerrada(atual.status)) return { erro: 'Este agendamento já foi finalizado e não pode mais mudar de status.' }
@@ -327,7 +350,7 @@ export async function atualizarStatus(
   // Iniciar/finalizar com a busca do TaxiDog ainda a caminho: pergunta
   // antes (o cliente pode ter trazido o pet por conta própria).
   let aviso: string | undefined
-  if ((status === 'Em andamento' || status === 'Concluído') && opcoes?.taxidog !== 'ignorar') {
+  if ((status === 'Em andamento' || status === 'Concluído') && opcoes?.taxidog !== 'ignorar' && !opcoes?.conhecido?.semBusca) {
     const busca = await buscaPendenteDaVisita(contexto.idLojista, idAgendamento)
     if (busca) {
       if (opcoes?.taxidog !== 'cliente_trouxe' || busca.emMovimento) {
@@ -361,15 +384,25 @@ export async function atualizarStatus(
     }
   }
 
+  // Só grava se o agendamento ainda estiver numa etapa anterior: outra
+  // pessoa pode ter mexido nele desde que a tela carregou.
   const { data: alterado, error } = await supabase
     .from('agendamento')
     .update({ status })
     .eq('id_agendamento', idAgendamento)
     .eq('id_lojista', contexto.idLojista)
+    .in('status', etapasAnteriores(status))
     .select('id_agendamento')
   if (error) return { erro: mensagemDoBanco(error, 'Erro ao atualizar o status.') }
-  // A RLS recusa em silêncio (nenhuma linha alterada, sem erro).
-  if (!alterado || alterado.length === 0) return { erro: 'Você não tem permissão para alterar este agendamento.' }
+  if (!alterado || alterado.length === 0) {
+    // Nada mudou: ou alguém já tinha mexido, ou a RLS recusou em silêncio.
+    const { data: agora } = await supabase.from('agendamento').select('status').eq('id_agendamento', idAgendamento).maybeSingle()
+    const statusAgora = (agora as { status: string } | null)?.status
+    if (statusAgora === status) return { sucesso: true, aviso }
+    if (statusAgora && etapaEncerrada(statusAgora)) return { erro: 'Este agendamento já foi finalizado e não pode mais mudar de status.' }
+    if (statusAgora && statusAgora !== atual.status) return { erro: 'Este agendamento já foi alterado por outra pessoa. A tela foi atualizada.' }
+    return { erro: 'Você não tem permissão para alterar este agendamento.' }
+  }
   return { sucesso: true, aviso }
 }
 

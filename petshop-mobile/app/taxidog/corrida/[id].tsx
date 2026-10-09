@@ -63,11 +63,17 @@ export default function CorridaDetalheScreen() {
   useEffect(() => { if (versao > 0) carregar() }, [versao, carregar])
 
   async function avancar(novoStatus: string) {
+    if (enviando) return
     setErro(null)
+    // A etapa troca na tela na hora (com o celular na mão, na rua, a rede
+    // demora); se o banco recusar, volta.
+    const anterior = corrida
+    setCorrida(atual => (atual ? { ...atual, status: novoStatus as Corrida['status'] } : atual))
     setEnviando(true)
     const { error } = await supabase.rpc('fn_avancar_corrida', { p_id_corrida: id, p_novo_status: novoStatus })
     setEnviando(false)
     if (error) {
+      setCorrida(anterior)
       setErro(error.message)
       return
     }
@@ -187,7 +193,7 @@ export default function CorridaDetalheScreen() {
             disabled={enviando}
             onPress={() => pedirAvanco(acao.status)}
           >
-            {enviando ? <ActivityIndicator color={colors.white} /> : <Text style={styles.botaoAcaoTexto}>{acao.rotulo.toUpperCase()}</Text>}
+            <Text style={styles.botaoAcaoTexto}>{acao.rotulo.toUpperCase()}</Text>
           </Pressable>
         )}
         {aguardandoAceite && (

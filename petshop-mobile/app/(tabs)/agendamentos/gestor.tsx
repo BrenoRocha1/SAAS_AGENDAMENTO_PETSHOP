@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { StyleSheet, View } from 'react-native'
 import { Aviso } from '@/components/Aviso'
@@ -89,7 +89,15 @@ export default function GestorScreen() {
   const [base, setBase] = useState<Base | null>(null)
   const [itens, setItens] = useState<Agendamento[]>([])
   const [alterados, setAlterados] = useState<Set<string>>(new Set())
-  const [ocupado, setOcupado] = useState<string | null>(null)
+  // Mudanças de etapa ainda sendo gravadas: o card já está na etapa nova, e
+  // uma recarga da lista no meio do caminho não o devolve para a antiga.
+  const emCurso = useRef(new Map<string, Agendamento['status']>())
+  const [gravando, setGravando] = useState<Set<string>>(new Set())
+  // O mesmo conjunto, à mão na hora do toque (um card não grava duas vezes ao mesmo tempo).
+  const gravandoAgora = useRef(new Set<string>())
+  // Só depois de carregar os transportes do dia dá para afirmar que uma
+  // visita não tem busca do TaxiDog.
+  const [transportesDe, setTransportesDe] = useState<Agendamento[] | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [filtroFuncionario, setFiltroFuncionario] = useState('')
@@ -120,7 +128,15 @@ export default function GestorScreen() {
   // já aparece atualizado mesmo se o aviso ao vivo não chegar.
   useFocusEffect(useCallback(() => { carregarBase(); recarregar() }, [carregarBase, recarregar]))
 
-  useEffect(() => { setItens(doDia.filter(a => a.status !== 'Cancelado')) }, [doDia])
+  useEffect(() => {
+    setItens(doDia.filter(a => a.status !== 'Cancelado').map(a => {
+      const novo = emCurso.current.get(a.id_agendamento)
+      if (!novo) return a
+      // O banco já mostra a etapa nova: a mudança terminou de chegar.
+      if (a.status === novo) { emCurso.current.delete(a.id_agendamento); return a }
+      return { ...a, status: novo }
+    }))
+  }, [doDia])
 
   // A etiqueta do TaxiDog: carrega com os agendamentos do dia e de novo a
   // cada mudança numa corrida da loja (o TaxiDog apertou "Cheguei", "Pet
@@ -129,7 +145,7 @@ export default function GestorScreen() {
     if (!idLojista) return
     let vivo = true
     const carregar = () => {
-      carregarTransportesDoDia(doDia).then(t => { if (vivo) setTransportes(t) })
+      carregarTransportesDoDia(doDia).then(t => { if (vivo) { setTransportes(t); setTransportesDe(doDia) } })
     }
     carregar()
     const canal = supabase
@@ -173,34 +189,53 @@ export default function GestorScreen() {
   }), [itens, filtroFuncionario, filtroServico])
 
   // O status só anda pra frente; o card troca de coluna na hora e volta se
-  // o banco recusar.
+  // o banco recusar. Cada card grava por conta própria: mexer em um não
+  // trava os outros.
   async function moverParaStatus(item: Agendamento, novo: Etapa, taxidog?: 'ignorar' | 'cliente_trouxe') {
-    if (!contexto || item.status === novo) return
+    if (!contexto || item.status === novo || gravandoAgora.current.has(item.id_agendamento)) return
     if (ORDEM_ETAPA[novo] <= (ORDEM_ETAPA[item.status as Etapa] ?? 0)) {
       setErro('Não é possível voltar para uma etapa anterior. Um agendamento finalizado não pode ser reaberto.')
       return
     }
     setErro(null)
     setAviso(null)
+    const id = item.id_agendamento
     const anterior = item.status
     const trocar = (status: Agendamento['status']) =>
-      setItens(prev => prev.map(it => (it.id_agendamento === item.id_agendamento ? { ...it, status } : it)))
+      setItens(prev => prev.map(it => (it.id_agendamento === id ? { ...it, status } : it)))
+    const marcar = (ligado: boolean) => {
+      if (ligado) gravandoAgora.current.add(id); else gravandoAgora.current.delete(id)
+      setGravando(new Set(gravandoAgora.current))
+    }
+    emCurso.current.set(id, novo)
     trocar(novo)
-    setOcupado(item.id_agendamento)
-    const r = await atualizarStatus(contexto, item.id_agendamento, novo, taxidog ? { taxidog } : undefined)
-    setOcupado(null)
+    marcar(true)
+
+    // A visita (o pet, naquele dia) não tem TaxiDog: não precisa procurar a
+    // busca pendente antes de iniciar ou finalizar.
+    const semBusca = base?.taxidogAtivo === false
+      || (transportesDe === doDia && !doDia.some(a => a.id_pet === item.id_pet && transportes[a.id_agendamento]))
+    const r = await atualizarStatus(contexto, id, novo, {
+      ...(taxidog ? { taxidog } : {}),
+      conhecido: { status: anterior, dt_agendamento: item.dt_agendamento, semBusca },
+    })
+    marcar(false)
     if (r.taxidogPendente) {
       // Nada mudou no banco: volta o card e pergunta.
+      emCurso.current.delete(id)
       trocar(anterior)
       perguntarBuscaTaxiDog(r.taxidogPendente, escolha => moverParaStatus({ ...item, status: anterior }, novo, escolha))
       return
     }
     if (r.erro) {
+      emCurso.current.delete(id)
       setErro(r.erro)
       trocar(anterior)
+      recarregar()
       return
     }
     if (r.aviso) setAviso(r.aviso)
+    // A lista se confirma sozinha: a própria gravação avisa pelo tempo real.
     recarregar()
   }
 
@@ -350,8 +385,7 @@ export default function GestorScreen() {
                               variante="sucesso"
                               icone={IconCheck}
                               rotulo={PROXIMA_ETAPA[item.status]!.acao}
-                              carregando={ocupado === item.id_agendamento}
-                              desativado={ocupado !== null}
+                              desativado={gravando.has(item.id_agendamento)}
                               onPress={() => avancar(item)}
                             />
                           </AcaoDoCartao>
