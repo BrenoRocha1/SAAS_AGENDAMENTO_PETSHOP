@@ -1,10 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { criarAgendamentoOnlineAction, atualizarClassificacaoPetAction, completarCadastroClienteNoLinkAction, getGoogleOAuthUrlAction, logoutAction, trocarParaContaClienteAction } from '@/lib/actions'
+import { criarAgendamentoOnlineAction, atualizarClassificacaoPetAction, completarCadastroClienteNoLinkAction, getGoogleOAuthUrlAction, trocarParaContaClienteAction } from '@/lib/actions'
 import { cotarTaxiDogAction } from '@/lib/actions-taxidog'
 import NovoPetNoAgendamento from './NovoPetNoAgendamento'
 import PlanoNoPedido, { useMeusBeneficios } from './PlanoNoPedido'
@@ -364,7 +363,6 @@ export default function AgendamentoOnlineWizard({
   }
 
   const voltarParaCa = `/agendamento/${lojista.id}${carrinho.length ? `?servicos=${carrinho.join(',')}` : ''}`
-  const loginHref = `/login?redirectTo=${encodeURIComponent(voltarParaCa)}`
 
   async function entrarComGoogle() {
     setErro(null)
@@ -376,10 +374,6 @@ export default function AgendamentoOnlineWizard({
       return
     }
     window.location.href = r.url
-  }
-
-  function sairParaUsarEmail() {
-    startTransition(() => logoutAction(voltarParaCa))
   }
 
   function terminarCadastro(e: React.FormEvent) {
@@ -675,26 +669,25 @@ export default function AgendamentoOnlineWizard({
           ) : contaInvalida ? (
             <>
               <h1 className="ag2-titulo">Vamos agendar com a sua conta pessoal</h1>
-              <p className="ag2-sub">Você está conectado com uma conta de loja/equipe. Entre com a sua conta de cliente — você volta direto para cá, com tudo o que escolheu.</p>
+              <p className="ag2-sub">Você está conectado com a conta de uma loja/equipe. Escolha a sua conta Google pessoal — se ela ainda não for cliente, a gente cria na hora. Você volta direto para cá, com tudo o que escolheu.</p>
               <div className="ag2-opcoes-conta">
                 <button type="button" className="ag2-cta is-google" onClick={entrarComGoogle} disabled={abrindoGoogle}>
-                  <IconeGoogle /> {abrindoGoogle ? 'Abrindo o Google…' : 'Entrar com outra conta Google'}
-                </button>
-                <button type="button" className="ag2-cta is-secundario" onClick={sairParaUsarEmail} disabled={isPending}>
-                  {isPending ? 'Saindo…' : 'Usar e-mail e senha'}
+                  <IconeGoogle /> {abrindoGoogle ? 'Abrindo o Google…' : 'Continuar com outra conta Google'}
                 </button>
               </div>
             </>
           ) : (
             <>
-              <h1 className="ag2-titulo">Quase lá! Como você quer continuar?</h1>
-              <p className="ag2-sub">Para a {lojista.nome} confirmar seu horário e te avisar. Leva segundos e o que você escolheu fica guardado.</p>
+              <h1 className="ag2-titulo">Entre para confirmar seu agendamento</h1>
+              <p className="ag2-sub">
+                É só com a sua conta Google — sem senha e sem formulário. O sistema identifica sozinho:
+                se você já tem conta, entra nela; se ainda não tem, ela é criada na hora.
+              </p>
               <div className="ag2-opcoes-conta">
                 <button type="button" className="ag2-cta is-google" onClick={entrarComGoogle} disabled={abrindoGoogle}>
                   <IconeGoogle /> {abrindoGoogle ? 'Abrindo o Google…' : 'Continuar com o Google'}
                 </button>
-                <Link href={`/cadastro?redirectTo=${encodeURIComponent(voltarParaCa)}`} className="ag2-cta is-secundario">Criar conta com e-mail</Link>
-                <p className="ag2-nota ag2-centro">Já tem conta? <Link href={loginHref} className="ag2-link">Entrar</Link></p>
+                <p className="ag2-nota ag2-centro">Você volta direto para cá, com tudo o que escolheu na {lojista.nome}.</p>
               </div>
               <ul className="ag2-beneficios">
                 <li><IconCheck style={{ width: 14, height: 14 }} /> Confirmação do horário na hora</li>

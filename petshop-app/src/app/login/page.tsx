@@ -235,7 +235,7 @@ function LoginFormPane() {
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(null)
   const [oauthPending, setOauthPending] = useState(false)
-  const [perfil, setPerfil] = useState<Perfil>('cliente')
+  const [perfil, setPerfil] = useState<Perfil>(searchParams.get('perfil') === 'lojista' ? 'lojista' : 'cliente')
 
   const redirectTo = searchParams.get('redirectTo')
   // Vindo de "Excluir minha conta" (LGPD, migration 072).
@@ -287,11 +287,12 @@ function LoginFormPane() {
       {/* Só no celular: no computador o painel ao lado já faz esse papel. */}
       <div className="so-celular"><Ilustracao nome="login" altura={110} /></div>
 
-      <h1 className="login-heading">Entrar</h1>
+      <h1 className="login-heading">Entrar ou criar conta</h1>
       <p className="login-sub">
         {isLojista
-          ? 'Acesse o painel do seu petshop.'
+          ? 'Acesse o painel do seu petshop ou cadastre a sua loja.'
           : 'Agende serviços para o seu pet.'}
+        {' '}É só com a sua conta Google: o sistema identifica sozinho se você já tem conta — se não tiver, ela é criada na hora.
       </p>
 
       {/* Toggle de perfil */}
