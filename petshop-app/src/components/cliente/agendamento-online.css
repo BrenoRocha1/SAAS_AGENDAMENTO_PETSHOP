@@ -262,3 +262,30 @@
 .ag2-pedido-linha.is-total { align-items: baseline; color: var(--gray-200); font-weight: 600; }
 .ag2-pedido-linha.is-total strong { font-family: var(--font-heading); font-size: 1.625rem; color: var(--gray-50); }
 .ag2-pedido-nota { margin: 0 0 6px; font-size: 0.75rem; color: var(--gray-400); line-height: 1.45; }
+
+/* Computador e notebook: a primeira tela também fica parada — ocupa a altura
+   da janela; só a grade de serviços desliza por dentro, se não couber. */
+@media (min-width: 900px) {
+  .agenonline-shell:has(.ag2.is-largo) { height: 100dvh; min-height: 0; overflow: hidden; padding: var(--space-5) var(--space-6); }
+  .agenonline-content:has(.ag2.is-largo) { height: 100%; }
+  .ag2.is-largo { height: 100%; display: flex; flex-direction: column; padding-bottom: 0; }
+  .ag2.is-largo .ag2-topo { margin-bottom: var(--space-2); }
+  .ag2.is-largo .ag2-servicos-layout { flex: 1; min-height: 0; align-items: stretch; }
+  .ag2.is-largo .ag2-servicos-principal { min-height: 0; display: flex; flex-direction: column; }
+  .ag2.is-largo .ag2-lista {
+    flex: 1; min-height: 0; overflow-y: auto; align-content: start; overscroll-behavior: contain;
+    margin: 0 -6px; padding: 4px 6px 16px;
+  }
+  .ag2.is-largo .ag2-pedido { position: static; height: 100%; min-height: 0; max-height: 640px; }
+}
+/* Telas baixas (notebook 768px ou menos): topo mais compacto. */
+@media (min-width: 900px) and (max-height: 820px) {
+  .ag2.is-largo .ag2-topo { display: none; }
+  .ag2.is-largo .ag2-loja { flex-direction: row; gap: 10px; margin-bottom: var(--space-3); }
+  .ag2.is-largo .ag2-loja-logo { width: 36px; height: 36px; margin: 0; }
+  .ag2.is-largo .ag2-titulo { font-size: 1.5rem; margin-bottom: 4px; }
+  .ag2.is-largo .ag2-sub { margin-bottom: var(--space-3); font-size: 0.875rem; }
+  .ag2.is-largo .ag2-servico { min-height: 112px; padding: 14px 16px; }
+  .ag2.is-largo .ag2-servico-item.tem-detalhe .ag2-servico { padding-bottom: 36px; }
+  .ag2.is-largo .ag2-servico-detalhe { bottom: 12px; left: 16px; }
+}
