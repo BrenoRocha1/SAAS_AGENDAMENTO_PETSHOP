@@ -559,6 +559,23 @@ export async function cadastroLojistaAction(formData: FormData) {
 // o registro faltante com os dados que o Google não fornece (CPF, telefone).
 
 export async function completarCadastroClienteGoogleAction(formData: FormData) {
+  const r = await gravarCadastroClienteDaConta(formData)
+  if ('error' in r) return r
+  // Veio do link público de agendamento: volta para ele.
+  redirect((await usarVolta()) ?? '/cliente/dashboard')
+}
+
+// Mesmo cadastro, feito DENTRO do link de agendamento (sem sair da página):
+// devolve sucesso e a própria tela segue para a escolha do pet e do horário.
+export async function completarCadastroClienteNoLinkAction(formData: FormData): Promise<{ error?: string; success?: boolean }> {
+  const r = await gravarCadastroClienteDaConta(formData)
+  if ('error' in r) return r
+  return { success: true }
+}
+
+// Conta logada (Google) sem perfil nenhum vira cliente com CPF e telefone.
+// Já sendo cliente, só segue.
+async function gravarCadastroClienteDaConta(formData: FormData): Promise<{ error: string } | { ok: true }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado. Faça login novamente.' }
@@ -570,9 +587,7 @@ export async function completarCadastroClienteGoogleAction(formData: FormData) {
   }
 
   const { data: existing } = await adminClient.from('cliente').select('id_cliente').eq('id_cliente', user.id).maybeSingle()
-  if (existing) {
-    redirect((await usarVolta()) ?? '/cliente/dashboard')
-  }
+  if (existing) return { ok: true }
 
   const raw = {
     cpf: (formData.get('cpf') as string).replace(/\D/g, ''),
@@ -620,8 +635,16 @@ export async function completarCadastroClienteGoogleAction(formData: FormData) {
   await supabase.auth.refreshSession()
 
   revalidatePath('/', 'layout')
-  // Veio do link público de agendamento: volta para ele.
-  redirect((await usarVolta()) ?? '/cliente/dashboard')
+  return { ok: true }
+}
+
+// Conectado com uma conta que não é de cliente (a da loja, de um
+// funcionário) e quer agendar: sai só desta sessão e já abre o Google
+// pedindo para escolher a conta — volta direto para o link de agendamento.
+export async function trocarParaContaClienteAction(voltarPara: string): Promise<{ error?: string; url?: string }> {
+  const supabase = await createClient()
+  await supabase.auth.signOut({ scope: 'local' })
+  return getGoogleOAuthUrlAction('cliente', voltarPara)
 }
 
 // Conta do Google que entrou pelo link de agendamento e ainda não terminou

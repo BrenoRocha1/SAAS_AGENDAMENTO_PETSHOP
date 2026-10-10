@@ -2,15 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { criarAgendamentoOnlineAction, atualizarClassificacaoPetAction, completarCadastroPeloLinkAction, logoutAction } from '@/lib/actions'
+import { criarAgendamentoOnlineAction, atualizarClassificacaoPetAction, completarCadastroClienteNoLinkAction, getGoogleOAuthUrlAction, logoutAction, trocarParaContaClienteAction } from '@/lib/actions'
 import { cotarTaxiDogAction } from '@/lib/actions-taxidog'
 import NovoPetNoAgendamento from './NovoPetNoAgendamento'
 import PlanoNoPedido, { useMeusBeneficios } from './PlanoNoPedido'
 import { coberturaDoPlano } from '@/lib/planos'
 import { removerHorariosPassados } from '@/lib/agenda'
 import { rotuloUnidade } from '@/lib/produto'
-import { formatarEnderecoLoja } from '@/lib/format'
+import { formatarCpf, formatarEnderecoLoja, formatarTelefone } from '@/lib/format'
 import { addDays, format, getDay, isAfter, isBefore, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
@@ -121,6 +122,8 @@ interface Props {
   contaInvalida: boolean
   // Entrou com o Google mas ainda não completou o cadastro de cliente.
   cadastroIncompleto?: boolean
+  // Nome da conta conectada (do Google) — para a saudação do cadastro.
+  nomeConta?: string
   carrinhoInicial: string[]
   // TaxiDog ligado e liberado pro agendamento online (fn_taxidog_publico,
   // migration 042) — decide se aparece a escolha de transporte.
@@ -137,7 +140,10 @@ interface Props {
 //   2. para quem e quando (pet, dia e horário — tocar no horário já avança);
 //   3. revisar e confirmar (transporte, pagamento, produtos e observação
 //      ficam ali mesmo, sem etapa própria; os dados do tutor vêm da conta).
-type Step = 'servicos' | 'quando' | 'revisar' | 'feito'
+// Sem conta de cliente, entre a 1 e a 2 aparece "conta": entrar com o
+// Google (um toque), criar conta ou terminar o cadastro ali mesmo — sem
+// janela de "você não é cliente" e sem perder o que foi escolhido.
+type Step = 'servicos' | 'conta' | 'quando' | 'revisar' | 'feito'
 type Slot = { hr_slot: string; disponivel: boolean }
 
 const PASSOS: Exclude<Step, 'feito'>[] = ['servicos', 'quando', 'revisar']
@@ -148,11 +154,15 @@ const DIAS_NA_FAIXA = 14
 const duracaoTexto = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? String(min % 60).padStart(2, '0') : ''}` : `${min} min`)
 
 export default function AgendamentoOnlineWizard({
-  lojista, horarios, bloqueios, janela, servicos, produtos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, cadastroIncompleto = false, carrinhoInicial,
+  lojista, horarios, bloqueios, janela, servicos, produtos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, cadastroIncompleto = false, nomeConta = '', carrinhoInicial,
   taxidogDisponivel, precosEstimados, formasPagamento,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
-  const [step, setStep] = useState<Step>('servicos')
+  const router = useRouter()
+  // Quem volta do Google (ou do login) já escolheu os serviços: cai direto
+  // no passo seguinte em vez de ver a lista de novo.
+  const [step, setStep] = useState<Step>(() =>
+    carrinhoInicial.length === 0 ? 'servicos' : autenticado ? 'quando' : (cadastroIncompleto || contaInvalida) ? 'conta' : 'servicos')
   // Sem TaxiDog na loja (ou até a pessoa escolher), o tutor leva o pet.
   const [transporte, setTransporte] = useState<EstadoTransporte>({ ...ESTADO_TRANSPORTE_INICIAL, opcao: 'levar' })
   const escolhaTaxiDog = escolhaDoTransporte(transporte)
@@ -163,8 +173,11 @@ export default function AgendamentoOnlineWizard({
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  // Aparece ao tentar seguir sem login de cliente — a página é pública até aqui.
-  const [mostrarGateAcesso, setMostrarGateAcesso] = useState(false)
+  // Tela "conta": Google abrindo / cadastro sendo gravado / erro.
+  const [abrindoGoogle, setAbrindoGoogle] = useState(false)
+  const [telefoneConta, setTelefoneConta] = useState('')
+  const [cpfConta, setCpfConta] = useState('')
+  const [aceitaTermos, setAceitaTermos] = useState(false)
   const [mostrarDetalheLoja, setMostrarDetalheLoja] = useState(false)
   const [servicoDetalhe, setServicoDetalhe] = useState<Servico | null>(null)
   const [calendarioAberto, setCalendarioAberto] = useState(false)
@@ -268,6 +281,21 @@ export default function AgendamentoOnlineWizard({
     return () => { cancelado = true }
   }, [data, duracaoTotal, lojista.id, supabase])
 
+  // Pets que chegam depois (o cadastro terminou aqui e a página recarregou os
+  // dados): entram na lista sem perder o que já foi escolhido.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza com os dados novos vindos do servidor (router.refresh)
+    setPets(prev => [...prev, ...petsIniciais.filter(p => !prev.some(x => x.id_pet === p.id_pet))])
+  }, [petsIniciais])
+
+  // Virou cliente nesta tela (cadastro terminado aqui): segue sozinho.
+  useEffect(() => {
+    if (autenticado && step === 'conta') {
+      irParaQuando()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só reage à mudança de autenticado
+  }, [autenticado])
+
   // Volta ao topo a cada tela (no celular a anterior podia estar rolada).
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }) }, [step])
 
@@ -307,11 +335,11 @@ export default function AgendamentoOnlineWizard({
   }
 
   function irParaQuando() {
+    setErro(null)
     if (!autenticado) {
-      setMostrarGateAcesso(true)
+      setStep('conta')
       return
     }
-    setErro(null)
     // Já abre no primeiro dia livre: os horários aparecem sem precisar tocar em nada.
     if (!data && proximosDias[0]) escolherDia(proximosDias[0])
     if (pets.length === 0) setNovoPetAberto(true)
@@ -337,12 +365,35 @@ export default function AgendamentoOnlineWizard({
   const voltarParaCa = `/agendamento/${lojista.id}${carrinho.length ? `?servicos=${carrinho.join(',')}` : ''}`
   const loginHref = `/login?redirectTo=${encodeURIComponent(voltarParaCa)}`
 
-  function handleSairEEntrarComOutraConta() {
+  async function entrarComGoogle() {
+    setErro(null)
+    setAbrindoGoogle(true)
+    const r = contaInvalida ? await trocarParaContaClienteAction(voltarParaCa) : await getGoogleOAuthUrlAction('cliente', voltarParaCa)
+    if (r.error || !r.url) {
+      setAbrindoGoogle(false)
+      setErro(r.error ?? 'Não foi possível abrir o Google. Tente de novo.')
+      return
+    }
+    window.location.href = r.url
+  }
+
+  function sairParaUsarEmail() {
     startTransition(() => logoutAction(voltarParaCa))
   }
 
-  function handleCompletarCadastro() {
-    startTransition(() => completarCadastroPeloLinkAction(voltarParaCa))
+  function terminarCadastro(e: React.FormEvent) {
+    e.preventDefault()
+    setErro(null)
+    const fd = new FormData()
+    fd.set('telefone', telefoneConta)
+    fd.set('cpf', cpfConta)
+    if (aceitaTermos) fd.set('aceita_termos', 'on')
+    startTransition(async () => {
+      const r = await completarCadastroClienteNoLinkAction(fd)
+      if (r.error) { setErro(r.error); return }
+      // Recarrega os dados da página (agora como cliente); o efeito acima segue.
+      router.refresh()
+    })
   }
 
   function selecionarPet(p: Pet) {
@@ -440,10 +491,11 @@ export default function AgendamentoOnlineWizard({
   const enderecoCompleto = formatarEnderecoLoja(lojista)
   const dataLonga = data ? format(new Date(`${data}T12:00:00`), "EEEE, d 'de' MMMM", { locale: ptBR }) : ''
   const dataLongaMaiuscula = dataLonga ? dataLonga[0].toUpperCase() + dataLonga.slice(1) : ''
-  const indicePasso = step === 'feito' ? -1 : PASSOS.indexOf(step)
+  const indicePasso = step === 'feito' ? -1 : step === 'conta' ? 1 : PASSOS.indexOf(step)
+  const primeiroNome = (nomeConta || cliente.nome || '').split(' ')[0]
 
   return (
-    <div className="ag2">
+    <div className={`ag2 ${step === 'servicos' ? 'is-largo' : ''}`}>
       {/* Topo: voltar, os três pontinhos do progresso e a loja */}
       {step !== 'feito' && (
         <div className="ag2-topo">
@@ -487,49 +539,147 @@ export default function AgendamentoOnlineWizard({
 
       {/* ============ 1. O que fazer ============ */}
       {step === 'servicos' && (
-        <>
-          <h1 className="ag2-titulo">O que seu pet<br />precisa hoje?</h1>
-          <p className="ag2-sub">Toque para escolher. Dá para marcar mais de um.</p>
+        <div className="ag2-servicos-layout">
+          <div className="ag2-servicos-principal">
+            <h1 className="ag2-titulo">O que seu pet precisa hoje?</h1>
+            <p className="ag2-sub">Toque para escolher — dá para marcar mais de um. Os preços são “a partir de”: o valor final depende do porte do pet.</p>
 
-          {servicos.length === 0 ? (
-            <p className="ag2-vazio">Esta loja ainda não cadastrou serviços.</p>
-          ) : (
-            <ul className="ag2-lista">
-              {servicos.map(s => {
-                const marcado = carrinho.includes(s.id_servico)
-                return (
-                  <li key={s.id_servico}>
-                    <button
-                      type="button"
-                      className={`ag2-servico ${marcado ? 'is-marcado' : ''}`}
-                      onClick={() => alternarServico(s.id_servico)}
-                      aria-pressed={marcado}
-                    >
-                      <span className="ag2-servico-texto">
-                        <span className="ag2-servico-nome">{s.nome}</span>
-                        <span className="ag2-servico-info">{duracaoTexto(s.duracao)} · a partir de {formatarReais(s.preco)}</span>
-                      </span>
-                      <span className="ag2-check" aria-hidden="true">{marcado && <IconCheck style={{ width: 14, height: 14 }} />}</span>
-                    </button>
-                    {s.descricao && (
-                      <button type="button" className="ag2-link ag2-servico-detalhe" onClick={() => setServicoDetalhe(s)}>
-                        O que inclui
+            {servicos.length === 0 ? (
+              <p className="ag2-vazio">Esta loja ainda não cadastrou serviços.</p>
+            ) : (
+              <ul className="ag2-lista">
+                {servicos.map(s => {
+                  const marcado = carrinho.includes(s.id_servico)
+                  return (
+                    <li key={s.id_servico} className={`ag2-servico-item ${marcado ? 'is-marcado' : ''} ${s.descricao ? 'tem-detalhe' : ''}`}>
+                      <button
+                        type="button"
+                        className={`ag2-servico ${marcado ? 'is-marcado' : ''}`}
+                        onClick={() => alternarServico(s.id_servico)}
+                        aria-pressed={marcado}
+                      >
+                        <span className="ag2-servico-texto">
+                          <span className="ag2-servico-nome">{s.nome}</span>
+                          <span className="ag2-servico-info">{duracaoTexto(s.duracao)}</span>
+                          <span className="ag2-servico-preco">{formatarReais(s.preco)}</span>
+                        </span>
+                        <span className="ag2-check" aria-hidden="true">{marcado && <IconCheck style={{ width: 14, height: 14 }} />}</span>
                       </button>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+                      {s.descricao && (
+                        <button type="button" className="ag2-link ag2-servico-detalhe" onClick={() => setServicoDetalhe(s)}>
+                          O que inclui
+                        </button>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
 
-          <div className="ag2-rodape">
+          {/* Computador: o pedido fica fixo ao lado, sem precisar rolar. */}
+          <aside className="ag2-pedido" aria-label="Seu pedido">
+            <div className="ag2-secao-titulo">Seu pedido</div>
+            {servicosCarrinho.length === 0 ? (
+              <p className="ag2-nota">Escolha um ou mais serviços ao lado.</p>
+            ) : (
+              <ul className="ag2-pedido-itens">
+                {servicosCarrinho.map(s => (
+                  <li key={s.id_servico}>
+                    <span>{s.nome}</span>
+                    <span>{formatarReais(s.preco)}</span>
+                    <button type="button" className="ag2-pedido-tirar" onClick={() => alternarServico(s.id_servico)} aria-label={`Tirar ${s.nome}`}>
+                      <IconClose style={{ width: 12, height: 12 }} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {servicosCarrinho.length > 0 && (
+              <div className="ag2-pedido-total">
+                <span>{duracaoTexto(duracaoTotal)}</span>
+                <strong>{formatarReais(valorTotal)}</strong>
+              </div>
+            )}
+            <button type="button" className="ag2-cta" disabled={carrinho.length === 0} onClick={irParaQuando}>
+              {carrinho.length === 0 ? 'Escolha um serviço' : 'Continuar'}
+            </button>
+          </aside>
+
+          <div className="ag2-rodape is-so-celular">
             <button type="button" className="ag2-cta" disabled={carrinho.length === 0} onClick={irParaQuando}>
               {carrinho.length === 0
                 ? 'Escolha um serviço'
                 : <>Continuar <span className="ag2-cta-extra">{carrinho.length} · {duracaoTexto(duracaoTotal)} · {formatarReais(valorTotal)}</span></>}
             </button>
           </div>
-        </>
+        </div>
+      )}
+
+      {/* ============ Conta (só para quem ainda não é cliente) ============ */}
+      {step === 'conta' && (
+        <div className="ag2-conta">
+          <div className="ag2-resumo-mini">
+            <span>{servicosCarrinho.map(s => s.nome).join(' + ')}</span>
+            <strong>{formatarReais(valorTotal)}</strong>
+          </div>
+
+          {cadastroIncompleto ? (
+            <>
+              <h1 className="ag2-titulo">Prazer{primeiroNome ? `, ${primeiroNome}` : ''}! Só mais dois dados.</h1>
+              <p className="ag2-sub">É o que a {lojista.nome} precisa para confirmar o horário e falar com você. Fazemos isso uma vez só.</p>
+              <form className="ag2-form" onSubmit={terminarCadastro}>
+                <label className="ag2-campo">
+                  <span>Celular (WhatsApp)</span>
+                  <input inputMode="tel" autoComplete="tel-national" placeholder="(11) 99999-9999" value={telefoneConta}
+                    onChange={e => setTelefoneConta(formatarTelefone(e.target.value.replace(/\D/g, '').slice(0, 11)))} required />
+                </label>
+                <label className="ag2-campo">
+                  <span>CPF</span>
+                  <input inputMode="numeric" autoComplete="off" placeholder="000.000.000-00" value={cpfConta}
+                    onChange={e => setCpfConta(formatarCpf(e.target.value.replace(/\D/g, '').slice(0, 11)))} required />
+                </label>
+                <label className="ag2-termos">
+                  <input type="checkbox" checked={aceitaTermos} onChange={e => setAceitaTermos(e.target.checked)} required />
+                  <span>Li e aceito os <a href="/termos" target="_blank">Termos de Uso</a> e a <a href="/privacidade" target="_blank">Política de Privacidade</a>.</span>
+                </label>
+                <button type="submit" className={`ag2-cta ${isPending ? 'is-carregando' : ''}`} disabled={isPending}>
+                  {isPending ? 'Salvando…' : 'Continuar para o horário'}
+                </button>
+              </form>
+            </>
+          ) : contaInvalida ? (
+            <>
+              <h1 className="ag2-titulo">Vamos agendar com a sua conta pessoal</h1>
+              <p className="ag2-sub">Você está conectado com uma conta de loja/equipe. Entre com a sua conta de cliente — você volta direto para cá, com tudo o que escolheu.</p>
+              <div className="ag2-opcoes-conta">
+                <button type="button" className="ag2-cta is-google" onClick={entrarComGoogle} disabled={abrindoGoogle}>
+                  <IconeGoogle /> {abrindoGoogle ? 'Abrindo o Google…' : 'Entrar com outra conta Google'}
+                </button>
+                <button type="button" className="ag2-cta is-secundario" onClick={sairParaUsarEmail} disabled={isPending}>
+                  {isPending ? 'Saindo…' : 'Usar e-mail e senha'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h1 className="ag2-titulo">Quase lá! Como você quer continuar?</h1>
+              <p className="ag2-sub">Para a {lojista.nome} confirmar seu horário e te avisar. Leva segundos e o que você escolheu fica guardado.</p>
+              <div className="ag2-opcoes-conta">
+                <button type="button" className="ag2-cta is-google" onClick={entrarComGoogle} disabled={abrindoGoogle}>
+                  <IconeGoogle /> {abrindoGoogle ? 'Abrindo o Google…' : 'Continuar com o Google'}
+                </button>
+                <Link href={`/cadastro?redirectTo=${encodeURIComponent(voltarParaCa)}`} className="ag2-cta is-secundario">Criar conta com e-mail</Link>
+                <p className="ag2-nota ag2-centro">Já tem conta? <Link href={loginHref} className="ag2-link">Entrar</Link></p>
+              </div>
+              <ul className="ag2-beneficios">
+                <li><IconCheck style={{ width: 14, height: 14 }} /> Confirmação do horário na hora</li>
+                <li><IconCheck style={{ width: 14, height: 14 }} /> Acompanhe e remarque pelo celular</li>
+                <li><IconCheck style={{ width: 14, height: 14 }} /> Seus pets ficam salvos para a próxima vez</li>
+              </ul>
+            </>
+          )}
+        </div>
       )}
 
       {/* ============ 2. Para quem e quando ============ */}
@@ -812,35 +962,6 @@ export default function AgendamentoOnlineWizard({
         </Folha>
       )}
 
-      {/* Folha — entrar para continuar */}
-      {mostrarGateAcesso && (
-        <Folha titulo={cadastroIncompleto ? 'Falta terminar seu cadastro' : contaInvalida ? 'Essa conta não é de cliente' : 'Falta pouco!'} onFechar={() => setMostrarGateAcesso(false)}>
-          {cadastroIncompleto ? (
-            <>
-              <p className="ag2-sub" style={{ marginBottom: 'var(--space-5)' }}>Complete seus dados de cliente para agendar em {lojista.nome}. O que você escolheu fica guardado.</p>
-              <button type="button" className={`ag2-cta ${isPending ? 'is-carregando' : ''}`} disabled={isPending} onClick={handleCompletarCadastro}>
-                {isPending ? 'Abrindo…' : 'Completar cadastro'}
-              </button>
-            </>
-          ) : contaInvalida ? (
-            <>
-              <p className="ag2-sub" style={{ marginBottom: 'var(--space-5)' }}>Para agendar em {lojista.nome}, saia e entre com uma conta de cliente.</p>
-              <button type="button" className={`ag2-cta ${isPending ? 'is-carregando' : ''}`} disabled={isPending} onClick={handleSairEEntrarComOutraConta}>
-                {isPending ? 'Saindo…' : 'Sair e entrar com outra conta'}
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="ag2-sub" style={{ marginBottom: 'var(--space-5)' }}>Entre com sua conta de cliente para agendar em {lojista.nome}. O que você escolheu fica guardado.</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                <Link href={loginHref} className="ag2-cta">Entrar</Link>
-                <Link href={`/cadastro?redirectTo=${encodeURIComponent(voltarParaCa)}`} className="ag2-cta is-secundario">Criar conta</Link>
-              </div>
-            </>
-          )}
-        </Folha>
-      )}
-
       {/* Folha — a loja */}
       {mostrarDetalheLoja && (
         <Folha titulo={lojista.nome} onFechar={() => setMostrarDetalheLoja(false)}>
@@ -912,5 +1033,16 @@ function Folha({ titulo, onFechar, children }: { titulo: string; onFechar: () =>
         {children}
       </div>
     </div>
+  )
+}
+
+function IconeGoogle() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path fill="#4285F4" d="M23 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.2a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7C21.8 18.9 23 15.9 23 12.3Z" />
+      <path fill="#34A853" d="M12 23c3.1 0 5.7-1 7.6-2.8l-3.7-2.9c-1 .7-2.3 1.1-3.9 1.1-3 0-5.6-2-6.5-4.8H1.7v3C3.6 20.5 7.5 23 12 23Z" />
+      <path fill="#FBBC05" d="M5.5 13.6a6.6 6.6 0 0 1 0-4.2v-3H1.7a11 11 0 0 0 0 10.2l3.8-3Z" />
+      <path fill="#EA4335" d="M12 4.6c1.7 0 3.2.6 4.4 1.7l3.3-3.3C17.7 1.1 15.1 0 12 0 7.5 0 3.6 2.5 1.7 6.4l3.8 3C6.4 6.6 9 4.6 12 4.6Z" />
+    </svg>
   )
 }
