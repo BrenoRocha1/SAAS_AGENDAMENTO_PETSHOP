@@ -303,3 +303,58 @@
 .ag2-entrada-cartao .ag2-nota { margin: 0; }
 .ag2-conta .ag2-resumo-mini { max-width: 460px; width: 100%; margin-left: auto; margin-right: auto; }
 .ag2:has(> .ag2-conta) { max-width: 460px; }
+
+/* ============================================================
+   CHECKOUT (revisar e confirmar)
+   Blocos separados à esquerda; resumo com total e "Confirmar" à direita
+   (computador). No celular o resumo vem primeiro e o botão fica embaixo.
+   ============================================================ */
+.ag2.is-checkout { max-width: 600px; }
+.ag2-checkout { display: flex; flex-direction: column; gap: var(--space-4); }
+.ag2-checkout-principal { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.ag2-checkout-principal .ag2-titulo { margin-bottom: 0; }
+
+.ag2-bloco { display: flex; flex-direction: column; gap: 12px; padding: 18px; background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px; }
+.ag2-bloco.is-destaque { border-color: var(--primary-soft-border); box-shadow: 0 0 0 3px var(--primary-soft-bg-8); }
+.ag2-bloco-topo { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.ag2-bloco-titulo { font-family: var(--font-heading); font-size: 1.0625rem; font-weight: 700; color: var(--gray-50); margin: 0; }
+.ag2-bloco-valor { font-weight: 700; color: var(--primary-300); white-space: nowrap; }
+.ag2-opcional { font-family: var(--font-body); font-size: 0.75rem; font-weight: 500; color: var(--gray-400); margin-left: 4px; }
+.ag2-bloco .ag2-nota { margin: 0; }
+
+.ag2-pagamentos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.ag2-pagamento {
+  display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px; border-radius: 12px; cursor: pointer;
+  border: 1.5px solid var(--gray-700); background: var(--gray-900); color: var(--gray-100); font: inherit; font-size: 0.9375rem; font-weight: 600; text-align: left;
+  transition: all var(--transition-fast);
+}
+.ag2-pagamento:hover { border-color: var(--primary-300); }
+.ag2-pagamento.is-ativo { border-color: var(--primary-600); background: var(--primary-soft-bg-8); color: var(--primary-300); }
+.ag2-radio { width: 18px; height: 18px; border-radius: 999px; border: 2px solid var(--gray-600); flex-shrink: 0; transition: all var(--transition-fast); }
+.ag2-pagamento.is-ativo .ag2-radio { border-color: var(--primary-600); background: var(--primary-600); box-shadow: inset 0 0 0 3px var(--gray-900); }
+
+/* Resumo */
+.ag2-resumo { order: -1; display: flex; flex-direction: column; gap: 12px; padding: 18px; background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px; }
+.ag2-resumo-linhas { display: flex; flex-direction: column; }
+.ag2-resumo-linha { display: grid; grid-template-columns: 1fr auto; row-gap: 4px; column-gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--gray-850); }
+.ag2-resumo-linha:first-child { padding-top: 0; }
+.ag2-resumo-linha:last-child { border-bottom: none; padding-bottom: 0; }
+.ag2-resumo-linha > .ag2-link { justify-self: end; font-size: 0.8125rem; }
+.ag2-resumo-rotulo { font-size: 0.8125rem; color: var(--gray-400); }
+.ag2-resumo-item { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 12px; font-size: 0.9375rem; font-weight: 500; color: var(--gray-100); }
+.ag2-resumo-item > span { color: var(--gray-300); font-weight: 600; white-space: nowrap; }
+.ag2-resumo-item.is-desconto > span { color: var(--success-400); }
+.ag2-resumo-sub { grid-column: 1 / -1; font-size: 0.8125rem; color: var(--gray-400); }
+.ag2-resumo-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 12px; border-top: 1px solid var(--gray-800); color: var(--gray-300); font-weight: 600; }
+.ag2-resumo-total strong { font-family: var(--font-heading); font-size: 1.75rem; color: var(--gray-50); }
+.ag2-resumo .ag2-nota { margin: 0; }
+.ag2-resumo-cta, .ag2-resumo > .ag2-centro { display: none; }
+
+@media (min-width: 900px) {
+  .ag2.is-checkout { max-width: 1040px; }
+  .ag2-checkout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--space-6); align-items: start; }
+  .ag2-resumo { order: 0; position: sticky; top: 24px; padding: 20px; box-shadow: var(--shadow-md); }
+  .ag2-resumo-cta { display: flex; }
+  .ag2-resumo > .ag2-centro { display: block; }
+  .ag2-checkout .ag2-rodape.is-so-celular { display: none; }
+}
