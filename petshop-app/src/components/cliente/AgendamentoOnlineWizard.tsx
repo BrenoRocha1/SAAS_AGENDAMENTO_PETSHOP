@@ -1,30 +1,33 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { criarAgendamentoOnlineAction, atualizarClassificacaoPetAction, completarCadastroPeloLinkAction, logoutAction } from '@/lib/actions'
+import { cotarTaxiDogAction } from '@/lib/actions-taxidog'
 import NovoPetNoAgendamento from './NovoPetNoAgendamento'
 import PlanoNoPedido, { useMeusBeneficios } from './PlanoNoPedido'
 import { coberturaDoPlano } from '@/lib/planos'
 import { removerHorariosPassados } from '@/lib/agenda'
 import { rotuloUnidade } from '@/lib/produto'
-import { formatarCpf, formatarEnderecoLoja, formatarTelefone } from '@/lib/format'
-import { format } from 'date-fns'
+import { formatarEnderecoLoja } from '@/lib/format'
+import { addDays, format, getDay, isAfter, isBefore, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
-import type { BloqueioLoja } from '@/lib/bloqueios'
+import { fechadoODiaTodo, type BloqueioLoja } from '@/lib/bloqueios'
 import ConfirmacaoAgendamento from './ConfirmacaoAgendamento'
-import PagamentoEtapa, { PixDaLoja } from './PagamentoEtapa'
-import { ROTULO_FORMA_PAGAMENTO, type FormaPagamento, type FormasLoja } from '@/lib/pagamento'
+import { PixDaLoja } from './PagamentoEtapa'
+import { ROTULO_FORMA_PAGAMENTO, formasAtivas, type FormaPagamento, type FormasLoja } from '@/lib/pagamento'
 import { Estrelas, formatarMedia } from './Estrelas'
-import TaxiDogEtapa, {
+import {
   ESTADO_TRANSPORTE_INICIAL,
-  ResumoTaxiDog,
+  TaxiDogCampos,
   escolhaDoTransporte,
   taxiDogParaFormulario,
+  transportePronto,
   type EstadoTransporte,
 } from './TaxiDogEtapa'
+import type { EnderecoTaxiDog } from '@/lib/taxidog'
 import { ROTULO_MODALIDADE, formatarReais } from '@/lib/taxidog'
 import {
   IconAlert,
@@ -33,12 +36,11 @@ import {
   IconChevronRight,
   IconClock,
   IconClose,
-  IconDog,
-  IconPackage,
+  IconMinus,
   IconPaw,
   IconPlus,
-  IconScissors,
 } from '@/components/icons'
+import './agendamento-online.css'
 
 interface Lojista {
   id: string
@@ -83,7 +85,7 @@ interface Pet {
   sexo: string
 }
 // Produtos com disponivel_agendamento_online=true (migration 039) — o
-// cliente pode adicionar junto do(s) serviço(s), no resumo (step 5).
+// cliente pode adicionar junto do(s) serviço(s), na revisão.
 interface Produto {
   id_produto: string
   nome: string
@@ -121,7 +123,7 @@ interface Props {
   cadastroIncompleto?: boolean
   carrinhoInicial: string[]
   // TaxiDog ligado e liberado pro agendamento online (fn_taxidog_publico,
-  // migration 042) — decide se a etapa "Transporte" existe.
+  // migration 042) — decide se aparece a escolha de transporte.
   taxidogDisponivel: boolean
   // lojista.precos_estimados (migration 042) — mostra o aviso de que o
   // preço do serviço pode ser ajustado pela loja.
@@ -130,45 +132,20 @@ interface Props {
   formasPagamento: FormasLoja
 }
 
-// Etapas nomeadas (não numeradas) porque "Transporte" só existe quando a
-// loja oferece TaxiDog. "Pagamento" vem logo depois do transporte.
-type Step = 'servicos' | 'pet' | 'transporte' | 'pagamento' | 'dados' | 'horario' | 'resumo' | 'feito'
+// Três telas, no lugar das sete de antes:
+//   1. o que fazer (serviços — um toque marca/desmarca);
+//   2. para quem e quando (pet, dia e horário — tocar no horário já avança);
+//   3. revisar e confirmar (transporte, pagamento, produtos e observação
+//      ficam ali mesmo, sem etapa própria; os dados do tutor vêm da conta).
+type Step = 'servicos' | 'quando' | 'revisar' | 'feito'
 type Slot = { hr_slot: string; disponivel: boolean }
 
-const ROTULO_ETAPA: Record<Exclude<Step, 'feito'>, string> = {
-  servicos: 'Serviços',
-  pet: 'Pet',
-  transporte: 'Transporte',
-  pagamento: 'Pagamento',
-  dados: 'Seus dados',
-  horario: 'Horário',
-  resumo: 'Confirmar',
-}
+const PASSOS: Exclude<Step, 'feito'>[] = ['servicos', 'quando', 'revisar']
 const DIAS_ORDEM = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
+const NOMES_DIA_POR_INDICE = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'] as const
+const DIAS_NA_FAIXA = 14
 
-function ProgressoEtapas({ etapas, atual }: { etapas: Step[]; atual: Step }) {
-  const passo = etapas.indexOf(atual) + 1
-  const percentual = (passo / etapas.length) * 100
-  return (
-    <div style={{ marginBottom: 'var(--space-6)' }}>
-      <div className="flex justify-between" style={{ marginBottom: 'var(--space-2)' }}>
-        <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{atual !== 'feito' ? ROTULO_ETAPA[atual] : ''}</span>
-        <span className="text-xs text-muted">Passo {passo} de {etapas.length}</span>
-      </div>
-      <div style={{ height: 6, borderRadius: 999, background: 'var(--gray-700)', overflow: 'hidden' }}>
-        <div
-          style={{
-            height: '100%',
-            width: `${percentual}%`,
-            borderRadius: 999,
-            background: 'var(--primary-500)',
-            transition: 'width 0.35s ease',
-          }}
-        />
-      </div>
-    </div>
-  )
-}
+const duracaoTexto = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? String(min % 60).padStart(2, '0') : ''}` : `${min} min`)
 
 export default function AgendamentoOnlineWizard({
   lojista, horarios, bloqueios, janela, servicos, produtos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, cadastroIncompleto = false, carrinhoInicial,
@@ -176,34 +153,41 @@ export default function AgendamentoOnlineWizard({
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [step, setStep] = useState<Step>('servicos')
-  const [transporte, setTransporte] = useState<EstadoTransporte>(ESTADO_TRANSPORTE_INICIAL)
+  // Sem TaxiDog na loja (ou até a pessoa escolher), o tutor leva o pet.
+  const [transporte, setTransporte] = useState<EstadoTransporte>({ ...ESTADO_TRANSPORTE_INICIAL, opcao: 'levar' })
   const escolhaTaxiDog = escolhaDoTransporte(transporte)
-  // Forma de pagamento do pedido inteiro (migration 057) — obrigatória.
-  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(null)
+  const opcoesPagamento = formasAtivas(formasPagamento)
+  // Forma de pagamento do pedido inteiro (migration 057). Com uma forma só,
+  // já vem escolhida.
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(opcoesPagamento.length === 1 ? opcoesPagamento[0] : null)
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  // Mostrado no lugar do passo 2 quando quem clicou em "Ver Carrinho"
-  // ainda não tem login de cliente — a página é pública até aqui.
+  // Aparece ao tentar seguir sem login de cliente — a página é pública até aqui.
   const [mostrarGateAcesso, setMostrarGateAcesso] = useState(false)
   const [mostrarDetalheLoja, setMostrarDetalheLoja] = useState(false)
   const [servicoDetalhe, setServicoDetalhe] = useState<Servico | null>(null)
+  const [calendarioAberto, setCalendarioAberto] = useState(false)
+  const [transporteAberto, setTransporteAberto] = useState(false)
+  const [produtosAbertos, setProdutosAbertos] = useState(false)
+  const [obsAberta, setObsAberta] = useState(false)
 
   const [carrinho, setCarrinho] = useState<string[]>(carrinhoInicial)
   const [pets, setPets] = useState<Pet[]>(petsIniciais)
-  const [petId, setPetId] = useState('')
-  // Formulário de "Cadastrar outro pet" (sem pet nenhum ele já vem aberto).
+  // Um pet só: já vem escolhido.
+  const [petId, setPetId] = useState(petsIniciais.length === 1 ? petsIniciais[0].id_pet : '')
+  // Sem pet nenhum, o formulário de cadastro já vem aberto.
   const [novoPetAberto, setNovoPetAberto] = useState(false)
   const [data, setData] = useState('')
   const [horaInicio, setHoraInicio] = useState('')
   const [obs, setObs] = useState('')
   const [slots, setSlots] = useState<Slot[] | null>(null)
   const [precos, setPrecos] = useState<Record<string, number>>({})
-  const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, string>>({})
+  const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, number>>({})
 
-  // Classificação pendente (espécie/porte) do pet escolhido, quando falta
-  const [especieForm, setEspecieForm] = useState<'Cão' | 'Gato' | ''>('')
-  const [porteForm, setPorteForm] = useState<'Pequeno' | 'Médio' | 'Grande' | ''>('')
+  // Espécie/porte do pet escolhido, quando faltam (o preço depende disso).
+  const [especieForm, setEspecieForm] = useState<'Cão' | 'Gato' | ''>(petsIniciais.length === 1 ? petsIniciais[0].especie ?? '' : '')
+  const [porteForm, setPorteForm] = useState<'Pequeno' | 'Médio' | 'Grande' | ''>(petsIniciais.length === 1 ? petsIniciais[0].porte ?? '' : '')
   const [salvandoClassificacao, setSalvandoClassificacao] = useState(false)
 
   const [resultado, setResultado] = useState<{
@@ -219,7 +203,7 @@ export default function AgendamentoOnlineWizard({
   const precisaClassificar = !!petSel && (!petSel.especie || !petSel.porte)
   const itensCarrinhoProdutos = useMemo(() =>
     produtos
-      .map(produto => ({ produto, quantidade: parseFloat(quantidadesProdutos[produto.id_produto] || '0') }))
+      .map(produto => ({ produto, quantidade: quantidadesProdutos[produto.id_produto] ?? 0 }))
       .filter(item => item.quantidade > 0),
     [produtos, quantidadesProdutos]
   )
@@ -239,33 +223,14 @@ export default function AgendamentoOnlineWizard({
         .reduce((acc, s) => acc + Number(precos[s.id_servico] ?? s.preco), 0)
     : 0
   const totalGeral = totalSemPlano - descontoPlano
-  // O plano cobre o pedido inteiro (todos os serviços do carrinho, sem
-  // produto nem TaxiDog): não há o que pagar, então a forma de pagamento
-  // nem aparece. Se depois entrar algo cobrado (um produto no resumo, por
-  // exemplo), a etapa volta e é exigida antes de confirmar. É a mesma conta
-  // que o servidor refaz (formaSemCobrancaPeloPlano); se ele discordar — o
-  // saldo acabou nesse meio-tempo —, `planoNaoCobriu` traz o pagamento de volta.
+  // O plano cobre o pedido inteiro (só serviços do plano, sem produto nem
+  // TaxiDog): não há o que pagar, e a forma de pagamento some. É a mesma
+  // conta que o servidor refaz; se ele discordar (o saldo acabou nesse
+  // meio-tempo), `planoNaoCobriu` traz o pagamento de volta.
   const [planoNaoCobriu, setPlanoNaoCobriu] = useState(false)
   const nadaAPagar = vaiUsarPlano && !planoNaoCobriu
     && carrinho.length > 0 && carrinho.every(id => cobertura.cobertos.some(c => c.id_servico === id))
     && itensCarrinhoProdutos.length === 0 && !escolhaTaxiDog
-
-  const todasEtapas: Step[] = useMemo(
-    () => taxidogDisponivel
-      ? ['servicos', 'pet', 'transporte', 'pagamento', 'dados', 'horario', 'resumo']
-      : ['servicos', 'pet', 'pagamento', 'dados', 'horario', 'resumo'],
-    [taxidogDisponivel]
-  )
-  // A barra de progresso conta o pagamento só quando ele é pedido (ou
-  // quando a pessoa já está nele).
-  const etapas = todasEtapas.filter(e => e !== 'pagamento' || !nadaAPagar || step === 'pagamento')
-  const vizinha = (atual: Step, sentido: 1 | -1) => {
-    let i = todasEtapas.indexOf(atual) + sentido
-    if (todasEtapas[i] === 'pagamento' && nadaAPagar) i += sentido
-    return todasEtapas[i] ?? atual
-  }
-  const avancar = () => setStep(atual => vizinha(atual, 1))
-  const voltar = () => setStep(atual => vizinha(atual, -1))
 
   // Preço real (considerando variação por porte/raça) assim que há pet + carrinho
   useEffect(() => {
@@ -282,13 +247,13 @@ export default function AgendamentoOnlineWizard({
       setPrecos(prev => ({ ...prev, ...Object.fromEntries(pares.filter((par): par is [string, number] => par[1] != null)) }))
     })
     return () => { cancelado = true }
-  }, [petId, carrinho]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [petId, carrinho, supabase])
 
-  // Horários disponíveis — o cliente não escolhe mais o profissional (a
-  // loja atribui depois), então sempre chama a RPC sem esse filtro
-  // (p_id_funcionario usa o próprio DEFAULT NULL dela).
+  // Horários disponíveis — o cliente não escolhe o profissional (a loja
+  // atribui depois), então a RPC vai sem esse filtro.
   useEffect(() => {
     if (!data || duracaoTotal === 0) return
+    let cancelado = false
     const dataSelecionada = data
     supabase
       .rpc('fn_horarios_disponiveis_funcionario', {
@@ -297,21 +262,76 @@ export default function AgendamentoOnlineWizard({
         p_duracao: duracaoTotal,
       })
       .then(({ data: rows }) => {
+        if (cancelado) return
         setSlots(removerHorariosPassados((rows ?? []) as Slot[], dataSelecionada))
-        setHoraInicio('')
       })
-  }, [data, duracaoTotal, lojista.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { cancelado = true }
+  }, [data, duracaoTotal, lojista.id, supabase])
+
+  // Volta ao topo a cada tela (no celular a anterior podia estar rolada).
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }) }, [step])
+
+  // Só pra desenhar os dias (a checagem que vale é a do servidor, que usa o
+  // horário de Brasília certo). "agora" via lazy initializer (regra de pureza).
+  const [agora] = useState(() => Date.now())
+  const diasAbertos = useMemo(() => new Set(horarios.filter(h => h.ativo).map(h => h.dia_semana)), [horarios])
+  const minInstante = useMemo(() => new Date(agora + (janela.minUnidade === 'dias' ? janela.minValor * 24 : janela.minValor) * 3600_000), [agora, janela])
+  const maxInstante = useMemo(() => new Date(agora + (janela.maxUnidade === 'dias' ? janela.maxValor * 24 : janela.maxValor) * 3600_000), [agora, janela])
+
+  // Os próximos dias em que dá pra agendar (abertos, sem fechamento, dentro
+  // da antecedência da loja) — a faixa de dias da tela 2.
+  const proximosDias = useMemo(() => {
+    const lista: string[] = []
+    const minDia = startOfDay(minInstante)
+    const maxDia = startOfDay(maxInstante)
+    for (let i = 0; i < 120 && lista.length < DIAS_NA_FAIXA; i++) {
+      const d = startOfDay(addDays(new Date(agora), i))
+      if (isBefore(d, minDia)) continue
+      if (isAfter(d, maxDia)) break
+      const iso = format(d, 'yyyy-MM-dd')
+      if (!diasAbertos.has(NOMES_DIA_POR_INDICE[getDay(d)]) || fechadoODiaTodo(bloqueios, iso)) continue
+      lista.push(iso)
+    }
+    return lista
+  }, [agora, minInstante, maxInstante, diasAbertos, bloqueios])
 
   function alternarServico(id: string) {
     setCarrinho(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
-  function handleContinuarServicos() {
+  function escolherDia(iso: string) {
+    if (iso === data) return
+    setData(iso)
+    setSlots(null)
+    setHoraInicio('')
+  }
+
+  function irParaQuando() {
     if (!autenticado) {
       setMostrarGateAcesso(true)
       return
     }
-    setStep('pet')
+    setErro(null)
+    // Já abre no primeiro dia livre: os horários aparecem sem precisar tocar em nada.
+    if (!data && proximosDias[0]) escolherDia(proximosDias[0])
+    if (pets.length === 0) setNovoPetAberto(true)
+    setStep('quando')
+  }
+
+  const podeRevisar = !!petId && !precisaClassificar && !!data && !!horaInicio
+
+  function escolherHorario(hora: string) {
+    setHoraInicio(hora)
+    // Tudo pronto: tocar no horário já leva à revisão (um toque a menos).
+    if (petId && !precisaClassificar && data) {
+      setErro(null)
+      setStep('revisar')
+    }
+  }
+
+  function voltar() {
+    setErro(null)
+    setStep(atual => (atual === 'revisar' ? 'quando' : 'servicos'))
   }
 
   const voltarParaCa = `/agendamento/${lojista.id}${carrinho.length ? `?servicos=${carrinho.join(',')}` : ''}`
@@ -329,32 +349,56 @@ export default function AgendamentoOnlineWizard({
     setPetId(p.id_pet)
     setEspecieForm(p.especie ?? '')
     setPorteForm(p.porte ?? '')
+    setNovoPetAberto(false)
   }
 
   // Pet cadastrado aqui mesmo: entra na lista já escolhido.
   function aoCriarPet(p: Pet) {
     setPets(prev => [...prev, p])
-    setNovoPetAberto(false)
     selecionarPet(p)
   }
 
-  function salvarClassificacao() {
-    if (!petSel || !especieForm || !porteForm) return
+  // Espécie e porte se salvam sozinhos assim que os dois estão marcados.
+  function classificar(especie: 'Cão' | 'Gato' | '', porte: 'Pequeno' | 'Médio' | 'Grande' | '') {
+    setEspecieForm(especie)
+    setPorteForm(porte)
+    if (!petSel || !especie || !porte) return
     setErro(null)
     setSalvandoClassificacao(true)
     const fd = new FormData()
-    fd.set('especie', especieForm)
-    fd.set('porte', porteForm)
+    fd.set('especie', especie)
+    fd.set('porte', porte)
+    const id = petSel.id_pet
     startTransition(async () => {
-      const result = await atualizarClassificacaoPetAction(petSel.id_pet, fd)
+      const result = await atualizarClassificacaoPetAction(id, fd)
       setSalvandoClassificacao(false)
       if (result?.error) { setErro(result.error); return }
-      setPets(prev => prev.map(p => p.id_pet === petSel.id_pet ? { ...p, especie: especieForm, porte: porteForm } : p))
+      setPets(prev => prev.map(p => p.id_pet === id ? { ...p, especie, porte } : p))
+    })
+  }
+
+  const cotar = useCallback((endereco: EnderecoTaxiDog) => cotarTaxiDogAction(lojista.id, endereco), [lojista.id])
+
+  function mudarQuantidade(p: Produto, delta: number) {
+    const passo = p.unidade_venda === 'kg' || p.unidade_venda === 'litro' ? 0.5 : 1
+    setQuantidadesProdutos(prev => {
+      const atual = prev[p.id_produto] ?? 0
+      const nova = Math.max(0, Math.min(p.estoque_atual, Math.round((atual + delta * passo) * 100) / 100))
+      return { ...prev, [p.id_produto]: nova }
     })
   }
 
   function handleAgendar() {
     setErro(null)
+    if (!transportePronto(transporte)) {
+      setErro('Complete o endereço do TaxiDog ou escolha levar o pet.')
+      setTransporteAberto(true)
+      return
+    }
+    if (!nadaAPagar && !formaPagamento) {
+      setErro('Escolha como vai pagar.')
+      return
+    }
     const fd = new FormData()
     fd.set('id_lojista', lojista.id)
     fd.set('id_pet', petId)
@@ -366,14 +410,7 @@ export default function AgendamentoOnlineWizard({
       fd.set('produtos', JSON.stringify(itensCarrinhoProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))))
     }
     if (escolhaTaxiDog) fd.set('taxidog', taxiDogParaFormulario(escolhaTaxiDog))
-    if (!nadaAPagar) {
-      if (!formaPagamento) {
-        setErro('Escolha a forma de pagamento.')
-        setStep('pagamento')
-        return
-      }
-      fd.set('forma_pagamento', formaPagamento)
-    }
+    if (!nadaAPagar && formaPagamento) fd.set('forma_pagamento', formaPagamento)
     if (vaiUsarPlano) fd.set('usar_plano', '1')
 
     startTransition(async () => {
@@ -381,10 +418,7 @@ export default function AgendamentoOnlineWizard({
       if (result?.error) {
         setErro(result.error)
         // O servidor não confirmou a cobertura do plano: pede o pagamento.
-        if (nadaAPagar && result.error === 'Escolha a forma de pagamento.') {
-          setPlanoNaoCobriu(true)
-          setStep('pagamento')
-        }
+        if (nadaAPagar && result.error === 'Escolha a forma de pagamento.') setPlanoNaoCobriu(true)
         return
       }
       setResultado({
@@ -396,16 +430,6 @@ export default function AgendamentoOnlineWizard({
     })
   }
 
-  // Só pra desenhar o calendário (desabilitar dias fora da janela) — a
-  // checagem que vale de verdade é sempre a do servidor (RPC), que usa o
-  // horário de Brasília certo. Aqui é aproximado o bastante pra UI.
-  // "agora" via useState(() => ...) — lazy initializer, não chamada
-  // direta de Date.now() no corpo do componente (regra de pureza).
-  const [agora] = useState(() => Date.now())
-  const diasAbertos = useMemo(() => new Set(horarios.filter(h => h.ativo).map(h => h.dia_semana)), [horarios])
-  const minInstante = useMemo(() => new Date(agora + (janela.minUnidade === 'dias' ? janela.minValor * 24 : janela.minValor) * 3600_000), [agora, janela])
-  const maxInstante = useMemo(() => new Date(agora + (janela.maxUnidade === 'dias' ? janela.maxValor * 24 : janela.maxValor) * 3600_000), [agora, janela])
-
   // Linhas do resumo da confirmação / mensagem do WhatsApp.
   const itensResumo = [
     ...servicosCarrinho.map(s => s.nome),
@@ -414,43 +438,45 @@ export default function AgendamentoOnlineWizard({
   ]
 
   const enderecoCompleto = formatarEnderecoLoja(lojista)
+  const dataLonga = data ? format(new Date(`${data}T12:00:00`), "EEEE, d 'de' MMMM", { locale: ptBR }) : ''
+  const dataLongaMaiuscula = dataLonga ? dataLonga[0].toUpperCase() + dataLonga.slice(1) : ''
+  const indicePasso = step === 'feito' ? -1 : PASSOS.indexOf(step)
 
   return (
-    <div>
-      {step !== 'servicos' && step !== 'feito' && (
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm"
-          onClick={voltar}
-          style={{ marginBottom: 'var(--space-4)' }}
-        >
-          <IconChevronLeft style={{ width: 14, height: 14 }} /> Voltar
-        </button>
+    <div className="ag2">
+      {/* Topo: voltar, os três pontinhos do progresso e a loja */}
+      {step !== 'feito' && (
+        <div className="ag2-topo">
+          {step !== 'servicos' ? (
+            <button type="button" className="ag2-icone-btn" onClick={voltar} aria-label="Voltar">
+              <IconChevronLeft style={{ width: 18, height: 18 }} />
+            </button>
+          ) : <span className="ag2-icone-btn is-vazio" />}
+          <div className="ag2-pontos" aria-label={`Passo ${indicePasso + 1} de ${PASSOS.length}`}>
+            {PASSOS.map((p, i) => <span key={p} className={i <= indicePasso ? 'is-ativo' : ''} />)}
+          </div>
+          <span className="ag2-icone-btn is-vazio" />
+        </div>
       )}
 
       {step === 'servicos' && (
-        <button
-          type="button"
-          className="agenonline-header"
-          onClick={() => setMostrarDetalheLoja(true)}
-          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: '100%', textAlign: 'left' }}
-        >
+        <button type="button" className="ag2-loja" onClick={() => setMostrarDetalheLoja(true)}>
           {lojista.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- URL pública do Storage
-            <img src={lojista.logoUrl} alt={lojista.nome} className="agenonline-logo" />
+            <img src={lojista.logoUrl} alt="" className="ag2-loja-logo" />
           ) : (
-            <div className="agenonline-logo-fallback"><IconPaw style={{ width: 24, height: 24 }} /></div>
+            <span className="ag2-loja-logo is-vazio"><IconPaw style={{ width: 22, height: 22 }} /></span>
           )}
-          <div style={{ flex: 1 }}>
-            <div className="agenonline-loja-nome">{lojista.nome}</div>
-            {lojista.cidade && <div className="agenonline-loja-local">{lojista.cidade}{lojista.estado ? `, ${lojista.estado}` : ''}</div>}
-            <div className="agenonline-loja-status">{lojista.statusHoje}</div>
-          </div>
+          <span className="ag2-loja-texto">
+            <span className="ag2-loja-nome">{lojista.nome}</span>
+            <span className="ag2-loja-info">
+              {lojista.statusHoje}
+              {avaliacoes.total > 0 && avaliacoes.media != null && <> · ★ {formatarMedia(avaliacoes.media)}</>}
+            </span>
+          </span>
           <IconChevronRight style={{ width: 16, height: 16, color: 'var(--gray-500)', flexShrink: 0 }} />
         </button>
       )}
-
-      {step !== 'feito' && <ProgressoEtapas etapas={etapas} atual={step} />}
 
       {erro && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
@@ -459,328 +485,263 @@ export default function AgendamentoOnlineWizard({
         </div>
       )}
 
-      {/* Escolha o(s) Serviço(s) */}
+      {/* ============ 1. O que fazer ============ */}
       {step === 'servicos' && (
         <>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: 'var(--space-4)' }}>Escolha o Serviço</h2>
+          <h1 className="ag2-titulo">O que seu pet<br />precisa hoje?</h1>
+          <p className="ag2-sub">Toque para escolher. Dá para marcar mais de um.</p>
+
           {servicos.length === 0 ? (
-            <div className="empty-state card">
-              <IconScissors style={{ width: 32, height: 32, color: 'var(--gray-600)', margin: '0 auto var(--space-3)' }} />
-              <p className="text-sm text-muted">Esta loja ainda não cadastrou serviços.</p>
-            </div>
+            <p className="ag2-vazio">Esta loja ainda não cadastrou serviços.</p>
           ) : (
-            <div className="agenonline-service-grid">
+            <ul className="ag2-lista">
               {servicos.map(s => {
-                const selecionado = carrinho.includes(s.id_servico)
+                const marcado = carrinho.includes(s.id_servico)
                 return (
-                  <button
-                    key={s.id_servico}
-                    type="button"
-                    className={`agenonline-service-card ${selecionado ? 'selected' : ''}`}
-                    onClick={() => setServicoDetalhe(s)}
-                  >
-                    {selecionado && <span className="agenonline-service-check"><IconCheck style={{ width: 13, height: 13 }} /></span>}
-                    <IconScissors style={{ width: 20, height: 20, color: 'var(--gray-500)' }} />
-                    <div className="agenonline-service-nome">{s.nome}</div>
-                    <div className="agenonline-service-preco">A partir de {formatarReais(s.preco)}</div>
-                  </button>
+                  <li key={s.id_servico}>
+                    <button
+                      type="button"
+                      className={`ag2-servico ${marcado ? 'is-marcado' : ''}`}
+                      onClick={() => alternarServico(s.id_servico)}
+                      aria-pressed={marcado}
+                    >
+                      <span className="ag2-servico-texto">
+                        <span className="ag2-servico-nome">{s.nome}</span>
+                        <span className="ag2-servico-info">{duracaoTexto(s.duracao)} · a partir de {formatarReais(s.preco)}</span>
+                      </span>
+                      <span className="ag2-check" aria-hidden="true">{marcado && <IconCheck style={{ width: 14, height: 14 }} />}</span>
+                    </button>
+                    {s.descricao && (
+                      <button type="button" className="ag2-link ag2-servico-detalhe" onClick={() => setServicoDetalhe(s)}>
+                        O que inclui
+                      </button>
+                    )}
+                  </li>
                 )
               })}
-            </div>
+            </ul>
           )}
 
-          <div className="agenonline-cart-bar">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={carrinho.length === 0}
-              onClick={handleContinuarServicos}
-            >
-              Ver Carrinho ({carrinho.length})
+          <div className="ag2-rodape">
+            <button type="button" className="ag2-cta" disabled={carrinho.length === 0} onClick={irParaQuando}>
+              {carrinho.length === 0
+                ? 'Escolha um serviço'
+                : <>Continuar <span className="ag2-cta-extra">{carrinho.length} · {duracaoTexto(duracaoTotal)} · {formatarReais(valorTotal)}</span></>}
             </button>
           </div>
         </>
       )}
 
-      {/* Gate de acesso — modal que só aparece ao tentar continuar sem estar logado como cliente */}
-      {mostrarGateAcesso && (
-        <div className="modal-overlay" onClick={() => setMostrarGateAcesso(false)}>
-          <div className="modal" style={{ maxWidth: 400, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header" style={{ justifyContent: 'flex-end' }}>
-              <button className="modal-close" onClick={() => setMostrarGateAcesso(false)} aria-label="Fechar">
-                <IconClose style={{ width: 15, height: 15 }} />
-              </button>
-            </div>
-            <div className="modal-body">
-              {cadastroIncompleto ? (
-                <>
-                  <IconPaw style={{ width: 28, height: 28, color: 'var(--primary-400)', margin: '0 auto var(--space-4)' }} />
-                  <h3 style={{ marginBottom: 'var(--space-2)' }}>Falta terminar seu cadastro</h3>
-                  <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
-                    Complete seus dados de cliente para continuar o agendamento em {lojista.nome}. Seus serviços escolhidos continuam salvos.
-                  </p>
-                  <button
-                    type="button"
-                    className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
-                    disabled={isPending}
-                    onClick={handleCompletarCadastro}
-                    style={{ width: '100%' }}
-                  >
-                    {isPending ? 'Abrindo...' : 'Completar cadastro'}
-                  </button>
-                </>
-              ) : contaInvalida ? (
-                <>
-                  <IconAlert style={{ width: 28, height: 28, color: 'var(--warning-400)', margin: '0 auto var(--space-4)' }} />
-                  <h3 style={{ marginBottom: 'var(--space-2)' }}>Essa conta não é uma conta de cliente</h3>
-                  <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
-                    Para agendar em {lojista.nome}, saia e entre com uma conta de cliente.
-                  </p>
-                  <button
-                    type="button"
-                    className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
-                    disabled={isPending}
-                    onClick={handleSairEEntrarComOutraConta}
-                    style={{ width: '100%' }}
-                  >
-                    {isPending ? 'Saindo...' : 'Sair e entrar com outra conta'}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <IconPaw style={{ width: 28, height: 28, color: 'var(--primary-400)', margin: '0 auto var(--space-4)' }} />
-                  <h3 style={{ marginBottom: 'var(--space-2)' }}>Falta pouco!</h3>
-                  <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>
-                    Entre com sua conta de cliente para continuar o agendamento em {lojista.nome}. Seus serviços escolhidos continuam salvos.
-                  </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                    <Link href={loginHref} className="btn btn-primary">Entrar</Link>
-                    <Link href={`/cadastro?redirectTo=${encodeURIComponent(voltarParaCa)}`} className="btn btn-secondary">Criar conta de cliente</Link>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ============ 2. Para quem e quando ============ */}
+      {step === 'quando' && (
+        <>
+          <h1 className="ag2-titulo">Para quem<br />e quando?</h1>
 
-      {/* Pet */}
-      {step === 'pet' && (
-        <div className="card">
-          <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-4)' }}>Preencha os detalhes do seu Pet</h2>
-
-          {pets.length === 0 ? (
-            <>
-              <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-4)' }}>
-                Você ainda não tem pets cadastrados. Cadastre o primeiro para continuar o agendamento.
-              </p>
-              <NovoPetNoAgendamento onCriado={aoCriarPet} />
-            </>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-5)' }}>
+          <section className="ag2-secao">
+            <h2 className="ag2-secao-titulo">Pet</h2>
+            <div className="ag2-chips ag2-rolagem">
               {pets.map(p => (
-                <div
-                  key={p.id_pet}
-                  onClick={() => selecionarPet(p)}
-                  style={{
-                    padding: 'var(--space-3) var(--space-4)',
-                    borderRadius: 'var(--radius-md)',
-                    border: `1px solid ${petId === p.id_pet ? 'var(--primary-500)' : 'var(--gray-700)'}`,
-                    background: petId === p.id_pet ? 'var(--primary-soft-bg)' : 'var(--gray-850)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-3)',
-                  }}
-                >
-                  <IconDog style={{ width: 16, height: 16, color: 'var(--gray-500)' }} />
-                  <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</span>
-                  <span className="text-sm text-muted">— {p.raca}</span>
-                  {petId === p.id_pet && <IconCheck style={{ width: 15, height: 15, color: 'var(--primary-400)', marginLeft: 'auto' }} />}
-                </div>
-              ))}
-              {!novoPetAberto && (
-                <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setNovoPetAberto(true)}>
-                  <IconPlus style={{ width: 14, height: 14 }} /> Cadastrar outro pet
+                <button key={p.id_pet} type="button" className={`ag2-chip ag2-chip-pet ${petId === p.id_pet ? 'is-ativo' : ''}`} onClick={() => selecionarPet(p)} aria-pressed={petId === p.id_pet}>
+                  <span className="ag2-avatar" aria-hidden="true">{p.nome[0]?.toUpperCase()}</span>
+                  {p.nome}
                 </button>
-              )}
-            </div>
-          )}
-
-          {pets.length > 0 && novoPetAberto && (
-            <div style={{ marginBottom: 'var(--space-5)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--gray-800)' }}>
-              <h3 style={{ fontSize: '1rem', marginBottom: 'var(--space-4)' }}>Novo pet</h3>
-              <NovoPetNoAgendamento onCriado={aoCriarPet} onCancelar={() => setNovoPetAberto(false)} />
-            </div>
-          )}
-
-          {petSel && precisaClassificar && !novoPetAberto && (
-            <div style={{ marginBottom: 'var(--space-5)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--gray-800)' }}>
-              <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-3)' }}>
-                Falta completar a espécie e o porte de {petSel.nome} — usamos isso pra calcular o preço certo do serviço.
-              </p>
-
-              <div className="form-group">
-                <label className="form-label">Espécie</label>
-                <div className="flex gap-2">
-                  {(['Cão', 'Gato'] as const).map(e => (
-                    <button key={e} type="button" className={`btn btn-sm ${especieForm === e ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setEspecieForm(e)}>
-                      {e}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Porte</label>
-                <div className="flex gap-2">
-                  {(['Pequeno', 'Médio', 'Grande'] as const).map(p => (
-                    <button key={p} type="button" className={`btn btn-sm ${porteForm === p ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setPorteForm(p)}>
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className={`btn btn-secondary btn-sm ${salvandoClassificacao ? 'btn-loading' : ''}`}
-                disabled={!especieForm || !porteForm || salvandoClassificacao}
-                onClick={salvarClassificacao}
-              >
-                {salvandoClassificacao ? 'Salvando...' : 'Salvar'}
+              ))}
+              <button type="button" className={`ag2-chip ${novoPetAberto ? 'is-ativo' : ''}`} onClick={() => setNovoPetAberto(v => !v)}>
+                <IconPlus style={{ width: 14, height: 14 }} /> Novo pet
               </button>
             </div>
-          )}
 
-          {petSel && !precisaClassificar && (
-            <div className="flex justify-between" style={{ marginBottom: 'var(--space-5)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--gray-800)' }}>
-              <span className="text-sm text-muted">Valor Total</span>
-              <span className="font-semibold text-success">{formatarReais(valorTotal)}</span>
-            </div>
-          )}
+            {novoPetAberto && (
+              <div className="ag2-cartao">
+                <NovoPetNoAgendamento onCriado={aoCriarPet} onCancelar={pets.length > 0 ? () => setNovoPetAberto(false) : undefined} />
+              </div>
+            )}
 
-          <div className="flex justify-end">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={!petId || precisaClassificar}
-              onClick={avancar}
-            >
-              Continuar
-            </button>
-          </div>
-        </div>
-      )}
+            {petSel && precisaClassificar && !novoPetAberto && (
+              <div className="ag2-cartao">
+                <p className="ag2-nota">Conta pra gente sobre {petSel.nome} — o preço depende disso.</p>
+                <div className="ag2-chips">
+                  {(['Cão', 'Gato'] as const).map(e => (
+                    <button key={e} type="button" className={`ag2-chip ${especieForm === e ? 'is-ativo' : ''}`} onClick={() => classificar(e, porteForm)} disabled={salvandoClassificacao}>{e}</button>
+                  ))}
+                </div>
+                <div className="ag2-chips">
+                  {(['Pequeno', 'Médio', 'Grande'] as const).map(p => (
+                    <button key={p} type="button" className={`ag2-chip ${porteForm === p ? 'is-ativo' : ''}`} onClick={() => classificar(especieForm, p)} disabled={salvandoClassificacao}>{p}</button>
+                  ))}
+                </div>
+                {salvandoClassificacao && <p className="ag2-nota">Salvando…</p>}
+              </div>
+            )}
+          </section>
 
-      {/* Transporte — só existe quando a loja oferece TaxiDog */}
-      {step === 'transporte' && (
-        <TaxiDogEtapa idLojista={lojista.id} valor={transporte} onChange={setTransporte} onContinuar={avancar} />
-      )}
-
-      {/* Forma de pagamento — depois do transporte */}
-      {step === 'pagamento' && (
-        <PagamentoEtapa
-          formas={formasPagamento}
-          valor={formaPagamento}
-          onChange={setFormaPagamento}
-          resumoTaxiDog={escolhaTaxiDog ? `TaxiDog · ${ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]} · ${formatarReais(escolhaTaxiDog.cotacao.valor)}` : null}
-          onContinuar={avancar}
-        />
-      )}
-
-      {/* Tutor (revisão) */}
-      {step === 'dados' && (
-        <div className="card">
-          <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-5)' }}>Preencha seus dados</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
-            <div className="agenonline-resumo-row"><span className="text-muted">Nome</span><span>{cliente.nome}</span></div>
-            <div className="agenonline-resumo-row"><span className="text-muted">Telefone</span><span>{formatarTelefone(cliente.telefone)}</span></div>
-            <div className="agenonline-resumo-row"><span className="text-muted">CPF</span><span>{formatarCpf(cliente.cpf)}</span></div>
-          </div>
-          <p className="text-xs text-muted" style={{ marginBottom: 'var(--space-5)' }}>
-            Esses dados vêm da sua conta. Pra alterar, acesse seu perfil de cliente.
-          </p>
-          <div className="flex justify-end">
-            <button type="button" className="btn btn-primary" onClick={avancar}>
-              Continuar para Horários →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Dia e hora */}
-      {step === 'horario' && (
-        <div className="card">
-          <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-3)' }}>Selecione o dia</h2>
-          <div style={{ marginBottom: 'var(--space-6)' }}>
-            <SeletorDeData
-              diasAbertos={diasAbertos}
-              minInstante={minInstante}
-              maxInstante={maxInstante}
-              dataSelecionada={data}
-              onSelecionar={setData}
-              bloqueios={bloqueios}
-            />
-          </div>
+          <section className="ag2-secao">
+            <h2 className="ag2-secao-titulo">Dia</h2>
+            {proximosDias.length === 0 ? (
+              <p className="ag2-vazio">Sem dias livres nas próximas semanas.</p>
+            ) : (
+              <div className="ag2-chips ag2-rolagem">
+                {proximosDias.map(iso => {
+                  const d = new Date(`${iso}T12:00:00`)
+                  return (
+                    <button key={iso} type="button" className={`ag2-dia ${data === iso ? 'is-ativo' : ''}`} onClick={() => escolherDia(iso)} aria-pressed={data === iso}>
+                      <span className="ag2-dia-semana">{format(d, 'EEEEEE', { locale: ptBR }).replace('.', '').slice(0, 3)}</span>
+                      <span className="ag2-dia-numero">{format(d, 'd')}</span>
+                      <span className="ag2-dia-mes">{format(d, 'MMM', { locale: ptBR }).replace('.', '')}</span>
+                    </button>
+                  )
+                })}
+                <button type="button" className="ag2-dia is-outra" onClick={() => setCalendarioAberto(true)}>
+                  <span className="ag2-dia-numero">+</span>
+                  <span className="ag2-dia-mes">outra data</span>
+                </button>
+              </div>
+            )}
+          </section>
 
           {data && (
-            <>
-              <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-3)' }}>
-                Horários disponíveis para {format(new Date(data + 'T12:00:00'), "EEEE dd/MM", { locale: ptBR })}
-              </p>
+            <section className="ag2-secao">
+              <h2 className="ag2-secao-titulo">Horário <span className="ag2-secao-extra">{dataLonga}</span></h2>
               {slots === null ? (
-                <p className="text-sm text-muted">Carregando horários...</p>
-              ) : slots.length === 0 ? (
-                <div className="alert alert-info"><span>Nenhum horário disponível nesse dia.</span></div>
+                <p className="ag2-nota">Buscando horários…</p>
+              ) : slots.filter(s => s.disponivel).length === 0 ? (
+                <p className="ag2-vazio">Nenhum horário livre nesse dia. Tente outro.</p>
               ) : (
-                <div className="slots-grid">
-                  {slots.map(slot => {
-                    const horaCurta = slot.hr_slot.slice(0, 5)
+                <div className="ag2-horarios">
+                  {slots.filter(s => s.disponivel).map(slot => {
+                    const hora = slot.hr_slot.slice(0, 5)
                     return (
-                      <button
-                        key={slot.hr_slot}
-                        type="button"
-                        className={`slot ${!slot.disponivel ? 'slot-unavailable' : ''} ${horaInicio === horaCurta ? 'slot-selected' : ''}`}
-                        onClick={() => slot.disponivel && setHoraInicio(horaCurta)}
-                        disabled={!slot.disponivel}
-                      >
-                        {horaCurta}
+                      <button key={slot.hr_slot} type="button" className={`ag2-chip ag2-hora ${horaInicio === hora ? 'is-ativo' : ''}`} onClick={() => escolherHorario(hora)} aria-pressed={horaInicio === hora}>
+                        {hora}
                       </button>
                     )
                   })}
                 </div>
               )}
-            </>
+            </section>
           )}
 
-          <div className="flex justify-end" style={{ marginTop: 'var(--space-6)' }}>
-            <button type="button" className="btn btn-primary" disabled={!data || !horaInicio} onClick={avancar}>
-              Continuar
+          <div className="ag2-rodape">
+            <button type="button" className="ag2-cta" disabled={!podeRevisar} onClick={() => { setErro(null); setStep('revisar') }}>
+              {!petId ? 'Escolha o pet' : precisaClassificar ? `Complete os dados de ${petSel?.nome}` : !horaInicio ? 'Escolha o horário' : 'Revisar'}
             </button>
           </div>
-        </div>
+        </>
       )}
 
-      {/* Resumo */}
-      {step === 'resumo' && (
-        <div className="card">
-          <h2 style={{ fontSize: '1.15rem', marginBottom: 'var(--space-2)' }}>Resumo do agendamento</h2>
-          <button type="button" className="text-accent text-sm" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 'var(--space-5)' }} onClick={() => setStep('servicos')}>
-            Escolher mais serviços
-          </button>
+      {/* ============ 3. Revisar e confirmar ============ */}
+      {step === 'revisar' && (
+        <>
+          <div className="ag2-total">
+            <span className="ag2-total-rotulo">{nadaAPagar ? 'Coberto pelo plano' : descontoPlano > 0 ? 'Total a pagar' : 'Total'}</span>
+            <span className="ag2-total-valor">{formatarReais(Math.max(0, totalGeral))}</span>
+            <span className="ag2-total-sub">{petSel?.nome} · {dataLonga} às {horaInicio}</span>
+          </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 'var(--space-5)' }}>
-            <div className="text-xs text-muted" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
-              {servicosCarrinho.length > 1 ? 'Serviços' : 'Serviço'}
-            </div>
-            {servicosCarrinho.map(s => (
-              <div key={s.id_servico} className="agenonline-resumo-row">
-                <span>{s.nome}</span>
-                <span className="font-semibold text-success">{formatarReais(precos[s.id_servico] ?? s.preco)}</span>
+          <div className="ag2-cartao ag2-linhas">
+            <button type="button" className="ag2-linha" onClick={() => setStep('servicos')}>
+              <span className="ag2-linha-rotulo">{servicosCarrinho.length > 1 ? 'Serviços' : 'Serviço'}</span>
+              <span className="ag2-linha-valor">
+                {servicosCarrinho.map(s => (
+                  <span key={s.id_servico} className="ag2-linha-item">
+                    {s.nome}<span>{formatarReais(precos[s.id_servico] ?? s.preco)}</span>
+                  </span>
+                ))}
+              </span>
+              <IconChevronRight className="ag2-linha-seta" />
+            </button>
+            <button type="button" className="ag2-linha" onClick={() => setStep('quando')}>
+              <span className="ag2-linha-rotulo">Quando</span>
+              <span className="ag2-linha-valor">
+                <span className="ag2-linha-item">{dataLongaMaiuscula}, {horaInicio}<span>{duracaoTexto(duracaoTotal)}</span></span>
+              </span>
+              <IconChevronRight className="ag2-linha-seta" />
+            </button>
+
+            {taxidogDisponivel && (
+              <div className="ag2-linha is-bloco">
+                <button type="button" className="ag2-linha-topo" onClick={() => setTransporteAberto(v => !v)} aria-expanded={transporteAberto}>
+                  <span className="ag2-linha-rotulo">Transporte</span>
+                  <span className="ag2-linha-valor">
+                    <span className="ag2-linha-item">
+                      {escolhaTaxiDog ? `TaxiDog · ${ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]}` : transporte.opcao === 'taxidog' ? 'TaxiDog · falta o endereço' : 'Eu levo o pet'}
+                      {escolhaTaxiDog && <span>{formatarReais(escolhaTaxiDog.cotacao.valor)}</span>}
+                    </span>
+                  </span>
+                  <span className="ag2-link">{transporteAberto ? 'Fechar' : 'Trocar'}</span>
+                </button>
+                {transporteAberto && (
+                  <div className="ag2-linha-conteudo">
+                    <TaxiDogCampos valor={transporte} onChange={setTransporte} cotar={cotar} compacto rotuloLevar="Eu levo o pet" />
+                  </div>
+                )}
               </div>
-            ))}
-            <ResumoTaxiDog escolha={escolhaTaxiDog} disponivel={taxidogDisponivel} />
+            )}
+
+            {!nadaAPagar && (
+              <div className="ag2-linha is-bloco">
+                <span className="ag2-linha-rotulo">Pagamento</span>
+                {opcoesPagamento.length === 0 ? (
+                  <p className="ag2-nota">A loja ainda não configurou as formas de pagamento. Fale com ela.</p>
+                ) : (
+                  <div className="ag2-chips">
+                    {opcoesPagamento.map(f => (
+                      <button key={f} type="button" className={`ag2-chip ${formaPagamento === f ? 'is-ativo' : ''}`} onClick={() => setFormaPagamento(f)} aria-pressed={formaPagamento === f}>
+                        {ROTULO_FORMA_PAGAMENTO[f]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {formaPagamento === 'pix' && <PixDaLoja chave={formasPagamento.pix_chave} nome={formasPagamento.pix_nome} />}
+                <p className="ag2-nota">Você paga direto para a loja.</p>
+              </div>
+            )}
+
+            {produtos.length > 0 && (
+              <div className="ag2-linha is-bloco">
+                <button type="button" className="ag2-linha-topo" onClick={() => setProdutosAbertos(v => !v)} aria-expanded={produtosAbertos}>
+                  <span className="ag2-linha-rotulo">Produtos</span>
+                  <span className="ag2-linha-valor">
+                    <span className="ag2-linha-item">
+                      {itensCarrinhoProdutos.length ? `${itensCarrinhoProdutos.length} ${itensCarrinhoProdutos.length === 1 ? 'item' : 'itens'}` : 'Nenhum'}
+                      {totalProdutos > 0 && <span>{formatarReais(totalProdutos)}</span>}
+                    </span>
+                  </span>
+                  <span className="ag2-link">{produtosAbertos ? 'Fechar' : 'Adicionar'}</span>
+                </button>
+                {produtosAbertos && (
+                  <ul className="ag2-produtos">
+                    {produtos.map(p => {
+                      const q = quantidadesProdutos[p.id_produto] ?? 0
+                      return (
+                        <li key={p.id_produto}>
+                          <span className="ag2-produto-texto">
+                            <span className="ag2-servico-nome">{p.nome}</span>
+                            <span className="ag2-servico-info">{formatarReais(p.preco_venda)} / {rotuloUnidade(p.unidade_venda)}</span>
+                          </span>
+                          <span className="ag2-stepper">
+                            <button type="button" onClick={() => mudarQuantidade(p, -1)} disabled={q <= 0} aria-label={`Menos ${p.nome}`}><IconMinus style={{ width: 14, height: 14 }} /></button>
+                            <span>{String(q).replace('.', ',')}</span>
+                            <button type="button" onClick={() => mudarQuantidade(p, 1)} disabled={q >= p.estoque_atual} aria-label={`Mais ${p.nome}`}><IconPlus style={{ width: 14, height: 14 }} /></button>
+                          </span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            <div className="ag2-linha is-bloco">
+              {obsAberta || obs ? (
+                <>
+                  <span className="ag2-linha-rotulo">Observação</span>
+                  <textarea className="ag2-textarea" value={obs} onChange={e => setObs(e.target.value)} rows={2} maxLength={500} placeholder="Ex.: ele fica nervoso com barulho" autoFocus={obsAberta && !obs} />
+                </>
+              ) : (
+                <button type="button" className="ag2-link" onClick={() => setObsAberta(true)}>+ Adicionar observação para a loja</button>
+              )}
+            </div>
           </div>
 
           <PlanoNoPedido
@@ -792,93 +753,17 @@ export default function AgendamentoOnlineWizard({
             disabled={isPending}
           />
 
-          <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 'var(--space-5)' }}>
-            <div className="agenonline-resumo-row"><span className="text-muted">Pet</span><span>{petSel?.nome} — {petSel?.raca}</span></div>
-            <div className="agenonline-resumo-row"><span className="text-muted">Tutor</span><span>{cliente.nome}</span></div>
-            <div className="agenonline-resumo-row">
-              <span className="text-muted">Data e hora</span>
-              <span>{format(new Date(data + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })} às {horaInicio}</span>
-            </div>
-            <div className="agenonline-resumo-row"><span className="text-muted">Duração total</span><span>{duracaoTotal} minutos</span></div>
-            {totalProdutos > 0 && (
-              <div className="agenonline-resumo-row"><span className="text-muted">Produtos</span><span>{formatarReais(totalProdutos)}</span></div>
-            )}
-            {descontoPlano > 0 && (
-              <div className="agenonline-resumo-row"><span className="text-muted">Saldo do plano</span><span style={{ color: 'var(--primary-400)' }}>− {formatarReais(descontoPlano)}</span></div>
-            )}
-            <div className="agenonline-resumo-row"><span className="font-semibold">{descontoPlano > 0 ? 'Total a pagar' : 'Total'}</span><span className="font-semibold text-success">{formatarReais(totalGeral)}</span></div>
-            {!nadaAPagar && (
-              <div className="agenonline-resumo-row">
-                <span className="text-muted">Pagamento</span>
-                <span>
-                  {formaPagamento ? ROTULO_FORMA_PAGAMENTO[formaPagamento] : '—'}{' '}
-                  <button type="button" className="text-accent text-sm" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} onClick={() => setStep('pagamento')}>
-                    {formaPagamento ? 'Trocar' : 'Escolher'}
-                  </button>
-                </span>
-              </div>
-            )}
-            {!nadaAPagar && formaPagamento === 'pix' && (
-              <div style={{ marginTop: 'var(--space-2)' }}>
-                <PixDaLoja chave={formasPagamento.pix_chave} nome={formasPagamento.pix_nome} />
-              </div>
-            )}
-            {precosEstimados && (
-              <p className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>
-                O valor dos serviços é uma estimativa: a loja pode ajustar o preço final conforme a pelagem e as condições do pet no dia.
-                {escolhaTaxiDog && ' A taxa do TaxiDog não muda.'}
-              </p>
-            )}
-          </div>
+          <p className="ag2-nota ag2-centro">
+            Agendando como <strong>{cliente.nome}</strong>.
+            {precosEstimados && ' O valor dos serviços é uma estimativa: a loja pode ajustar conforme a pelagem e as condições do pet.'}
+          </p>
 
-          {produtos.length > 0 && (
-            <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
-              <label className="form-label">Adicionar produtos (opcional)</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                {produtos.map(p => (
-                  <div
-                    key={p.id_produto}
-                    className="flex items-center gap-3"
-                    style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--gray-850)', border: '1px solid var(--gray-800)', borderRadius: 'var(--radius-sm)' }}
-                  >
-                    <IconPackage style={{ width: 15, height: 15, color: 'var(--gray-500)', flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}>
-                      <div className="text-sm font-semibold" style={{ color: 'var(--gray-100)' }}>{p.nome}</div>
-                      <div className="text-xs text-muted">{formatarReais(p.preco_venda)} / {rotuloUnidade(p.unidade_venda)}</div>
-                    </div>
-                    <input
-                      type="number"
-                      className="form-input"
-                      style={{ width: 90 }}
-                      min="0"
-                      max={p.estoque_atual}
-                      step={p.unidade_venda === 'kg' || p.unidade_venda === 'litro' ? '0.1' : '1'}
-                      placeholder="0"
-                      value={quantidadesProdutos[p.id_produto] ?? ''}
-                      onChange={e => setQuantidadesProdutos(prev => ({ ...prev, [p.id_produto]: e.target.value }))}
-                    />
-                  </div>
-                ))}
-              </div>
-              {totalProdutos > 0 && (
-                <p className="text-sm text-success font-semibold" style={{ marginTop: 'var(--space-2)' }}>
-                  Subtotal produtos: {formatarReais(totalProdutos)}
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="form-group">
-            <label className="form-label">Observações (opcional)</label>
-            <textarea className="form-textarea" value={obs} onChange={e => setObs(e.target.value)} rows={2} maxLength={500} placeholder="Ex: pet é nervoso com barulho" />
-          </div>
-
-          <div className="flex justify-end">
-            <button type="button" className={`btn btn-primary btn-lg ${isPending ? 'btn-loading' : ''}`} disabled={isPending} onClick={handleAgendar}>
-              {isPending ? 'Agendando...' : 'Agendar'}
+          <div className="ag2-rodape">
+            <button type="button" className={`ag2-cta ${isPending ? 'is-carregando' : ''}`} disabled={isPending} onClick={handleAgendar}>
+              {isPending ? 'Agendando…' : <>Confirmar agendamento <span className="ag2-cta-extra">{formatarReais(Math.max(0, totalGeral))}</span></>}
             </button>
           </div>
-        </div>
+        </>
       )}
 
       {/* Confirmação */}
@@ -897,122 +782,135 @@ export default function AgendamentoOnlineWizard({
         />
       )}
 
-      {/* MODAL — Detalhes do serviço */}
+      {/* Folha — calendário completo ("outra data") */}
+      {calendarioAberto && (
+        <Folha titulo="Escolha a data" onFechar={() => setCalendarioAberto(false)}>
+          <SeletorDeData
+            diasAbertos={diasAbertos}
+            minInstante={minInstante}
+            maxInstante={maxInstante}
+            dataSelecionada={data}
+            onSelecionar={iso => { escolherDia(iso); setCalendarioAberto(false) }}
+            bloqueios={bloqueios}
+          />
+        </Folha>
+      )}
+
+      {/* Folha — o que o serviço inclui */}
       {servicoDetalhe && (
-        <div className="modal-overlay" onClick={() => setServicoDetalhe(null)}>
-          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">{servicoDetalhe.nome}</h3>
-              <button className="modal-close" onClick={() => setServicoDetalhe(null)} aria-label="Fechar">
-                <IconClose style={{ width: 15, height: 15 }} />
-              </button>
-            </div>
-            <div className="modal-body">
-              {servicoDetalhe.descricao && (
-                <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-4)' }}>{servicoDetalhe.descricao}</p>
-              )}
-              <div className="flex justify-between" style={{ marginBottom: 'var(--space-2)' }}>
-                <span className="text-sm text-muted">Duração</span>
-                <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{servicoDetalhe.duracao} minutos</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted">Preço</span>
-                <span className="font-semibold text-success">A partir de {formatarReais(servicoDetalhe.preco)}</span>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setServicoDetalhe(null)}>Fechar</button>
-              <button
-                type="button"
-                className={`btn ${carrinho.includes(servicoDetalhe.id_servico) ? 'btn-danger' : 'btn-primary'}`}
-                onClick={() => { alternarServico(servicoDetalhe.id_servico); setServicoDetalhe(null) }}
-              >
-                {carrinho.includes(servicoDetalhe.id_servico) ? 'Remover do carrinho' : 'Adicionar ao carrinho'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <Folha titulo={servicoDetalhe.nome} onFechar={() => setServicoDetalhe(null)}>
+          {servicoDetalhe.descricao && <p className="ag2-sub" style={{ marginBottom: 'var(--space-4)' }}>{servicoDetalhe.descricao}</p>}
+          <p className="ag2-nota">{duracaoTexto(servicoDetalhe.duracao)} · a partir de {formatarReais(servicoDetalhe.preco)}</p>
+          <button
+            type="button"
+            className="ag2-cta"
+            style={{ marginTop: 'var(--space-5)' }}
+            onClick={() => { alternarServico(servicoDetalhe.id_servico); setServicoDetalhe(null) }}
+          >
+            {carrinho.includes(servicoDetalhe.id_servico) ? 'Tirar do pedido' : 'Quero este'}
+          </button>
+        </Folha>
       )}
 
-      {/* MODAL — Detalhes da loja */}
+      {/* Folha — entrar para continuar */}
+      {mostrarGateAcesso && (
+        <Folha titulo={cadastroIncompleto ? 'Falta terminar seu cadastro' : contaInvalida ? 'Essa conta não é de cliente' : 'Falta pouco!'} onFechar={() => setMostrarGateAcesso(false)}>
+          {cadastroIncompleto ? (
+            <>
+              <p className="ag2-sub" style={{ marginBottom: 'var(--space-5)' }}>Complete seus dados de cliente para agendar em {lojista.nome}. O que você escolheu fica guardado.</p>
+              <button type="button" className={`ag2-cta ${isPending ? 'is-carregando' : ''}`} disabled={isPending} onClick={handleCompletarCadastro}>
+                {isPending ? 'Abrindo…' : 'Completar cadastro'}
+              </button>
+            </>
+          ) : contaInvalida ? (
+            <>
+              <p className="ag2-sub" style={{ marginBottom: 'var(--space-5)' }}>Para agendar em {lojista.nome}, saia e entre com uma conta de cliente.</p>
+              <button type="button" className={`ag2-cta ${isPending ? 'is-carregando' : ''}`} disabled={isPending} onClick={handleSairEEntrarComOutraConta}>
+                {isPending ? 'Saindo…' : 'Sair e entrar com outra conta'}
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="ag2-sub" style={{ marginBottom: 'var(--space-5)' }}>Entre com sua conta de cliente para agendar em {lojista.nome}. O que você escolheu fica guardado.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                <Link href={loginHref} className="ag2-cta">Entrar</Link>
+                <Link href={`/cadastro?redirectTo=${encodeURIComponent(voltarParaCa)}`} className="ag2-cta is-secundario">Criar conta</Link>
+              </div>
+            </>
+          )}
+        </Folha>
+      )}
+
+      {/* Folha — a loja */}
       {mostrarDetalheLoja && (
-        <div className="modal-overlay" onClick={() => setMostrarDetalheLoja(false)}>
-          <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">{lojista.nome}</h3>
-              <button className="modal-close" onClick={() => setMostrarDetalheLoja(false)} aria-label="Fechar">
-                <IconClose style={{ width: 15, height: 15 }} />
-              </button>
-            </div>
-            <div className="modal-body">
-              {lojista.descricao && (
-                <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-5)' }}>{lojista.descricao}</p>
-              )}
+        <Folha titulo={lojista.nome} onFechar={() => setMostrarDetalheLoja(false)}>
+          {lojista.descricao && <p className="ag2-sub" style={{ marginBottom: 'var(--space-5)' }}>{lojista.descricao}</p>}
 
-              {enderecoCompleto && (
-                <div style={{ marginBottom: 'var(--space-5)' }}>
-                  <div className="font-semibold text-sm" style={{ color: 'var(--gray-100)', marginBottom: 4 }}>Endereço</div>
-                  <div className="text-sm text-muted">{enderecoCompleto}{lojista.cep ? ` — CEP ${lojista.cep}` : ''}</div>
-                </div>
-              )}
-
-              <div style={{ marginBottom: 'var(--space-5)' }}>
-                <div className="flex items-center gap-2" style={{ marginBottom: 'var(--space-2)' }}>
-                  <IconClock style={{ width: 15, height: 15, color: 'var(--gray-500)' }} />
-                  <span className="font-semibold text-sm" style={{ color: 'var(--gray-100)' }}>Horário de funcionamento</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {DIAS_ORDEM.map(dia => {
-                    const h = horarios.find(h => h.dia_semana === dia && h.ativo)
-                    return (
-                      <div key={dia} className="flex justify-between text-sm" style={{ padding: '2px 0' }}>
-                        <span className="text-muted">{dia}</span>
-                        <span style={{ color: h ? 'var(--gray-100)' : 'var(--gray-500)' }}>
-                          {h ? `${h.hr_inicio.slice(0, 5)} — ${h.hr_fim.slice(0, 5)}` : 'Fechado'}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <div className="font-semibold text-sm" style={{ color: 'var(--gray-100)', marginBottom: 'var(--space-2)' }}>Avaliações</div>
-                {avaliacoes.total === 0 || avaliacoes.media == null ? (
-                  // Sem avaliação nenhuma: nada de "0 estrelas" nem média inventada.
-                  <p className="text-sm text-muted">Ainda não há avaliações para esta loja.</p>
-                ) : (
-                  <>
-                    <div className="avaliacao-media" style={{ marginBottom: 'var(--space-2)' }}>
-                      <Estrelas nota={avaliacoes.media} />
-                      <span className="avaliacao-media-valor" style={{ fontSize: '1.125rem' }}>{formatarMedia(avaliacoes.media)}</span>
-                      <span className="text-sm text-muted">
-                        {avaliacoes.total} {avaliacoes.total === 1 ? 'avaliação' : 'avaliações'}
-                      </span>
-                    </div>
-                    {avaliacoes.recentes.map((a, i) => (
-                      <div key={i} className="avaliacao-item" style={{ padding: 'var(--space-3) 0' }}>
-                        <div className="avaliacao-item-topo" style={{ marginBottom: 'var(--space-1)' }}>
-                          <Estrelas nota={a.nota} tamanho={13} />
-                          <span className="text-xs text-muted">
-                            {a.primeiro_nome || 'Cliente'} · {format(new Date(a.created_at), 'dd/MM/yyyy')}
-                          </span>
-                        </div>
-                        <p className="avaliacao-item-comentario" style={{ fontSize: '0.875rem', marginBottom: 0 }}>
-                          &ldquo;{a.comentario}&rdquo;
-                        </p>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
+          {enderecoCompleto && (
+            <div style={{ marginBottom: 'var(--space-5)' }}>
+              <div className="ag2-secao-titulo">Endereço</div>
+              <div className="ag2-nota">{enderecoCompleto}{lojista.cep ? ` — CEP ${lojista.cep}` : ''}</div>
             </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setMostrarDetalheLoja(false)}>Fechar</button>
-            </div>
+          )}
+
+          <div style={{ marginBottom: 'var(--space-5)' }}>
+            <div className="ag2-secao-titulo flex items-center gap-2"><IconClock style={{ width: 14, height: 14 }} /> Horário de funcionamento</div>
+            {DIAS_ORDEM.map(dia => {
+              const h = horarios.find(h => h.dia_semana === dia && h.ativo)
+              return (
+                <div key={dia} className="flex justify-between text-sm" style={{ padding: '3px 0' }}>
+                  <span className="text-muted">{dia}</span>
+                  <span style={{ color: h ? 'var(--gray-100)' : 'var(--gray-500)' }}>{h ? `${h.hr_inicio.slice(0, 5)} — ${h.hr_fim.slice(0, 5)}` : 'Fechado'}</span>
+                </div>
+              )
+            })}
           </div>
-        </div>
+
+          <div>
+            <div className="ag2-secao-titulo">Avaliações</div>
+            {avaliacoes.total === 0 || avaliacoes.media == null ? (
+              <p className="ag2-nota">Ainda não há avaliações para esta loja.</p>
+            ) : (
+              <>
+                <div className="avaliacao-media" style={{ marginBottom: 'var(--space-2)' }}>
+                  <Estrelas nota={avaliacoes.media} />
+                  <span className="avaliacao-media-valor" style={{ fontSize: '1.125rem' }}>{formatarMedia(avaliacoes.media)}</span>
+                  <span className="text-sm text-muted">{avaliacoes.total} {avaliacoes.total === 1 ? 'avaliação' : 'avaliações'}</span>
+                </div>
+                {avaliacoes.recentes.map((a, i) => (
+                  <div key={i} className="avaliacao-item" style={{ padding: 'var(--space-3) 0' }}>
+                    <div className="avaliacao-item-topo" style={{ marginBottom: 'var(--space-1)' }}>
+                      <Estrelas nota={a.nota} tamanho={13} />
+                      <span className="text-xs text-muted">{a.primeiro_nome || 'Cliente'} · {format(new Date(a.created_at), 'dd/MM/yyyy')}</span>
+                    </div>
+                    <p className="avaliacao-item-comentario" style={{ fontSize: '0.875rem', marginBottom: 0 }}>&ldquo;{a.comentario}&rdquo;</p>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </Folha>
       )}
+    </div>
+  )
+}
+
+// Folha que sobe de baixo no celular (e vira janela central no computador).
+function Folha({ titulo, onFechar, children }: { titulo: string; onFechar: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const aoTeclar = (e: KeyboardEvent) => { if (e.key === 'Escape') onFechar() }
+    window.addEventListener('keydown', aoTeclar)
+    return () => window.removeEventListener('keydown', aoTeclar)
+  }, [onFechar])
+  return (
+    <div className="ag2-folha-fundo" onClick={onFechar}>
+      <div className="ag2-folha" role="dialog" aria-modal="true" aria-label={titulo} onClick={e => e.stopPropagation()}>
+        <div className="ag2-folha-topo">
+          <h2 className="ag2-folha-titulo">{titulo}</h2>
+          <button type="button" className="ag2-icone-btn" onClick={onFechar} aria-label="Fechar"><IconClose style={{ width: 16, height: 16 }} /></button>
+        </div>
+        {children}
+      </div>
     </div>
   )
 }
