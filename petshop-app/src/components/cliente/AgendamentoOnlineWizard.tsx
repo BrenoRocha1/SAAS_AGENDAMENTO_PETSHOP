@@ -294,6 +294,15 @@ export default function AgendamentoOnlineWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só reage à mudança de autenticado
   }, [autenticado])
 
+  // Chegou direto em "Para quem e quando" (voltou do login/Google): já
+  // marca o primeiro dia livre, como quem chega pelo botão Continuar.
+  useEffect(() => {
+    if (step === 'quando' && !data && proximosDias[0]) {
+      escolherDia(proximosDias[0])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só ao entrar na etapa
+  }, [step])
+
   // Volta ao topo a cada tela (no celular a anterior podia estar rolada).
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }) }, [step])
 
@@ -802,8 +811,8 @@ export default function AgendamentoOnlineWizard({
       {/* ============ 3. Revisar e confirmar ============ */}
       {step === 'revisar' && (
         <div className="ag2-checkout">
+          <h1 className="ag2-titulo ag2-checkout-titulo">Revise e confirme</h1>
           <div className="ag2-checkout-principal">
-            <h1 className="ag2-titulo">Revise e confirme</h1>
 
             {taxidogDisponivel && (
               <section className="ag2-bloco is-destaque" id="ag2-transporte">

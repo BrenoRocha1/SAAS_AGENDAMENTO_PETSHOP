@@ -312,7 +312,7 @@
 .ag2.is-checkout { max-width: 600px; }
 .ag2-checkout { display: flex; flex-direction: column; gap: var(--space-4); }
 .ag2-checkout-principal { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
-.ag2-checkout-principal .ag2-titulo { margin-bottom: 0; }
+.ag2-checkout-titulo { order: -2; margin-bottom: 0; }
 
 .ag2-bloco { display: flex; flex-direction: column; gap: 12px; padding: 18px; background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px; }
 .ag2-bloco.is-destaque { border-color: var(--primary-soft-border); box-shadow: 0 0 0 3px var(--primary-soft-bg-8); }
@@ -322,7 +322,8 @@
 .ag2-opcional { font-family: var(--font-body); font-size: 0.75rem; font-weight: 500; color: var(--gray-400); margin-left: 4px; }
 .ag2-bloco .ag2-nota { margin: 0; }
 
-.ag2-pagamentos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.ag2-pagamentos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 900px) { .ag2-pagamentos { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); } }
 .ag2-pagamento {
   display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px; border-radius: 12px; cursor: pointer;
   border: 1.5px solid var(--gray-700); background: var(--gray-900); color: var(--gray-100); font: inherit; font-size: 0.9375rem; font-weight: 600; text-align: left;
@@ -352,9 +353,14 @@
 
 @media (min-width: 900px) {
   .ag2.is-checkout { max-width: 1040px; }
-  .ag2-checkout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--space-6); align-items: start; }
+  .ag2-checkout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--space-4) var(--space-6); align-items: start; }
+  .ag2-checkout-titulo { grid-column: 1 / -1; }
   .ag2-resumo { order: 0; position: sticky; top: 24px; padding: 20px; box-shadow: var(--shadow-md); }
   .ag2-resumo-cta { display: flex; }
   .ag2-resumo > .ag2-centro { display: block; }
   .ag2-checkout .ag2-rodape.is-so-celular { display: none; }
+}
+@media (max-width: 899px) {
+  .ag2-pagamento { justify-content: center; padding: 0 10px; font-size: 0.875rem; text-align: center; }
+  .ag2-pagamento .ag2-radio { display: none; }
 }
