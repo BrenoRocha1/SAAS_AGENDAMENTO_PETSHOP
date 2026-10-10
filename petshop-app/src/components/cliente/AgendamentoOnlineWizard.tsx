@@ -37,6 +37,7 @@ import {
   IconChevronRight,
   IconClock,
   IconClose,
+  IconInfo,
   IconMinus,
   IconPaw,
   IconPlus,
@@ -512,22 +513,25 @@ export default function AgendamentoOnlineWizard({
       )}
 
       {step === 'servicos' && (
-        <button type="button" className="ag2-loja" onClick={() => setMostrarDetalheLoja(true)}>
+        // A loja é a identidade da página (não um seletor): logo, nome e o
+        // "Sobre a loja" discreto que abre os detalhes.
+        <header className="ag2-loja">
           {lojista.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- URL pública do Storage
             <img src={lojista.logoUrl} alt="" className="ag2-loja-logo" />
           ) : (
             <span className="ag2-loja-logo is-vazio"><IconPaw style={{ width: 22, height: 22 }} /></span>
           )}
-          <span className="ag2-loja-texto">
-            <span className="ag2-loja-nome">{lojista.nome}</span>
-            <span className="ag2-loja-info">
-              {lojista.statusHoje}
-              {avaliacoes.total > 0 && avaliacoes.media != null && <> · ★ {formatarMedia(avaliacoes.media)}</>}
-            </span>
+          <span className="ag2-loja-nome">{lojista.nome}</span>
+          <span className="ag2-loja-info">
+            {lojista.statusHoje}
+            {avaliacoes.total > 0 && avaliacoes.media != null && <> · ★ {formatarMedia(avaliacoes.media)}</>}
+            {' · '}
+            <button type="button" className="ag2-loja-sobre" onClick={() => setMostrarDetalheLoja(true)}>
+              <IconInfo style={{ width: 13, height: 13 }} /> Sobre a loja
+            </button>
           </span>
-          <IconChevronRight style={{ width: 16, height: 16, color: 'var(--gray-500)', flexShrink: 0 }} />
-        </button>
+        </header>
       )}
 
       {erro && (

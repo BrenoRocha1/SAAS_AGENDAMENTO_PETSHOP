@@ -16,29 +16,26 @@
 .ag2-pontos span.is-ativo { width: 22px; background: var(--primary-600); }
 
 /* Loja */
-.ag2-loja {
-  width: 100%; display: flex; align-items: center; gap: var(--space-3); padding: 12px 14px; margin-bottom: var(--space-6);
-  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 18px; cursor: pointer; text-align: left; font: inherit;
-}
-.ag2-loja-logo { width: 44px; height: 44px; border-radius: 14px; object-fit: cover; flex-shrink: 0; }
+.ag2-loja { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; margin: 0 auto var(--space-5); }
+.ag2-loja-logo { width: 52px; height: 52px; border-radius: 12px; object-fit: cover; margin-bottom: 6px; }
 .ag2-loja-logo.is-vazio { display: grid; place-items: center; background: var(--primary-soft-bg); color: var(--primary-300); }
-.ag2-loja-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.ag2-loja-nome { font-weight: 700; color: var(--gray-50); font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ag2-loja-info { font-size: 0.8125rem; color: var(--gray-400); }
+.ag2-loja-nome { font-family: var(--font-heading); font-weight: 700; color: var(--gray-50); font-size: 1.0625rem; }
+.ag2-loja-info { font-size: 0.8125rem; color: var(--gray-400); display: inline-flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.ag2-loja-sobre { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; padding: 0; font: inherit; font-weight: 600; color: var(--primary-400); cursor: pointer; }
 
 /* Textos */
 .ag2-titulo { font-family: var(--font-heading); font-size: 1.875rem; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; color: var(--gray-50); margin: 0 0 var(--space-2); }
 .ag2-sub { font-size: 0.9375rem; color: var(--gray-400); margin: 0 0 var(--space-5); line-height: 1.5; }
 .ag2-nota { font-size: 0.8125rem; color: var(--gray-400); margin: 0; line-height: 1.5; }
 .ag2-centro { text-align: center; margin: var(--space-5) 0 var(--space-2); }
-.ag2-vazio { padding: var(--space-5); text-align: center; color: var(--gray-400); background: var(--gray-900); border: 1px dashed var(--gray-700); border-radius: 18px; font-size: 0.875rem; margin: 0; }
+.ag2-vazio { padding: var(--space-5); text-align: center; color: var(--gray-400); background: var(--gray-900); border: 1px dashed var(--gray-700); border-radius: 12px; font-size: 0.875rem; margin: 0; }
 .ag2-link { background: none; border: none; padding: 0; font: inherit; font-size: 0.875rem; font-weight: 600; color: var(--primary-400); cursor: pointer; text-align: left; }
 
 /* Serviços */
 .ag2-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .ag2-servico {
   width: 100%; display: flex; align-items: center; gap: var(--space-3); padding: 16px 18px; text-align: left; font: inherit; cursor: pointer;
-  background: var(--gray-900); border: 1.5px solid var(--gray-800); border-radius: 18px;
+  background: var(--gray-900); border: 1.5px solid var(--gray-800); border-radius: 12px;
   transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
 }
 .ag2-servico:active { transform: scale(0.99); }
@@ -63,7 +60,7 @@
 .ag2-rolagem::-webkit-scrollbar { display: none; }
 .ag2-rolagem > * { flex-shrink: 0; scroll-snap-align: start; }
 .ag2-chip {
-  height: 42px; padding: 0 16px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 42px; padding: 0 16px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   border: 1.5px solid var(--gray-700); background: var(--gray-900); color: var(--gray-100);
   font: inherit; font-size: 0.9375rem; font-weight: 600; cursor: pointer; white-space: nowrap;
   transition: all var(--transition-fast);
@@ -75,7 +72,7 @@
 .ag2-chip.is-ativo .ag2-avatar { background: rgba(255,255,255,0.22); color: #fff; }
 
 .ag2-dia {
-  width: 64px; height: 82px; border-radius: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  width: 64px; height: 82px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   border: 1.5px solid var(--gray-800); background: var(--gray-900); color: var(--gray-100); font: inherit; cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -89,7 +86,7 @@
 .ag2-hora { width: 100%; padding: 0; }
 
 /* Cartões e revisão */
-.ag2-cartao { margin-top: var(--space-3); padding: 16px; background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 20px; display: flex; flex-direction: column; gap: 12px; }
+.ag2-cartao { margin-top: var(--space-3); padding: 16px; background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px; display: flex; flex-direction: column; gap: 12px; }
 .ag2-total { text-align: center; padding: var(--space-2) 0 var(--space-5); display: flex; flex-direction: column; gap: 4px; }
 .ag2-total-rotulo { font-size: 0.875rem; color: var(--gray-400); }
 .ag2-total-valor { font-family: var(--font-heading); font-size: 2.5rem; font-weight: 700; letter-spacing: -0.03em; color: var(--gray-50); line-height: 1.1; }
@@ -128,7 +125,7 @@
   background: linear-gradient(to bottom, transparent, var(--gray-950) 28%);
 }
 .ag2-cta {
-  width: 100%; min-height: 56px; padding: 0 20px; border-radius: 999px; border: none; cursor: pointer;
+  width: 100%; min-height: 54px; padding: 0 20px; border-radius: 12px; border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none;
   background: var(--primary-600); color: #fff; font: inherit; font-size: 1rem; font-weight: 700;
   box-shadow: var(--shadow-glow-sm); transition: background var(--transition-fast), transform var(--transition-fast);
@@ -169,7 +166,7 @@
 .ag2-servico-item { display: flex; flex-direction: column; }
 .ag2-servico {
   flex: 1; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: var(--space-2);
-  min-height: 112px; padding: 14px; position: relative; border-radius: 18px;
+  min-height: 112px; padding: 14px; position: relative; border-radius: 12px;
 }
 .ag2-servico-item.tem-detalhe .ag2-servico { padding-bottom: 38px; }
 .ag2-servico .ag2-check { position: absolute; top: 12px; right: 12px; width: 24px; height: 24px; }
@@ -180,7 +177,6 @@
 
 @media (min-width: 900px) {
   .ag2-servicos-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: var(--space-8); align-items: start; }
-  .ag2.is-largo .ag2-loja { max-width: 560px; }
   .ag2-lista { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
   .ag2-servico { min-height: 132px; padding: 18px; }
   .ag2-servico-item.tem-detalhe .ag2-servico { padding-bottom: 42px; }
@@ -189,7 +185,7 @@
   .ag2-servico-detalhe { bottom: 16px; left: 18px; font-size: 0.8125rem; }
   .ag2-pedido {
     display: flex; flex-direction: column; gap: var(--space-3); position: sticky; top: 24px;
-    padding: 20px; background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 22px; box-shadow: var(--shadow-sm);
+    padding: 20px; background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px; box-shadow: var(--shadow-sm);
   }
   .ag2-rodape.is-so-celular { display: none; }
 }
@@ -204,7 +200,7 @@
 .ag2-conta { display: flex; flex-direction: column; }
 .ag2-resumo-mini {
   display: flex; justify-content: space-between; gap: var(--space-3); align-items: center; margin-bottom: var(--space-5);
-  padding: 12px 16px; border-radius: 16px; background: var(--primary-soft-bg-8); border: 1px solid var(--primary-soft-border);
+  padding: 12px 16px; border-radius: 12px; background: var(--primary-soft-bg-8); border: 1px solid var(--primary-soft-border);
   font-size: 0.875rem; color: var(--gray-200);
 }
 .ag2-resumo-mini span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -212,7 +208,7 @@
 .ag2-opcoes-conta { display: flex; flex-direction: column; gap: 10px; margin-top: var(--space-2); }
 .ag2-cta.is-google { background: var(--gray-900); color: var(--gray-100); border: 1.5px solid var(--gray-700); box-shadow: var(--shadow-sm); }
 .ag2-cta.is-google:hover:not(:disabled) { background: var(--gray-850); color: var(--gray-100); }
-.ag2-beneficios { list-style: none; margin: var(--space-6) 0 0; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 18px; }
+.ag2-beneficios { list-style: none; margin: var(--space-6) 0 0; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 12px; }
 .ag2-beneficios li { display: flex; align-items: center; gap: 10px; font-size: 0.875rem; color: var(--gray-300); }
 .ag2-beneficios svg { color: var(--success-500); flex-shrink: 0; }
 .ag2-form { display: flex; flex-direction: column; gap: var(--space-4); }
@@ -226,3 +222,22 @@
 .ag2-termos { display: flex; gap: 10px; align-items: flex-start; font-size: 0.8125rem; color: var(--gray-400); line-height: 1.5; }
 .ag2-termos input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--primary-600); flex-shrink: 0; }
 .ag2-termos a { color: var(--primary-400); font-weight: 600; text-decoration: none; }
+
+/* Celular: na tela de serviços a página fica parada — topo, título e botão
+   fixos; só a lista de serviços rola. */
+@media (max-width: 899px) {
+  .agenonline-shell:has(.ag2.is-largo) { padding-top: var(--space-4); padding-bottom: 0; height: 100dvh; min-height: 0; overflow: hidden; }
+  .agenonline-content:has(.ag2.is-largo) { height: 100%; }
+  .ag2.is-largo { height: 100%; display: flex; flex-direction: column; padding-bottom: 0; }
+  .ag2.is-largo .ag2-topo { margin-bottom: var(--space-3); }
+  .ag2.is-largo .ag2-servicos-layout { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .ag2.is-largo .ag2-servicos-principal { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .ag2.is-largo .ag2-titulo { font-size: 1.5rem; }
+  .ag2.is-largo .ag2-sub { margin-bottom: var(--space-3); font-size: 0.875rem; }
+  .ag2.is-largo .ag2-lista {
+    flex: 1; min-height: 0; overflow-y: auto; align-content: start; overscroll-behavior: contain;
+    margin: 0 -16px; padding: 2px 16px 12px; scrollbar-width: none;
+  }
+  .ag2.is-largo .ag2-lista::-webkit-scrollbar { display: none; }
+  .ag2.is-largo .ag2-rodape { position: static; margin-top: 0; padding-top: 12px; background: var(--gray-950); border-top: 1px solid var(--gray-850); }
+}
