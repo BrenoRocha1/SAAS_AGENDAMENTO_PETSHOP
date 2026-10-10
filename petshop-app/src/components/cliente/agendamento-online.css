@@ -289,3 +289,17 @@
   .ag2.is-largo .ag2-servico-item.tem-detalhe .ag2-servico { padding-bottom: 36px; }
   .ag2.is-largo .ag2-servico-detalhe { bottom: 12px; left: 16px; }
 }
+
+/* Etapa de entrada: cartão branco centralizado, no padrão do resto da tela */
+.ag2-entrada-cartao { align-items: center; text-align: center; gap: 14px; padding: 28px 22px 22px; max-width: 460px; width: 100%; margin: 0 auto; }
+.ag2-entrada-selo { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; background: var(--primary-soft-bg); color: var(--primary-300); }
+.ag2-entrada-titulo { font-family: var(--font-heading); font-size: 1.375rem; line-height: 1.25; font-weight: 700; color: var(--gray-50); margin: 0; text-wrap: balance; }
+.ag2-entrada-texto { margin: 0; font-size: 0.9375rem; color: var(--gray-400); line-height: 1.5; }
+.ag2-entrada-casos { list-style: none; margin: 4px 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.ag2-entrada-casos li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--gray-850); font-size: 0.875rem; color: var(--gray-400); line-height: 1.4; }
+.ag2-entrada-casos strong { color: var(--gray-100); font-weight: 600; }
+.ag2-entrada-icone { width: 32px; height: 32px; border-radius: 10px; flex-shrink: 0; display: grid; place-items: center; background: var(--gray-900); color: var(--primary-400); border: 1px solid var(--gray-800); }
+.ag2-entrada-cartao .ag2-cta { width: 100%; }
+.ag2-entrada-cartao .ag2-nota { margin: 0; }
+.ag2-conta .ag2-resumo-mini { max-width: 460px; width: 100%; margin-left: auto; margin-right: auto; }
+.ag2:has(> .ag2-conta) { max-width: 460px; }

@@ -37,6 +37,8 @@ import {
   IconClock,
   IconClose,
   IconInfo,
+  IconUser,
+  IconUserPlus,
   IconMinus,
   IconPaw,
   IconPlus,
@@ -668,32 +670,37 @@ export default function AgendamentoOnlineWizard({
             </>
           ) : contaInvalida ? (
             <>
-              <h1 className="ag2-titulo">Vamos agendar com a sua conta pessoal</h1>
-              <p className="ag2-sub">Você está conectado com a conta de uma loja/equipe. Escolha a sua conta Google pessoal — se ela ainda não for cliente, a gente cria na hora. Você volta direto para cá, com tudo o que escolheu.</p>
-              <div className="ag2-opcoes-conta">
+              <div className="ag2-cartao ag2-entrada-cartao">
+                <span className="ag2-entrada-selo" aria-hidden="true"><IconUser style={{ width: 22, height: 22 }} /></span>
+                <h1 className="ag2-entrada-titulo">Agende com a sua conta pessoal</h1>
+                <p className="ag2-entrada-texto">Você está conectado com a conta de uma loja. Escolha a sua conta Google — se ela ainda não for cliente, é criada na hora.</p>
                 <button type="button" className="ag2-cta is-google" onClick={entrarComGoogle} disabled={abrindoGoogle}>
                   <IconeGoogle /> {abrindoGoogle ? 'Abrindo o Google…' : 'Continuar com outra conta Google'}
                 </button>
+                <p className="ag2-nota ag2-centro">Você volta para cá com tudo o que escolheu na {lojista.nome}.</p>
               </div>
             </>
           ) : (
             <>
-              <h1 className="ag2-titulo">Entre para confirmar seu agendamento</h1>
-              <p className="ag2-sub">
-                É só com a sua conta Google — sem senha e sem formulário. O sistema identifica sozinho:
-                se você já tem conta, entra nela; se ainda não tem, ela é criada na hora.
-              </p>
-              <div className="ag2-opcoes-conta">
+              <div className="ag2-cartao ag2-entrada-cartao">
+                <span className="ag2-entrada-selo" aria-hidden="true"><IconPaw style={{ width: 22, height: 22 }} /></span>
+                <h1 className="ag2-entrada-titulo">Entre para confirmar seu agendamento</h1>
+                <p className="ag2-entrada-texto">É só com a sua conta Google — sem senha e sem formulário.</p>
+                <ul className="ag2-entrada-casos">
+                  <li>
+                    <span className="ag2-entrada-icone"><IconCheck style={{ width: 16, height: 16 }} /></span>
+                    <span><strong>Já tem conta?</strong> O sistema reconhece e você entra direto.</span>
+                  </li>
+                  <li>
+                    <span className="ag2-entrada-icone"><IconUserPlus style={{ width: 16, height: 16 }} /></span>
+                    <span><strong>Primeira vez?</strong> Sua conta é criada na hora.</span>
+                  </li>
+                </ul>
                 <button type="button" className="ag2-cta is-google" onClick={entrarComGoogle} disabled={abrindoGoogle}>
                   <IconeGoogle /> {abrindoGoogle ? 'Abrindo o Google…' : 'Continuar com o Google'}
                 </button>
-                <p className="ag2-nota ag2-centro">Você volta direto para cá, com tudo o que escolheu na {lojista.nome}.</p>
+                <p className="ag2-nota ag2-centro">Você volta para cá com tudo o que escolheu na {lojista.nome}.</p>
               </div>
-              <ul className="ag2-beneficios">
-                <li><IconCheck style={{ width: 14, height: 14 }} /> Confirmação do horário na hora</li>
-                <li><IconCheck style={{ width: 14, height: 14 }} /> Acompanhe e remarque pelo celular</li>
-                <li><IconCheck style={{ width: 14, height: 14 }} /> Seus pets ficam salvos para a próxima vez</li>
-              </ul>
             </>
           )}
         </div>
