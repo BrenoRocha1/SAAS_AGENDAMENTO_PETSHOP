@@ -33,7 +33,6 @@ import {
   IconAlert,
   IconCheck,
   IconChevronLeft,
-  IconChevronRight,
   IconClock,
   IconClose,
   IconInfo,
@@ -183,9 +182,6 @@ export default function AgendamentoOnlineWizard({
   const [mostrarDetalheLoja, setMostrarDetalheLoja] = useState(false)
   const [servicoDetalhe, setServicoDetalhe] = useState<Servico | null>(null)
   const [calendarioAberto, setCalendarioAberto] = useState(false)
-  const [transporteAberto, setTransporteAberto] = useState(false)
-  const [produtosAbertos, setProdutosAbertos] = useState(false)
-  const [obsAberta, setObsAberta] = useState(false)
 
   const [carrinho, setCarrinho] = useState<string[]>(carrinhoInicial)
   const [pets, setPets] = useState<Pet[]>(petsIniciais)
@@ -440,7 +436,7 @@ export default function AgendamentoOnlineWizard({
     setErro(null)
     if (!transportePronto(transporte)) {
       setErro('Complete o endereço do TaxiDog ou escolha levar o pet.')
-      setTransporteAberto(true)
+      document.getElementById('ag2-transporte')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       return
     }
     if (!nadaAPagar && !formaPagamento) {
@@ -492,7 +488,7 @@ export default function AgendamentoOnlineWizard({
   const primeiroNome = (nomeConta || cliente.nome || '').split(' ')[0]
 
   return (
-    <div className={`ag2 ${step === 'servicos' ? 'is-largo' : ''}`}>
+    <div className={`ag2 ${step === 'servicos' ? 'is-largo' : ''} ${step === 'revisar' ? 'is-checkout' : ''}`}>
       {/* Topo: voltar, os três pontinhos do progresso e a loja */}
       {step !== 'feito' && (
         <div className="ag2-topo">
@@ -805,139 +801,124 @@ export default function AgendamentoOnlineWizard({
 
       {/* ============ 3. Revisar e confirmar ============ */}
       {step === 'revisar' && (
-        <>
-          <div className="ag2-total">
-            <span className="ag2-total-rotulo">{nadaAPagar ? 'Coberto pelo plano' : descontoPlano > 0 ? 'Total a pagar' : 'Total'}</span>
-            <span className="ag2-total-valor">{formatarReais(Math.max(0, totalGeral))}</span>
-            <span className="ag2-total-sub">{petSel?.nome} · {dataLonga} às {horaInicio}</span>
-          </div>
-
-          <div className="ag2-cartao ag2-linhas">
-            <button type="button" className="ag2-linha" onClick={() => setStep('servicos')}>
-              <span className="ag2-linha-rotulo">{servicosCarrinho.length > 1 ? 'Serviços' : 'Serviço'}</span>
-              <span className="ag2-linha-valor">
-                {servicosCarrinho.map(s => (
-                  <span key={s.id_servico} className="ag2-linha-item">
-                    {s.nome}<span>{formatarReais(precos[s.id_servico] ?? s.preco)}</span>
-                  </span>
-                ))}
-              </span>
-              <IconChevronRight className="ag2-linha-seta" />
-            </button>
-            <button type="button" className="ag2-linha" onClick={() => setStep('quando')}>
-              <span className="ag2-linha-rotulo">Quando</span>
-              <span className="ag2-linha-valor">
-                <span className="ag2-linha-item">{dataLongaMaiuscula}, {horaInicio}<span>{duracaoTexto(duracaoTotal)}</span></span>
-              </span>
-              <IconChevronRight className="ag2-linha-seta" />
-            </button>
+        <div className="ag2-checkout">
+          <div className="ag2-checkout-principal">
+            <h1 className="ag2-titulo">Revise e confirme</h1>
 
             {taxidogDisponivel && (
-              <div className="ag2-linha is-bloco">
-                <button type="button" className="ag2-linha-topo" onClick={() => setTransporteAberto(v => !v)} aria-expanded={transporteAberto}>
-                  <span className="ag2-linha-rotulo">Transporte</span>
-                  <span className="ag2-linha-valor">
-                    <span className="ag2-linha-item">
-                      {escolhaTaxiDog ? `TaxiDog · ${ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]}` : transporte.opcao === 'taxidog' ? 'TaxiDog · falta o endereço' : 'Eu levo o pet'}
-                      {escolhaTaxiDog && <span>{formatarReais(escolhaTaxiDog.cotacao.valor)}</span>}
-                    </span>
-                  </span>
-                  <span className="ag2-link">{transporteAberto ? 'Fechar' : 'Trocar'}</span>
-                </button>
-                {transporteAberto && (
-                  <div className="ag2-linha-conteudo">
-                    <TaxiDogCampos valor={transporte} onChange={setTransporte} cotar={cotar} compacto rotuloLevar="Eu levo o pet" />
-                  </div>
-                )}
-              </div>
+              <section className="ag2-bloco is-destaque" id="ag2-transporte">
+                <div className="ag2-bloco-topo">
+                  <h2 className="ag2-bloco-titulo">Como o pet vai até a loja?</h2>
+                  {escolhaTaxiDog && <span className="ag2-bloco-valor">+ {formatarReais(escolhaTaxiDog.cotacao.valor)}</span>}
+                </div>
+                <p className="ag2-nota">A loja tem TaxiDog: ele busca e/ou leva o seu pet em casa.</p>
+                <TaxiDogCampos valor={transporte} onChange={setTransporte} cotar={cotar} compacto rotuloLevar="Eu levo o pet" />
+              </section>
             )}
 
             {!nadaAPagar && (
-              <div className="ag2-linha is-bloco">
-                <span className="ag2-linha-rotulo">Pagamento</span>
+              <section className="ag2-bloco">
+                <h2 className="ag2-bloco-titulo">Como você vai pagar?</h2>
                 {opcoesPagamento.length === 0 ? (
                   <p className="ag2-nota">A loja ainda não configurou as formas de pagamento. Fale com ela.</p>
                 ) : (
-                  <div className="ag2-chips">
+                  <div className="ag2-pagamentos">
                     {opcoesPagamento.map(f => (
-                      <button key={f} type="button" className={`ag2-chip ${formaPagamento === f ? 'is-ativo' : ''}`} onClick={() => setFormaPagamento(f)} aria-pressed={formaPagamento === f}>
+                      <button key={f} type="button" className={`ag2-pagamento ${formaPagamento === f ? 'is-ativo' : ''}`} onClick={() => setFormaPagamento(f)} aria-pressed={formaPagamento === f}>
+                        <span className="ag2-radio" aria-hidden="true" />
                         {ROTULO_FORMA_PAGAMENTO[f]}
                       </button>
                     ))}
                   </div>
                 )}
                 {formaPagamento === 'pix' && <PixDaLoja chave={formasPagamento.pix_chave} nome={formasPagamento.pix_nome} />}
-                <p className="ag2-nota">Você paga direto para a loja.</p>
-              </div>
+                <p className="ag2-nota">Você paga direto para a loja{escolhaTaxiDog ? ', serviços e TaxiDog juntos' : ''}.</p>
+              </section>
             )}
 
             {produtos.length > 0 && (
-              <div className="ag2-linha is-bloco">
-                <button type="button" className="ag2-linha-topo" onClick={() => setProdutosAbertos(v => !v)} aria-expanded={produtosAbertos}>
-                  <span className="ag2-linha-rotulo">Produtos</span>
-                  <span className="ag2-linha-valor">
-                    <span className="ag2-linha-item">
-                      {itensCarrinhoProdutos.length ? `${itensCarrinhoProdutos.length} ${itensCarrinhoProdutos.length === 1 ? 'item' : 'itens'}` : 'Nenhum'}
-                      {totalProdutos > 0 && <span>{formatarReais(totalProdutos)}</span>}
-                    </span>
-                  </span>
-                  <span className="ag2-link">{produtosAbertos ? 'Fechar' : 'Adicionar'}</span>
-                </button>
-                {produtosAbertos && (
-                  <ul className="ag2-produtos">
-                    {produtos.map(p => {
-                      const q = quantidadesProdutos[p.id_produto] ?? 0
-                      return (
-                        <li key={p.id_produto}>
-                          <span className="ag2-produto-texto">
-                            <span className="ag2-servico-nome">{p.nome}</span>
-                            <span className="ag2-servico-info">{formatarReais(p.preco_venda)} / {rotuloUnidade(p.unidade_venda)}</span>
-                          </span>
-                          <span className="ag2-stepper">
-                            <button type="button" onClick={() => mudarQuantidade(p, -1)} disabled={q <= 0} aria-label={`Menos ${p.nome}`}><IconMinus style={{ width: 14, height: 14 }} /></button>
-                            <span>{String(q).replace('.', ',')}</span>
-                            <button type="button" onClick={() => mudarQuantidade(p, 1)} disabled={q >= p.estoque_atual} aria-label={`Mais ${p.nome}`}><IconPlus style={{ width: 14, height: 14 }} /></button>
-                          </span>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </div>
+              <section className="ag2-bloco">
+                <div className="ag2-bloco-topo">
+                  <h2 className="ag2-bloco-titulo">Quer levar algum produto?</h2>
+                  {totalProdutos > 0 && <span className="ag2-bloco-valor">+ {formatarReais(totalProdutos)}</span>}
+                </div>
+                <ul className="ag2-produtos">
+                  {produtos.map(p => {
+                    const q = quantidadesProdutos[p.id_produto] ?? 0
+                    return (
+                      <li key={p.id_produto}>
+                        <span className="ag2-produto-texto">
+                          <span className="ag2-servico-nome">{p.nome}</span>
+                          <span className="ag2-servico-info">{formatarReais(p.preco_venda)} / {rotuloUnidade(p.unidade_venda)}</span>
+                        </span>
+                        <span className="ag2-stepper">
+                          <button type="button" onClick={() => mudarQuantidade(p, -1)} disabled={q <= 0} aria-label={`Menos ${p.nome}`}><IconMinus style={{ width: 14, height: 14 }} /></button>
+                          <span>{String(q).replace('.', ',')}</span>
+                          <button type="button" onClick={() => mudarQuantidade(p, 1)} disabled={q >= p.estoque_atual} aria-label={`Mais ${p.nome}`}><IconPlus style={{ width: 14, height: 14 }} /></button>
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </section>
             )}
 
-            <div className="ag2-linha is-bloco">
-              {obsAberta || obs ? (
-                <>
-                  <span className="ag2-linha-rotulo">Observação</span>
-                  <textarea className="ag2-textarea" value={obs} onChange={e => setObs(e.target.value)} rows={2} maxLength={500} placeholder="Ex.: ele fica nervoso com barulho" autoFocus={obsAberta && !obs} />
-                </>
-              ) : (
-                <button type="button" className="ag2-link" onClick={() => setObsAberta(true)}>+ Adicionar observação para a loja</button>
-              )}
-            </div>
+            <section className="ag2-bloco">
+              <h2 className="ag2-bloco-titulo">Algum recado para a loja? <span className="ag2-opcional">opcional</span></h2>
+              <textarea className="ag2-textarea" value={obs} onChange={e => setObs(e.target.value)} rows={2} maxLength={500} placeholder="Ex.: ele fica nervoso com barulho" />
+            </section>
+
+            <PlanoNoPedido
+              cobertura={cobertura}
+              nomes={Object.fromEntries(servicosCarrinho.map(s => [s.id_servico, s.nome]))}
+              data={data}
+              usar={usarPlano}
+              onUsar={setUsarPlano}
+              disabled={isPending}
+            />
           </div>
 
-          <PlanoNoPedido
-            cobertura={cobertura}
-            nomes={Object.fromEntries(servicosCarrinho.map(s => [s.id_servico, s.nome]))}
-            data={data}
-            usar={usarPlano}
-            onUsar={setUsarPlano}
-            disabled={isPending}
-          />
+          {/* Resumo: no computador fica fixo à direita; no celular vem primeiro */}
+          <aside className="ag2-resumo" aria-label="Resumo do agendamento">
+            <div className="ag2-resumo-linhas">
+              <div className="ag2-resumo-linha">
+                <span className="ag2-resumo-rotulo">{servicosCarrinho.length > 1 ? 'Serviços' : 'Serviço'}</span>
+                <button type="button" className="ag2-link" onClick={() => setStep('servicos')}>Editar</button>
+                {servicosCarrinho.map(s => (
+                  <span key={s.id_servico} className="ag2-resumo-item">{s.nome}<span>{formatarReais(precos[s.id_servico] ?? s.preco)}</span></span>
+                ))}
+              </div>
+              <div className="ag2-resumo-linha">
+                <span className="ag2-resumo-rotulo">Pet e horário</span>
+                <button type="button" className="ag2-link" onClick={() => setStep('quando')}>Editar</button>
+                <span className="ag2-resumo-item">{petSel?.nome}<span>{duracaoTexto(duracaoTotal)}</span></span>
+                <span className="ag2-resumo-sub">{dataLongaMaiuscula}, {horaInicio}</span>
+              </div>
+              {(escolhaTaxiDog || totalProdutos > 0 || descontoPlano > 0) && (
+                <div className="ag2-resumo-linha">
+                  {escolhaTaxiDog && <span className="ag2-resumo-item">TaxiDog · {ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]}<span>{formatarReais(escolhaTaxiDog.cotacao.valor)}</span></span>}
+                  {totalProdutos > 0 && <span className="ag2-resumo-item">Produtos<span>{formatarReais(totalProdutos)}</span></span>}
+                  {descontoPlano > 0 && <span className="ag2-resumo-item is-desconto">Saldo do plano<span>− {formatarReais(descontoPlano)}</span></span>}
+                </div>
+              )}
+            </div>
+            <div className="ag2-resumo-total">
+              <span>{nadaAPagar ? 'Coberto pelo plano' : descontoPlano > 0 ? 'Total a pagar' : 'Total'}</span>
+              <strong>{formatarReais(Math.max(0, totalGeral))}</strong>
+            </div>
+            {precosEstimados && <p className="ag2-nota">O valor dos serviços é uma estimativa: a loja pode ajustar conforme a pelagem e as condições do pet.</p>}
+            <button type="button" className={`ag2-cta ag2-resumo-cta ${isPending ? 'is-carregando' : ''}`} disabled={isPending} onClick={handleAgendar}>
+              {isPending ? 'Agendando…' : 'Confirmar agendamento'}
+            </button>
+            <p className="ag2-nota ag2-centro">Agendando como <strong>{cliente.nome}</strong></p>
+          </aside>
 
-          <p className="ag2-nota ag2-centro">
-            Agendando como <strong>{cliente.nome}</strong>.
-            {precosEstimados && ' O valor dos serviços é uma estimativa: a loja pode ajustar conforme a pelagem e as condições do pet.'}
-          </p>
-
-          <div className="ag2-rodape">
+          <div className="ag2-rodape is-so-celular">
             <button type="button" className={`ag2-cta ${isPending ? 'is-carregando' : ''}`} disabled={isPending} onClick={handleAgendar}>
               {isPending ? 'Agendando…' : <>Confirmar agendamento <span className="ag2-cta-extra">{formatarReais(Math.max(0, totalGeral))}</span></>}
             </button>
           </div>
-        </>
+        </div>
       )}
 
       {/* Confirmação */}
