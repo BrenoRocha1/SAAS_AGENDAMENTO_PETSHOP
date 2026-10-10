@@ -176,25 +176,15 @@
 @media (max-width: 340px) { .ag2-lista { grid-template-columns: 1fr; } }
 
 @media (min-width: 900px) {
-  .ag2-servicos-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: var(--space-8); align-items: start; }
+  .ag2-servicos-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--space-8); align-items: start; }
   .ag2-lista { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
   .ag2-servico { min-height: 132px; padding: 18px; }
   .ag2-servico-item.tem-detalhe .ag2-servico { padding-bottom: 42px; }
   .ag2-servico .ag2-check { top: 14px; right: 14px; width: 26px; height: 26px; }
   .ag2-servico-nome { font-size: 1.0625rem; }
   .ag2-servico-detalhe { bottom: 16px; left: 18px; font-size: 0.8125rem; }
-  .ag2-pedido {
-    display: flex; flex-direction: column; gap: var(--space-3); position: sticky; top: 24px;
-    padding: 20px; background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px; box-shadow: var(--shadow-sm);
-  }
   .ag2-rodape.is-so-celular { display: none; }
 }
-.ag2-pedido-itens { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.ag2-pedido-itens li { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; font-size: 0.9375rem; color: var(--gray-100); }
-.ag2-pedido-itens li > span:nth-child(2) { color: var(--gray-300); font-weight: 600; }
-.ag2-pedido-tirar { width: 24px; height: 24px; border-radius: 999px; border: none; background: var(--gray-850); color: var(--gray-400); display: grid; place-items: center; cursor: pointer; }
-.ag2-pedido-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: var(--space-3); border-top: 1px solid var(--gray-850); color: var(--gray-400); font-size: 0.875rem; }
-.ag2-pedido-total strong { font-family: var(--font-heading); font-size: 1.5rem; color: var(--gray-50); }
 
 /* ---------- Conta (entrar / criar / terminar cadastro) ---------- */
 .ag2-conta { display: flex; flex-direction: column; }
@@ -241,3 +231,34 @@
   .ag2.is-largo .ag2-lista::-webkit-scrollbar { display: none; }
   .ag2.is-largo .ag2-rodape { position: static; margin-top: 0; padding-top: 12px; background: var(--gray-950); border-top: 1px solid var(--gray-850); }
 }
+
+/* ---------- Pedido ao lado (computador) ---------- */
+@media (min-width: 900px) {
+  .ag2-pedido {
+    display: flex; flex-direction: column; position: sticky; top: 24px;
+    height: min(640px, calc(100dvh - 48px)); min-height: 440px;
+    background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px; box-shadow: var(--shadow-md); overflow: hidden;
+  }
+}
+.ag2-pedido-topo { display: flex; align-items: baseline; justify-content: space-between; padding: 20px 20px 14px; border-bottom: 1px solid var(--gray-850); }
+.ag2-pedido-titulo { font-family: var(--font-heading); font-size: 1.125rem; font-weight: 700; color: var(--gray-50); }
+.ag2-pedido-contagem { font-size: 0.8125rem; font-weight: 600; color: var(--primary-400); }
+.ag2-pedido-vazio { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; padding: 24px; color: var(--gray-400); font-size: 0.875rem; }
+.ag2-pedido-vazio strong { color: var(--gray-100); font-size: 0.9375rem; }
+.ag2-pedido-vazio-icone { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; background: var(--primary-soft-bg); color: var(--primary-300); margin-bottom: 6px; }
+.ag2-pedido-itens { flex: 1; min-height: 0; overflow-y: auto; list-style: none; margin: 0; padding: 8px 20px; display: flex; flex-direction: column; }
+.ag2-pedido-itens li { padding: 14px 0; border-bottom: 1px solid var(--gray-850); display: flex; flex-direction: column; gap: 6px; }
+.ag2-pedido-itens li:last-child { border-bottom: none; }
+.ag2-pedido-item-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.ag2-pedido-item-nome { font-weight: 600; color: var(--gray-100); font-size: 0.9375rem; }
+.ag2-pedido-item-desc { margin: 0; font-size: 0.8125rem; color: var(--gray-400); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ag2-pedido-item-rodape { display: flex; justify-content: space-between; align-items: center; font-size: 0.8125rem; color: var(--gray-400); }
+.ag2-pedido-item-rodape > span:first-child { display: inline-flex; align-items: center; gap: 5px; }
+.ag2-pedido-item-preco strong { color: var(--gray-100); font-size: 0.9375rem; }
+.ag2-pedido-tirar { width: 26px; height: 26px; border-radius: 8px; border: none; background: var(--gray-850); color: var(--gray-400); display: grid; place-items: center; cursor: pointer; flex-shrink: 0; }
+.ag2-pedido-tirar:hover { background: var(--danger-900); color: var(--danger-400); }
+.ag2-pedido-fim { padding: 16px 20px 20px; border-top: 1px solid var(--gray-850); background: var(--gray-950); display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+.ag2-pedido-linha { display: flex; justify-content: space-between; font-size: 0.875rem; color: var(--gray-400); }
+.ag2-pedido-linha.is-total { align-items: baseline; color: var(--gray-200); font-weight: 600; }
+.ag2-pedido-linha.is-total strong { font-family: var(--font-heading); font-size: 1.625rem; color: var(--gray-50); }
+.ag2-pedido-nota { margin: 0 0 6px; font-size: 0.75rem; color: var(--gray-400); line-height: 1.45; }

@@ -583,31 +583,51 @@ export default function AgendamentoOnlineWizard({
 
           {/* Computador: o pedido fica fixo ao lado, sem precisar rolar. */}
           <aside className="ag2-pedido" aria-label="Seu pedido">
-            <div className="ag2-secao-titulo">Seu pedido</div>
+            <div className="ag2-pedido-topo">
+              <span className="ag2-pedido-titulo">Seu pedido</span>
+              {servicosCarrinho.length > 0 && (
+                <span className="ag2-pedido-contagem">{servicosCarrinho.length} {servicosCarrinho.length === 1 ? 'serviço' : 'serviços'}</span>
+              )}
+            </div>
+
             {servicosCarrinho.length === 0 ? (
-              <p className="ag2-nota">Escolha um ou mais serviços ao lado.</p>
+              <div className="ag2-pedido-vazio">
+                <span className="ag2-pedido-vazio-icone" aria-hidden="true"><IconPaw style={{ width: 22, height: 22 }} /></span>
+                <strong>Nada escolhido ainda</strong>
+                <span>Toque nos serviços ao lado para montar o pedido. Dá para escolher mais de um.</span>
+              </div>
             ) : (
               <ul className="ag2-pedido-itens">
                 {servicosCarrinho.map(s => (
                   <li key={s.id_servico}>
-                    <span>{s.nome}</span>
-                    <span>{formatarReais(s.preco)}</span>
-                    <button type="button" className="ag2-pedido-tirar" onClick={() => alternarServico(s.id_servico)} aria-label={`Tirar ${s.nome}`}>
-                      <IconClose style={{ width: 12, height: 12 }} />
-                    </button>
+                    <div className="ag2-pedido-item-topo">
+                      <span className="ag2-pedido-item-nome">{s.nome}</span>
+                      <button type="button" className="ag2-pedido-tirar" onClick={() => alternarServico(s.id_servico)} aria-label={`Tirar ${s.nome}`}>
+                        <IconClose style={{ width: 12, height: 12 }} />
+                      </button>
+                    </div>
+                    {s.descricao && <p className="ag2-pedido-item-desc">{s.descricao}</p>}
+                    <div className="ag2-pedido-item-rodape">
+                      <span><IconClock style={{ width: 13, height: 13 }} /> {duracaoTexto(s.duracao)}</span>
+                      <span className="ag2-pedido-item-preco">a partir de <strong>{formatarReais(s.preco)}</strong></span>
+                    </div>
                   </li>
                 ))}
               </ul>
             )}
-            {servicosCarrinho.length > 0 && (
-              <div className="ag2-pedido-total">
-                <span>{duracaoTexto(duracaoTotal)}</span>
-                <strong>{formatarReais(valorTotal)}</strong>
-              </div>
-            )}
-            <button type="button" className="ag2-cta" disabled={carrinho.length === 0} onClick={irParaQuando}>
-              {carrinho.length === 0 ? 'Escolha um serviço' : 'Continuar'}
-            </button>
+
+            <div className="ag2-pedido-fim">
+              {servicosCarrinho.length > 0 && (
+                <>
+                  <div className="ag2-pedido-linha"><span>Tempo total</span><span>{duracaoTexto(duracaoTotal)}</span></div>
+                  <div className="ag2-pedido-linha is-total"><span>Total</span><strong>{formatarReais(valorTotal)}</strong></div>
+                  <p className="ag2-pedido-nota">Valor a partir de: o final depende do porte do pet. A seguir você escolhe o pet, o dia e o horário.</p>
+                </>
+              )}
+              <button type="button" className="ag2-cta" disabled={carrinho.length === 0} onClick={irParaQuando}>
+                {carrinho.length === 0 ? 'Escolha um serviço' : 'Continuar'}
+              </button>
+            </div>
           </aside>
 
           <div className="ag2-rodape is-so-celular">
