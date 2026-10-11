@@ -43,7 +43,7 @@ export function StatusAgendamentoMinimo({ status }: { status: string }) {
           <Animated.View
             style={[
               styles.pontoPulso,
-              { backgroundColor: cor, opacity: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }), transform: [{ scale: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.5, 2] }) }] },
+              { backgroundColor: cor, opacity: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }), transform: [{ scale: pulso.interpolate({ inputRange: [0, 1], outputRange: [1, 2.8] }) }] },
             ]}
           />
         )}
@@ -59,8 +59,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
     borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3,
   },
-  pontoCaixa: { width: 6, height: 6, alignItems: 'center', justifyContent: 'center' },
-  ponto: { width: 6, height: 6, borderRadius: 3 },
-  pontoPulso: { position: 'absolute', width: 6, height: 6, borderRadius: 3 },
+  pontoCaixa: { width: 7, height: 7, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  ponto: { width: 7, height: 7, borderRadius: 4 },
+  pontoPulso: { position: 'absolute', width: 7, height: 7, borderRadius: 4 },
   texto: { fontSize: 12, fontWeight: '600' },
 })
