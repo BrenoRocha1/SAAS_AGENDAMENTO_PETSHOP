@@ -2054,6 +2054,25 @@ svg.is-da-visita { opacity: 0.45; }
 }
 .agc-card { padding: 0; overflow: hidden; }
 .agc-card-destaque { border-color: var(--primary-soft-border); box-shadow: 0 0 0 1px var(--primary-soft-border); }
+.agc-destaque-rotulo { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--primary-400); margin-bottom: 2px; }
+/* Status minimalista das telas do cliente — pílula suave com pontinho
+   pulsando, sem a caixa cheia/maiúscula do .badge (esse aqui é do
+   lojista, mais "SaaS"). Cor vem inline (style), por isso sem cor fixa aqui. */
+.status-pilula {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  padding: 3px 10px; border-radius: 999px; border: 1px solid;
+  font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+}
+.status-pilula-ponto { position: relative; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.status-pilula-ponto::before {
+  content: ''; position: absolute; inset: -3px; border-radius: 50%; background: inherit;
+  opacity: 0.6; animation: status-pulso 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.status-pilula-ponto.is-parado::before { content: none; }
+@keyframes status-pulso {
+  0% { transform: scale(0.5); opacity: 0.6; }
+  100% { transform: scale(2); opacity: 0; }
+}
 .agc-card-cancelada .agc-servicos-titulo { text-decoration: line-through; color: var(--gray-500); }
 .agc-resumo {
   display: flex;
@@ -2317,9 +2336,9 @@ svg.is-da-visita { opacity: 0.45; }
 .dash-app-stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-3); }
 .dash-app-stat {
   display: flex; flex-direction: column; gap: 6px; min-width: 0;
-  padding: var(--space-3); background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px;
+  padding: var(--space-3); background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 12px;
 }
-.dash-app-stat-icone { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: rgba(79,70,229,0.1); color: var(--primary-600); }
+.dash-app-stat-icone { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px; background: rgba(79,70,229,0.1); color: var(--primary-600); }
 .dash-app-stat-icone.is-ambar { background: rgba(217,119,6,0.1); color: var(--accent-600); }
 .dash-app-stat strong { font-size: 1.375rem; font-weight: 700; letter-spacing: -0.2px; line-height: 1.2; color: var(--gray-100); }
 .dash-app-stat > span:last-child { font-size: 0.78rem; color: var(--gray-400); }
@@ -2340,7 +2359,7 @@ svg.is-da-visita { opacity: 0.45; }
 .dash-app-linha {
   display: flex; align-items: center; gap: var(--space-3); width: 100%;
   padding: var(--space-4); text-align: left; font: inherit; cursor: pointer;
-  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px;
+  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 12px;
 }
 .dash-app-linha:active { background: var(--gray-850); }
 .dash-app-linha-hora { width: 48px; flex-shrink: 0; font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
@@ -2359,15 +2378,13 @@ svg.is-da-visita { opacity: 0.45; }
 .dash-app-vazio span { font-size: 0.875rem; color: var(--gray-400); }
 .dash-app-cta {
   display: flex; align-items: center; justify-content: center; gap: var(--space-2); width: 100%;
-  padding: var(--space-3); border: 0; border-radius: 12px; background: var(--primary-50);
+  padding: var(--space-3); border: 0; border-radius: 10px; background: var(--primary-50);
   font: inherit; font-size: 0.8125rem; font-weight: 600; color: var(--primary-600); cursor: pointer; text-decoration: none;
 }
 .dash-app-cta:hover { color: var(--primary-600); }
 .dash-app-cta.is-novo { margin-bottom: var(--space-3); background: var(--primary-600); color: #fff; }
 .dash-app-cta.is-novo:hover { color: #fff; }
 .dash-app-sub { margin-top: 2px; font-size: 1rem; color: var(--gray-400); }
-.dash-app-stat-icone.is-azul { background: rgba(59,130,246,0.1); color: var(--info-500); }
-.dash-app-stat-icone.is-verde { background: rgba(16,185,129,0.1); color: var(--success-500); }
 .dash-app-stats.is-uma { grid-template-columns: 1fr; margin-bottom: var(--space-5); }
 /* Botão cheio do app (Botao): 50px, raio 10. */
 .dash-app-botao {
@@ -2379,10 +2396,11 @@ svg.is-da-visita { opacity: 0.45; }
 .dash-app-botao:hover { color: #fff; }
 .dash-app-cartao {
   display: flex; flex-direction: column; gap: 4px; padding: var(--space-4);
-  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px;
+  background: var(--primary-soft-bg-8); border: 1.5px solid var(--primary-soft-border); border-radius: 12px;
 }
 .dash-app-cartao strong { font-size: 1rem; font-weight: 700; color: var(--gray-100); }
 .dash-app-cartao span { font-size: 0.875rem; color: var(--gray-400); }
+.dash-app-cartao span.dash-app-cartao-destaque { color: var(--primary-400); font-weight: 700; }
 .dash-app-selo { align-self: flex-start; margin-top: 4px; padding: 3px var(--space-2); border-radius: 999px; font-size: 11px !important; font-weight: 700; }
 .dash-app-selo.is-aberta { background: var(--warning-900); color: var(--warning-400) !important; }
 .dash-app-selo.is-vencida { background: var(--danger-900, #fef2f2); color: var(--danger-400) !important; }
@@ -2390,7 +2408,7 @@ a.dash-app-linha { text-decoration: none; }
 .dash-app-linha-data { width: 52px; flex-shrink: 0; display: flex; flex-direction: column; }
 .dash-app-linha-data strong { font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
 .dash-app-linha-data span { font-size: 0.875rem; color: var(--gray-400); }
-.dash-app-vazio-icone { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: var(--gray-850); color: var(--gray-600); }
+.dash-app-vazio-icone { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 14px; background: var(--gray-850); color: var(--gray-600); }
 
 /* ============================================================
    BARRA DE BAIXO NO CELULAR — a "pílula" do app
@@ -2542,8 +2560,8 @@ a.tela-app-novo, a.tela-app-novo:hover { color: #fff; text-decoration: none; }
   }
   .agc-detalhes .btn.agc-avaliar { background: var(--primary-600); border-color: var(--primary-600); color: #fff; }
   .agc-detalhes .btn.agc-acao.is-perigo { border-color: #fecaca; color: var(--danger-400); }
-  .agc-bloco { padding: var(--space-3); border-radius: 10px; background: var(--gray-850); }
-  .agc-bloco-titulo { font-size: 11px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--gray-300); }
+  .agc-bloco { padding-top: var(--space-2); border-top: 1px solid var(--gray-800); }
+  .agc-bloco-titulo { font-size: 11px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--gray-500); }
   .agc-bloco-titulo svg { display: none; }
   .agc-abas { flex-wrap: wrap; }
   .agc-abas .btn {
@@ -4111,6 +4129,9 @@ a.tela-app-novo, a.tela-app-novo:hover { color: #fff; text-decoration: none; }
 .plano-assinatura { display: flex; flex-direction: column; gap: var(--space-2); }
 div.plano-assinatura:not(.card) { padding: var(--space-3); border: 1px solid var(--gray-800); border-radius: var(--radius-md); }
 .plano-assinatura.is-cancelada { opacity: 0.75; }
+.plano-assinatura.is-ativa { background: var(--primary-soft-bg-8); border-color: var(--primary-soft-border); }
+.plano-valor-destaque { font-weight: 700; color: var(--primary-400); }
+.plano-resumo-destaque { font-weight: 700; color: var(--primary-400); }
 .plano-beneficios { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-2) var(--space-4); }
 .plano-beneficios li { font-size: 0.875rem; color: var(--gray-300); display: flex; flex-direction: column; gap: 4px; }
 .plano-beneficio-topo { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0 var(--space-2); }

@@ -38,6 +38,7 @@ interface Lojista {
   cidade?: string | null
   estado?: string | null
   descricao?: string | null
+  logo_url?: string | null
 }
 
 interface Pet {
@@ -476,12 +477,17 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
                   <div className="flex items-center gap-3">
                     <div
                       style={{
-                        width: 40, height: 40, borderRadius: 'var(--radius-md)', flexShrink: 0,
+                        width: 40, height: 40, borderRadius: 'var(--radius-md)', flexShrink: 0, overflow: 'hidden',
                         background: 'var(--primary-soft-bg)', border: '1px solid var(--primary-soft-border)',
                         color: 'var(--primary-400)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}
                     >
-                      <IconStore style={{ width: 18, height: 18 }} />
+                      {l.logo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+                        <img src={l.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <IconStore style={{ width: 18, height: 18 }} />
+                      )}
                     </div>
                     <div>
                       <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{l.nome_loja}</div>

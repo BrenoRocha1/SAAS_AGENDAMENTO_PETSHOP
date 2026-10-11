@@ -1,6 +1,7 @@
 import { IconeApp } from '@/components/IconeApp'
+import { IconePets } from '@/components/IconesAbas'
 import { Text } from '@/components/Texto'
-import { Pressable, StyleSheet, View } from 'react-native'
+import { Image, Pressable, StyleSheet, View } from 'react-native'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 interface Props {
@@ -11,11 +12,15 @@ interface Props {
   selecionada: boolean
   onPress: () => void
   desativada?: boolean
+  // Foto da opção (ex.: logo do petshop) — só quem passa isso ganha a
+  // miniatura; as outras telas (serviço, forma de pagamento…) continuam
+  // iguais, só com o radio.
+  foto?: string | null
 }
 
 // Linha de escolha única (serviço, pet, forma de pagamento…): a marcada
 // ganha borda índigo e o "check".
-export function Opcao({ titulo, detalhe, lateral, selecionada, onPress, desativada }: Props) {
+export function Opcao({ titulo, detalhe, lateral, selecionada, onPress, desativada, foto }: Props) {
   return (
     <Pressable
       onPress={onPress}
@@ -24,6 +29,11 @@ export function Opcao({ titulo, detalhe, lateral, selecionada, onPress, desativa
       accessibilityState={{ selected: selecionada, disabled: !!desativada }}
       style={({ pressed }) => [styles.linha, selecionada && styles.selecionada, (pressed || desativada) && styles.apagada]}
     >
+      {foto !== undefined && (
+        <View style={styles.fotoCaixa}>
+          {foto ? <Image source={{ uri: foto }} style={styles.foto} /> : <IconePets size={18} color={colors.primary600} />}
+        </View>
+      )}
       <IconeApp
         name={selecionada ? 'radio-button-on' : 'radio-button-off'}
         size={20}
@@ -77,6 +87,12 @@ const styles = StyleSheet.create({
   selecionada: { borderColor: colors.primary600, backgroundColor: colors.primary50 },
   apagada: { opacity: 0.6 },
   textos: { flex: 1, gap: 2 },
+  fotoCaixa: {
+    width: 36, height: 36, borderRadius: radius.sm, overflow: 'hidden', flexShrink: 0,
+    backgroundColor: colors.primary50, borderWidth: 1, borderColor: colors.primary200,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  foto: { width: '100%', height: '100%' },
   titulo: { ...typography.body.lg, fontWeight: '600', color: colors.text },
   detalhe: { ...typography.body.sm, color: colors.textMuted },
   lateral: { ...typography.label.md, color: colors.text },

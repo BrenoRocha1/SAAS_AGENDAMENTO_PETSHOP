@@ -32,7 +32,7 @@ import { urlDoSite } from '@/lib/site'
 import { colors, spacing, typography } from '@/theme/theme'
 import { format } from 'date-fns'
 
-interface Loja { id_lojista: string; nome_loja: string; telefone: string | null; cidade: string | null; estado: string | null; descricao: string | null }
+interface Loja { id_lojista: string; nome_loja: string; telefone: string | null; cidade: string | null; estado: string | null; descricao: string | null; logo_url: string | null }
 interface Pet { id_pet: string; nome: string; raca: string | null }
 interface Servico { id_servico: string; nome: string; descricao: string | null; preco: number; duracao: number }
 interface Produto { id_produto: string; nome: string; preco_venda: number; unidade_venda: string; estoque_atual: number }
@@ -127,7 +127,7 @@ export default function NovoAgendamentoClienteScreen() {
     Promise.all([
       supabase
         .from('lojista')
-        .select('id_lojista, nome_loja, cidade, estado, descricao, telefone')
+        .select('id_lojista, nome_loja, cidade, estado, descricao, telefone, logo_url')
         .eq('ativo', true)
         .eq('aceita_agendamento_online', true)
         .order('nome_loja'),
@@ -445,6 +445,7 @@ export default function NovoAgendamentoClienteScreen() {
                   detalhe={[minhasLojas.has(l.id_lojista) ? 'Você já agendou aqui' : null, [l.cidade, l.estado].filter(Boolean).join(', ') || null].filter(Boolean).join(' · ') || undefined}
                   selecionada={lojaId === l.id_lojista}
                   onPress={() => escolherLoja(l.id_lojista)}
+                  foto={l.logo_url}
                 />
               ))}
               {lojasFiltradas.length === 0 && <Text style={styles.texto}>Nenhum petshop com esse nome.</Text>}

@@ -9,7 +9,7 @@ import {
 import { formatarReais } from '@/lib/taxidog'
 import BeneficiosBarra from '@/components/lojista/planos/BeneficiosBarra'
 import { PixDaLoja } from './PagamentoEtapa'
-import { IconAlert, IconWhatsapp } from '@/components/icons'
+import { IconAlert, IconChevronRight, IconWhatsapp } from '@/components/icons'
 
 // Um plano do cliente (fn_meus_planos, migration 068): benefícios do
 // período, cobrança em aberto (com o Pix da loja) e histórico. Só leitura:
@@ -19,12 +19,19 @@ export default function PlanoClienteCard({ a, hojeISO }: { a: AssinaturaDoClient
   const abertas = a.cobrancas.filter(c => c.status === 'pendente')
   const vencidas = abertas.filter(c => c.vencimento < hojeISO)
   const [aberta, setAberta] = useState<'cobrancas' | 'usos' | null>(null)
+  const [detalhesAbertos, setDetalhesAbertos] = useState(false)
   const formas = normalizarFormasLoja(a.formas_loja)
   const usosValidos = a.utilizacoes.filter(u => !u.estornada_em).length
   const telefone = a.loja_telefone?.replace(/\D/g, '')
 
+  const temPeriodo = ativa && !!a.periodo_atual && a.periodo_atual.beneficios.length > 0
+  const totalBeneficios = temPeriodo ? a.periodo_atual!.beneficios.reduce((soma, b) => soma + b.quantidade, 0) : 0
+  const restamBeneficios = temPeriodo
+    ? Math.max(0, totalBeneficios - a.periodo_atual!.beneficios.reduce((soma, b) => soma + Number(b.usados), 0))
+    : 0
+
   return (
-    <div className={`card plano-assinatura ${ativa ? '' : 'is-cancelada'}`}>
+    <div className={`card plano-assinatura ${ativa ? 'is-ativa' : 'is-cancelada'}`}>
       <div className="flex items-center justify-between gap-2" style={{ flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0 }}>
           <div className="font-semibold" style={{ color: 'var(--gray-100)', fontSize: '1.05rem' }}>{a.plano}</div>
@@ -37,23 +44,19 @@ export default function PlanoClienteCard({ a, hojeISO }: { a: AssinaturaDoClient
       </div>
 
       <div className="text-xs text-muted">
-        {formatarReais(a.valor)}{sufixoPeriodo(a.periodicidade, a.intervalo_dias)} · {rotuloPeriodicidade(a.periodicidade, a.intervalo_dias)}
+        <span className="plano-valor-destaque">{formatarReais(a.valor)}</span>{sufixoPeriodo(a.periodicidade, a.intervalo_dias)} · {rotuloPeriodicidade(a.periodicidade, a.intervalo_dias)}
         {' · '}desde {dataBR(a.data_inicio)}
         {a.forma_pagamento && ehFormaPagamento(a.forma_pagamento) && <> · {ROTULO_FORMA_PAGAMENTO[a.forma_pagamento]}</>}
       </div>
       {a.descricao && <p className="text-sm text-muted" style={{ margin: 0 }}>{a.descricao}</p>}
 
-      {ativa && a.periodo_atual && (
-        <>
-          <div className="text-sm" style={{ color: 'var(--gray-200)', marginTop: 'var(--space-1)' }}>
-            Neste período ({dataBR(a.periodo_atual.inicio)} a {dataBR(a.periodo_atual.fim)}):
-          </div>
-          <BeneficiosBarra beneficios={a.periodo_atual.beneficios} />
-          <p className="text-xs text-muted" style={{ margin: 0 }}>
-            Para usar, agende o serviço pela sua conta: o saldo do plano já entra no agendamento, sem cobrar o serviço.
-            {a.proxima_cobranca && <> Renova em <strong>{dataBR(a.proxima_cobranca)}</strong>.</>}
-          </p>
-        </>
+      {temPeriodo && (
+        <div className="text-sm">
+          <span className="plano-resumo-destaque">{restamBeneficios} de {totalBeneficios}</span>
+          <span className="text-muted"> serviço{totalBeneficios === 1 ? '' : 's'} {restamBeneficios === 1 ? 'restante' : 'restantes'} neste período
+            {a.proxima_cobranca && <> · renova em {dataBR(a.proxima_cobranca)}</>}
+          </span>
+        </div>
       )}
       {ativa && !a.periodo_atual && <div className="text-sm text-muted">Começa em {dataBR(a.data_inicio)}.</div>}
       {!ativa && <div className="text-sm text-muted">Cancelado em {dataBR(a.cancelada_em)}.</div>}
@@ -79,11 +82,9 @@ export default function PlanoClienteCard({ a, hojeISO }: { a: AssinaturaDoClient
       {abertas.length > 0 && formas.pix && <PixDaLoja chave={formas.pix_chave} nome={formas.pix_nome} />}
 
       <div className="flex gap-1" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        <button type="button" className={`btn btn-sm ${aberta === 'cobrancas' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setAberta(aberta === 'cobrancas' ? null : 'cobrancas')}>
-          Cobranças ({a.cobrancas.length})
-        </button>
-        <button type="button" className={`btn btn-sm ${aberta === 'usos' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setAberta(aberta === 'usos' ? null : 'usos')}>
-          Usos ({usosValidos})
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDetalhesAbertos(x => !x)} aria-expanded={detalhesAbertos}>
+          Ver detalhes do plano
+          <IconChevronRight style={{ width: 14, height: 14, transform: detalhesAbertos ? 'rotate(90deg)' : 'none' }} />
         </button>
         {telefone && (
           <a
@@ -98,47 +99,72 @@ export default function PlanoClienteCard({ a, hojeISO }: { a: AssinaturaDoClient
         )}
       </div>
 
-      {aberta === 'cobrancas' && (
-        a.cobrancas.length === 0 ? <p className="text-sm text-muted" style={{ margin: 0 }}>Sem cobranças ainda.</p> : (
-          <ul className="plano-lista-detalhe">
-            {a.cobrancas.map(c => {
-              const st = statusCobrancaExibido(c.status, c.vencimento, hojeISO)
-              return (
-                <li key={c.id_cobranca}>
-                  <div>
-                    <div className="text-sm font-semibold">{formatarReais(c.valor)} · vence {dataBR(c.vencimento)}</div>
-                    <div className="text-xs text-muted">
-                      Período {c.numero} ({dataBR(c.periodo_inicio)} a {dataBR(c.periodo_fim)})
-                      {c.pago_em ? ` · pago em ${dataBR(c.pago_em)}` : ''}
-                      {c.forma_pagamento && ehFormaPagamento(c.forma_pagamento) ? ` · ${ROTULO_FORMA_PAGAMENTO[c.forma_pagamento]}` : ''}
-                    </div>
-                  </div>
-                  <span className={`badge ${CLASSE_STATUS_COBRANCA[st]}`}>{ROTULO_STATUS_COBRANCA[st]}</span>
-                </li>
-              )
-            })}
-          </ul>
-        )
-      )}
+      {detalhesAbertos && (
+        <>
+          {ativa && a.periodo_atual && (
+            <>
+              <div className="text-sm" style={{ color: 'var(--gray-200)' }}>
+                Neste período ({dataBR(a.periodo_atual.inicio)} a {dataBR(a.periodo_atual.fim)}):
+              </div>
+              <BeneficiosBarra beneficios={a.periodo_atual.beneficios} />
+              <p className="text-xs text-muted" style={{ margin: 0 }}>
+                Para usar, agende o serviço pela sua conta: o saldo do plano já entra no agendamento, sem cobrar o serviço.
+              </p>
+            </>
+          )}
 
-      {aberta === 'usos' && (
-        a.utilizacoes.length === 0 ? <p className="text-sm text-muted" style={{ margin: 0 }}>Nenhum serviço do plano usado ainda.</p> : (
-          <ul className="plano-lista-detalhe">
-            {a.utilizacoes.map((u, i) => (
-              <li key={i} className={u.estornada_em ? 'is-estornada' : ''}>
-                <div>
-                  <div className="text-sm font-semibold">
-                    {u.servico}{u.data ? ` · ${dataBR(u.data)}` : ''}{u.hora ? ` às ${u.hora.slice(0, 5)}` : ''}
-                  </div>
-                  <div className="text-xs text-muted">
-                    Período {u.periodo}
-                    {u.estornada_em ? ` · devolvido ao plano em ${dataBR(u.estornada_em)}${u.motivo_estorno ? ` (${u.motivo_estorno})` : ''}` : ''}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )
+          <div className="flex gap-1" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+            <button type="button" className={`btn btn-sm ${aberta === 'cobrancas' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setAberta(aberta === 'cobrancas' ? null : 'cobrancas')}>
+              Cobranças ({a.cobrancas.length})
+            </button>
+            <button type="button" className={`btn btn-sm ${aberta === 'usos' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setAberta(aberta === 'usos' ? null : 'usos')}>
+              Usos ({usosValidos})
+            </button>
+          </div>
+
+          {aberta === 'cobrancas' && (
+            a.cobrancas.length === 0 ? <p className="text-sm text-muted" style={{ margin: 0 }}>Sem cobranças ainda.</p> : (
+              <ul className="plano-lista-detalhe">
+                {a.cobrancas.map(c => {
+                  const st = statusCobrancaExibido(c.status, c.vencimento, hojeISO)
+                  return (
+                    <li key={c.id_cobranca}>
+                      <div>
+                        <div className="text-sm font-semibold">{formatarReais(c.valor)} · vence {dataBR(c.vencimento)}</div>
+                        <div className="text-xs text-muted">
+                          Período {c.numero} ({dataBR(c.periodo_inicio)} a {dataBR(c.periodo_fim)})
+                          {c.pago_em ? ` · pago em ${dataBR(c.pago_em)}` : ''}
+                          {c.forma_pagamento && ehFormaPagamento(c.forma_pagamento) ? ` · ${ROTULO_FORMA_PAGAMENTO[c.forma_pagamento]}` : ''}
+                        </div>
+                      </div>
+                      <span className={`badge ${CLASSE_STATUS_COBRANCA[st]}`}>{ROTULO_STATUS_COBRANCA[st]}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            )
+          )}
+
+          {aberta === 'usos' && (
+            a.utilizacoes.length === 0 ? <p className="text-sm text-muted" style={{ margin: 0 }}>Nenhum serviço do plano usado ainda.</p> : (
+              <ul className="plano-lista-detalhe">
+                {a.utilizacoes.map((u, i) => (
+                  <li key={i} className={u.estornada_em ? 'is-estornada' : ''}>
+                    <div>
+                      <div className="text-sm font-semibold">
+                        {u.servico}{u.data ? ` · ${dataBR(u.data)}` : ''}{u.hora ? ` às ${u.hora.slice(0, 5)}` : ''}
+                      </div>
+                      <div className="text-xs text-muted">
+                        Período {u.periodo}
+                        {u.estornada_em ? ` · devolvido ao plano em ${dataBR(u.estornada_em)}${u.motivo_estorno ? ` (${u.motivo_estorno})` : ''}` : ''}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )
+          )}
+        </>
       )}
     </div>
   )
