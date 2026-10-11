@@ -23,8 +23,14 @@ export function StatusAgendamentoMinimo({ status }: { status: string }) {
 
   useEffect(() => {
     if (parado) return
+    // Sequência com um passo de duração 0 pra voltar a 0 explicitamente
+    // antes de cada repetição — o reset automático do Animated.loop não
+    // é confiável no fallback JS do Expo web (fica parado no fim do 1º ciclo).
     const loop = Animated.loop(
-      Animated.timing(pulso, { toValue: 1, duration: 1800, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+      Animated.sequence([
+        Animated.timing(pulso, { toValue: 1, duration: 1800, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulso, { toValue: 0, duration: 0, useNativeDriver: true }),
+      ]),
     )
     loop.start()
     return () => loop.stop()
