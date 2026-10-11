@@ -2318,9 +2318,9 @@ svg.is-da-visita { opacity: 0.45; }
 .dash-app-stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-3); }
 .dash-app-stat {
   display: flex; flex-direction: column; gap: 6px; min-width: 0;
-  padding: var(--space-3); background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px;
+  padding: var(--space-3); background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 12px;
 }
-.dash-app-stat-icone { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: rgba(79,70,229,0.1); color: var(--primary-600); }
+.dash-app-stat-icone { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px; background: rgba(79,70,229,0.1); color: var(--primary-600); }
 .dash-app-stat-icone.is-ambar { background: rgba(217,119,6,0.1); color: var(--accent-600); }
 .dash-app-stat strong { font-size: 1.375rem; font-weight: 700; letter-spacing: -0.2px; line-height: 1.2; color: var(--gray-100); }
 .dash-app-stat > span:last-child { font-size: 0.78rem; color: var(--gray-400); }
@@ -2341,7 +2341,7 @@ svg.is-da-visita { opacity: 0.45; }
 .dash-app-linha {
   display: flex; align-items: center; gap: var(--space-3); width: 100%;
   padding: var(--space-4); text-align: left; font: inherit; cursor: pointer;
-  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px;
+  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 12px;
 }
 .dash-app-linha:active { background: var(--gray-850); }
 .dash-app-linha-hora { width: 48px; flex-shrink: 0; font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
@@ -2360,15 +2360,13 @@ svg.is-da-visita { opacity: 0.45; }
 .dash-app-vazio span { font-size: 0.875rem; color: var(--gray-400); }
 .dash-app-cta {
   display: flex; align-items: center; justify-content: center; gap: var(--space-2); width: 100%;
-  padding: var(--space-3); border: 0; border-radius: 12px; background: var(--primary-50);
+  padding: var(--space-3); border: 0; border-radius: 10px; background: var(--primary-50);
   font: inherit; font-size: 0.8125rem; font-weight: 600; color: var(--primary-600); cursor: pointer; text-decoration: none;
 }
 .dash-app-cta:hover { color: var(--primary-600); }
 .dash-app-cta.is-novo { margin-bottom: var(--space-3); background: var(--primary-600); color: #fff; }
 .dash-app-cta.is-novo:hover { color: #fff; }
 .dash-app-sub { margin-top: 2px; font-size: 1rem; color: var(--gray-400); }
-.dash-app-stat-icone.is-azul { background: rgba(59,130,246,0.1); color: var(--info-500); }
-.dash-app-stat-icone.is-verde { background: rgba(16,185,129,0.1); color: var(--success-500); }
 .dash-app-stats.is-uma { grid-template-columns: 1fr; margin-bottom: var(--space-5); }
 /* Botão cheio do app (Botao): 50px, raio 10. */
 .dash-app-botao {
@@ -2380,7 +2378,7 @@ svg.is-da-visita { opacity: 0.45; }
 .dash-app-botao:hover { color: #fff; }
 .dash-app-cartao {
   display: flex; flex-direction: column; gap: 4px; padding: var(--space-4);
-  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px;
+  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 12px;
 }
 .dash-app-cartao strong { font-size: 1rem; font-weight: 700; color: var(--gray-100); }
 .dash-app-cartao span { font-size: 0.875rem; color: var(--gray-400); }
@@ -2391,7 +2389,7 @@ a.dash-app-linha { text-decoration: none; }
 .dash-app-linha-data { width: 52px; flex-shrink: 0; display: flex; flex-direction: column; }
 .dash-app-linha-data strong { font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
 .dash-app-linha-data span { font-size: 0.875rem; color: var(--gray-400); }
-.dash-app-vazio-icone { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: var(--gray-850); color: var(--gray-600); }
+.dash-app-vazio-icone { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 14px; background: var(--gray-850); color: var(--gray-600); }
 
 /* ============================================================
    BARRA DE BAIXO NO CELULAR — a "pílula" do app

@@ -97,10 +97,10 @@ export default function InicioClienteScreen() {
 
       <View style={styles.statsRow}>
         <StatCard icon="paw-outline" value={totais.pets} label="Pets cadastrados" />
-        <StatCard icon="calendar-outline" value={totais.agendamentos} label="Agendamentos" tint={colors.info} />
+        <StatCard icon="calendar-outline" value={totais.agendamentos} label="Agendamentos" />
       </View>
       <View style={[styles.statsRow, { marginBottom: spacing.xl }]}>
-        <StatCard icon="cash-outline" value={formatarMoeda(totais.investido)} label="Total investido" tint={colors.success} />
+        <StatCard icon="cash-outline" value={formatarMoeda(totais.investido)} label="Total investido" />
       </View>
 
       {planos.length > 0 && (
@@ -115,10 +115,11 @@ export default function InicioClienteScreen() {
                   <Text style={styles.titulo}>{a.plano} · {a.pet ?? 'Pet'}</Text>
                   <Text style={styles.texto}>
                     {a.periodo_atual && a.periodo_atual.beneficios.length > 0
-                      ? a.periodo_atual.beneficios.map(b => {
-                          const restam = Math.max(0, b.quantidade - Number(b.usados))
-                          return `${b.servico}: ${restam} de ${b.quantidade} ${b.quantidade === 1 ? 'restante' : 'restantes'}`
-                        }).join(' · ')
+                      ? (() => {
+                          const total = a.periodo_atual.beneficios.reduce((soma, b) => soma + b.quantidade, 0)
+                          const restam = Math.max(0, total - a.periodo_atual.beneficios.reduce((soma, b) => soma + Number(b.usados), 0))
+                          return `${restam} de ${total} serviço${total === 1 ? '' : 's'} ${restam === 1 ? 'restante' : 'restantes'} neste período`
+                        })()
                       : `Começa em ${dataBR(a.data_inicio)}`}
                     {a.proxima_cobranca ? ` · renova em ${dataBR(a.proxima_cobranca)}` : ''}
                   </Text>

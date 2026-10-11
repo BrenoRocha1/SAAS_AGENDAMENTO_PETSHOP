@@ -61,14 +61,18 @@ export default async function ClienteDashboard() {
   // Celular: mesma tela Início do app (petshop-mobile/app/cliente/index.tsx).
   const horaAgora = Number(agoraBrasilHHMM().slice(0, 2))
   const saudacao = horaAgora < 12 ? 'Bom dia' : horaAgora < 18 ? 'Boa tarde' : 'Boa noite'
-  const resumoDoPlano = (a: AssinaturaDoCliente) =>
-    (a.periodo_atual && a.periodo_atual.beneficios.length > 0
-      ? a.periodo_atual.beneficios.map(b => {
-          const restam = Math.max(0, b.quantidade - Number(b.usados))
-          return `${b.servico}: ${restam} de ${b.quantidade} ${b.quantidade === 1 ? 'restante' : 'restantes'}`
-        }).join(' · ')
-      : `Começa em ${dataBR(a.data_inicio)}`)
-    + (a.proxima_cobranca ? ` · renova em ${dataBR(a.proxima_cobranca)}` : '')
+  // Resumo compacto pro card do dashboard — o detalhe por serviço fica em
+  // "Ver detalhes" (/cliente/planos), aqui é só o essencial de relance.
+  const resumoDoPlano = (a: AssinaturaDoCliente) => {
+    const base = a.periodo_atual && a.periodo_atual.beneficios.length > 0
+      ? (() => {
+          const total = a.periodo_atual!.beneficios.reduce((soma, b) => soma + b.quantidade, 0)
+          const restam = Math.max(0, total - a.periodo_atual!.beneficios.reduce((soma, b) => soma + Number(b.usados), 0))
+          return `${restam} de ${total} serviço${total === 1 ? '' : 's'} ${restam === 1 ? 'restante' : 'restantes'} neste período`
+        })()
+      : `Começa em ${dataBR(a.data_inicio)}`
+    return base + (a.proxima_cobranca ? ` · renova em ${dataBR(a.proxima_cobranca)}` : '')
+  }
 
   return (
     <>
@@ -90,14 +94,14 @@ export default async function ClienteDashboard() {
             <span>Pets cadastrados</span>
           </div>
           <div className="dash-app-stat">
-            <span className="dash-app-stat-icone is-azul"><IconCalendar style={{ width: 18, height: 18 }} /></span>
+            <span className="dash-app-stat-icone"><IconCalendar style={{ width: 18, height: 18 }} /></span>
             <strong>{totalAgendamentos ?? 0}</strong>
             <span>Agendamentos</span>
           </div>
         </div>
         <div className="dash-app-stats is-uma">
           <div className="dash-app-stat">
-            <span className="dash-app-stat-icone is-verde"><IconMoney style={{ width: 18, height: 18 }} /></span>
+            <span className="dash-app-stat-icone"><IconMoney style={{ width: 18, height: 18 }} /></span>
             <strong>{formatarReais(valorTotal)}</strong>
             <span>Total investido</span>
           </div>
