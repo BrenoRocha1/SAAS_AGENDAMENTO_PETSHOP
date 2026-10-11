@@ -110,16 +110,18 @@ export default function InicioClienteScreen() {
             {planos.map(a => {
               const abertas = a.cobrancas.filter(c => c.status === 'pendente')
               const vencida = abertas.some(c => c.vencimento < hoje)
+              const temPeriodo = !!a.periodo_atual && a.periodo_atual.beneficios.length > 0
+              const total = temPeriodo ? a.periodo_atual!.beneficios.reduce((soma, b) => soma + b.quantidade, 0) : 0
+              const restam = temPeriodo ? Math.max(0, total - a.periodo_atual!.beneficios.reduce((soma, b) => soma + Number(b.usados), 0)) : 0
               return (
-                <Card key={a.id_assinatura} style={{ gap: 4 }}>
+                <Card key={a.id_assinatura} style={{ gap: 4, backgroundColor: colors.primary50, borderColor: colors.primary200 }}>
                   <Text style={styles.titulo}>{a.plano} · {a.pet ?? 'Pet'}</Text>
                   <Text style={styles.texto}>
-                    {a.periodo_atual && a.periodo_atual.beneficios.length > 0
-                      ? (() => {
-                          const total = a.periodo_atual.beneficios.reduce((soma, b) => soma + b.quantidade, 0)
-                          const restam = Math.max(0, total - a.periodo_atual.beneficios.reduce((soma, b) => soma + Number(b.usados), 0))
-                          return `${restam} de ${total} serviço${total === 1 ? '' : 's'} ${restam === 1 ? 'restante' : 'restantes'} neste período`
-                        })()
+                    {temPeriodo && (
+                      <Text style={styles.destaque}>{restam} de {total} </Text>
+                    )}
+                    {temPeriodo
+                      ? `serviço${total === 1 ? '' : 's'} ${restam === 1 ? 'restante' : 'restantes'} neste período`
                       : `Começa em ${dataBR(a.data_inicio)}`}
                     {a.proxima_cobranca ? ` · renova em ${dataBR(a.proxima_cobranca)}` : ''}
                   </Text>
@@ -175,6 +177,7 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
   titulo: { ...typography.body.lg, fontWeight: '700', color: colors.text },
   texto: { ...typography.body.md, color: colors.textMuted },
+  destaque: { ...typography.body.md, fontWeight: '700', color: colors.primary600 },
   selo: { alignSelf: 'flex-start', borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 3, marginTop: 4 },
   seloTexto: { fontSize: 11, fontWeight: '700' },
   item: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },

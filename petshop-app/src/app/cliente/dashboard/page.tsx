@@ -62,16 +62,17 @@ export default async function ClienteDashboard() {
   const horaAgora = Number(agoraBrasilHHMM().slice(0, 2))
   const saudacao = horaAgora < 12 ? 'Bom dia' : horaAgora < 18 ? 'Boa tarde' : 'Boa noite'
   // Resumo compacto pro card do dashboard — o detalhe por serviço fica em
-  // "Ver detalhes" (/cliente/planos), aqui é só o essencial de relance.
+  // "Ver detalhes" (/cliente/planos), aqui é só o essencial de relance. O
+  // número de serviços restantes vem destacado (dash-app-cartao-destaque)
+  // pra pular aos olhos, no lugar de tudo no mesmo cinza.
   const resumoDoPlano = (a: AssinaturaDoCliente) => {
-    const base = a.periodo_atual && a.periodo_atual.beneficios.length > 0
-      ? (() => {
-          const total = a.periodo_atual!.beneficios.reduce((soma, b) => soma + b.quantidade, 0)
-          const restam = Math.max(0, total - a.periodo_atual!.beneficios.reduce((soma, b) => soma + Number(b.usados), 0))
-          return `${restam} de ${total} serviço${total === 1 ? '' : 's'} ${restam === 1 ? 'restante' : 'restantes'} neste período`
-        })()
-      : `Começa em ${dataBR(a.data_inicio)}`
-    return base + (a.proxima_cobranca ? ` · renova em ${dataBR(a.proxima_cobranca)}` : '')
+    const comPeriodo = a.periodo_atual && a.periodo_atual.beneficios.length > 0
+    const total = comPeriodo ? a.periodo_atual!.beneficios.reduce((soma, b) => soma + b.quantidade, 0) : 0
+    const restam = comPeriodo ? Math.max(0, total - a.periodo_atual!.beneficios.reduce((soma, b) => soma + Number(b.usados), 0)) : 0
+    const renova = a.proxima_cobranca ? ` · renova em ${dataBR(a.proxima_cobranca)}` : ''
+    return comPeriodo
+      ? { destaque: `${restam} de ${total}`, resto: `serviço${total === 1 ? '' : 's'} ${restam === 1 ? 'restante' : 'restantes'} neste período${renova}` }
+      : { destaque: null, resto: `Começa em ${dataBR(a.data_inicio)}${renova}` }
   }
 
   return (
@@ -117,10 +118,14 @@ export default async function ClienteDashboard() {
               {planosAtivos.map(a => {
                 const abertas = a.cobrancas.filter(c => c.status === 'pendente')
                 const vencida = abertas.some(c => c.vencimento < hoje)
+                const resumo = resumoDoPlano(a)
                 return (
                   <div key={a.id_assinatura} className="dash-app-cartao">
                     <strong>{a.plano} · {a.pet ?? 'Pet'}</strong>
-                    <span>{resumoDoPlano(a)}</span>
+                    <span>
+                      {resumo.destaque && <span className="dash-app-cartao-destaque">{resumo.destaque} </span>}
+                      {resumo.resto}
+                    </span>
                     {abertas.length > 0 && (
                       <span className={`dash-app-selo ${vencida ? 'is-vencida' : 'is-aberta'}`}>
                         {vencida ? 'Cobrança vencida' : 'Cobrança em aberto'}
