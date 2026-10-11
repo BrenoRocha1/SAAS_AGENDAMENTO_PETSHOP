@@ -2382,7 +2382,7 @@ svg.is-da-visita { opacity: 0.45; }
 }
 .dash-app-cartao strong { font-size: 1rem; font-weight: 700; color: var(--gray-100); }
 .dash-app-cartao span { font-size: 0.875rem; color: var(--gray-400); }
-.dash-app-cartao-destaque { color: var(--primary-400); font-weight: 700; }
+.dash-app-cartao span.dash-app-cartao-destaque { color: var(--primary-400); font-weight: 700; }
 .dash-app-selo { align-self: flex-start; margin-top: 4px; padding: 3px var(--space-2); border-radius: 999px; font-size: 11px !important; font-weight: 700; }
 .dash-app-selo.is-aberta { background: var(--warning-900); color: var(--warning-400) !important; }
 .dash-app-selo.is-vencida { background: var(--danger-900, #fef2f2); color: var(--danger-400) !important; }
