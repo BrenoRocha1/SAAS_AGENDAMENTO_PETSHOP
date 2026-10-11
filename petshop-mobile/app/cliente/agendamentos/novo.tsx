@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native'
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
 import { Botao } from '@/components/Botao'
 import { Aviso } from '@/components/Aviso'
 import { Campo } from '@/components/Campo'
+import { QuantidadeProduto } from '@/components/QuantidadeProduto'
+import { IconCheck } from '@/components/IconesDoSite'
+import { adicionalValePara, carregarAdicionaisOnline, type ServicoAdicional } from '@/lib/adicionais'
 import { SearchField } from '@/components/SearchField'
 import { SeletorDia } from '@/components/SeletorDia'
 import { GradeHorarios } from '@/components/GradeHorarios'
@@ -20,17 +23,16 @@ import { MSG_SEM_SITE, acoesDisponiveis, chamarAcao, form } from '@/lib/acoes'
 import { agoraBrasil, dataBR, dataExtensaISO, removerHorariosPassados } from '@/lib/agenda'
 import type { Slot } from '@/lib/agendamentos'
 import { formatarMoeda, linkWhatsApp } from '@/lib/format'
-import { paraNumero } from '@/lib/mascaras'
 import { FORMAS_LOJA_PADRAO, ROTULO_FORMA_PAGAMENTO, formasAtivas, normalizarFormasLoja, type FormaPagamento, type FormasLoja } from '@/lib/pagamento'
 import { coberturaDoPlano, type BeneficiosDoPet } from '@/lib/planos-cliente'
-import { erroQuantidadeInteira, rotuloUnidade, unidadeFracionavel } from '@/lib/produto'
+import { erroQuantidadeInteira, rotuloUnidade } from '@/lib/produto'
 import { ROTULO_MODALIDADE } from '@/lib/taxidog'
 import { ESTADO_TRANSPORTE_INICIAL, escolhaDoTransporte, taxiDogParaFormulario, transportePronto, type EstadoTransporte } from '@/lib/transporte'
 import { urlDoSite } from '@/lib/site'
 import { colors, spacing, typography } from '@/theme/theme'
 import { format } from 'date-fns'
 
-interface Loja { id_lojista: string; nome_loja: string; telefone: string | null; cidade: string | null; estado: string | null; descricao: string | null }
+interface Loja { id_lojista: string; nome_loja: string; telefone: string | null; cidade: string | null; estado: string | null; descricao: string | null; logo_url: string | null }
 interface Pet { id_pet: string; nome: string; raca: string | null }
 interface Servico { id_servico: string; nome: string; descricao: string | null; preco: number; duracao: number }
 interface Produto { id_produto: string; nome: string; preco_venda: number; unidade_venda: string; estoque_atual: number }
@@ -93,7 +95,8 @@ export default function NovoAgendamentoClienteScreen() {
   const [forma, setForma] = useState<FormaPagamento | ''>('')
   const [data, setData] = useState('')
   const [hora, setHora] = useState('')
-  const [quantidades, setQuantidades] = useState<Record<string, string>>({})
+  // Por produto: quanto vai no pedido (0 ou sem entrada = não vai).
+  const [quantidades, setQuantidades] = useState<Record<string, number>>({})
   const [usarPlano, setUsarPlano] = useState(true)
   // O servidor não confirmou que o plano cobre o pedido: volta a pedir o pagamento.
   const [planoNaoCobriu, setPlanoNaoCobriu] = useState(false)
@@ -102,6 +105,10 @@ export default function NovoAgendamentoClienteScreen() {
   // Dados da loja escolhida.
   const [servicos, setServicos] = useState<Servico[] | null>(null)
   const [produtos, setProdutos] = useState<Produto[]>([])
+  // Serviços adicionais que a loja liberou para o agendamento (migration
+  // 095) e os que o cliente marcou.
+  const [adicionaisLoja, setAdicionaisLoja] = useState<ServicoAdicional[]>([])
+  const [adicionaisMarcados, setAdicionaisMarcados] = useState<string[]>([])
   const [taxidogDisponivel, setTaxidogDisponivel] = useState(false)
   const [precosEstimados, setPrecosEstimados] = useState(false)
   const [formasLoja, setFormasLoja] = useState<FormasLoja>(FORMAS_LOJA_PADRAO)
@@ -120,7 +127,7 @@ export default function NovoAgendamentoClienteScreen() {
     Promise.all([
       supabase
         .from('lojista')
-        .select('id_lojista, nome_loja, cidade, estado, descricao, telefone')
+        .select('id_lojista, nome_loja, cidade, estado, descricao, telefone, logo_url')
         .eq('ativo', true)
         .eq('aceita_agendamento_online', true)
         .order('nome_loja'),
@@ -142,6 +149,7 @@ export default function NovoAgendamentoClienteScreen() {
     if (!lojaId) return
     let cancelado = false
     const hojeISO = format(agoraBrasil(), 'yyyy-MM-dd')
+    carregarAdicionaisOnline(lojaId).then(lista => { if (!cancelado) setAdicionaisLoja(lista) })
     Promise.all([
       supabase.from('servico').select('id_servico, nome, descricao, preco, duracao').eq('id_lojista', lojaId).eq('status', 'Ativo').order('nome'),
       // Produtos liberados pra venda no agendamento online (migration 039), com estoque.
@@ -244,11 +252,16 @@ export default function NovoAgendamentoClienteScreen() {
   const precoDe = (s: Servico) => (precos?.petId === petId && precos.valores[s.id_servico] != null ? precos.valores[s.id_servico] : s.preco)
   const escolhaTaxi = escolhaDoTransporte(transporte)
   const itensProdutos = produtos
-    .map(p => ({ produto: p, quantidade: paraNumero(quantidades[p.id_produto] ?? '') }))
+    .map(p => ({ produto: p, quantidade: quantidades[p.id_produto] ?? 0 }))
     .filter(i => Number.isFinite(i.quantidade) && i.quantidade > 0)
   const totalProdutos = itensProdutos.reduce((soma, i) => soma + i.produto.preco_venda * i.quantidade, 0)
   const valorTaxi = escolhaTaxi?.cotacao.valor ?? 0
-  const totalSemPlano = (servico ? precoDe(servico) : 0) + totalProdutos + valorTaxi
+  // Só os adicionais que valem para o serviço escolhido; trocar de serviço
+  // derruba a marca do que não vale mais.
+  const opcoesAdicionais = servico ? adicionaisLoja.filter(a => adicionalValePara(a, servico.id_servico)) : []
+  const itensAdicionais = opcoesAdicionais.filter(a => adicionaisMarcados.includes(a.id_adicional))
+  const totalAdicionais = itensAdicionais.reduce((soma, a) => soma + a.preco, 0)
+  const totalSemPlano = (servico ? precoDe(servico) : 0) + totalProdutos + valorTaxi + totalAdicionais
   const planosDoPet = planos?.chave === `${lojaId}|${petId}|${data}` ? planos.lista : null
   const coberturaServicos = coberturaDoPlano(planosDoPet, (servicos ?? []).map(s => s.id_servico))
   const cobertura = coberturaDoPlano(planosDoPet, servicoId ? [servicoId] : [])
@@ -259,7 +272,7 @@ export default function NovoAgendamentoClienteScreen() {
   // TaxiDog): não há o que pagar, então a forma de pagamento nem aparece.
   // Se depois entrar algo cobrado (um produto na confirmação, por exemplo),
   // a etapa volta e é exigida antes de confirmar. O servidor refaz a conta.
-  const planoCobreTudo = vaiUsarPlano && !planoNaoCobriu && itensProdutos.length === 0 && !escolhaTaxi
+  const planoCobreTudo = vaiUsarPlano && !planoNaoCobriu && itensProdutos.length === 0 && !escolhaTaxi && itensAdicionais.length === 0
 
   const todasEtapas: Etapa[] = taxidogDisponivel
     ? ['loja', 'petservico', 'transporte', 'pagamento', 'datahora', 'confirmar']
@@ -305,7 +318,7 @@ export default function NovoAgendamentoClienteScreen() {
     }
     setErro(null)
     setEnviando(true)
-    const r = await chamarAcao<{ id_agendamento: string; plano: { aplicados: number; valorAbatido: number; aviso?: string } }>(
+    const r = await chamarAcao<{ id_agendamento: string; plano: { aplicados: number; valorAbatido: number; aviso?: string }; aviso_adicionais?: string; adicionais_atuais?: ServicoAdicional[] }>(
       'criarAgendamentoAction',
       form({
         id_lojista: lojaId,
@@ -316,6 +329,9 @@ export default function NovoAgendamentoClienteScreen() {
         obs: obs.trim(),
         produtos: itensProdutos.length > 0 ? JSON.stringify(itensProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))) : null,
         taxidog: escolhaTaxi ? taxiDogParaFormulario(escolhaTaxi) : null,
+        adicionais: itensAdicionais.length > 0
+          ? JSON.stringify(itensAdicionais.map(a => ({ id_servico: servicoId, id_adicional: a.id_adicional, preco: a.preco })))
+          : null,
         forma_pagamento: planoCobreTudo ? null : forma,
         usar_plano: vaiUsarPlano ? '1' : null,
       }),
@@ -323,6 +339,9 @@ export default function NovoAgendamentoClienteScreen() {
     setEnviando(false)
     if (r.error) {
       setErro(r.error)
+      // Um adicional saiu do ar ou mudou de preço: o resumo passa a mostrar
+      // a lista atual, e o cliente confirma de novo.
+      if (r.adicionais_atuais) setAdicionaisLoja(r.adicionais_atuais)
       // O servidor não confirmou a cobertura do plano: pede o pagamento.
       if (planoCobreTudo && r.error === 'Escolha a forma de pagamento.') {
         setPlanoNaoCobriu(true)
@@ -336,7 +355,7 @@ export default function NovoAgendamentoClienteScreen() {
       id: typeof r.id_agendamento === 'string' ? r.id_agendamento : null,
       total: Math.max(0, totalSemPlano - (r.plano?.valorAbatido ?? 0)),
       plano: r.plano ? { aplicados: r.plano.aplicados, valorAbatido: r.plano.valorAbatido } : null,
-      aviso: r.plano?.aviso ?? null,
+      aviso: [r.plano?.aviso, r.aviso_adicionais].filter(Boolean).join(' ') || null,
     })
   }
 
@@ -348,6 +367,7 @@ export default function NovoAgendamentoClienteScreen() {
     const resumo = [
       `Olá! Acabei de agendar em ${loja.nome_loja}:`,
       `- ${servico.nome}`,
+      ...itensAdicionais.map(a => `- ${a.nome} (${formatarMoeda(a.preco)})`),
       ...itensProdutos.map(i => `- ${i.produto.nome} (${i.quantidade} ${rotuloUnidade(i.produto.unidade_venda)})`),
       ...(escolhaTaxi ? [`- TaxiDog: ${ROTULO_MODALIDADE[escolhaTaxi.modalidade]} (${formatarMoeda(escolhaTaxi.cotacao.valor)})`] : []),
       `Pet: ${pet?.nome ?? ''}`,
@@ -425,6 +445,7 @@ export default function NovoAgendamentoClienteScreen() {
                   detalhe={[minhasLojas.has(l.id_lojista) ? 'Você já agendou aqui' : null, [l.cidade, l.estado].filter(Boolean).join(', ') || null].filter(Boolean).join(' · ') || undefined}
                   selecionada={lojaId === l.id_lojista}
                   onPress={() => escolherLoja(l.id_lojista)}
+                  foto={l.logo_url}
                 />
               ))}
               {lojasFiltradas.length === 0 && <Text style={styles.texto}>Nenhum petshop com esse nome.</Text>}
@@ -541,6 +562,7 @@ export default function NovoAgendamentoClienteScreen() {
             {taxidogDisponivel && (
               <Linha rotulo="Transporte" valor={escolhaTaxi ? `TaxiDog · ${ROTULO_MODALIDADE[escolhaTaxi.modalidade]} · ${formatarMoeda(escolhaTaxi.cotacao.valor)}` : 'Você leva o pet até a loja'} />
             )}
+            {itensAdicionais.map(a => <Linha key={a.id_adicional} rotulo={a.nome} valor={formatarMoeda(a.preco)} />)}
             {totalProdutos > 0 && <Linha rotulo="Produtos" valor={formatarMoeda(totalProdutos)} />}
             {descontoPlano > 0 && <Linha rotulo="Saldo do plano" valor={`− ${formatarMoeda(descontoPlano)}`} />}
             <View style={styles.divisor} />
@@ -554,27 +576,59 @@ export default function NovoAgendamentoClienteScreen() {
             )}
           </Card>
 
+          {opcoesAdicionais.length > 0 && (
+            <>
+              <Text style={styles.rotulo}>Serviços adicionais para {servico.nome} (opcional)</Text>
+              {opcoesAdicionais.map(a => {
+                const marcado = adicionaisMarcados.includes(a.id_adicional)
+                return (
+                  <Pressable
+                    key={a.id_adicional}
+                    onPress={() => setAdicionaisMarcados(m => (m.includes(a.id_adicional) ? m.filter(x => x !== a.id_adicional) : [...m, a.id_adicional]))}
+                    disabled={enviando}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: marcado }}
+                    style={[styles.adicional, marcado && styles.adicionalAtivo]}
+                  >
+                    <View style={[styles.caixa, marcado && styles.caixaAtiva]}>{marcado && <IconCheck size={12} color={colors.white} />}</View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.titulo} numberOfLines={2}>{a.nome}</Text>
+                      {a.descricao ? <Text style={styles.textoPequeno}>{a.descricao}</Text> : null}
+                    </View>
+                    <Text style={styles.adicionalPreco}>+ {formatarMoeda(a.preco)}</Text>
+                  </Pressable>
+                )
+              })}
+            </>
+          )}
+
           {produtos.length > 0 && (
             <>
               <Text style={styles.rotulo}>Adicionar produtos (opcional)</Text>
-              {produtos.map(p => (
-                <View key={p.id_produto} style={styles.produto}>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={styles.titulo} numberOfLines={2}>{p.nome}</Text>
-                    <Text style={styles.textoPequeno}>{formatarMoeda(p.preco_venda)} / {rotuloUnidade(p.unidade_venda).toLowerCase()}</Text>
-                  </View>
-                  <View style={{ width: 96 }}>
-                    <Campo
-                      rotulo="Qtd."
-                      value={quantidades[p.id_produto] ?? ''}
-                      onChangeText={t => setQuantidades(q => ({ ...q, [p.id_produto]: t }))}
-                      keyboardType={unidadeFracionavel(p.unidade_venda) ? 'decimal-pad' : 'number-pad'}
-                      placeholder="0"
-                      maxLength={6}
+              {produtos.map(p => {
+                const q = quantidades[p.id_produto] ?? 0
+                return (
+                  <View key={p.id_produto} style={styles.produto}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.titulo} numberOfLines={2}>{p.nome}</Text>
+                      <Text style={styles.textoPequeno}>
+                        {formatarMoeda(p.preco_venda)} / {rotuloUnidade(p.unidade_venda).toLowerCase()}
+                        {q > 0 ? <Text style={styles.subtotal}> · {formatarMoeda(p.preco_venda * q)}</Text> : null}
+                      </Text>
+                    </View>
+                    {/* Mais e menos para o que se conta inteiro; por peso ou
+                        litro, abre a janela de digitar a quantidade. */}
+                    <QuantidadeProduto
+                      nome={p.nome}
+                      unidade={p.unidade_venda}
+                      quantidade={q}
+                      estoque={p.estoque_atual}
+                      onChange={v => setQuantidades(atual => ({ ...atual, [p.id_produto]: v }))}
+                      desativado={enviando}
                     />
                   </View>
-                </View>
-              ))}
+                )
+              })}
             </>
           )}
 
@@ -617,6 +671,12 @@ const styles = StyleSheet.create({
   linhaRotulo: { ...typography.body.md, color: colors.textMuted, width: 112 },
   linhaValor: { ...typography.body.lg, color: colors.text, flex: 1 },
   divisor: { height: 1, backgroundColor: colors.border },
-  produto: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.md },
+  produto: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  subtotal: { fontWeight: '600', color: colors.successFg },
+  adicional: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, padding: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10 },
+  adicionalAtivo: { borderColor: colors.primary600, backgroundColor: colors.primary50 },
+  adicionalPreco: { ...typography.body.lg, fontWeight: '700', color: colors.primary300 },
+  caixa: { width: 18, height: 18, marginTop: 3, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.textFaint, borderRadius: 5 },
+  caixaAtiva: { backgroundColor: colors.primary600, borderColor: colors.primary600 },
   rodape: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl },
 })

@@ -11,6 +11,8 @@ import { rotuloUnidade } from '@/lib/produto'
 import { ptBR } from 'date-fns/locale'
 import SeletorDeData from './SeletorDeData'
 import ProdutosDoAgendamento from './ProdutosDoAgendamento'
+import AdicionaisDoAgendamento from './AdicionaisDoAgendamento'
+import { COLUNAS_ADICIONAL, alternarAdicionalMarcado, gruposDeAdicionais, itensAdicionaisEscolhidos, lerAdicionais, type ServicoAdicional } from '@/lib/adicionais'
 import ConfirmacaoAgendamento from './ConfirmacaoAgendamento'
 import PagamentoEtapa, { PixDaLoja } from './PagamentoEtapa'
 import PlanoNoPedido, { useMeusBeneficios } from './PlanoNoPedido'
@@ -26,7 +28,7 @@ import TaxiDogEtapa, {
 import { ROTULO_MODALIDADE, formatarReais } from '@/lib/taxidog'
 import {
   IconAlert, IconCalendar, IconCheck, IconClock, IconDog,
-  IconMapPin, IconMoney, IconPackage, IconScissors, IconStore,
+  IconMapPin, IconMoney, IconPackage, IconPlus, IconScissors, IconStore,
 } from '@/components/icons'
 
 interface Lojista {
@@ -36,6 +38,7 @@ interface Lojista {
   cidade?: string | null
   estado?: string | null
   descricao?: string | null
+  logo_url?: string | null
 }
 
 interface Pet {
@@ -161,6 +164,10 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   const [servicoId, setServicoId] = useState('')
   const [produtosDisponiveis, setProdutosDisponiveis] = useState<Produto[]>([])
   const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, number>>({})
+  // Serviços adicionais liberados pela loja para o agendamento online
+  // (migration 095) e o que o cliente marcou, por serviço.
+  const [adicionaisLoja, setAdicionaisLoja] = useState<ServicoAdicional[]>([])
+  const [adicionaisMarcados, setAdicionaisMarcados] = useState<Record<string, string[]>>({})
   const [horarios, setHorarios] = useState<Horario[]>([])
   // Dias que a loja fechou (feriado, folga — migration 066).
   const [bloqueios, setBloqueios] = useState<BloqueioLoja[]>([])
@@ -196,6 +203,21 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       .gt('estoque_atual', 0)
       .order('nome')
       .then(({ data }) => setProdutosDisponiveis(data ?? []))
+  }, [lojistaId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Adicionais da loja escolhida. Sem a migration 095 a consulta falha e a
+  // lista fica vazia — o agendamento segue como sempre.
+  useEffect(() => {
+    if (!lojistaId) return
+    supabase
+      .from('servico_adicional')
+      .select(COLUNAS_ADICIONAL)
+      .eq('id_lojista', lojistaId)
+      .eq('status', 'Ativo')
+      .eq('disponivel_online', true)
+      .is('excluido_em', null)
+      .order('nome')
+      .then(({ data, error }) => setAdicionaisLoja(error ? [] : lerAdicionais(data)))
   }, [lojistaId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // TaxiDog + aviso de preço estimado da loja escolhida (migration 042).
@@ -294,7 +316,10 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   )
   const totalProdutos = itensCarrinhoProdutos.reduce((acc, i) => acc + i.produto.preco_venda * i.quantidade, 0)
   const valorTaxiDog = escolhaTaxiDog?.cotacao.valor ?? 0
-  const totalSemPlano = (servicoSel ? precoDoServico(servicoSel) : 0) + totalProdutos + valorTaxiDog
+  const gruposAdicionais = gruposDeAdicionais(adicionaisLoja, servicoSel ? [servicoSel] : [])
+  const itensAdicionais = itensAdicionaisEscolhidos(gruposAdicionais, adicionaisMarcados)
+  const totalAdicionais = itensAdicionais.reduce((acc, i) => acc + i.preco, 0)
+  const totalSemPlano = (servicoSel ? precoDoServico(servicoSel) : 0) + totalProdutos + valorTaxiDog + totalAdicionais
 
   // Plano do cliente (migration 075): saldo do pet nesta loja no período
   // da data escolhida (antes de escolher a data, vale o período de hoje).
@@ -312,7 +337,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
   // servidor refaz (formaSemCobrancaPeloPlano); se ele discordar — o saldo
   // acabou nesse meio-tempo —, `planoNaoCobriu` traz o pagamento de volta.
   const [planoNaoCobriu, setPlanoNaoCobriu] = useState(false)
-  const nadaAPagar = vaiUsarPlano && !planoNaoCobriu && itensCarrinhoProdutos.length === 0 && !escolhaTaxiDog
+  const nadaAPagar = vaiUsarPlano && !planoNaoCobriu && itensCarrinhoProdutos.length === 0 && !escolhaTaxiDog && itensAdicionais.length === 0
 
   const todasEtapas: Step[] = taxidogDisponivel
     ? ['loja', 'petservico', 'transporte', 'pagamento', 'datahora', 'confirmar']
@@ -341,6 +366,9 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       formData.set('produtos', JSON.stringify(itensCarrinhoProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))))
     }
     if (escolhaTaxiDog) formData.set('taxidog', taxiDogParaFormulario(escolhaTaxiDog))
+    if (itensAdicionais.length > 0) {
+      formData.set('adicionais', JSON.stringify(itensAdicionais.map(i => ({ id_servico: i.id_servico, id_adicional: i.id_adicional, preco: i.preco }))))
+    }
     if (!nadaAPagar) {
       if (!formaPagamento) {
         setError('Escolha a forma de pagamento.')
@@ -355,6 +383,9 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       const result = await criarAgendamentoAction(formData)
       if (result?.error) {
         setError(result.error)
+        // Um adicional saiu do ar ou mudou de preço: o resumo passa a
+        // mostrar a lista atual, e o cliente confirma de novo.
+        if ('adicionais_atuais' in result && result.adicionais_atuais) setAdicionaisLoja(result.adicionais_atuais)
         // O servidor não confirmou a cobertura do plano: pede o pagamento.
         if (nadaAPagar && result.error === 'Escolha a forma de pagamento.') {
           setPlanoNaoCobriu(true)
@@ -366,7 +397,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
       setAgendado({
         id: result && 'id_agendamento' in result && typeof result.id_agendamento === 'string' ? result.id_agendamento : null,
         plano: plano ? { aplicados: plano.aplicados, valorAbatido: plano.valorAbatido } : null,
-        aviso: plano?.aviso ?? null,
+        aviso: [plano?.aviso, result && 'aviso_adicionais' in result ? result.aviso_adicionais : null].filter(Boolean).join(' ') || null,
       })
     })
   }
@@ -387,6 +418,7 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
           pet={petSel?.nome ?? ''}
           itens={[
             servicoSel.nome,
+            ...itensAdicionais.map(i => `${i.nome} (${formatarReais(i.preco)})`),
             ...itensCarrinhoProdutos.map(i => `${i.produto.nome} (${i.quantidade} ${rotuloUnidade(i.produto.unidade_venda)})`),
             ...(escolhaTaxiDog ? [`TaxiDog: ${ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]} (${formatarReais(escolhaTaxiDog.cotacao.valor)})`] : []),
           ]}
@@ -445,12 +477,17 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
                   <div className="flex items-center gap-3">
                     <div
                       style={{
-                        width: 40, height: 40, borderRadius: 'var(--radius-md)', flexShrink: 0,
+                        width: 40, height: 40, borderRadius: 'var(--radius-md)', flexShrink: 0, overflow: 'hidden',
                         background: 'var(--primary-soft-bg)', border: '1px solid var(--primary-soft-border)',
                         color: 'var(--primary-400)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}
                     >
-                      <IconStore style={{ width: 18, height: 18 }} />
+                      {l.logo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+                        <img src={l.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <IconStore style={{ width: 18, height: 18 }} />
+                      )}
                     </div>
                     <div>
                       <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{l.nome_loja}</div>
@@ -718,6 +755,13 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
 
             <ResumoTaxiDog escolha={escolhaTaxiDog} disponivel={taxidogDisponivel} />
 
+            {itensAdicionais.map(i => (
+              <div key={i.id_adicional} className="flex justify-between">
+                <span className="text-sm text-muted flex items-center gap-1"><IconPlus style={{ width: 13, height: 13 }} /> {i.nome}</span>
+                <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{formatarReais(i.preco)}</span>
+              </div>
+            ))}
+
             {totalProdutos > 0 && (
               <div className="flex justify-between">
                 <span className="text-sm text-muted flex items-center gap-1"><IconPackage style={{ width: 13, height: 13 }} /> Produtos</span>
@@ -755,6 +799,16 @@ export default function NovoAgendamentoWizard({ pets, lojistas }: Props) {
               </p>
             )}
           </div>
+
+          {servicoSel && (
+            <AdicionaisDoAgendamento
+              opcoes={gruposAdicionais[0]?.opcoes ?? []}
+              nomeServico={servicoSel.nome}
+              marcados={adicionaisMarcados[servicoSel.id_servico] ?? []}
+              onAlternar={id => setAdicionaisMarcados(m => alternarAdicionalMarcado(m, servicoSel.id_servico, id))}
+              disabled={isPending}
+            />
+          )}
 
           <ProdutosDoAgendamento
             produtos={produtosDisponiveis}
