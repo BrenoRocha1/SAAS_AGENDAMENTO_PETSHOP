@@ -7,9 +7,9 @@ import { agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
 import { formatarReais } from '@/lib/taxidog'
 import { IconCalendar, IconDog, IconMoney, IconPaw, IconPlus, IconRepeat, IconScissors, IconStore } from '@/components/icons'
 import { dataBR, type AssinaturaDoCliente } from '@/lib/planos'
-import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import type { Metadata } from 'next'
 import Ilustracao from '@/components/Ilustracao'
+import StatusAgendamentoMinimo from '@/components/cliente/StatusAgendamentoMinimo'
 
 export const metadata: Metadata = { title: 'Dashboard — Cliente' }
 
@@ -163,7 +163,7 @@ export default async function ClienteDashboard() {
                     <span className="dash-app-linha-pet">{ag.servico?.nome ?? 'Serviço'}</span>
                     <span className="dash-app-linha-sub">{ag.pet?.nome ?? 'Pet'} · {ag.lojista?.nome_loja ?? ''}</span>
                   </span>
-                  <span className={`badge ${classeBadgeStatus(ag.status)}`}>{rotuloStatus(ag.status)}</span>
+                  <StatusAgendamentoMinimo status={ag.status} />
                 </Link>
               )
             })}
@@ -284,9 +284,7 @@ export default async function ClienteDashboard() {
                     <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>
                       {ag.servico?.nome}
                     </span>
-                    <span className={`badge ${classeBadgeStatus(ag.status)}`}>
-                      {rotuloStatus(ag.status)}
-                    </span>
+                    <StatusAgendamentoMinimo status={ag.status} />
                   </div>
                   <div className="flex gap-4 text-sm text-muted">
                     <span className="flex items-center gap-1"><IconDog style={{ width: 13, height: 13 }} /> {ag.pet?.nome} ({ag.pet?.raca})</span>

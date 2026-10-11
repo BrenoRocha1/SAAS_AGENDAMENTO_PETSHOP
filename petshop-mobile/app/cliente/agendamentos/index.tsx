@@ -6,7 +6,7 @@ import { ScreenContainer } from '@/components/ScreenContainer'
 import { BarraTopo } from '@/components/BarraTopo'
 import { Card } from '@/components/Card'
 import { EmptyState } from '@/components/EmptyState'
-import { StatusBadge } from '@/components/StatusBadge'
+import { StatusAgendamentoMinimo } from '@/components/StatusAgendamentoMinimo'
 import { Aviso } from '@/components/Aviso'
 import { Botao } from '@/components/Botao'
 import { Campo } from '@/components/Campo'
@@ -134,7 +134,7 @@ export default function AgendamentosClienteScreen() {
                 <Text style={styles.titulo}>{ag.servico?.nome ?? 'Serviço'}</Text>
                 <Text style={styles.texto}>{ag.hr_agendamento.slice(0, 5)} · {ag.servico?.duracao ?? '—'} min</Text>
               </View>
-              {v.itens.length > 1 && <StatusBadge status={ag.status} />}
+              {v.itens.length > 1 && <StatusAgendamentoMinimo status={ag.status} />}
               {plano && ag.status !== 'Cancelado' ? (
                 <View style={styles.seloPlano}><Text style={styles.seloPlanoTexto}>Pelo plano</Text></View>
               ) : (
@@ -281,7 +281,7 @@ export default function AgendamentosClienteScreen() {
               {v.itens[0].pet?.nome ?? 'Pet'} · {primeiraHora(v).slice(0, 5)} · {v.itens[0].lojista?.nome_loja ?? ''}
             </Text>
             <View style={styles.selos}>
-              <StatusBadge status={v.status} />
+              <StatusAgendamentoMinimo status={v.status} />
               {temTaxi && <View style={styles.seloNeutro}><Text style={styles.seloNeutroTexto}>TaxiDog</Text></View>}
             </View>
           </View>

@@ -7,7 +7,7 @@ import { Card } from '@/components/Card'
 import { StatCard } from '@/components/StatCard'
 import { SectionHeader } from '@/components/SectionHeader'
 import { EmptyState } from '@/components/EmptyState'
-import { StatusBadge } from '@/components/StatusBadge'
+import { StatusAgendamentoMinimo } from '@/components/StatusAgendamentoMinimo'
 import { Botao } from '@/components/Botao'
 import { Aviso } from '@/components/Aviso'
 import { Text } from '@/components/Texto'
@@ -159,7 +159,7 @@ export default function InicioClienteScreen() {
                   <Text style={styles.titulo} numberOfLines={1}>{ag.servico?.nome ?? 'Serviço'}</Text>
                   <Text style={styles.texto} numberOfLines={1}>{ag.pet?.nome ?? 'Pet'} · {ag.lojista?.nome_loja ?? ''}</Text>
                 </View>
-                <StatusBadge status={ag.status} />
+                <StatusAgendamentoMinimo status={ag.status} />
               </Card>
             )
           })}
