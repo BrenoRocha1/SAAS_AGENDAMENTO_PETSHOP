@@ -67,7 +67,7 @@ export default function ServicosAdicionais({ adicionais: inicial, servicos, pode
       id: a.id_adicional,
       nome: a.nome,
       descricao: a.descricao ?? '',
-      preco: String(a.preco).replace('.', ','),
+      preco: a.preco.toFixed(2).replace('.', ','),
       paraTodos: a.servicos.length === 0,
       servicos: a.servicos.filter(id => nomeDoServico.has(id)),
       online: a.disponivel_online,

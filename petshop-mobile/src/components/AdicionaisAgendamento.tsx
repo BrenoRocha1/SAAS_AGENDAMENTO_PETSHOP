@@ -54,9 +54,12 @@ export function AdicionaisAgendamento({ idAgendamento, idLojista, status, podeAl
 
   const [removendo, setRemovendo] = useState<AdicionalDoAgendamento | null>(null)
   const [motivo, setMotivo] = useState('')
+  // O banco avisou que o pedido está pago e o bloco ainda não sabia.
+  const [pagoAgora, setPagoAgora] = useState(false)
 
   const carregar = useCallback(async () => {
     setInfo(await carregarAdicionaisDoAtendimento(idAgendamento, idLojista, alteravel))
+    setPagoAgora(false)
   }, [idAgendamento, idLojista, alteravel])
 
   useEffect(() => { carregar() }, [carregar, versao])
@@ -66,6 +69,7 @@ export function AdicionaisAgendamento({ idAgendamento, idLojista, status, podeAl
   const removidos = info.itens.filter(i => i.status === 'removido')
   const podeIncluir = alteravel && info.disponiveis.length > 0
   if (info.itens.length === 0 && !podeIncluir) return null
+  const pago = info.pago || pagoAgora
 
   const acrescimo = info.disponiveis.filter(a => escolhidos.includes(a.id_adicional)).reduce((s, a) => s + a.preco, 0)
 
@@ -84,8 +88,11 @@ export function AdicionaisAgendamento({ idAgendamento, idLojista, status, podeAl
   async function confirmarInclusao() {
     setErro(null)
     setOcupado(true)
-    const r = await chamarAcao<ResultadoInclusao>('incluirAdicionaisAction', idAgendamento, escolhidos, observacao.trim() || null, info!.pago)
+    const r = await chamarAcao<ResultadoInclusao>('incluirAdicionaisAction', idAgendamento, escolhidos, observacao.trim() || null, pago)
     setOcupado(false)
+    // Pago e a tela não sabia: nada foi incluído; o aviso e o botão passam a
+    // pedir a confirmação de voltar o pagamento para pendente.
+    if (r.pedidoPago) return setPagoAgora(true)
     // Nada entrou: o erro fica na janela. Se parte entrou, segue para o
     // resumo, que mostra o que entrou e o que deu errado.
     if (!r.incluidos?.length) return setErro(r.error ?? 'Não foi possível incluir o serviço adicional.')
@@ -101,8 +108,9 @@ export function AdicionaisAgendamento({ idAgendamento, idLojista, status, podeAl
     if (!removendo) return
     setErro(null)
     setOcupado(true)
-    const r = await chamarAcao('removerAdicionalAction', removendo.id_agendamento_adicional, motivo.trim() || null, info!.pago)
+    const r = await chamarAcao<{ pedidoPago?: boolean }>('removerAdicionalAction', removendo.id_agendamento_adicional, motivo.trim() || null, pago)
     setOcupado(false)
+    if (r.pedidoPago) return setPagoAgora(true)
     if (r.error) return setErro(r.error)
     setRemovendo(null)
     mudou()
@@ -168,7 +176,7 @@ export function AdicionaisAgendamento({ idAgendamento, idLojista, status, podeAl
       {/* Adicionar serviço adicional */}
       <Folha visivel={incluindo} titulo="Adicionar serviço adicional" onFechar={() => setIncluindo(false)} ocupado={ocupado}>
         {erro && <Aviso tipo="erro" texto={erro} />}
-        {info.pago && <Aviso tipo="alerta" texto="Este atendimento está marcado como pago. Ao incluir a cobrança, o pagamento volta para pendente, para você receber a diferença." />}
+        {pago && <Aviso tipo="alerta" texto="Este atendimento está marcado como pago. Ao incluir a cobrança, o pagamento volta para pendente, para você receber a diferença." />}
         <View style={{ gap: 8 }}>
           {info.disponiveis.map(a => {
             const marcado = escolhidos.includes(a.id_adicional)
@@ -200,7 +208,7 @@ export function AdicionaisAgendamento({ idAgendamento, idLojista, status, podeAl
           <Text style={styles.totalValor}>{formatarMoeda(info.valor + acrescimo)}</Text>
         </View>
         <View style={styles.rodape}>
-          <BotaoPequeno normal variante="primario" rotulo={ocupado ? 'Incluindo...' : info.pago ? 'Incluir e voltar para pendente' : 'Confirmar inclusão'} desativado={ocupado || escolhidos.length === 0} onPress={confirmarInclusao} />
+          <BotaoPequeno normal variante="primario" rotulo={ocupado ? 'Incluindo...' : pago ? 'Incluir e voltar para pendente' : 'Confirmar inclusão'} desativado={ocupado || escolhidos.length === 0} onPress={confirmarInclusao} />
           <BotaoPequeno normal rotulo="Cancelar" desativado={ocupado} onPress={() => setIncluindo(false)} />
         </View>
       </Folha>
@@ -251,12 +259,12 @@ export function AdicionaisAgendamento({ idAgendamento, idLojista, status, podeAl
           <Text style={styles.texto}>
             Remover <Text style={styles.forte}>{removendo.nome}</Text>? O total do atendimento passa de {formatarMoeda(info.valor)} para{' '}
             <Text style={styles.forte}>{formatarMoeda(Math.max(0, info.valor - removendo.valor_total))}</Text>. A cobrança fica no histórico como removida.
-            {info.pago ? ' O atendimento está marcado como pago: ao remover, o pagamento volta para pendente.' : ''}
+            {pago ? ' O atendimento está marcado como pago: ao remover, o pagamento volta para pendente.' : ''}
           </Text>
         )}
         <Campo rotulo="Motivo" opcional value={motivo} onChangeText={setMotivo} maxLength={500} />
         <View style={styles.rodape}>
-          <BotaoPequeno normal variante="perigo" rotulo={ocupado ? 'Removendo...' : info.pago ? 'Remover e voltar para pendente' : 'Remover cobrança'} desativado={ocupado} onPress={confirmarRemocao} />
+          <BotaoPequeno normal variante="perigo" rotulo={ocupado ? 'Removendo...' : pago ? 'Remover e voltar para pendente' : 'Remover cobrança'} desativado={ocupado} onPress={confirmarRemocao} />
           <BotaoPequeno normal rotulo="Cancelar" desativado={ocupado} onPress={() => setRemovendo(null)} />
         </View>
       </Folha>

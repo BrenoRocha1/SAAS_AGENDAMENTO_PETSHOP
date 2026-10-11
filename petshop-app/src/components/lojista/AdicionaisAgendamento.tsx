@@ -24,7 +24,11 @@ function quando(ts: string) {
 // incluído pela equipe — e o botão de incluir. Carrega sozinho pelo id, como
 // os blocos de Plano e de Alterações; sem a migration 095 (ou sem nada a
 // mostrar), não aparece.
-export default function AdicionaisAgendamento({ idAgendamento, status }: { idAgendamento: string; status: string }) {
+//
+// `pagamento` (o status do pagamento, quando a tela de fora sabe) só serve
+// para o bloco reler quando ele muda. Se o bloco estiver com a informação
+// velha, o banco recusa do mesmo jeito e a confirmação aparece na hora.
+export default function AdicionaisAgendamento({ idAgendamento, status, pagamento }: { idAgendamento: string; status: string; pagamento?: string | null }) {
   const router = useRouter()
   const [info, setInfo] = useState<AdicionaisDoAtendimento | null>(null)
   const [versao, setVersao] = useState(0)
@@ -33,13 +37,15 @@ export default function AdicionaisAgendamento({ idAgendamento, status }: { idAge
   const [removendo, setRemovendo] = useState<AdicionalDoAgendamento | null>(null)
   const [motivo, setMotivo] = useState('')
   const [erro, setErro] = useState<string | null>(null)
+  // O banco avisou que o pedido está pago e o bloco ainda não sabia.
+  const [pagoAgora, setPagoAgora] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   useEffect(() => {
     let cancelado = false
-    adicionaisDoAgendamentoAction(idAgendamento).then(r => { if (!cancelado) setInfo(r) })
+    adicionaisDoAgendamentoAction(idAgendamento).then(r => { if (!cancelado) { setInfo(r); setPagoAgora(false) } })
     return () => { cancelado = true }
-  }, [idAgendamento, status, versao])
+  }, [idAgendamento, status, pagamento, versao])
 
   function recarregar() {
     setVersao(v => v + 1)
@@ -51,12 +57,16 @@ export default function AdicionaisAgendamento({ idAgendamento, status }: { idAge
   const removidos = info.itens.filter(i => i.status === 'removido')
   const podeIncluir = info.podeAlterar && info.disponiveis.length > 0
   if (info.itens.length === 0 && !podeIncluir) return null
+  const pago = info.pago || pagoAgora
 
   function remover() {
     if (!removendo) return
     setErro(null)
     startTransition(async () => {
-      const r = await removerAdicionalAction(removendo.id_agendamento_adicional, motivo, info!.pago)
+      const r = await removerAdicionalAction(removendo.id_agendamento_adicional, motivo, pago)
+      // Pago e o bloco não sabia: nada mudou; o texto e o botão passam a
+      // pedir a confirmação de voltar o pagamento para pendente.
+      if (r.pedidoPago) return setPagoAgora(true)
       if (r.error) return setErro(r.error)
       setRemovendo(null)
       setMotivo('')
@@ -117,7 +127,7 @@ export default function AdicionaisAgendamento({ idAgendamento, status }: { idAge
           <span className="text-sm">
             Remover <strong>{removendo.nome}</strong>? O total do atendimento passa de {formatarReais(info.valor)} para{' '}
             <strong>{formatarReais(Math.max(0, info.valor - removendo.valor_total))}</strong>. A cobrança fica no histórico como removida.
-            {info.pago && <> O atendimento está marcado como pago: ao remover, o pagamento volta para pendente.</>}
+            {pago && <> O atendimento está marcado como pago: ao remover, o pagamento volta para pendente.</>}
           </span>
           <input
             type="text"
@@ -131,7 +141,7 @@ export default function AdicionaisAgendamento({ idAgendamento, status }: { idAge
           <div className="adic-remocao-acoes">
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setRemovendo(null)} disabled={isPending}>Cancelar</button>
             <button type="button" className={`btn btn-danger btn-sm ${isPending ? 'btn-loading' : ''}`} onClick={remover} disabled={isPending}>
-              {isPending ? 'Removendo...' : info.pago ? 'Remover e voltar para pendente' : 'Remover cobrança'}
+              {isPending ? 'Removendo...' : pago ? 'Remover e voltar para pendente' : 'Remover cobrança'}
             </button>
           </div>
         </div>
@@ -149,7 +159,7 @@ export default function AdicionaisAgendamento({ idAgendamento, status }: { idAge
 
       {incluindo && (
         <JanelaIncluir
-          info={info}
+          info={{ ...info, pago }}
           idAgendamento={idAgendamento}
           onFechar={() => setIncluindo(false)}
           onIncluido={r => { setIncluindo(false); setResultado(r); recarregar() }}
@@ -194,6 +204,7 @@ function JanelaIncluir({ info, idAgendamento, onFechar, onIncluido }: {
   const [escolhidos, setEscolhidos] = useState<string[]>(info.disponiveis.length === 1 ? [info.disponiveis[0].id_adicional] : [])
   const [observacao, setObservacao] = useState('')
   const [erro, setErro] = useState<string | null>(null)
+  const [pago, setPago] = useState(info.pago)
   const [isPending, startTransition] = useTransition()
 
   const acrescimo = info.disponiveis.filter(a => escolhidos.includes(a.id_adicional)).reduce((s, a) => s + a.preco, 0)
@@ -205,7 +216,10 @@ function JanelaIncluir({ info, idAgendamento, onFechar, onIncluido }: {
   function confirmar() {
     setErro(null)
     startTransition(async () => {
-      const r = await incluirAdicionaisAction(idAgendamento, escolhidos, observacao, info.pago)
+      const r = await incluirAdicionaisAction(idAgendamento, escolhidos, observacao, pago)
+      // Pago e a tela não sabia: nada foi incluído; o aviso e o botão passam
+      // a pedir a confirmação de voltar o pagamento para pendente.
+      if (r.pedidoPago) return setPago(true)
       // Nada entrou: o erro fica aqui. Se parte entrou, segue para o resumo
       // (que mostra o que entrou e o que deu errado).
       if (!r.incluidos?.length) return setErro(r.error ?? 'Não foi possível incluir o serviço adicional.')
@@ -221,7 +235,7 @@ function JanelaIncluir({ info, idAgendamento, onFechar, onIncluido }: {
             <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{erro}</span>
           </div>
         )}
-        {info.pago && (
+        {pago && (
           <div className="alert alert-warning">
             <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
             <span>Este atendimento está marcado como pago. Ao incluir a cobrança, o pagamento volta para <strong>pendente</strong>, para você receber a diferença.</span>
@@ -269,7 +283,7 @@ function JanelaIncluir({ info, idAgendamento, onFechar, onIncluido }: {
       <div className="modal-footer">
         <button type="button" className="btn btn-secondary" onClick={onFechar} disabled={isPending}>Cancelar</button>
         <button type="button" className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`} onClick={confirmar} disabled={isPending || escolhidos.length === 0}>
-          {isPending ? 'Incluindo...' : info.pago ? 'Incluir e voltar para pendente' : 'Confirmar inclusão'}
+          {isPending ? 'Incluindo...' : pago ? 'Incluir e voltar para pendente' : 'Confirmar inclusão'}
         </button>
       </div>
     </Janela>

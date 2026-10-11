@@ -594,7 +594,7 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
                   </div>
                 </div>
               )}
-              <AdicionaisAgendamento key={`adicionais:${selecionado.id_agendamento}`} idAgendamento={selecionado.id_agendamento} status={selecionado.status} />
+              <AdicionaisAgendamento key={`adicionais:${selecionado.id_agendamento}`} idAgendamento={selecionado.id_agendamento} status={selecionado.status} pagamento={selecionado.status_pagamento} />
               {(selecionado.taxidog || taxidogAtivo) && (
                 <TransporteAgendamento
                   key={`${selecionado.id_agendamento}:${selecionado.taxidog?.id_corrida ?? ''}:${selecionado.taxidog?.status ?? ''}`}
