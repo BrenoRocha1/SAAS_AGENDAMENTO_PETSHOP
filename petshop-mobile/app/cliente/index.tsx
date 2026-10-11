@@ -198,7 +198,9 @@ const styles = StyleSheet.create({
   },
   indicadorTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   indicadorRotulo: { ...typography.body.sm, color: colors.textMuted, flexShrink: 1 },
-  indicadorValor: { ...typography.heading.lg, fontFamily: FONTE_TITULO, color: colors.text },
+  // peso 600 (semibold), igual ao "font-semibold" do cartão no site — o
+  // heading.lg padrão do app é 700 (bold), ficava mais grosso que o site.
+  indicadorValor: { ...typography.heading.lg, fontFamily: FONTE_TITULO, fontWeight: '600', color: colors.text },
   titulo: { ...typography.body.lg, fontWeight: '700', color: colors.text },
   texto: { ...typography.body.md, color: colors.textMuted },
   destaque: { ...typography.body.md, fontWeight: '700', color: colors.primary600 },
