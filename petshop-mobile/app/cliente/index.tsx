@@ -17,6 +17,7 @@ import { dataBR, hojeBrasilISO, saudacao } from '@/lib/agenda'
 import { formatarMoeda } from '@/lib/format'
 import type { AssinaturaDoCliente } from '@/lib/planos-cliente'
 import type { StatusAgendamento } from '@/lib/statusAgendamento'
+import { FONTE_TITULO } from '@/theme/fontes'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 interface Proximo {
@@ -197,7 +198,7 @@ const styles = StyleSheet.create({
   },
   indicadorTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   indicadorRotulo: { ...typography.body.sm, color: colors.textMuted, flexShrink: 1 },
-  indicadorValor: { ...typography.heading.lg, color: colors.text },
+  indicadorValor: { ...typography.heading.lg, fontFamily: FONTE_TITULO, color: colors.text },
   titulo: { ...typography.body.lg, fontWeight: '700', color: colors.text },
   texto: { ...typography.body.md, color: colors.textMuted },
   destaque: { ...typography.body.md, fontWeight: '700', color: colors.primary600 },

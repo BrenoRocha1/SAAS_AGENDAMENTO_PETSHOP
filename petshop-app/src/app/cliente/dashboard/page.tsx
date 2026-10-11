@@ -91,10 +91,10 @@ export default async function ClienteDashboard() {
 
         <div style={{ marginBottom: 'var(--space-5)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
-            <Indicador rotulo="Pets cadastrados" valor={totalPets ?? 0} icone={<IconDog />} />
-            <Indicador rotulo="Agendamentos" valor={totalAgendamentos ?? 0} icone={<IconCalendar />} />
+            <Indicador compacto rotulo="Pets cadastrados" valor={totalPets ?? 0} icone={<IconDog />} />
+            <Indicador compacto rotulo="Agendamentos" valor={totalAgendamentos ?? 0} icone={<IconCalendar />} />
           </div>
-          <Indicador rotulo="Total investido" valor={formatarReais(valorTotal)} icone={<IconMoney />} />
+          <Indicador compacto rotulo="Total investido" valor={formatarReais(valorTotal)} icone={<IconMoney />} />
         </div>
 
         {planosAtivos.length > 0 && (

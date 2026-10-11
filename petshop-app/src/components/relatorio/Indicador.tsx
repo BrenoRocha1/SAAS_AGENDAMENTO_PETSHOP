@@ -50,23 +50,26 @@ export function GradeIndicadores({ colunas = 3, children }: { colunas?: 2 | 3 | 
 
 // Indicador: o que é (com o ícone ao lado), o número e, embaixo, a
 // comparação com o período anterior e/ou uma explicação curta.
-export function Indicador({ rotulo, valor, icone, variacao, detalhe }: {
+// `compacto` é pra caber em grades estreitas (dashboard do cliente no
+// celular) sem a legenda quebrar linha — menos respiro, texto menor.
+export function Indicador({ rotulo, valor, icone, variacao, detalhe, compacto }: {
   rotulo: string
   valor: ReactNode
   icone: ReactNode
   variacao?: Variacao | null
   detalhe?: ReactNode
+  compacto?: boolean
 }) {
   return (
     <Card className="rounded-xl">
-      <CardHeader className="flex-row items-center justify-between gap-3 p-5 pb-2">
-        <CardTitle className="font-[family-name:var(--font-body)] text-sm font-medium leading-snug tracking-normal text-muted-foreground">
+      <CardHeader className={cn('flex-row items-center justify-between gap-2 pb-2', compacto ? 'p-3' : 'p-5')}>
+        <CardTitle className={cn('font-[family-name:var(--font-body)] whitespace-nowrap font-medium leading-snug tracking-normal text-muted-foreground', compacto ? 'text-xs' : 'text-sm')}>
           {rotulo}
         </CardTitle>
-        <span aria-hidden className="shrink-0 text-primary [&>svg]:size-5">{icone}</span>
+        <span aria-hidden className={cn('shrink-0 text-primary', compacto ? '[&>svg]:size-4' : '[&>svg]:size-5')}>{icone}</span>
       </CardHeader>
-      <CardContent className="p-5 pt-0">
-        <div className="font-[family-name:var(--font-heading)] text-2xl font-semibold tabular-nums text-foreground">{valor}</div>
+      <CardContent className={cn('pt-0', compacto ? 'p-3' : 'p-5')}>
+        <div className={cn('font-[family-name:var(--font-heading)] font-semibold tabular-nums text-foreground', compacto ? 'text-xl' : 'text-2xl')}>{valor}</div>
         {(variacao || detalhe) && (
           <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs leading-snug text-muted-foreground">
             {variacao && (
