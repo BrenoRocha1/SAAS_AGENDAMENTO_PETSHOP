@@ -7,6 +7,7 @@ import { Card } from '@/components/Card'
 import { Botao } from '@/components/Botao'
 import { Aviso } from '@/components/Aviso'
 import { Campo } from '@/components/Campo'
+import { QuantidadeProduto } from '@/components/QuantidadeProduto'
 import { IconCheck } from '@/components/IconesDoSite'
 import { adicionalValePara, carregarAdicionaisOnline, type ServicoAdicional } from '@/lib/adicionais'
 import { SearchField } from '@/components/SearchField'
@@ -22,10 +23,9 @@ import { MSG_SEM_SITE, acoesDisponiveis, chamarAcao, form } from '@/lib/acoes'
 import { agoraBrasil, dataBR, dataExtensaISO, removerHorariosPassados } from '@/lib/agenda'
 import type { Slot } from '@/lib/agendamentos'
 import { formatarMoeda, linkWhatsApp } from '@/lib/format'
-import { paraNumero } from '@/lib/mascaras'
 import { FORMAS_LOJA_PADRAO, ROTULO_FORMA_PAGAMENTO, formasAtivas, normalizarFormasLoja, type FormaPagamento, type FormasLoja } from '@/lib/pagamento'
 import { coberturaDoPlano, type BeneficiosDoPet } from '@/lib/planos-cliente'
-import { erroQuantidadeInteira, rotuloUnidade, unidadeFracionavel } from '@/lib/produto'
+import { erroQuantidadeInteira, rotuloUnidade } from '@/lib/produto'
 import { ROTULO_MODALIDADE } from '@/lib/taxidog'
 import { ESTADO_TRANSPORTE_INICIAL, escolhaDoTransporte, taxiDogParaFormulario, transportePronto, type EstadoTransporte } from '@/lib/transporte'
 import { urlDoSite } from '@/lib/site'
@@ -95,7 +95,8 @@ export default function NovoAgendamentoClienteScreen() {
   const [forma, setForma] = useState<FormaPagamento | ''>('')
   const [data, setData] = useState('')
   const [hora, setHora] = useState('')
-  const [quantidades, setQuantidades] = useState<Record<string, string>>({})
+  // Por produto: quanto vai no pedido (0 ou sem entrada = não vai).
+  const [quantidades, setQuantidades] = useState<Record<string, number>>({})
   const [usarPlano, setUsarPlano] = useState(true)
   // O servidor não confirmou que o plano cobre o pedido: volta a pedir o pagamento.
   const [planoNaoCobriu, setPlanoNaoCobriu] = useState(false)
@@ -251,7 +252,7 @@ export default function NovoAgendamentoClienteScreen() {
   const precoDe = (s: Servico) => (precos?.petId === petId && precos.valores[s.id_servico] != null ? precos.valores[s.id_servico] : s.preco)
   const escolhaTaxi = escolhaDoTransporte(transporte)
   const itensProdutos = produtos
-    .map(p => ({ produto: p, quantidade: paraNumero(quantidades[p.id_produto] ?? '') }))
+    .map(p => ({ produto: p, quantidade: quantidades[p.id_produto] ?? 0 }))
     .filter(i => Number.isFinite(i.quantidade) && i.quantidade > 0)
   const totalProdutos = itensProdutos.reduce((soma, i) => soma + i.produto.preco_venda * i.quantidade, 0)
   const valorTaxi = escolhaTaxi?.cotacao.valor ?? 0
@@ -603,24 +604,30 @@ export default function NovoAgendamentoClienteScreen() {
           {produtos.length > 0 && (
             <>
               <Text style={styles.rotulo}>Adicionar produtos (opcional)</Text>
-              {produtos.map(p => (
-                <View key={p.id_produto} style={styles.produto}>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={styles.titulo} numberOfLines={2}>{p.nome}</Text>
-                    <Text style={styles.textoPequeno}>{formatarMoeda(p.preco_venda)} / {rotuloUnidade(p.unidade_venda).toLowerCase()}</Text>
-                  </View>
-                  <View style={{ width: 96 }}>
-                    <Campo
-                      rotulo="Qtd."
-                      value={quantidades[p.id_produto] ?? ''}
-                      onChangeText={t => setQuantidades(q => ({ ...q, [p.id_produto]: t }))}
-                      keyboardType={unidadeFracionavel(p.unidade_venda) ? 'decimal-pad' : 'number-pad'}
-                      placeholder="0"
-                      maxLength={6}
+              {produtos.map(p => {
+                const q = quantidades[p.id_produto] ?? 0
+                return (
+                  <View key={p.id_produto} style={styles.produto}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.titulo} numberOfLines={2}>{p.nome}</Text>
+                      <Text style={styles.textoPequeno}>
+                        {formatarMoeda(p.preco_venda)} / {rotuloUnidade(p.unidade_venda).toLowerCase()}
+                        {q > 0 ? <Text style={styles.subtotal}> · {formatarMoeda(p.preco_venda * q)}</Text> : null}
+                      </Text>
+                    </View>
+                    {/* Mais e menos para o que se conta inteiro; por peso ou
+                        litro, abre a janela de digitar a quantidade. */}
+                    <QuantidadeProduto
+                      nome={p.nome}
+                      unidade={p.unidade_venda}
+                      quantidade={q}
+                      estoque={p.estoque_atual}
+                      onChange={v => setQuantidades(atual => ({ ...atual, [p.id_produto]: v }))}
+                      desativado={enviando}
                     />
                   </View>
-                </View>
-              ))}
+                )
+              })}
             </>
           )}
 
@@ -663,7 +670,8 @@ const styles = StyleSheet.create({
   linhaRotulo: { ...typography.body.md, color: colors.textMuted, width: 112 },
   linhaValor: { ...typography.body.lg, color: colors.text, flex: 1 },
   divisor: { height: 1, backgroundColor: colors.border },
-  produto: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.md },
+  produto: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  subtotal: { fontWeight: '600', color: colors.successFg },
   adicional: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, padding: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10 },
   adicionalAtivo: { borderColor: colors.primary600, backgroundColor: colors.primary50 },
   adicionalPreco: { ...typography.body.lg, fontWeight: '700', color: colors.primary300 },
