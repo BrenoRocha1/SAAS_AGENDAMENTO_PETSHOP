@@ -75,9 +75,14 @@ function PlanoCard({ a, hoje }: { a: AssinaturaDoCliente; hoje: string }) {
   const formas = normalizarFormasLoja(a.formas_loja)
   const usosValidos = a.utilizacoes.filter(u => !u.estornada_em)
   const whats = linkWhatsApp(a.loja_telefone)
+  const temPeriodo = ativa && !!a.periodo_atual && a.periodo_atual.beneficios.length > 0
+  const totalBeneficios = temPeriodo ? a.periodo_atual!.beneficios.reduce((soma, b) => soma + b.quantidade, 0) : 0
+  const restamBeneficios = temPeriodo
+    ? Math.max(0, totalBeneficios - a.periodo_atual!.beneficios.reduce((soma, b) => soma + Number(b.usados), 0))
+    : 0
 
   return (
-    <Card style={{ gap: spacing.sm }}>
+    <Card style={[{ gap: spacing.sm }, ativa && { backgroundColor: colors.primary50, borderColor: colors.primary200 }]}>
       <View style={styles.linha}>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={[styles.titulo, !ativa && styles.apagado]}>{a.plano}</Text>
@@ -89,11 +94,18 @@ function PlanoCard({ a, hoje }: { a: AssinaturaDoCliente; hoje: string }) {
       </View>
 
       <Text style={styles.textoPequeno}>
-        {formatarMoeda(a.valor)}{sufixoPeriodo(a.periodicidade, a.intervalo_dias)} · desde {dataBR(a.data_inicio)}
+        <Text style={styles.valorDestaque}>{formatarMoeda(a.valor)}</Text>{sufixoPeriodo(a.periodicidade, a.intervalo_dias)} · desde {dataBR(a.data_inicio)}
         {a.forma_pagamento ? ` · ${rotuloForma(a.forma_pagamento)}` : ''}
       </Text>
       {a.descricao ? <Text style={styles.texto}>{a.descricao}</Text> : null}
 
+      {temPeriodo && (
+        <Text style={styles.texto}>
+          <Text style={styles.resumoDestaque}>{restamBeneficios} de {totalBeneficios}</Text>
+          {' '}serviço{totalBeneficios === 1 ? '' : 's'} {restamBeneficios === 1 ? 'restante' : 'restantes'} neste período
+          {a.proxima_cobranca ? ` · renova em ${dataBR(a.proxima_cobranca)}` : ''}
+        </Text>
+      )}
       {ativa && !a.periodo_atual && <Text style={styles.texto}>Começa em {dataBR(a.data_inicio)}.</Text>}
       {!ativa && a.cancelada_em && <Text style={styles.texto}>Cancelado em {dataBR(a.cancelada_em.slice(0, 10))}.</Text>}
 
@@ -143,7 +155,6 @@ function PlanoCard({ a, hoje }: { a: AssinaturaDoCliente; hoje: string }) {
               })}
               <Text style={styles.textoPequeno}>
                 Para usar, agende o serviço pelo app: o saldo do plano já entra no agendamento, sem cobrar o serviço.
-                {a.proxima_cobranca ? ` Renova em ${dataBR(a.proxima_cobranca)}.` : ''}
               </Text>
             </View>
           )}
@@ -200,6 +211,8 @@ const styles = StyleSheet.create({
   rotulo: { ...typography.label.md, color: colors.textDim },
   texto: { ...typography.body.md, color: colors.textDim },
   textoPequeno: { ...typography.body.sm, color: colors.textMuted },
+  valorDestaque: { fontWeight: '700', color: colors.primary600 },
+  resumoDestaque: { fontWeight: '700', color: colors.primary600 },
   riscado: { textDecorationLine: 'line-through', color: colors.textMuted },
   selo: { borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 4 },
   seloTexto: { fontSize: 11, fontWeight: '700' },

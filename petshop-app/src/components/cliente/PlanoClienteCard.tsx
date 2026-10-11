@@ -24,8 +24,14 @@ export default function PlanoClienteCard({ a, hojeISO }: { a: AssinaturaDoClient
   const usosValidos = a.utilizacoes.filter(u => !u.estornada_em).length
   const telefone = a.loja_telefone?.replace(/\D/g, '')
 
+  const temPeriodo = ativa && !!a.periodo_atual && a.periodo_atual.beneficios.length > 0
+  const totalBeneficios = temPeriodo ? a.periodo_atual!.beneficios.reduce((soma, b) => soma + b.quantidade, 0) : 0
+  const restamBeneficios = temPeriodo
+    ? Math.max(0, totalBeneficios - a.periodo_atual!.beneficios.reduce((soma, b) => soma + Number(b.usados), 0))
+    : 0
+
   return (
-    <div className={`card plano-assinatura ${ativa ? '' : 'is-cancelada'}`}>
+    <div className={`card plano-assinatura ${ativa ? 'is-ativa' : 'is-cancelada'}`}>
       <div className="flex items-center justify-between gap-2" style={{ flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0 }}>
           <div className="font-semibold" style={{ color: 'var(--gray-100)', fontSize: '1.05rem' }}>{a.plano}</div>
@@ -38,12 +44,20 @@ export default function PlanoClienteCard({ a, hojeISO }: { a: AssinaturaDoClient
       </div>
 
       <div className="text-xs text-muted">
-        {formatarReais(a.valor)}{sufixoPeriodo(a.periodicidade, a.intervalo_dias)} · {rotuloPeriodicidade(a.periodicidade, a.intervalo_dias)}
+        <span className="plano-valor-destaque">{formatarReais(a.valor)}</span>{sufixoPeriodo(a.periodicidade, a.intervalo_dias)} · {rotuloPeriodicidade(a.periodicidade, a.intervalo_dias)}
         {' · '}desde {dataBR(a.data_inicio)}
         {a.forma_pagamento && ehFormaPagamento(a.forma_pagamento) && <> · {ROTULO_FORMA_PAGAMENTO[a.forma_pagamento]}</>}
       </div>
       {a.descricao && <p className="text-sm text-muted" style={{ margin: 0 }}>{a.descricao}</p>}
 
+      {temPeriodo && (
+        <div className="text-sm">
+          <span className="plano-resumo-destaque">{restamBeneficios} de {totalBeneficios}</span>
+          <span className="text-muted"> serviço{totalBeneficios === 1 ? '' : 's'} {restamBeneficios === 1 ? 'restante' : 'restantes'} neste período
+            {a.proxima_cobranca && <> · renova em {dataBR(a.proxima_cobranca)}</>}
+          </span>
+        </div>
+      )}
       {ativa && !a.periodo_atual && <div className="text-sm text-muted">Começa em {dataBR(a.data_inicio)}.</div>}
       {!ativa && <div className="text-sm text-muted">Cancelado em {dataBR(a.cancelada_em)}.</div>}
 
@@ -95,7 +109,6 @@ export default function PlanoClienteCard({ a, hojeISO }: { a: AssinaturaDoClient
               <BeneficiosBarra beneficios={a.periodo_atual.beneficios} />
               <p className="text-xs text-muted" style={{ margin: 0 }}>
                 Para usar, agende o serviço pela sua conta: o saldo do plano já entra no agendamento, sem cobrar o serviço.
-                {a.proxima_cobranca && <> Renova em <strong>{dataBR(a.proxima_cobranca)}</strong>.</>}
               </p>
             </>
           )}

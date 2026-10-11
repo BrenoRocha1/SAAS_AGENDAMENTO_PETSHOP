@@ -4111,6 +4111,9 @@ a.tela-app-novo, a.tela-app-novo:hover { color: #fff; text-decoration: none; }
 .plano-assinatura { display: flex; flex-direction: column; gap: var(--space-2); }
 div.plano-assinatura:not(.card) { padding: var(--space-3); border: 1px solid var(--gray-800); border-radius: var(--radius-md); }
 .plano-assinatura.is-cancelada { opacity: 0.75; }
+.plano-assinatura.is-ativa { background: var(--primary-soft-bg-8); border-color: var(--primary-soft-border); }
+.plano-valor-destaque { font-weight: 700; color: var(--primary-400); }
+.plano-resumo-destaque { font-weight: 700; color: var(--primary-400); }
 .plano-beneficios { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-2) var(--space-4); }
 .plano-beneficios li { font-size: 0.875rem; color: var(--gray-300); display: flex; flex-direction: column; gap: 4px; }
 .plano-beneficio-topo { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0 var(--space-2); }
