@@ -197,10 +197,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg, padding: spacing.md, gap: 6,
   },
   indicadorTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  indicadorRotulo: { ...typography.body.sm, color: colors.textMuted, flexShrink: 1 },
-  // peso 600 (semibold), igual ao "font-semibold" do cartão no site — o
-  // heading.lg padrão do app é 700 (bold), ficava mais grosso que o site.
-  indicadorValor: { ...typography.heading.lg, fontFamily: FONTE_TITULO, fontWeight: '600', color: colors.text },
+  // 12px/500 — igual ao "text-xs font-medium" do rótulo no site.
+  indicadorRotulo: { fontSize: 12, lineHeight: 16.8, fontWeight: '500', color: colors.textMuted, flexShrink: 1 },
+  // Igual ao "text-xl font-semibold" do cartão compacto no site: 20px,
+  // peso 600, sem letter-spacing (heading.lg é 22px/700/-0.2, pensado
+  // pra outro contexto — usar só a fonte e sobrescrever o resto).
+  indicadorValor: { fontFamily: FONTE_TITULO, fontWeight: '600', fontSize: 20, lineHeight: 28, letterSpacing: 0, color: colors.text },
   titulo: { ...typography.body.lg, fontWeight: '700', color: colors.text },
   texto: { ...typography.body.md, color: colors.textMuted },
   destaque: { ...typography.body.md, fontWeight: '700', color: colors.primary600 },
