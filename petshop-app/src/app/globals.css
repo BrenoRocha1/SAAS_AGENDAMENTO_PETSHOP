@@ -2055,10 +2055,23 @@ svg.is-da-visita { opacity: 0.45; }
 .agc-card { padding: 0; overflow: hidden; }
 .agc-card-destaque { border-color: var(--primary-soft-border); box-shadow: 0 0 0 1px var(--primary-soft-border); }
 .agc-destaque-rotulo { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--primary-400); margin-bottom: 2px; }
-/* Status minimalista das telas do cliente — ponto colorido + texto, sem a
-   caixa/maiúsculas do .badge (esse aqui é do lojista, mais "SaaS"). */
-.status-minimo { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8125rem; font-weight: 600; color: var(--gray-300); white-space: nowrap; }
-.status-minimo-ponto { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+/* Status minimalista das telas do cliente — pílula suave com pontinho
+   pulsando, sem a caixa cheia/maiúscula do .badge (esse aqui é do
+   lojista, mais "SaaS"). Cor vem inline (style), por isso sem cor fixa aqui. */
+.status-pilula {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  padding: 3px 10px; border-radius: 999px; border: 1px solid;
+  font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+}
+.status-pilula-ponto { position: relative; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.status-pilula-ponto::before {
+  content: ''; position: absolute; inset: -3px; border-radius: 50%; background: inherit;
+  opacity: 0.6; animation: status-pulso 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes status-pulso {
+  0% { transform: scale(0.5); opacity: 0.6; }
+  100% { transform: scale(2); opacity: 0; }
+}
 .agc-card-cancelada .agc-servicos-titulo { text-decoration: line-through; color: var(--gray-500); }
 .agc-resumo {
   display: flex;

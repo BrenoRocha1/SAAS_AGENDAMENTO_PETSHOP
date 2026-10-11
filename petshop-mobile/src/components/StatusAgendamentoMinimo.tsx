@@ -1,23 +1,55 @@
-import { StyleSheet, View } from 'react-native'
+import { useEffect, useRef } from 'react'
+import { Animated, Easing, StyleSheet, View } from 'react-native'
 import { coresStatus, rotuloStatus } from '@/lib/statusAgendamento'
 import { Text } from '@/components/Texto'
-import { colors } from '@/theme/theme'
 
-// Selo de status das telas do cliente (Início, Agendamentos) — só um
-// ponto colorido + texto, sem a caixa/maiúsculas do StatusBadge, que é
-// do lojista e fica discreto demais chamativo pro gosto do cliente.
+// Mistura uma cor "#rrggbb" com branco/transparente — o equivalente ao
+// color-mix(in srgb, cor X%, transparent) do CSS, que o RN não tem.
+function corComAlpha(hex: string, alpha: number): string {
+  const n = parseInt(hex.replace('#', ''), 16)
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+// Selo de status das telas do cliente (Início, Agendamentos): pílula
+// suave com pontinho pulsando, igual a um shadcn "Status" component —
+// bem mais discreto que o StatusBadge cheio/maiúsculo do lojista, que
+// não mexo aqui porque é compartilhado com as telas dele.
 export function StatusAgendamentoMinimo({ status }: { status: string }) {
-  const cor = coresStatus(status)
+  const cor = coresStatus(status).solid
+  const pulso = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(pulso, { toValue: 1, duration: 1800, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+    )
+    loop.start()
+    return () => loop.stop()
+  }, [pulso])
+
   return (
-    <View style={styles.linha}>
-      <View style={[styles.ponto, { backgroundColor: cor.solid }]} />
-      <Text style={styles.texto}>{rotuloStatus(status)}</Text>
+    <View style={[styles.pilula, { backgroundColor: corComAlpha(cor, 0.12), borderColor: corComAlpha(cor, 0.28) }]}>
+      <View style={styles.pontoCaixa}>
+        <Animated.View
+          style={[
+            styles.pontoPulso,
+            { backgroundColor: cor, opacity: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }), transform: [{ scale: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.5, 2] }) }] },
+          ]}
+        />
+        <View style={[styles.ponto, { backgroundColor: cor }]} />
+      </View>
+      <Text style={[styles.texto, { color: cor }]}>{rotuloStatus(status)}</Text>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  linha: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  ponto: { width: 7, height: 7, borderRadius: 4 },
-  texto: { fontSize: 13, fontWeight: '600', color: colors.textDim },
+  pilula: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3,
+  },
+  pontoCaixa: { width: 6, height: 6, alignItems: 'center', justifyContent: 'center' },
+  ponto: { width: 6, height: 6, borderRadius: 3 },
+  pontoPulso: { position: 'absolute', width: 6, height: 6, borderRadius: 3 },
+  texto: { fontSize: 12, fontWeight: '600' },
 })
