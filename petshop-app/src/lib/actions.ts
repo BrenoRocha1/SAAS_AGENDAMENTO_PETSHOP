@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { cookies, headers } from 'next/headers'
 import { COOKIE_LOGIN_INTERNO } from '@/lib/impersonar'
+import { lerFiscalDoForm, type ProdutoFiscal } from '@/lib/fiscal'
 import { gerarEmailInterno } from '@/lib/email-interno'
 import { trocarCodigoPorToken } from '@/lib/codigo-acesso'
 import {
@@ -558,6 +559,23 @@ export async function cadastroLojistaAction(formData: FormData) {
 // o registro faltante com os dados que o Google não fornece (CPF, telefone).
 
 export async function completarCadastroClienteGoogleAction(formData: FormData) {
+  const r = await gravarCadastroClienteDaConta(formData)
+  if ('error' in r) return r
+  // Veio do link público de agendamento: volta para ele.
+  redirect((await usarVolta()) ?? '/cliente/dashboard')
+}
+
+// Mesmo cadastro, feito DENTRO do link de agendamento (sem sair da página):
+// devolve sucesso e a própria tela segue para a escolha do pet e do horário.
+export async function completarCadastroClienteNoLinkAction(formData: FormData): Promise<{ error?: string; success?: boolean }> {
+  const r = await gravarCadastroClienteDaConta(formData)
+  if ('error' in r) return r
+  return { success: true }
+}
+
+// Conta logada (Google) sem perfil nenhum vira cliente com CPF e telefone.
+// Já sendo cliente, só segue.
+async function gravarCadastroClienteDaConta(formData: FormData): Promise<{ error: string } | { ok: true }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado. Faça login novamente.' }
@@ -569,9 +587,7 @@ export async function completarCadastroClienteGoogleAction(formData: FormData) {
   }
 
   const { data: existing } = await adminClient.from('cliente').select('id_cliente').eq('id_cliente', user.id).maybeSingle()
-  if (existing) {
-    redirect((await usarVolta()) ?? '/cliente/dashboard')
-  }
+  if (existing) return { ok: true }
 
   const raw = {
     cpf: (formData.get('cpf') as string).replace(/\D/g, ''),
@@ -619,8 +635,16 @@ export async function completarCadastroClienteGoogleAction(formData: FormData) {
   await supabase.auth.refreshSession()
 
   revalidatePath('/', 'layout')
-  // Veio do link público de agendamento: volta para ele.
-  redirect((await usarVolta()) ?? '/cliente/dashboard')
+  return { ok: true }
+}
+
+// Conectado com uma conta que não é de cliente (a da loja, de um
+// funcionário) e quer agendar: sai só desta sessão e já abre o Google
+// pedindo para escolher a conta — volta direto para o link de agendamento.
+export async function trocarParaContaClienteAction(voltarPara: string): Promise<{ error?: string; url?: string }> {
+  const supabase = await createClient()
+  await supabase.auth.signOut({ scope: 'local' })
+  return getGoogleOAuthUrlAction('cliente', voltarPara)
 }
 
 // Conta do Google que entrou pelo link de agendamento e ainda não terminou
@@ -1120,6 +1144,22 @@ async function salvarCustoProduto(
   return `Produto salvo, mas o custo não foi registrado: ${error.message}`
 }
 
+// Informações fiscais (migration 094): NCM, CEST, CFOP, origem, CST/CSOSN e
+// código de barras — tabela à parte, só da equipe, como o custo.
+async function salvarFiscalProduto(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  idProduto: string,
+  dados: ProdutoFiscal,
+): Promise<string | undefined> {
+  const { error } = await supabase.rpc('fn_salvar_fiscal_produto', { p_id_produto: idProduto, p_dados: dados })
+  if (!error) return undefined
+  const faltaMigration = error.code === 'PGRST202' || /Could not find the function|does not exist/i.test(error.message)
+  const vazio = Object.values(dados).every(v => v === null)
+  if (faltaMigration) return vazio ? undefined : 'Produto salvo, mas para registrar as informações fiscais execute a migration 094_produto_fiscal.sql.'
+  if (error.message.includes('código de barras')) return 'Produto salvo, mas este código de barras já está em outro produto da loja.'
+  return `Produto salvo, mas as informações fiscais não foram registradas: ${error.message}`
+}
+
 // ============================================================
 // PRODUTO ACTIONS (Lojista) — migration 037
 // ============================================================
@@ -1153,6 +1193,8 @@ export async function criarProdutoAction(formData: FormData) {
   if (erroInteiro) return { error: erroInteiro }
   const custo = lerCustoProduto(formData)
   if (custo && 'erro' in custo) return { error: custo.erro }
+  const fiscal = lerFiscalDoForm(formData)
+  if (fiscal && 'erro' in fiscal) return { error: fiscal.erro }
 
   const { data: novoProduto, error } = await supabase
     .from('produto')
@@ -1170,7 +1212,16 @@ export async function criarProdutoAction(formData: FormData) {
   // confiável; um SELECT * solto pelo lado do cliente logo em seguida
   // não precisa existir).
   const aviso = custo && custo.custo !== null ? await salvarCustoProduto(supabase, novoProduto.id_produto, custo.custo) : undefined
-  return { success: true, produto: { ...novoProduto, custo_unitario: aviso ? null : custo?.custo ?? null } as Record<string, unknown>, aviso }
+  const avisoFiscal = fiscal ? await salvarFiscalProduto(supabase, novoProduto.id_produto, fiscal.dados) : undefined
+  return {
+    success: true,
+    produto: {
+      ...novoProduto,
+      custo_unitario: aviso ? null : custo?.custo ?? null,
+      fiscal: fiscal && !avisoFiscal ? fiscal.dados : null,
+    } as Record<string, unknown>,
+    aviso: aviso ?? avisoFiscal,
+  }
 }
 
 // Estoque atual fica de fora de propósito — depois de criado, só muda
@@ -1200,6 +1251,8 @@ export async function editarProdutoAction(id_produto: string, formData: FormData
   if (erroInteiro) return { error: erroInteiro }
   const custo = lerCustoProduto(formData)
   if (custo && 'erro' in custo) return { error: custo.erro }
+  const fiscal = lerFiscalDoForm(formData)
+  if (fiscal && 'erro' in fiscal) return { error: fiscal.erro }
 
   const { data: atualizado, error } = await supabase
     .from('produto')
@@ -1215,10 +1268,15 @@ export async function editarProdutoAction(id_produto: string, formData: FormData
   // Mesmo motivo do criarProdutoAction: devolve a linha atualizada pra
   // mesclar direto no estado, sem depender de um refetch separado.
   const aviso = custo ? await salvarCustoProduto(supabase, id_produto, custo.custo) : undefined
+  const avisoFiscal = fiscal ? await salvarFiscalProduto(supabase, id_produto, fiscal.dados) : undefined
   return {
     success: true,
-    produto: { ...atualizado, ...(custo && !aviso ? { custo_unitario: custo.custo } : {}) } as Record<string, unknown>,
-    aviso,
+    produto: {
+      ...atualizado,
+      ...(custo && !aviso ? { custo_unitario: custo.custo } : {}),
+      ...(fiscal && !avisoFiscal ? { fiscal: fiscal.dados } : {}),
+    } as Record<string, unknown>,
+    aviso: aviso ?? avisoFiscal,
   }
 }
 

@@ -92,3 +92,13 @@
 @media (prefers-reduced-motion: reduce) {
   .prod-card { transition: none; }
 }
+
+/* Informações fiscais no formulário do produto (migration 094) */
+.fiscal-produto { border: 1px solid var(--gray-800); border-radius: var(--radius-md); padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3); }
+.fiscal-produto > summary { cursor: pointer; display: flex; flex-direction: column; gap: 2px; list-style: none; }
+.fiscal-produto > summary::-webkit-details-marker { display: none; }
+.fiscal-produto > summary::after { content: 'Mostrar ▾'; font-size: 0.75rem; color: var(--primary-400); margin-top: 2px; }
+.fiscal-produto[open] > summary::after { content: 'Esconder ▴'; }
+.fiscal-produto-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--space-3); margin-top: var(--space-2); }
+.fiscal-produto-campos .form-group:first-child { grid-column: 1 / -1; }
+@media (max-width: 560px) { .fiscal-produto-campos { grid-template-columns: 1fr; } }

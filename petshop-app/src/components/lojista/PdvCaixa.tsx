@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import '@/app/lojista/pdv/pdv.css'
 import { CheckoutModal, ClienteModal } from '@/components/lojista/PdvCheckout'
 import type { FormasLoja } from '@/lib/pagamento'
@@ -48,6 +49,17 @@ const SEM_CATEGORIA = '__sem_categoria__'
 // Sem acento e em minúscula — "racao" acha "Ração".
 const normalizar = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
+// "3*7891234567895" ou "2,5*ração": quantidade antes do asterisco (o jeito
+// de caixa de supermercado de passar vários de uma vez).
+function separarMultiplicador(texto: string): { quantidade: number; termo: string } {
+  const m = texto.match(/^\s*(\d+(?:[.,]\d+)?)\s*[*xX]\s*(.+)$/)
+  if (!m) return { quantidade: 1, termo: texto }
+  const q = Number(m[1].replace(',', '.'))
+  return q > 0 ? { quantidade: q, termo: m[2] } : { quantidade: 1, termo: texto }
+}
+
+const CHAVE_CARRINHO = 'saip:pdv-carrinho'
+
 const textoNumero = (n: number) => String(arredondarQuantidade(n)).replace('.', ',')
 
 // Campo de quantidade da linha. Digita-se à vontade e só vale ao sair do
@@ -82,6 +94,7 @@ function CampoQtd({ valor, unidade, onConfirmar }: {
 }
 
 export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLoja }: Props) {
+  const router = useRouter()
   const [produtos, setProdutos] = useState<ProdutoPdv[]>(inicial)
   const [busca, setBusca] = useState('')
   const [categoria, setCategoria] = useState<string>('')
@@ -104,6 +117,42 @@ export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLo
     avisoTimer.current = setTimeout(() => setAviso(null), 3200)
   }, [])
 
+  // ---------- Venda em andamento guardada no navegador ----------
+  // Recarregar a página (ou a internet cair e voltar) não perde o carrinho.
+  // Volta com o preço e o estoque de agora, só dos produtos que ainda estão
+  // à venda.
+  const restaurou = useRef(false)
+  useEffect(() => {
+    if (restaurou.current) return
+    restaurou.current = true
+    try {
+      const salvo = JSON.parse(sessionStorage.getItem(CHAVE_CARRINHO) ?? 'null') as { itens: { id: string; q: number }[]; cliente: ClientePdv | null } | null
+      if (!salvo) return
+      const porId = new Map(inicial.map(p => [p.id_produto, p]))
+      const itens = salvo.itens
+        .map(i => ({ produto: porId.get(i.id), quantidade: i.q }))
+        .filter((i): i is ItemCarrinho => !!i.produto && i.quantidade > 0)
+        .map(i => ({ ...i, quantidade: Math.min(i.quantidade, i.produto.estoque_atual) }))
+        .filter(i => i.quantidade > 0)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- leitura do sessionStorage só existe depois de montar no navegador
+      if (itens.length) setCarrinho(itens)
+      if (salvo.cliente) setCliente(salvo.cliente)
+    } catch { /* sessionStorage indisponível ou dado antigo: começa vazio */ }
+  }, [inicial])
+  useEffect(() => {
+    if (!restaurou.current) return
+    try {
+      if (carrinho.length === 0 && !cliente) sessionStorage.removeItem(CHAVE_CARRINHO)
+      else sessionStorage.setItem(CHAVE_CARRINHO, JSON.stringify({ itens: carrinho.map(i => ({ id: i.produto.id_produto, q: i.quantidade })), cliente }))
+    } catch { /* sem sessionStorage: segue sem guardar */ }
+  }, [carrinho, cliente])
+
+  // Teclado só abre sozinho em computador; no celular, abrir a tela não
+  // deve subir o teclado por cima dos produtos.
+  useEffect(() => {
+    if (window.matchMedia('(pointer: fine)').matches) buscaRef.current?.focus()
+  }, [])
+
   // ---------- Cálculos ----------
   const subtotal = subtotalCarrinho(carrinho)
   const desconto = { tipo: descontoTipo, valor: lerValorDigitado(descontoTexto) }
@@ -118,9 +167,11 @@ export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLo
   }, [carrinho])
 
   // ---------- Carrinho ----------
-  function adicionar(p: ProdutoPdv) {
+  function adicionar(p: ProdutoPdv, quantidade = 1) {
     const atual = noCarrinho.get(p.id_produto) ?? 0
-    const nova = arredondarQuantidade(atual + 1)
+    const passo = passoQuantidade(p.unidade_venda)
+    const q = passo < 1 ? quantidade : Math.max(1, Math.round(quantidade))
+    const nova = arredondarQuantidade(atual + q)
     if (nova > p.estoque_atual) {
       avisar(`Só há ${rotuloEstoqueApp(p.estoque_atual, p.unidade_venda)} de “${p.nome}”.`)
       return
@@ -170,14 +221,26 @@ export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLo
   }, [produtos, categorias])
   const haSemCategoria = produtos.some(p => p.id_categoria === null)
 
+  // Nome sem acento calculado uma vez por produto (não a cada tecla).
+  const nomesNormalizados = useMemo(() => new Map(produtos.map(p => [p.id_produto, normalizar(p.nome)])), [produtos])
+
   const filtrados = useMemo(() => {
-    const termo = normalizar(busca.trim())
-    return produtos.filter(p => {
+    const termo = normalizar(separarMultiplicador(busca).termo.trim())
+    const soDigitos = /^\d+$/.test(termo)
+    const lista = produtos.filter(p => {
       if (categoria === SEM_CATEGORIA && p.id_categoria !== null) return false
       if (categoria && categoria !== SEM_CATEGORIA && p.id_categoria !== categoria) return false
-      return !termo || normalizar(p.nome).includes(termo)
+      if (!termo) return true
+      if (soDigitos && p.codigo_barras?.startsWith(termo)) return true
+      return (nomesNormalizados.get(p.id_produto) ?? '').includes(termo)
     })
-  }, [produtos, busca, categoria])
+    // Código de barras exato vem primeiro: o Enter do leitor adiciona ele.
+    if (soDigitos) {
+      const exato = lista.findIndex(p => p.codigo_barras === termo)
+      if (exato > 0) lista.unshift(...lista.splice(exato, 1))
+    }
+    return lista
+  }, [produtos, busca, categoria, nomesNormalizados])
 
   // ---------- Atalhos: F1 / "/" busca, F2 finaliza, F3 cliente, F4 desconto, F9 limpa, Esc fecha ----------
   useEffect(() => {
@@ -206,7 +269,6 @@ export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLo
     }
     window.addEventListener('keydown', aoTeclar)
     return () => window.removeEventListener('keydown', aoTeclar)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- limparVenda só usa setters estáveis
   }, [checkoutAberto, clienteAberto, carrinho.length, cliente])
 
   function aoTeclarBusca(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -214,7 +276,7 @@ export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLo
       e.preventDefault()
       const p = filtrados[0]
       if (p.estoque_atual > 0) {
-        adicionar(p)
+        adicionar(p, separarMultiplicador(busca).quantidade)
         setBusca('')
       } else {
         avisar(`“${p.nome}” está sem estoque.`)
@@ -231,6 +293,8 @@ export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLo
       return q ? { ...p, estoque_atual: arredondarQuantidade(p.estoque_atual - q) } : p
     }))
     limparVenda()
+    // Atualiza o "Hoje: N vendas · R$" do cabeçalho (vem do servidor).
+    router.refresh()
   }
 
   function encerrarCheckout() {
@@ -252,13 +316,13 @@ export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLo
               ref={buscaRef}
               id="pdv-busca"
               type="text"
-              placeholder="Buscar produto…"
+              placeholder="Buscar produto ou código de barras…"
               value={busca}
               onChange={e => setBusca(e.target.value)}
               onKeyDown={aoTeclarBusca}
               autoComplete="off"
               aria-label="Buscar produto"
-              autoFocus
+              enterKeyHint="go"
             />
             <kbd aria-hidden="true">F1</kbd>
           </div>

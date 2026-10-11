@@ -55,6 +55,8 @@ interface Props {
   data: string
   hojeISO: string
   caminho: string
+  // Quem é gestor E TaxiDog, em "Minhas rotas": a rota montada já é dele.
+  idTaxidogProprio?: string | null
   rotas: Rota[]
   pendentes: TrechoPendente[]
   taxidogs: TaxiDogOpcao[]
@@ -96,7 +98,7 @@ export function trajetoTexto(r: Rota, googleConfigurado: boolean, falha?: string
   return falha ? 'distância indisponível' : 'calculando trajeto...'
 }
 
-export default function TaxiDogRotas({ perfil, precisaAprovacao, data, hojeISO, caminho, rotas, pendentes, taxidogs, enderecoLoja, googleConfigurado }: Props) {
+export default function TaxiDogRotas({ perfil, precisaAprovacao, data, hojeISO, caminho, rotas, pendentes, taxidogs, enderecoLoja, googleConfigurado, idTaxidogProprio = null }: Props) {
   const router = useRouter()
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [criando, setCriando] = useState(false)
@@ -131,13 +133,13 @@ export default function TaxiDogRotas({ perfil, precisaAprovacao, data, hojeISO, 
 
   function irParaDia(novaData: string) {
     setSelecionados(new Set())
-    router.push(`${caminho}?data=${novaData}`)
+    router.push(`${caminho}${caminho.includes('?') ? '&' : '?'}data=${novaData}`)
   }
 
   // Gestão abre o detalhe (organizar); o TaxiDog vai pra tela da rota.
   function abrirRota(idRota: string) {
     if (perfil === 'gestor') setAbertaId(idRota)
-    else router.push(`${caminho}?rota=${idRota}`)
+    else router.push(`${caminho}${caminho.includes('?') ? '&' : '?'}rota=${idRota}`)
   }
 
   const renderPendente = (t: TrechoPendente) => {
@@ -291,6 +293,7 @@ export default function TaxiDogRotas({ perfil, precisaAprovacao, data, hojeISO, 
           precisaAprovacao={precisaAprovacao}
           escolhidos={escolhidos}
           taxidogs={taxidogs}
+          idTaxidogProprio={idTaxidogProprio}
           onFechar={() => setCriando(false)}
           onCriada={idRota => {
             setCriando(false)
@@ -342,8 +345,9 @@ function CardRota({ rota: r, perfil, trajeto, onAbrir }: { rota: Rota; perfil: P
   )
 }
 
-function NovaRota({ data, perfil, precisaAprovacao, escolhidos, taxidogs, onFechar, onCriada }: {
+function NovaRota({ data, perfil, precisaAprovacao, escolhidos, taxidogs, idTaxidogProprio, onFechar, onCriada }: {
   data: string
+  idTaxidogProprio: string | null
   perfil: PerfilRotas
   precisaAprovacao: boolean
   escolhidos: TrechoPendente[]
@@ -364,7 +368,7 @@ function NovaRota({ data, perfil, precisaAprovacao, escolhidos, taxidogs, onFech
   function criar() {
     setErro(null)
     startTransition(async () => {
-      const r = await criarRotaAction(data, perfil === 'gestor' ? idTaxidog || null : null, escolhidos.map(t => ({ id_corrida: t.id_corrida, trecho: t.trecho })))
+      const r = await criarRotaAction(data, perfil === 'gestor' ? idTaxidog || null : idTaxidogProprio, escolhidos.map(t => ({ id_corrida: t.id_corrida, trecho: t.trecho })))
       if (r.error || !r.id_rota) {
         setErro(r.error ?? 'Não foi possível montar a rota.')
         return
@@ -645,7 +649,7 @@ export function DetalheRota({ rota: r, perfil, precisaAprovacao, caminho, penden
               <button className="btn btn-ghost btn-sm" onClick={() => setConfirmandoCancelar(true)}>{rotuloCancelar}</button>
             ))}
             {gestor && r.status !== 'planejamento' && (
-              <Link href={`${caminho}?rota=${r.id_rota}`} className="btn btn-ghost btn-sm">Tela do TaxiDog</Link>
+              <Link href={`${caminho}${caminho.includes('?') ? '&' : '?'}rota=${r.id_rota}`} className="btn btn-ghost btn-sm">Tela do TaxiDog</Link>
             )}
           </div>
           <div className="flex gap-2">

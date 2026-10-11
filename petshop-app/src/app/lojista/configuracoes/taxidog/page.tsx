@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import TaxiDogConfigForm, { type TaxiDogConfigInicial } from '@/components/lojista/TaxiDogConfigForm'
 import TaxiDogRotasConfig from '@/components/lojista/TaxiDogRotasConfig'
+import TaxiDogEsperaConfig from '@/components/lojista/TaxiDogEsperaConfig'
 import { IconAlert, IconChevronLeft } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
 
@@ -98,6 +99,12 @@ export default async function ConfiguracaoTaxiDogPage() {
             <TaxiDogRotasConfig
               inicial={!!(cfg as { taxidog_cria_rotas?: boolean }).taxidog_cria_rotas}
               disponivel={'taxidog_cria_rotas' in cfg}
+            />
+          )}
+          {cfg && (
+            <TaxiDogEsperaConfig
+              inicial={(cfg as { tempo_espera_retirada_min?: number | null }).tempo_espera_retirada_min ?? null}
+              disponivel={'tempo_espera_retirada_min' in cfg}
             />
           )}
         </>

@@ -16,6 +16,9 @@ export interface ProdutoPdv {
   estoque_atual: number
   estoque_minimo: number
   foto_url: string | null
+  // Código de barras (GTIN/EAN) das informações fiscais (migration 094) —
+  // o leitor do caixa acha o produto por ele.
+  codigo_barras?: string | null
 }
 
 export interface ItemCarrinho {

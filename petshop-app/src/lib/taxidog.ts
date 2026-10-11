@@ -285,3 +285,26 @@ export const COMPORTAMENTOS_SUGERIDOS = [
   'Morde',
   'Idoso',
 ]
+
+// ── Tempo limite de espera na retirada (migration 093) ─────────────────────
+export interface RetiradaCancelada {
+  cliente_nome: string
+  cliente_telefone: string
+  pet: string
+  loja: string
+  minutos: number
+}
+
+// Aviso ao cliente quando a retirada é cancelada por tempo de espera: link
+// do WhatsApp com a mensagem pronta (é só tocar em enviar).
+export function whatsappRetiradaCancelada(r: RetiradaCancelada): string | null {
+  const telefone = (r.cliente_telefone ?? '').replace(/\D/g, '')
+  if (!telefone) return null
+  const primeiroNome = (r.cliente_nome ?? '').split(' ')[0] || 'tudo bem'
+  const texto =
+    `Olá, ${primeiroNome}! Aqui é da ${r.loja}. ` +
+    `Nosso TaxiDog esperou ${r.minutos} minutos no endereço combinado para buscar ${r.pet}, ` +
+    `mas o pet não foi entregue nesse tempo. Por isso a retirada e o agendamento de hoje foram cancelados. ` +
+    `Se quiser remarcar, é só responder esta mensagem.`
+  return `https://wa.me/55${telefone}?text=${encodeURIComponent(texto)}`
+}

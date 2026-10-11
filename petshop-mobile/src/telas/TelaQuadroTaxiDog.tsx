@@ -6,6 +6,7 @@ import { Aviso } from '@/components/Aviso'
 import { BarraDoDia } from '@/components/BarraDoDia'
 import { BarraTopo } from '@/components/BarraTopo'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
+import { EsperaRetirada } from '@/components/EsperaRetirada'
 import { CartaoVazio } from '@/components/CartaoVazio'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Folha } from '@/components/Folha'
@@ -107,10 +108,13 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
   const { versao, marcarFeitoPorMim } = useTaxiDogTempoReal()
   const motorista = modo === 'motorista'
   const idLojista = contexto?.idLojista
-  const podeAtribuir = !!contexto?.podeGerenciarAgenda
+  // Em "Minhas corridas" ninguém distribui corridas — nem quem também
+  // gerencia a agenda: ali ele é TaxiDog.
+  const gestor = !!contexto?.podeGerenciarAgenda
+  const podeAtribuir = gestor && !motorista
   // "Atribuir para mim": quem é TaxiDog e não distribui as corridas.
   const podeAssumir = !!contexto?.podeTaxidog && !podeAtribuir
-  const pode = motorista ? !!contexto?.podeTaxidog : podeAtribuir
+  const pode = motorista ? !!contexto?.podeTaxidog : gestor
 
   const hoje = hojeBrasilISO()
   // `data`: o dia em que a pessoa estava no Gestor de Agendamentos.
@@ -154,7 +158,10 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
     } else {
       const todas = ((lista.data ?? []) as Record<string, unknown>[]).map(normalizarCorrida)
       // De dias anteriores, só o que ainda está aberto.
-      const doQuadro = todas.filter(c => c.dt_agendamento === data || (motorista && c.dt_agendamento < data && !encerrada(c.status)))
+      // Quem gerencia a agenda recebe todas as corridas da loja; em "Minhas
+      // corridas" ficam só as dele e as ainda sem TaxiDog.
+      const minhas = motorista && gestor ? todas.filter(c => !c.id_funcionario || c.id_funcionario === user?.id) : todas
+      const doQuadro = minhas.filter(c => c.dt_agendamento === data || (motorista && c.dt_agendamento < data && !encerrada(c.status)))
       setErroCarga(null)
       setCorridas(doQuadro.map(c => {
         const mudanca = pendentes.current.get(c.id_corrida)
@@ -166,7 +173,7 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
     setTaxidogs((publicos.data ?? []) as { id_funcionario: string; nome: string }[])
     setCarregadoEm(data)
     setLoading(false)
-  }, [idLojista, pode, motorista, podeAtribuir, data])
+  }, [idLojista, pode, motorista, podeAtribuir, gestor, user?.id, data])
 
   useFocusEffect(useCallback(() => { carregar() }, [carregar]))
   useEffect(() => { if (versao > 0) carregar() }, [versao, carregar])
@@ -440,6 +447,7 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
                         carregando={false}
                         onAssumir={() => assumir(c)}
                         onAvancar={status => avancar(c, status)}
+                        onCancelada={() => void carregar()}
                       />
                     )}
                   </CartaoDoQuadro>
@@ -460,6 +468,7 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
           onFechar={() => { setAbertaId(null); setErro(null) }}
           onAvancar={status => avancar(aberta, status)}
           onCancelar={() => cancelar(aberta)}
+          onCanceladaPorEspera={() => { setAbertaId(null); void carregar() }}
         />
       )}
     </ScreenContainer>
@@ -470,7 +479,7 @@ export function TelaQuadroTaxiDog({ modo }: { modo: 'loja' | 'motorista' }) {
 // (amarelo, enquanto o agendamento está Pendente) ou "Atribuir para mim".
 // Com TaxiDog: a próxima etapa ("Cheguei", "Pet entregue"...), sem precisar
 // abrir o detalhe.
-function AcaoDaCorrida({ c, podeAssumir, daLoja, ocupado, carregando, onAssumir, onAvancar }: {
+function AcaoDaCorrida({ c, podeAssumir, daLoja, ocupado, carregando, onAssumir, onAvancar, onCancelada }: {
   c: Corrida
   podeAssumir: boolean
   // Quem vê é a loja: o aviso de "aceite antes" fala com ela.
@@ -479,6 +488,7 @@ function AcaoDaCorrida({ c, podeAssumir, daLoja, ocupado, carregando, onAssumir,
   carregando: boolean
   onAssumir: () => void
   onAvancar: (status: string) => void
+  onCancelada?: () => void
 }) {
   const pendenteNaLoja = c.status_agendamento === 'Pendente'
   const aguardandoAceite = (
@@ -508,6 +518,7 @@ function AcaoDaCorrida({ c, podeAssumir, daLoja, ocupado, carregando, onAssumir,
     return (
       <AcaoDoCartao>
         <BotaoPequeno variante="primario" rotulo={acao.rotulo} carregando={carregando} desativado={ocupado} onPress={() => onAvancar(acao.status)} />
+        {c.status === 'no_endereco' && <EsperaRetirada idCorrida={c.id_corrida} pet={c.pet_nome} onCancelada={onCancelada} />}
       </AcaoDoCartao>
     )
   }
@@ -525,7 +536,7 @@ function horaDe(ts: string) {
 // Detalhe da corrida para a loja — a janela do site (DetalheCorrida): os
 // dados do tutor e do endereço, quem é o TaxiDog, o histórico, o atalho
 // para o mapa, cancelar só o TaxiDog e a etapa seguinte.
-function FolhaCorrida({ corrida: c, rota, erro, ocupado, podeAtribuir, seletor, onFechar, onAvancar, onCancelar }: {
+function FolhaCorrida({ corrida: c, rota, erro, ocupado, podeAtribuir, seletor, onFechar, onAvancar, onCancelar, onCanceladaPorEspera }: {
   corrida: Corrida
   rota: RotaDaCorrida | null
   erro: string | null
@@ -535,6 +546,7 @@ function FolhaCorrida({ corrida: c, rota, erro, ocupado, podeAtribuir, seletor, 
   onFechar: () => void
   onAvancar: (status: string) => void
   onCancelar: () => void
+  onCanceladaPorEspera: () => void
 }) {
   const [confirmandoCancelamento, setConfirmandoCancelamento] = useState(false)
   // Corrida de rota anda pela rota, não por aqui.
@@ -615,6 +627,10 @@ function FolhaCorrida({ corrida: c, rota, erro, ocupado, podeAtribuir, seletor, 
         <View style={styles.confirmacao}>
           <Aviso tipo="alerta" texto={`Cancelar só o TaxiDog? O agendamento continua, e a taxa de ${formatarReais(c.valor)} sai do valor dele.`} />
         </View>
+      )}
+
+      {c.status === 'no_endereco' && (
+        <EsperaRetirada idCorrida={c.id_corrida} pet={c.pet_nome} onCancelada={onCanceladaPorEspera} />
       )}
 
       <View style={styles.rodape}>

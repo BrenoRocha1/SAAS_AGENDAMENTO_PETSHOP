@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "start",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/macnovo/Documents/GitHub/SAAS_AGENDAMENTO_PETSHOP/petshop-app && ([ -x node_modules/.bin/next ] || npm install) && npm run dev"
+      ],
+      "port": 3000
+    }
+  ]
+}

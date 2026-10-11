@@ -505,3 +505,9 @@
 @media (max-width: 900px) {
   .pdv-texto-btn kbd, .pdv-cliente kbd, .pdv-link-btn kbd { display: none; }
 }
+
+/* Celular e telas de toque: sem teclado físico, as dicas F1/F2/… somem. */
+@media (max-width: 900px), (hover: none), (pointer: coarse) {
+  .pdv kbd, .pdv-finalizar kbd { display: none !important; }
+  .pdv-busca input { padding-right: var(--space-3); }
+}

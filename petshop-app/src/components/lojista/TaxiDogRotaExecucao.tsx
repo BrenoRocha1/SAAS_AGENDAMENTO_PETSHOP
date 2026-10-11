@@ -26,6 +26,7 @@ import {
 import { useRecalculoRotas } from '@/lib/useRecalculoRotas'
 import { DetalheRota, trajetoTexto, type PerfilRotas } from '@/components/lojista/TaxiDogRotas'
 import { IconAlert, IconCheck, IconChevronLeft, IconPhone, IconRoute, IconStore } from '@/components/icons'
+import EsperaRetirada from '@/components/lojista/EsperaRetirada'
 
 // Tela de UMA rota (?rota=... na página Rotas): resumo + INICIAR ROTA; depois
 // de sair, a PRÓXIMA PARADA em destaque (Abrir no Google Maps → Cheguei →
@@ -125,7 +126,7 @@ export default function TaxiDogRotaExecucao({ rota: r, perfil, precisaAprovacao,
 
   return (
     <div className="tdm">
-      <Link href={`${caminho}?data=${r.data}`} className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }}>
+      <Link href={`${caminho}${caminho.includes('?') ? '&' : '?'}data=${r.data}`} className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }}>
         <IconChevronLeft style={{ width: 14, height: 14 }} /> Rotas do dia
       </Link>
 
@@ -355,6 +356,9 @@ function ProximaParada({ parada: p, numero, total, enderecoLoja, ocupado, onCheg
                       {naoPronto && <span className="text-xs" style={{ color: 'var(--status-aguardando-fg)', display: 'block' }}>Ainda não está pronto</span>}
                     </span>
                   </label>
+                  {i.acao === 'embarcar' && i.status_corrida === 'no_endereco' && (
+                    <EsperaRetirada idCorrida={i.id_corrida} pet={i.pet_nome} />
+                  )}
                   {(comportamento.length > 0 || i.pet_obs || i.pet_obs_comportamento || i.obs_agendamento) && (
                     <div className="tdm-pet-obs">
                       {comportamento.map(t => <span key={t} className="badge badge-pendente" style={{ textTransform: 'none', letterSpacing: 0 }}>{t}</span>)}

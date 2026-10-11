@@ -13,15 +13,19 @@ import { IconAlert, IconCar } from '@/components/icons'
 // Corrida que está numa rota aparece com "Rota #N" e anda pela rota
 // (página /lojista/taxidog/rotas, migration 053).
 // `caminho` é pra onde a navegação por dia leva (?data=...).
-export default async function TaxiDogConteudo({ contexto, data, hojeISO, caminho }: {
+export default async function TaxiDogConteudo({ contexto, data, hojeISO, caminho, motorista, idUsuario }: {
   contexto: ContextoLojista
   data: string
   hojeISO: string
   caminho: string
+  // "Minhas corridas": vale também para quem gerencia a agenda E é TaxiDog.
+  motorista?: boolean
+  idUsuario?: string
 }) {
   const supabase = await createClient()
-  const modoMotorista = !contexto.podeGerenciarAgenda && contexto.podeTaxidog
-  const podeAtribuir = contexto.podeGerenciarAgenda
+  const modoMotorista = motorista ?? (!contexto.podeGerenciarAgenda && contexto.podeTaxidog)
+  // Em "Minhas corridas" ninguém distribui corridas: só pega as livres.
+  const podeAtribuir = contexto.podeGerenciarAgenda && !modoMotorista
   const podeConfigurar = contexto.role === 'lojista' || contexto.acessoTotal
 
   const [corridasRes, configRes, { data: taxidogs }] = await Promise.all([
@@ -44,7 +48,13 @@ export default async function TaxiDogConteudo({ contexto, data, hojeISO, caminho
     )
   }
 
-  const corridas = ((corridasRes.data ?? []) as Record<string, unknown>[]).map(normalizarCorrida)
+  let corridas = ((corridasRes.data ?? []) as Record<string, unknown>[]).map(normalizarCorrida)
+  // Quem gerencia a agenda recebe todas as corridas da loja do banco; em
+  // "Minhas corridas" ficam só as dele e as ainda sem TaxiDog, como para
+  // um TaxiDog comum.
+  if (modoMotorista && contexto.podeGerenciarAgenda && idUsuario) {
+    corridas = corridas.filter(c => !c.id_funcionario || c.id_funcionario === idUsuario)
+  }
 
   // Em qual rota ativa cada corrida ainda tem parada por fazer. Tolerante:
   // sem a migration 052 a tabela não existe e nenhuma aparece em rota.

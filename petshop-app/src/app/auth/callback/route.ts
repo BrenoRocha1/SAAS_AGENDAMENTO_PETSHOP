@@ -170,6 +170,17 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/cliente/dashboard`)
   }
 
+  // Usuário novo que veio do link de agendamento: volta direto para ele — a
+  // própria página pede CPF e telefone ali mesmo, sem perder o que já foi
+  // escolhido (antes ia para uma tela de cadastro à parte).
+  if (role !== 'lojista') {
+    const volta = voltaValida(cookieStore.get(COOKIE_VOLTA)?.value)
+    if (volta) {
+      cookieStore.delete(COOKIE_VOLTA)
+      return NextResponse.redirect(`${origin}${volta}`)
+    }
+  }
+
   // Usuário novo (sem perfil em nenhuma tabela) → completar cadastro
   if (role === 'lojista') {
     return NextResponse.redirect(`${origin}/completar-cadastro/lojista`)

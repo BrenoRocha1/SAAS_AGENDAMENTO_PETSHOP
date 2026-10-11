@@ -263,6 +263,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
           autenticado={autenticado}
           contaInvalida={contaInvalida}
           cadastroIncompleto={cadastroIncompleto}
+          nomeConta={String(user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? '')}
           carrinhoInicial={servicosParam ? servicosParam.split(',').filter(Boolean) : []}
           taxidogDisponivel={taxidogDisponivel}
           precosEstimados={precosEstimados}

@@ -39,6 +39,7 @@ import {
 import Ilustracao from '@/components/Ilustracao'
 import FaixaDoDia from '@/components/lojista/FaixaDoDia'
 import { EtapasDoQuadro } from '@/components/lojista/PecasDoQuadro'
+import EsperaRetirada from '@/components/lojista/EsperaRetirada'
 
 // Rota ativa em que a corrida ainda tem parada por fazer (migration 053):
 // ela só anda pela rota, então o card mostra "Rota #N" no lugar das etapas.
@@ -387,6 +388,7 @@ function AcaoDoCard({ c, podeAssumir, etapasNoCard, isPending, carregando, onAss
         <button type="button" className={`btn btn-primary btn-sm ${carregando ? 'btn-loading' : ''}`} disabled={isPending} onClick={() => onAvancar(acao.status)}>
           {acao.rotulo}
         </button>
+        {c.status === 'no_endereco' && <EsperaRetirada idCorrida={c.id_corrida} pet={c.pet_nome} />}
       </div>
     )
   }
@@ -524,6 +526,12 @@ function DetalheCorrida({
               {[c.obs_agendamento, c.pet_obs, c.pet_obs_comportamento].filter(Boolean).map((o, i) => (
                 <p key={i} className="text-sm" style={{ color: 'var(--gray-200)', margin: '2px 0' }}>{o}</p>
               ))}
+            </div>
+          )}
+
+          {mostrarEtapas && c.status === 'no_endereco' && (
+            <div style={{ marginTop: 'var(--space-4)' }}>
+              <EsperaRetirada idCorrida={c.id_corrida} pet={c.pet_nome} />
             </div>
           )}
 

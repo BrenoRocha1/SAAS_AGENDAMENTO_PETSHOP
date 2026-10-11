@@ -12,7 +12,7 @@ import Ilustracao from '@/components/Ilustracao'
 export const metadata: Metadata = { title: 'TaxiDog — Corridas' }
 
 interface Props {
-  searchParams: Promise<{ data?: string }>
+  searchParams: Promise<{ data?: string; modo?: string }>
 }
 
 // Kanban de corridas. "Minhas corridas" do funcionário que só é TaxiDog;
@@ -26,14 +26,18 @@ export default async function TaxiDogPage({ searchParams }: Props) {
   const contexto = await obterContextoLojista(supabase, user!.id, user!.user_metadata?.role)
   if (!contexto) return null
 
-  const modoMotorista = !contexto.podeGerenciarAgenda && contexto.podeTaxidog
+  // ?modo=minhas: quem gerencia a agenda E é TaxiDog abre as próprias
+  // corridas ("Minhas corridas" no menu), como um TaxiDog comum.
+  const minhas = params.modo === 'minhas' && contexto.podeTaxidog
+  const modoMotorista = contexto.podeTaxidog && (!contexto.podeGerenciarAgenda || minhas)
+  const sufixo = minhas ? 'modo=minhas&' : ''
   const hojeISO = hojeBrasilISO()
   // A conta que é só TaxiDog vê apenas as corridas de hoje — nem os dias
   // seguintes nem os anteriores (o que já fez fica no relatório). Quem
   // gerencia a agenda continua podendo navegar pelos dias.
   const data = !modoMotorista && params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? params.data : hojeISO
 
-  if (contexto.podeGerenciarAgenda) {
+  if (contexto.podeGerenciarAgenda && !modoMotorista) {
     // Tolerante como o resto: sem a coluna, o Kanban conta como ativado.
     const { data: lojistaRow, error } = await supabase.from('lojista').select('kanban_ativo').eq('id_lojista', contexto.idLojista).maybeSingle()
     const kanbanAtivo = error ? true : (lojistaRow?.kanban_ativo ?? true)
@@ -50,10 +54,10 @@ export default async function TaxiDogPage({ searchParams }: Props) {
       </div>
       {(contexto.podeGerenciarAgenda || contexto.podeTaxidog) && (
         <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
-          <Link href={`/lojista/taxidog/rotas?data=${data}`} className="btn btn-secondary btn-sm">
+          <Link href={`/lojista/taxidog/rotas?${sufixo}data=${data}`} className="btn btn-secondary btn-sm">
             <IconRoute style={{ width: 14, height: 14 }} /> {modoMotorista ? 'Minhas rotas' : 'Rotas'}
           </Link>
-          <Link href="/lojista/taxidog/relatorio" className="btn btn-ghost btn-sm">
+          <Link href={minhas ? '/lojista/taxidog/relatorio?modo=minhas' : '/lojista/taxidog/relatorio'} className="btn btn-ghost btn-sm">
             <IconChartBar style={{ width: 14, height: 14 }} /> Relatório de corridas
           </Link>
         </div>
@@ -77,7 +81,14 @@ export default async function TaxiDogPage({ searchParams }: Props) {
   return (
     <>
       {cabecalho}
-      <TaxiDogConteudo contexto={contexto} data={data} hojeISO={hojeISO} caminho="/lojista/taxidog" />
+      <TaxiDogConteudo
+        contexto={contexto}
+        data={data}
+        hojeISO={hojeISO}
+        caminho={minhas ? '/lojista/taxidog?modo=minhas' : '/lojista/taxidog'}
+        motorista={modoMotorista}
+        idUsuario={user!.id}
+      />
     </>
   )
 }

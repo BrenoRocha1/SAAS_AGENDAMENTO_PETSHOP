@@ -111,6 +111,7 @@ const ACOES: Record<string, Acao> = {
   cotarTaxiDogLojaAction: acoesTaxiDog.cotarTaxiDogLojaAction,
   salvarTaxiDogConfigAction: acoesTaxiDog.salvarTaxiDogConfigAction,
   salvarTaxiDogCriaRotasAction: acoesTaxiDog.salvarTaxiDogCriaRotasAction,
+  salvarTempoEsperaRetiradaAction: acoesTaxiDog.salvarTempoEsperaRetiradaAction,
   alternarPrecosEstimadosAction: acoesTaxiDog.alternarPrecosEstimadosAction,
   atribuirCorridaAction: acoesTaxiDog.atribuirCorridaAction,
   cancelarCorridaAction: acoesTaxiDog.cancelarCorridaAction,
