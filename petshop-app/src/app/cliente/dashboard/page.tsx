@@ -5,11 +5,12 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
 import { formatarReais } from '@/lib/taxidog'
-import { IconCalendar, IconDog, IconMoney, IconPaw, IconPlus, IconRepeat, IconScissors, IconStore } from '@/components/icons'
+import { IconCalendar, IconDog, IconMoney, IconPlus, IconRepeat, IconScissors, IconStore } from '@/components/icons'
 import { dataBR, type AssinaturaDoCliente } from '@/lib/planos'
 import type { Metadata } from 'next'
 import Ilustracao from '@/components/Ilustracao'
 import StatusAgendamentoMinimo from '@/components/cliente/StatusAgendamentoMinimo'
+import { GradeIndicadores, Indicador } from '@/components/relatorio/Indicador'
 
 export const metadata: Metadata = { title: 'Dashboard — Cliente' }
 
@@ -19,7 +20,7 @@ interface AgendamentoProximo {
   hr_agendamento: string
   status: 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
   valor: number
-  pet: { nome: string; raca: string } | null
+  pet: { nome: string; raca: string; foto_url: string | null } | null
   servico: { nome: string } | null
   lojista: { nome_loja: string } | null
 }
@@ -34,7 +35,7 @@ export default async function ClienteDashboard() {
       .from('agendamento')
       .select(`
         id_agendamento, dt_agendamento, hr_agendamento, status, valor,
-        pet:id_pet ( nome, raca ),
+        pet:id_pet ( nome, raca, foto_url ),
         servico:id_servico ( nome ),
         lojista:id_lojista ( nome_loja )
       `)
@@ -88,24 +89,12 @@ export default async function ClienteDashboard() {
           <IconPlus style={{ width: 18, height: 18 }} /> Novo agendamento
         </Link>
 
-        <div className="dash-app-stats">
-          <div className="dash-app-stat">
-            <span className="dash-app-stat-icone"><IconPaw style={{ width: 18, height: 18 }} /></span>
-            <strong>{totalPets ?? 0}</strong>
-            <span>Pets cadastrados</span>
+        <div style={{ marginBottom: 'var(--space-5)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+            <Indicador rotulo="Pets cadastrados" valor={totalPets ?? 0} icone={<IconDog />} />
+            <Indicador rotulo="Agendamentos" valor={totalAgendamentos ?? 0} icone={<IconCalendar />} />
           </div>
-          <div className="dash-app-stat">
-            <span className="dash-app-stat-icone"><IconCalendar style={{ width: 18, height: 18 }} /></span>
-            <strong>{totalAgendamentos ?? 0}</strong>
-            <span>Agendamentos</span>
-          </div>
-        </div>
-        <div className="dash-app-stats is-uma">
-          <div className="dash-app-stat">
-            <span className="dash-app-stat-icone"><IconMoney style={{ width: 18, height: 18 }} /></span>
-            <strong>{formatarReais(valorTotal)}</strong>
-            <span>Total investido</span>
-          </div>
+          <Indicador rotulo="Total investido" valor={formatarReais(valorTotal)} icone={<IconMoney />} />
         </div>
 
         {planosAtivos.length > 0 && (
@@ -177,28 +166,12 @@ export default async function ClienteDashboard() {
         <p className="page-subtitle">Aqui está um resumo da sua conta</p>
       </div>
 
-      <div className="grid-3" style={{ marginBottom: 'var(--space-8)' }}>
-        <div className="stat-card animate-slide-up">
-          <div className="stat-card-icon tone-primary">
-            <IconDog style={{ width: 20, height: 20 }} />
-          </div>
-          <div className="stat-card-value">{totalPets ?? 0}</div>
-          <div className="stat-card-label">Pets cadastrados</div>
-        </div>
-        <div className="stat-card animate-slide-up">
-          <div className="stat-card-icon tone-info">
-            <IconCalendar style={{ width: 20, height: 20 }} />
-          </div>
-          <div className="stat-card-value">{totalAgendamentos ?? 0}</div>
-          <div className="stat-card-label">Total de agendamentos</div>
-        </div>
-        <div className="stat-card animate-slide-up">
-          <div className="stat-card-icon tone-success">
-            <IconMoney style={{ width: 20, height: 20 }} />
-          </div>
-          <div className="stat-card-value">{formatarReais(valorTotal)}</div>
-          <div className="stat-card-label">Total investido</div>
-        </div>
+      <div style={{ marginBottom: 'var(--space-8)' }}>
+        <GradeIndicadores>
+          <Indicador rotulo="Pets cadastrados" valor={totalPets ?? 0} icone={<IconDog />} />
+          <Indicador rotulo="Total de agendamentos" valor={totalAgendamentos ?? 0} icone={<IconCalendar />} />
+          <Indicador rotulo="Total investido" valor={formatarReais(valorTotal)} icone={<IconMoney />} />
+        </GradeIndicadores>
       </div>
 
       {planosAtivos.length > 0 && (
@@ -211,25 +184,19 @@ export default async function ClienteDashboard() {
             {planosAtivos.map(a => {
               const abertas = a.cobrancas.filter(c => c.status === 'pendente')
               const vencida = abertas.some(c => c.vencimento < hoje)
+              const resumo = resumoDoPlano(a)
               return (
-                <div key={a.id_assinatura} className="card-elevated" style={{ padding: 'var(--space-3) var(--space-4)' }}>
-                  <div className="flex items-center justify-between gap-2" style={{ flexWrap: 'wrap' }}>
-                    <span className="font-semibold" style={{ color: 'var(--gray-100)' }}>{a.plano} · {a.pet ?? 'Pet'}</span>
-                    {abertas.length > 0 && (
-                      <span className={`badge ${vencida ? 'badge-cancelado' : 'badge-pendente'}`}>
-                        {vencida ? 'Cobrança vencida' : 'Cobrança em aberto'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-sm text-muted" style={{ marginTop: 4 }}>
-                    {a.periodo_atual && a.periodo_atual.beneficios.length > 0
-                      ? a.periodo_atual.beneficios.map(b => {
-                          const restam = Math.max(0, b.quantidade - Number(b.usados))
-                          return `${b.servico}: ${restam} de ${b.quantidade} restante${b.quantidade !== 1 ? 's' : ''}`
-                        }).join(' · ')
-                      : `Começa em ${dataBR(a.data_inicio)}`}
-                    {a.proxima_cobranca ? ` · renova em ${dataBR(a.proxima_cobranca)}` : ''}
-                  </div>
+                <div key={a.id_assinatura} className="dash-app-cartao">
+                  <strong>{a.plano} · {a.pet ?? 'Pet'}</strong>
+                  <span>
+                    {resumo.destaque && <span className="dash-app-cartao-destaque">{resumo.destaque} </span>}
+                    {resumo.resto}
+                  </span>
+                  {abertas.length > 0 && (
+                    <span className={`dash-app-selo ${vencida ? 'is-vencida' : 'is-aberta'}`}>
+                      {vencida ? 'Cobrança vencida' : 'Cobrança em aberto'}
+                    </span>
+                  )}
                 </div>
               )
             })}
@@ -267,16 +234,22 @@ export default async function ClienteDashboard() {
                     width: 52,
                     height: 52,
                     borderRadius: 'var(--radius-md)',
-                    background: 'var(--primary-soft-bg)',
-                    border: '1px solid var(--primary-soft-border)',
+                    background: ag.pet?.foto_url ? 'transparent' : 'var(--primary-soft-bg)',
+                    border: ag.pet?.foto_url ? 'none' : '1px solid var(--primary-soft-border)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: 'var(--primary-400)',
                     flexShrink: 0,
+                    overflow: 'hidden',
                   }}
                 >
-                  <IconScissors style={{ width: 22, height: 22 }} />
+                  {ag.pet?.foto_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
+                    <img src={ag.pet.foto_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <IconScissors style={{ width: 22, height: 22 }} />
+                  )}
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>

@@ -1,10 +1,10 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, type ComponentType } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { StyleSheet, View } from 'react-native'
+import { IconCalendar, IconDog, IconMoney, type IconeProps } from '@/components/IconesDoSite'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { BarraTopo } from '@/components/BarraTopo'
 import { Card } from '@/components/Card'
-import { StatCard } from '@/components/StatCard'
 import { SectionHeader } from '@/components/SectionHeader'
 import { EmptyState } from '@/components/EmptyState'
 import { StatusAgendamentoMinimo } from '@/components/StatusAgendamentoMinimo'
@@ -96,11 +96,11 @@ export default function InicioClienteScreen() {
       <Botao rotulo="Novo agendamento" icone="add" onPress={() => router.push('/cliente/agendamentos/novo' as never)} style={{ marginBottom: spacing.lg }} />
 
       <View style={styles.statsRow}>
-        <StatCard icon="paw-outline" value={totais.pets} label="Pets cadastrados" />
-        <StatCard icon="calendar-outline" value={totais.agendamentos} label="Agendamentos" />
+        <IndicadorCliente icone={IconDog} valor={totais.pets} rotulo="Pets cadastrados" />
+        <IndicadorCliente icone={IconCalendar} valor={totais.agendamentos} rotulo="Agendamentos" />
       </View>
       <View style={[styles.statsRow, { marginBottom: spacing.xl }]}>
-        <StatCard icon="cash-outline" value={formatarMoeda(totais.investido)} label="Total investido" />
+        <IndicadorCliente icone={IconMoney} valor={formatarMoeda(totais.investido)} rotulo="Total investido" />
       </View>
 
       {planos.length > 0 && (
@@ -169,12 +169,35 @@ export default function InicioClienteScreen() {
   )
 }
 
+// Indicador no mesmo formato do relatório de vendas do lojista (web):
+// rótulo e ícone numa linha, número grande embaixo — só aqui no Início
+// do cliente, por isso não fica em @/components (StatCard é a versão
+// genérica, usada também pelo lojista).
+function IndicadorCliente({ rotulo, valor, icone: Icone }: { rotulo: string; valor: string | number; icone: ComponentType<IconeProps> }) {
+  return (
+    <View style={styles.indicador}>
+      <View style={styles.indicadorTopo}>
+        <Text style={styles.indicadorRotulo}>{rotulo}</Text>
+        <Icone size={16} color={colors.primary600} />
+      </View>
+      <Text style={styles.indicadorValor}>{valor}</Text>
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
   // 20 até o botão, como no site (`.dash-app-cabecalho`).
   header: { marginBottom: 20 },
   saudacao: { ...typography.heading.xl, color: colors.text },
   sub: { ...typography.body.lg, color: colors.textMuted, marginTop: 2 },
   statsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
+  indicador: {
+    flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.lg, padding: spacing.md, gap: 6,
+  },
+  indicadorTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  indicadorRotulo: { ...typography.body.sm, color: colors.textMuted, flexShrink: 1 },
+  indicadorValor: { ...typography.heading.lg, color: colors.text },
   titulo: { ...typography.body.lg, fontWeight: '700', color: colors.text },
   texto: { ...typography.body.md, color: colors.textMuted },
   destaque: { ...typography.body.md, fontWeight: '700', color: colors.primary600 },
