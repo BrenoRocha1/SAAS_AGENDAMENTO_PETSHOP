@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native'
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Card } from '@/components/Card'
 import { Botao } from '@/components/Botao'
 import { Aviso } from '@/components/Aviso'
 import { Campo } from '@/components/Campo'
+import { IconCheck } from '@/components/IconesDoSite'
+import { adicionalValePara, carregarAdicionaisOnline, type ServicoAdicional } from '@/lib/adicionais'
 import { SearchField } from '@/components/SearchField'
 import { SeletorDia } from '@/components/SeletorDia'
 import { GradeHorarios } from '@/components/GradeHorarios'
@@ -102,6 +104,10 @@ export default function NovoAgendamentoClienteScreen() {
   // Dados da loja escolhida.
   const [servicos, setServicos] = useState<Servico[] | null>(null)
   const [produtos, setProdutos] = useState<Produto[]>([])
+  // Serviços adicionais que a loja liberou para o agendamento (migration
+  // 095) e os que o cliente marcou.
+  const [adicionaisLoja, setAdicionaisLoja] = useState<ServicoAdicional[]>([])
+  const [adicionaisMarcados, setAdicionaisMarcados] = useState<string[]>([])
   const [taxidogDisponivel, setTaxidogDisponivel] = useState(false)
   const [precosEstimados, setPrecosEstimados] = useState(false)
   const [formasLoja, setFormasLoja] = useState<FormasLoja>(FORMAS_LOJA_PADRAO)
@@ -142,6 +148,7 @@ export default function NovoAgendamentoClienteScreen() {
     if (!lojaId) return
     let cancelado = false
     const hojeISO = format(agoraBrasil(), 'yyyy-MM-dd')
+    carregarAdicionaisOnline(lojaId).then(lista => { if (!cancelado) setAdicionaisLoja(lista) })
     Promise.all([
       supabase.from('servico').select('id_servico, nome, descricao, preco, duracao').eq('id_lojista', lojaId).eq('status', 'Ativo').order('nome'),
       // Produtos liberados pra venda no agendamento online (migration 039), com estoque.
@@ -248,7 +255,12 @@ export default function NovoAgendamentoClienteScreen() {
     .filter(i => Number.isFinite(i.quantidade) && i.quantidade > 0)
   const totalProdutos = itensProdutos.reduce((soma, i) => soma + i.produto.preco_venda * i.quantidade, 0)
   const valorTaxi = escolhaTaxi?.cotacao.valor ?? 0
-  const totalSemPlano = (servico ? precoDe(servico) : 0) + totalProdutos + valorTaxi
+  // Só os adicionais que valem para o serviço escolhido; trocar de serviço
+  // derruba a marca do que não vale mais.
+  const opcoesAdicionais = servico ? adicionaisLoja.filter(a => adicionalValePara(a, servico.id_servico)) : []
+  const itensAdicionais = opcoesAdicionais.filter(a => adicionaisMarcados.includes(a.id_adicional))
+  const totalAdicionais = itensAdicionais.reduce((soma, a) => soma + a.preco, 0)
+  const totalSemPlano = (servico ? precoDe(servico) : 0) + totalProdutos + valorTaxi + totalAdicionais
   const planosDoPet = planos?.chave === `${lojaId}|${petId}|${data}` ? planos.lista : null
   const coberturaServicos = coberturaDoPlano(planosDoPet, (servicos ?? []).map(s => s.id_servico))
   const cobertura = coberturaDoPlano(planosDoPet, servicoId ? [servicoId] : [])
@@ -259,7 +271,7 @@ export default function NovoAgendamentoClienteScreen() {
   // TaxiDog): não há o que pagar, então a forma de pagamento nem aparece.
   // Se depois entrar algo cobrado (um produto na confirmação, por exemplo),
   // a etapa volta e é exigida antes de confirmar. O servidor refaz a conta.
-  const planoCobreTudo = vaiUsarPlano && !planoNaoCobriu && itensProdutos.length === 0 && !escolhaTaxi
+  const planoCobreTudo = vaiUsarPlano && !planoNaoCobriu && itensProdutos.length === 0 && !escolhaTaxi && itensAdicionais.length === 0
 
   const todasEtapas: Etapa[] = taxidogDisponivel
     ? ['loja', 'petservico', 'transporte', 'pagamento', 'datahora', 'confirmar']
@@ -305,7 +317,7 @@ export default function NovoAgendamentoClienteScreen() {
     }
     setErro(null)
     setEnviando(true)
-    const r = await chamarAcao<{ id_agendamento: string; plano: { aplicados: number; valorAbatido: number; aviso?: string } }>(
+    const r = await chamarAcao<{ id_agendamento: string; plano: { aplicados: number; valorAbatido: number; aviso?: string }; aviso_adicionais?: string; adicionais_atuais?: ServicoAdicional[] }>(
       'criarAgendamentoAction',
       form({
         id_lojista: lojaId,
@@ -316,6 +328,9 @@ export default function NovoAgendamentoClienteScreen() {
         obs: obs.trim(),
         produtos: itensProdutos.length > 0 ? JSON.stringify(itensProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))) : null,
         taxidog: escolhaTaxi ? taxiDogParaFormulario(escolhaTaxi) : null,
+        adicionais: itensAdicionais.length > 0
+          ? JSON.stringify(itensAdicionais.map(a => ({ id_servico: servicoId, id_adicional: a.id_adicional, preco: a.preco })))
+          : null,
         forma_pagamento: planoCobreTudo ? null : forma,
         usar_plano: vaiUsarPlano ? '1' : null,
       }),
@@ -323,6 +338,9 @@ export default function NovoAgendamentoClienteScreen() {
     setEnviando(false)
     if (r.error) {
       setErro(r.error)
+      // Um adicional saiu do ar ou mudou de preço: o resumo passa a mostrar
+      // a lista atual, e o cliente confirma de novo.
+      if (r.adicionais_atuais) setAdicionaisLoja(r.adicionais_atuais)
       // O servidor não confirmou a cobertura do plano: pede o pagamento.
       if (planoCobreTudo && r.error === 'Escolha a forma de pagamento.') {
         setPlanoNaoCobriu(true)
@@ -336,7 +354,7 @@ export default function NovoAgendamentoClienteScreen() {
       id: typeof r.id_agendamento === 'string' ? r.id_agendamento : null,
       total: Math.max(0, totalSemPlano - (r.plano?.valorAbatido ?? 0)),
       plano: r.plano ? { aplicados: r.plano.aplicados, valorAbatido: r.plano.valorAbatido } : null,
-      aviso: r.plano?.aviso ?? null,
+      aviso: [r.plano?.aviso, r.aviso_adicionais].filter(Boolean).join(' ') || null,
     })
   }
 
@@ -348,6 +366,7 @@ export default function NovoAgendamentoClienteScreen() {
     const resumo = [
       `Olá! Acabei de agendar em ${loja.nome_loja}:`,
       `- ${servico.nome}`,
+      ...itensAdicionais.map(a => `- ${a.nome} (${formatarMoeda(a.preco)})`),
       ...itensProdutos.map(i => `- ${i.produto.nome} (${i.quantidade} ${rotuloUnidade(i.produto.unidade_venda)})`),
       ...(escolhaTaxi ? [`- TaxiDog: ${ROTULO_MODALIDADE[escolhaTaxi.modalidade]} (${formatarMoeda(escolhaTaxi.cotacao.valor)})`] : []),
       `Pet: ${pet?.nome ?? ''}`,
@@ -541,6 +560,7 @@ export default function NovoAgendamentoClienteScreen() {
             {taxidogDisponivel && (
               <Linha rotulo="Transporte" valor={escolhaTaxi ? `TaxiDog · ${ROTULO_MODALIDADE[escolhaTaxi.modalidade]} · ${formatarMoeda(escolhaTaxi.cotacao.valor)}` : 'Você leva o pet até a loja'} />
             )}
+            {itensAdicionais.map(a => <Linha key={a.id_adicional} rotulo={a.nome} valor={formatarMoeda(a.preco)} />)}
             {totalProdutos > 0 && <Linha rotulo="Produtos" valor={formatarMoeda(totalProdutos)} />}
             {descontoPlano > 0 && <Linha rotulo="Saldo do plano" valor={`− ${formatarMoeda(descontoPlano)}`} />}
             <View style={styles.divisor} />
@@ -553,6 +573,32 @@ export default function NovoAgendamentoClienteScreen() {
               </Text>
             )}
           </Card>
+
+          {opcoesAdicionais.length > 0 && (
+            <>
+              <Text style={styles.rotulo}>Serviços adicionais para {servico.nome} (opcional)</Text>
+              {opcoesAdicionais.map(a => {
+                const marcado = adicionaisMarcados.includes(a.id_adicional)
+                return (
+                  <Pressable
+                    key={a.id_adicional}
+                    onPress={() => setAdicionaisMarcados(m => (m.includes(a.id_adicional) ? m.filter(x => x !== a.id_adicional) : [...m, a.id_adicional]))}
+                    disabled={enviando}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: marcado }}
+                    style={[styles.adicional, marcado && styles.adicionalAtivo]}
+                  >
+                    <View style={[styles.caixa, marcado && styles.caixaAtiva]}>{marcado && <IconCheck size={12} color={colors.white} />}</View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.titulo} numberOfLines={2}>{a.nome}</Text>
+                      {a.descricao ? <Text style={styles.textoPequeno}>{a.descricao}</Text> : null}
+                    </View>
+                    <Text style={styles.adicionalPreco}>+ {formatarMoeda(a.preco)}</Text>
+                  </Pressable>
+                )
+              })}
+            </>
+          )}
 
           {produtos.length > 0 && (
             <>
@@ -618,5 +664,10 @@ const styles = StyleSheet.create({
   linhaValor: { ...typography.body.lg, color: colors.text, flex: 1 },
   divisor: { height: 1, backgroundColor: colors.border },
   produto: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.md },
+  adicional: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, padding: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10 },
+  adicionalAtivo: { borderColor: colors.primary600, backgroundColor: colors.primary50 },
+  adicionalPreco: { ...typography.body.lg, fontWeight: '700', color: colors.primary300 },
+  caixa: { width: 18, height: 18, marginTop: 3, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.textFaint, borderRadius: 5 },
+  caixaAtiva: { backgroundColor: colors.primary600, borderColor: colors.primary600 },
   rodape: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl },
 })

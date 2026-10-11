@@ -1,0 +1,31 @@
+/* Serviços adicionais na revisão do agendamento online (migration 095):
+   uma caixa de marcar por adicional, no mesmo desenho das formas de
+   pagamento da tela. */
+.ag2-adicionais-grupo { display: flex; flex-direction: column; gap: 8px; }
+.ag2-adicionais { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ag2-adicional {
+  display: flex; align-items: flex-start; gap: 12px; width: 100%; min-height: 48px; padding: 11px 14px;
+  border-radius: 12px; border: 1.5px solid var(--gray-700); background: var(--gray-900);
+  font: inherit; text-align: left; cursor: pointer; transition: all var(--transition-fast);
+}
+.ag2-adicional:hover { border-color: var(--primary-300); }
+.ag2-adicional.is-ativo { border-color: var(--primary-600); background: var(--primary-soft-bg-8); }
+.ag2-caixa {
+  flex-shrink: 0; width: 18px; height: 18px; margin-top: 2px; display: grid; place-items: center;
+  border: 2px solid var(--gray-600); border-radius: 5px; color: transparent; transition: all var(--transition-fast);
+}
+.ag2-caixa svg { width: 12px; height: 12px; }
+.ag2-adicional.is-ativo .ag2-caixa { border-color: var(--primary-600); background: var(--primary-600); color: #fff; }
+.ag2-adicional-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ag2-adicional-preco { flex-shrink: 0; font-size: 0.9375rem; font-weight: 700; white-space: nowrap; color: var(--primary-300); }
+
+/* Mesma escolha no agendamento pela conta do cliente (painel). */
+.adic-escolha { display: flex; flex-direction: column; gap: var(--space-2); }
+.adic-escolha-opcao {
+  display: flex; align-items: flex-start; gap: var(--space-3); width: 100%; padding: var(--space-2) var(--space-3);
+  background: var(--gray-850); border: 1px solid var(--gray-800); border-radius: var(--radius-sm);
+  font: inherit; text-align: left; cursor: pointer; transition: all var(--transition-fast);
+}
+.adic-escolha-opcao:hover { border-color: var(--primary-300); }
+.adic-escolha-opcao.is-ativa { border-color: var(--primary-600); background: var(--primary-soft-bg-8); }
+.adic-escolha-opcao.is-ativa .ag2-caixa { border-color: var(--primary-600); background: var(--primary-600); color: #fff; }

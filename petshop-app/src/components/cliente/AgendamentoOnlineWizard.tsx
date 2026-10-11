@@ -10,6 +10,8 @@ import PlanoNoPedido, { useMeusBeneficios } from './PlanoNoPedido'
 import { coberturaDoPlano } from '@/lib/planos'
 import { removerHorariosPassados } from '@/lib/agenda'
 import { rotuloUnidade } from '@/lib/produto'
+import { alternarAdicionalMarcado, gruposDeAdicionais, itensAdicionaisEscolhidos, type ServicoAdicional } from '@/lib/adicionais'
+import './adicionais-agendamento.css'
 import { formatarCpf, formatarEnderecoLoja, formatarTelefone } from '@/lib/format'
 import { addDays, format, getDay, isAfter, isBefore, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -116,6 +118,9 @@ interface Props {
   janela: Janela
   servicos: Servico[]
   produtos: Produto[]
+  // Serviços adicionais que a loja liberou para o agendamento online
+  // (migration 095) — opcionais, por serviço do pedido.
+  adicionais?: ServicoAdicional[]
   avaliacoes: AvaliacoesPublicas
   pets: Pet[]
   cliente: Cliente
@@ -155,7 +160,7 @@ const DIAS_NA_FAIXA = 14
 const duracaoTexto = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? String(min % 60).padStart(2, '0') : ''}` : `${min} min`)
 
 export default function AgendamentoOnlineWizard({
-  lojista, horarios, bloqueios, janela, servicos, produtos, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, cadastroIncompleto = false, nomeConta = '', carrinhoInicial,
+  lojista, horarios, bloqueios, janela, servicos, produtos, adicionais, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, cadastroIncompleto = false, nomeConta = '', carrinhoInicial,
   taxidogDisponivel, precosEstimados, formasPagamento,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
@@ -195,6 +200,9 @@ export default function AgendamentoOnlineWizard({
   const [slots, setSlots] = useState<Slot[] | null>(null)
   const [precos, setPrecos] = useState<Record<string, number>>({})
   const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, number>>({})
+  const [adicionaisAtuais, setAdicionaisAtuais] = useState<ServicoAdicional[]>(adicionais ?? [])
+  // Por serviço do pedido: os adicionais marcados.
+  const [adicionaisMarcados, setAdicionaisMarcados] = useState<Record<string, string[]>>({})
 
   // Espécie/porte do pet escolhido, quando faltam (o preço depende disso).
   const [especieForm, setEspecieForm] = useState<'Cão' | 'Gato' | ''>(petsIniciais.length === 1 ? petsIniciais[0].especie ?? '' : '')
@@ -220,7 +228,12 @@ export default function AgendamentoOnlineWizard({
   )
   const totalProdutos = itensCarrinhoProdutos.reduce((acc, i) => acc + i.produto.preco_venda * i.quantidade, 0)
   const valorTaxiDog = escolhaTaxiDog?.cotacao.valor ?? 0
-  const totalSemPlano = valorTotal + totalProdutos + valorTaxiDog
+  // Adicionais: o que vale para cada serviço do pedido e o que o cliente
+  // marcou. A lista é trocada pela do servidor se ele avisar que mudou.
+  const gruposAdicionais = gruposDeAdicionais(adicionaisAtuais, servicosCarrinho)
+  const itensAdicionais = itensAdicionaisEscolhidos(gruposAdicionais, adicionaisMarcados)
+  const totalAdicionais = itensAdicionais.reduce((acc, i) => acc + i.preco, 0)
+  const totalSemPlano = valorTotal + totalProdutos + valorTaxiDog + totalAdicionais
 
   // Plano do cliente (migration 075): saldo do pet nesta loja no período
   // da data escolhida — cobre os serviços do carrinho que estão no plano.
@@ -241,7 +254,7 @@ export default function AgendamentoOnlineWizard({
   const [planoNaoCobriu, setPlanoNaoCobriu] = useState(false)
   const nadaAPagar = vaiUsarPlano && !planoNaoCobriu
     && carrinho.length > 0 && carrinho.every(id => cobertura.cobertos.some(c => c.id_servico === id))
-    && itensCarrinhoProdutos.length === 0 && !escolhaTaxiDog
+    && itensCarrinhoProdutos.length === 0 && !escolhaTaxiDog && itensAdicionais.length === 0
 
   // Preço real (considerando variação por porte/raça) assim que há pet + carrinho
   useEffect(() => {
@@ -454,6 +467,9 @@ export default function AgendamentoOnlineWizard({
       fd.set('produtos', JSON.stringify(itensCarrinhoProdutos.map(i => ({ id_produto: i.produto.id_produto, quantidade: i.quantidade }))))
     }
     if (escolhaTaxiDog) fd.set('taxidog', taxiDogParaFormulario(escolhaTaxiDog))
+    if (itensAdicionais.length > 0) {
+      fd.set('adicionais', JSON.stringify(itensAdicionais.map(i => ({ id_servico: i.id_servico, id_adicional: i.id_adicional, preco: i.preco }))))
+    }
     if (!nadaAPagar && formaPagamento) fd.set('forma_pagamento', formaPagamento)
     if (vaiUsarPlano) fd.set('usar_plano', '1')
 
@@ -461,6 +477,9 @@ export default function AgendamentoOnlineWizard({
       const result = await criarAgendamentoOnlineAction(fd)
       if (result?.error) {
         setErro(result.error)
+        // Um adicional saiu do ar ou mudou de preço: o resumo passa a
+        // mostrar a lista atual, e o cliente confirma de novo.
+        if (result.adicionais_atuais) setAdicionaisAtuais(result.adicionais_atuais)
         // O servidor não confirmou a cobertura do plano: pede o pagamento.
         if (nadaAPagar && result.error === 'Escolha a forma de pagamento.') setPlanoNaoCobriu(true)
         return
@@ -468,7 +487,7 @@ export default function AgendamentoOnlineWizard({
       setResultado({
         ids: result?.ids_agendamento ?? [],
         plano: result?.plano ? { aplicados: result.plano.aplicados, valorAbatido: result.plano.valorAbatido } : null,
-        aviso: result?.plano?.aviso ?? null,
+        aviso: [result?.plano?.aviso, result?.aviso_adicionais].filter(Boolean).join(' ') || null,
       })
       setStep('feito')
     })
@@ -477,6 +496,7 @@ export default function AgendamentoOnlineWizard({
   // Linhas do resumo da confirmação / mensagem do WhatsApp.
   const itensResumo = [
     ...servicosCarrinho.map(s => s.nome),
+    ...itensAdicionais.map(i => `${i.nome} (${formatarReais(i.preco)})`),
     ...itensCarrinhoProdutos.map(i => `${i.produto.nome} (${i.quantidade} ${rotuloUnidade(i.produto.unidade_venda)})`),
     ...(escolhaTaxiDog ? [`TaxiDog: ${ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]} (${formatarReais(escolhaTaxiDog.cotacao.valor)})`] : []),
   ]
@@ -836,6 +856,44 @@ export default function AgendamentoOnlineWizard({
               </section>
             )}
 
+            {gruposAdicionais.length > 0 && (
+              <section className="ag2-bloco">
+                <div className="ag2-bloco-topo">
+                  <h2 className="ag2-bloco-titulo">Seu pet precisa de algo a mais? <span className="ag2-opcional">opcional</span></h2>
+                  {totalAdicionais > 0 && <span className="ag2-bloco-valor">+ {formatarReais(totalAdicionais)}</span>}
+                </div>
+                {gruposAdicionais.map(g => (
+                  <div key={g.servico.id_servico} className="ag2-adicionais-grupo">
+                    <p className="ag2-nota">Serviços adicionais para {g.servico.nome}</p>
+                    <ul className="ag2-adicionais">
+                      {g.opcoes.map(a => {
+                        const marcado = (adicionaisMarcados[g.servico.id_servico] ?? []).includes(a.id_adicional)
+                        return (
+                          <li key={a.id_adicional}>
+                            <button
+                              type="button"
+                              className={`ag2-adicional ${marcado ? 'is-ativo' : ''}`}
+                              role="checkbox"
+                              aria-checked={marcado}
+                              disabled={isPending}
+                              onClick={() => setAdicionaisMarcados(m => alternarAdicionalMarcado(m, g.servico.id_servico, a.id_adicional))}
+                            >
+                              <span className="ag2-caixa" aria-hidden="true"><IconCheck /></span>
+                              <span className="ag2-adicional-texto">
+                                <span className="ag2-servico-nome">{a.nome}</span>
+                                {a.descricao && <span className="ag2-servico-info">{a.descricao}</span>}
+                              </span>
+                              <span className="ag2-adicional-preco">+ {formatarReais(a.preco)}</span>
+                            </button>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </section>
+            )}
+
             {produtos.length > 0 && (
               <section className="ag2-bloco">
                 <div className="ag2-bloco-topo">
@@ -894,8 +952,11 @@ export default function AgendamentoOnlineWizard({
                 <span className="ag2-resumo-item">{petSel?.nome}<span>{duracaoTexto(duracaoTotal)}</span></span>
                 <span className="ag2-resumo-sub">{dataLongaMaiuscula}, {horaInicio}</span>
               </div>
-              {(escolhaTaxiDog || totalProdutos > 0 || descontoPlano > 0) && (
+              {(escolhaTaxiDog || totalProdutos > 0 || descontoPlano > 0 || itensAdicionais.length > 0) && (
                 <div className="ag2-resumo-linha">
+                  {itensAdicionais.map(i => (
+                    <span key={`${i.id_servico}:${i.id_adicional}`} className="ag2-resumo-item">{i.nome}<span>{formatarReais(i.preco)}</span></span>
+                  ))}
                   {escolhaTaxiDog && <span className="ag2-resumo-item">TaxiDog · {ROTULO_MODALIDADE[escolhaTaxiDog.modalidade]}<span>{formatarReais(escolhaTaxiDog.cotacao.valor)}</span></span>}
                   {totalProdutos > 0 && <span className="ag2-resumo-item">Produtos<span>{formatarReais(totalProdutos)}</span></span>}
                   {descontoPlano > 0 && <span className="ag2-resumo-item is-desconto">Saldo do plano<span>− {formatarReais(descontoPlano)}</span></span>}

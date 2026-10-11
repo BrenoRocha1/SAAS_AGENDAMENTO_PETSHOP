@@ -15,6 +15,7 @@ import { FolhaConfirmar } from '@/components/FolhaConfirmar'
 import { IconPlus, IconSliders, IconTrash } from '@/components/IconesDoSite'
 import { Seletor } from '@/components/Seletor'
 import { Interruptor } from '@/components/Interruptor'
+import { ServicosAdicionais } from '@/components/ServicosAdicionais'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -283,6 +284,15 @@ export default function ServicosScreen() {
             </Card>
           ))}
         </View>
+      )}
+
+      {/* Serviços adicionais (migration 095): seção própria, abaixo dos principais. */}
+      {idLojista && (
+        <ServicosAdicionais
+          idLojista={idLojista}
+          servicos={servicos.map(s => ({ id_servico: s.id_servico, nome: s.nome }))}
+          podeExcluir={contexto?.role === 'lojista' || !!contexto?.acessoTotal}
+        />
       )}
 
       {/* A mesma janela "Novo Serviço / Editar Serviço" do site (ServicosList). */}

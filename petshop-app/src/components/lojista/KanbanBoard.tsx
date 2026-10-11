@@ -20,6 +20,7 @@ import { formatarReais, situacaoDoTaxiDog, type TomTaxiDog } from '@/lib/taxidog
 import { origemTaxiDogDaVisita, type TransporteVisita } from '@/lib/taxidog-visita'
 import TransporteAgendamento from '@/components/lojista/TransporteAgendamento'
 import PagamentoAgendamento from '@/components/lojista/PagamentoAgendamento'
+import AdicionaisAgendamento from '@/components/lojista/AdicionaisAgendamento'
 import BeneficioAgendamento from '@/components/lojista/planos/BeneficioAgendamento'
 import NovoAgendamentoModal from '@/components/lojista/NovoAgendamentoModal'
 import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/DashboardClient'
@@ -593,6 +594,7 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
                   </div>
                 </div>
               )}
+              <AdicionaisAgendamento key={`adicionais:${selecionado.id_agendamento}`} idAgendamento={selecionado.id_agendamento} status={selecionado.status} />
               {(selecionado.taxidog || taxidogAtivo) && (
                 <TransporteAgendamento
                   key={`${selecionado.id_agendamento}:${selecionado.taxidog?.id_corrida ?? ''}:${selecionado.taxidog?.status ?? ''}`}
