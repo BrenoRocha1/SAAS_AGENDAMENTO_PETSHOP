@@ -257,13 +257,12 @@ export default function AgendamentosClienteScreen() {
 
   const renderVisita = (v: Visita, emDestaque = false) => {
     const [, mes, dia] = v.dt.split('-')
-    const aberta = emDestaque || abertas.has(v.chave)
+    const aberta = abertas.has(v.chave)
     const temTaxi = !!v.taxidog && v.taxidog.status !== 'cancelada'
     return (
       <Card key={v.chave} style={[styles.cartao, emDestaque && styles.cartaoDestaque]}>
         <Pressable
           onPress={() => alternar(v.chave)}
-          disabled={emDestaque}
           accessibilityRole="button"
           accessibilityState={{ expanded: aberta }}
           style={styles.resumo}
@@ -274,6 +273,7 @@ export default function AgendamentosClienteScreen() {
             <Text style={styles.dataSemana}>{diaSemanaCurto(v.dt)}</Text>
           </View>
           <View style={{ flex: 1, gap: 3 }}>
+            {emDestaque && <Text style={styles.destaqueRotulo}>Seu próximo agendamento</Text>}
             <Text style={[styles.titulo, v.status === 'Cancelado' && styles.riscado]} numberOfLines={2}>
               {v.itens.map(i => i.servico?.nome ?? 'Serviço').join(' + ')}
             </Text>
@@ -287,7 +287,7 @@ export default function AgendamentosClienteScreen() {
           </View>
           <View style={{ alignItems: 'flex-end', gap: 4 }}>
             <Text style={styles.valor}>{formatarMoeda(v.valor)}</Text>
-            {!emDestaque && <IconeApp name={aberta ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textFaint} />}
+            <IconeApp name={aberta ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textFaint} />
           </View>
         </Pressable>
         {aberta && renderDetalhes(v)}
@@ -418,6 +418,7 @@ const styles = StyleSheet.create({
   secao: { ...typography.heading.sm, color: colors.text, marginBottom: spacing.md },
   cartao: { gap: spacing.md },
   cartaoDestaque: { borderColor: colors.primary200 },
+  destaqueRotulo: { ...typography.label.sm, color: colors.primary600, textTransform: 'uppercase' },
   resumo: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   data: { width: 46, alignItems: 'center' },
   dataDia: { ...typography.heading.lg, color: colors.text },
@@ -438,8 +439,8 @@ const styles = StyleSheet.create({
   servico: { gap: spacing.sm },
   linha: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   duas: { flexDirection: 'row', gap: spacing.md },
-  bloco: { gap: 4, backgroundColor: colors.surfaceMuted, borderRadius: radius.md, padding: spacing.md },
-  blocoTitulo: { ...typography.label.sm, color: colors.textDim, textTransform: 'uppercase' },
+  bloco: { gap: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
+  blocoTitulo: { ...typography.label.sm, color: colors.textFaint, textTransform: 'uppercase' },
   pix: { marginTop: 4, gap: 2 },
   pixChave: { ...typography.body.lg, fontWeight: '600', color: colors.text },
   estrelasInput: { flexDirection: 'row', justifyContent: 'center', gap: spacing.sm },

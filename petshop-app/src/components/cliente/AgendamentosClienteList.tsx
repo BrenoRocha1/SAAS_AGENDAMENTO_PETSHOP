@@ -388,18 +388,19 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
 
   const renderVisita = (v: Visita, emDestaque = false) => {
     const dataObj = parseISO(v.dt)
-    const aberta = emDestaque || abertas.has(v.chave)
+    const aberta = abertas.has(v.chave)
     const loja = v.itens[0].lojista?.nome_loja ?? ''
     const novo = differenceInHours(new Date(), new Date(v.criadoEm)) < 24
     return (
       <div key={v.chave} className={`card agc-card ${emDestaque ? 'agc-card-destaque' : ''} ${v.status === 'Cancelado' ? 'agc-card-cancelada' : ''}`}>
-        <button type="button" className="agc-resumo" onClick={() => !emDestaque && alternar(v.chave)} aria-expanded={aberta} disabled={emDestaque}>
+        <button type="button" className="agc-resumo" onClick={() => alternar(v.chave)} aria-expanded={aberta}>
           <div className="agc-data">
             <span className="agc-data-dia">{format(dataObj, 'dd')}</span>
             <span className="agc-data-mes">{format(dataObj, 'MMM', { locale: ptBR })}</span>
             <span className="agc-data-semana">{format(dataObj, 'EEE', { locale: ptBR })}</span>
           </div>
           <div className="agc-info">
+            {emDestaque && <div className="agc-destaque-rotulo">Seu próximo agendamento</div>}
             <div className="agc-servicos-titulo">{v.itens.map(i => i.servico?.nome ?? 'Serviço').join(' + ')}</div>
             <div className="text-sm text-muted">
               {v.itens[0].pet?.nome ?? 'Pet'} · {primeiraHora(v).slice(0, 5)}
@@ -422,9 +423,7 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
           <div className="agc-valor">
             <span className="font-semibold text-success">{formatarReais(v.valor)}</span>
             {v.taxidog && v.taxidog.status !== 'cancelada' && <span className="text-xs text-muted so-desktop">inclui TaxiDog</span>}
-            {!emDestaque && (
-              <IconChevronRight className="agc-seta" style={{ width: 16, height: 16, transform: aberta ? 'rotate(90deg)' : 'none' }} />
-            )}
+            <IconChevronRight className="agc-seta" style={{ width: 16, height: 16, transform: aberta ? 'rotate(90deg)' : 'none' }} />
           </div>
         </button>
         {aberta && renderDetalhes(v)}

@@ -2054,6 +2054,7 @@ svg.is-da-visita { opacity: 0.45; }
 }
 .agc-card { padding: 0; overflow: hidden; }
 .agc-card-destaque { border-color: var(--primary-soft-border); box-shadow: 0 0 0 1px var(--primary-soft-border); }
+.agc-destaque-rotulo { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--primary-400); margin-bottom: 2px; }
 .agc-card-cancelada .agc-servicos-titulo { text-decoration: line-through; color: var(--gray-500); }
 .agc-resumo {
   display: flex;
@@ -2542,8 +2543,8 @@ a.tela-app-novo, a.tela-app-novo:hover { color: #fff; text-decoration: none; }
   }
   .agc-detalhes .btn.agc-avaliar { background: var(--primary-600); border-color: var(--primary-600); color: #fff; }
   .agc-detalhes .btn.agc-acao.is-perigo { border-color: #fecaca; color: var(--danger-400); }
-  .agc-bloco { padding: var(--space-3); border-radius: 10px; background: var(--gray-850); }
-  .agc-bloco-titulo { font-size: 11px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--gray-300); }
+  .agc-bloco { padding-top: var(--space-2); border-top: 1px solid var(--gray-800); }
+  .agc-bloco-titulo { font-size: 11px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--gray-500); }
   .agc-bloco-titulo svg { display: none; }
   .agc-abas { flex-wrap: wrap; }
   .agc-abas .btn {

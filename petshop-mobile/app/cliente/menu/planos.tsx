@@ -68,6 +68,7 @@ export default function PlanosClienteScreen() {
 
 function PlanoCard({ a, hoje }: { a: AssinaturaDoCliente; hoje: string }) {
   const [aba, setAba] = useState<'cobrancas' | 'usos'>('cobrancas')
+  const [detalhesAbertos, setDetalhesAbertos] = useState(false)
   const ativa = a.status === 'ativa'
   const abertas = a.cobrancas.filter(c => c.status === 'pendente')
   const vencidas = abertas.filter(c => c.vencimento < hoje)
@@ -93,30 +94,6 @@ function PlanoCard({ a, hoje }: { a: AssinaturaDoCliente; hoje: string }) {
       </Text>
       {a.descricao ? <Text style={styles.texto}>{a.descricao}</Text> : null}
 
-      {ativa && a.periodo_atual && (
-        <View style={{ gap: spacing.sm }}>
-          <Text style={styles.rotulo}>Neste período ({dataBR(a.periodo_atual.inicio)} a {dataBR(a.periodo_atual.fim)})</Text>
-          {a.periodo_atual.beneficios.map(b => {
-            const usados = Number(b.usados)
-            const proporcao = b.quantidade > 0 ? Math.min(1, usados / b.quantidade) : 0
-            return (
-              <View key={b.servico} style={{ gap: 4 }}>
-                <View style={styles.linha}>
-                  <Text style={[styles.texto, { flex: 1 }]}>{b.servico}</Text>
-                  <Text style={styles.textoPequeno}>{usados} de {b.quantidade} usados</Text>
-                </View>
-                <View style={styles.barraFundo}>
-                  <View style={[styles.barra, { width: `${proporcao * 100}%` }]} />
-                </View>
-              </View>
-            )
-          })}
-          <Text style={styles.textoPequeno}>
-            Para usar, agende o serviço pelo app: o saldo do plano já entra no agendamento, sem cobrar o serviço.
-            {a.proxima_cobranca ? ` Renova em ${dataBR(a.proxima_cobranca)}.` : ''}
-          </Text>
-        </View>
-      )}
       {ativa && !a.periodo_atual && <Text style={styles.texto}>Começa em {dataBR(a.data_inicio)}.</Text>}
       {!ativa && a.cancelada_em && <Text style={styles.texto}>Cancelado em {dataBR(a.cancelada_em.slice(0, 10))}.</Text>}
 
@@ -133,45 +110,83 @@ function PlanoCard({ a, hoje }: { a: AssinaturaDoCliente; hoje: string }) {
         </View>
       )}
 
-      <Segmentos
-        valor={aba}
-        onChange={setAba}
-        opcoes={[{ valor: 'cobrancas', rotulo: `Cobranças (${a.cobrancas.length})` }, { valor: 'usos', rotulo: `Usos (${usosValidos.length})` }]}
-      />
+      <View style={[styles.linha, { flexWrap: 'wrap' }]}>
+        <Botao
+          rotulo="Ver detalhes do plano"
+          icone={detalhesAbertos ? 'chevron-up' : 'chevron-down'}
+          variante="secundario"
+          compacto
+          onPress={() => setDetalhesAbertos(x => !x)}
+        />
+        {whats && <Botao rotulo="Falar com a loja" icone="logo-whatsapp" variante="secundario" compacto onPress={() => Linking.openURL(whats)} />}
+      </View>
 
-      {aba === 'cobrancas' && (
-        a.cobrancas.length === 0 ? <Text style={styles.texto}>Sem cobranças ainda.</Text> : a.cobrancas.map(c => {
-          const st = statusCobrancaExibido(c.status, c.vencimento, hoje)
-          return (
-            <View key={c.id_cobranca} style={styles.linha}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={styles.texto}>{formatarMoeda(Number(c.valor))} · vence {dataBR(c.vencimento)}</Text>
-                <Text style={styles.textoPequeno}>
-                  Período {c.numero}{c.pago_em ? ` · pago em ${dataBR(c.pago_em.slice(0, 10))}` : ''}
-                </Text>
-              </View>
-              <Text style={[styles.textoPequeno, st === 'vencido' && { color: colors.dangerFg }, st === 'pago' && { color: colors.successFg }]}>
-                {ROTULO_STATUS_COBRANCA[st]}
+      {detalhesAbertos && (
+        <View style={{ gap: spacing.sm }}>
+          {ativa && a.periodo_atual && (
+            <View style={{ gap: spacing.sm }}>
+              <Text style={styles.rotulo}>Neste período ({dataBR(a.periodo_atual.inicio)} a {dataBR(a.periodo_atual.fim)})</Text>
+              {a.periodo_atual.beneficios.map(b => {
+                const usados = Number(b.usados)
+                const proporcao = b.quantidade > 0 ? Math.min(1, usados / b.quantidade) : 0
+                return (
+                  <View key={b.servico} style={{ gap: 4 }}>
+                    <View style={styles.linha}>
+                      <Text style={[styles.texto, { flex: 1 }]}>{b.servico}</Text>
+                      <Text style={styles.textoPequeno}>{usados} de {b.quantidade} usados</Text>
+                    </View>
+                    <View style={styles.barraFundo}>
+                      <View style={[styles.barra, { width: `${proporcao * 100}%` }]} />
+                    </View>
+                  </View>
+                )
+              })}
+              <Text style={styles.textoPequeno}>
+                Para usar, agende o serviço pelo app: o saldo do plano já entra no agendamento, sem cobrar o serviço.
+                {a.proxima_cobranca ? ` Renova em ${dataBR(a.proxima_cobranca)}.` : ''}
               </Text>
             </View>
-          )
-        })
-      )}
+          )}
 
-      {aba === 'usos' && (
-        a.utilizacoes.length === 0 ? <Text style={styles.texto}>Nenhum serviço do plano usado ainda.</Text> : a.utilizacoes.map((u, i) => (
-          <View key={i} style={{ gap: 2 }}>
-            <Text style={[styles.texto, u.estornada_em ? styles.riscado : null]}>
-              {u.servico}{u.data ? ` · ${dataBR(u.data)}` : ''}{u.hora ? ` às ${u.hora.slice(0, 5)}` : ''}
-            </Text>
-            <Text style={styles.textoPequeno}>
-              Período {u.periodo}{u.estornada_em ? ` · devolvido ao plano em ${dataBR(u.estornada_em.slice(0, 10))}` : ''}
-            </Text>
-          </View>
-        ))
-      )}
+          <Segmentos
+            valor={aba}
+            onChange={setAba}
+            opcoes={[{ valor: 'cobrancas', rotulo: `Cobranças (${a.cobrancas.length})` }, { valor: 'usos', rotulo: `Usos (${usosValidos.length})` }]}
+          />
 
-      {whats && <Botao rotulo="Falar com a loja" icone="logo-whatsapp" variante="secundario" compacto onPress={() => Linking.openURL(whats)} />}
+          {aba === 'cobrancas' && (
+            a.cobrancas.length === 0 ? <Text style={styles.texto}>Sem cobranças ainda.</Text> : a.cobrancas.map(c => {
+              const st = statusCobrancaExibido(c.status, c.vencimento, hoje)
+              return (
+                <View key={c.id_cobranca} style={styles.linha}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={styles.texto}>{formatarMoeda(Number(c.valor))} · vence {dataBR(c.vencimento)}</Text>
+                    <Text style={styles.textoPequeno}>
+                      Período {c.numero}{c.pago_em ? ` · pago em ${dataBR(c.pago_em.slice(0, 10))}` : ''}
+                    </Text>
+                  </View>
+                  <Text style={[styles.textoPequeno, st === 'vencido' && { color: colors.dangerFg }, st === 'pago' && { color: colors.successFg }]}>
+                    {ROTULO_STATUS_COBRANCA[st]}
+                  </Text>
+                </View>
+              )
+            })
+          )}
+
+          {aba === 'usos' && (
+            a.utilizacoes.length === 0 ? <Text style={styles.texto}>Nenhum serviço do plano usado ainda.</Text> : a.utilizacoes.map((u, i) => (
+              <View key={i} style={{ gap: 2 }}>
+                <Text style={[styles.texto, u.estornada_em ? styles.riscado : null]}>
+                  {u.servico}{u.data ? ` · ${dataBR(u.data)}` : ''}{u.hora ? ` às ${u.hora.slice(0, 5)}` : ''}
+                </Text>
+                <Text style={styles.textoPequeno}>
+                  Período {u.periodo}{u.estornada_em ? ` · devolvido ao plano em ${dataBR(u.estornada_em.slice(0, 10))}` : ''}
+                </Text>
+              </View>
+            ))
+          )}
+        </View>
+      )}
     </Card>
   )
 }
