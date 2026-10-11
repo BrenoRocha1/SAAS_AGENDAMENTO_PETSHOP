@@ -62,13 +62,13 @@ export function Indicador({ rotulo, valor, icone, variacao, detalhe, compacto }:
 }) {
   return (
     <Card className="rounded-xl">
-      <CardHeader className={cn('flex-row items-center justify-between gap-2 pb-2', compacto ? 'p-3' : 'p-5')}>
+      <CardHeader className={cn('flex-row items-center justify-between gap-2', compacto ? 'p-3' : 'p-5', 'pb-2')}>
         <CardTitle className={cn('font-[family-name:var(--font-body)] whitespace-nowrap font-medium leading-snug tracking-normal text-muted-foreground', compacto ? 'text-xs' : 'text-sm')}>
           {rotulo}
         </CardTitle>
         <span aria-hidden className={cn('shrink-0 text-primary', compacto ? '[&>svg]:size-4' : '[&>svg]:size-5')}>{icone}</span>
       </CardHeader>
-      <CardContent className={cn('pt-0', compacto ? 'p-3' : 'p-5')}>
+      <CardContent className={cn(compacto ? 'p-3' : 'p-5', 'pt-0')}>
         <div className={cn('font-[family-name:var(--font-heading)] font-semibold tabular-nums text-foreground', compacto ? 'text-xl' : 'text-2xl')}>{valor}</div>
         {(variacao || detalhe) && (
           <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs leading-snug text-muted-foreground">
