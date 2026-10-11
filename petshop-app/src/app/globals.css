@@ -2068,6 +2068,7 @@ svg.is-da-visita { opacity: 0.45; }
   content: ''; position: absolute; inset: -3px; border-radius: 50%; background: inherit;
   opacity: 0.6; animation: status-pulso 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
+.status-pilula-ponto.is-parado::before { content: none; }
 @keyframes status-pulso {
   0% { transform: scale(0.5); opacity: 0.6; }
   100% { transform: scale(2); opacity: 0; }

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Animated, Easing, StyleSheet, View } from 'react-native'
-import { coresStatus, rotuloStatus } from '@/lib/statusAgendamento'
+import { coresStatus, etapaEncerrada, rotuloStatus } from '@/lib/statusAgendamento'
 import { Text } from '@/components/Texto'
 
 // Mistura uma cor "#rrggbb" com branco/transparente — o equivalente ao
@@ -17,25 +17,30 @@ function corComAlpha(hex: string, alpha: number): string {
 // não mexo aqui porque é compartilhado com as telas dele.
 export function StatusAgendamentoMinimo({ status }: { status: string }) {
   const cor = coresStatus(status).solid
+  // Finalizado/Cancelado não mudam mais, então o ponto fica parado.
+  const parado = etapaEncerrada(status)
   const pulso = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
+    if (parado) return
     const loop = Animated.loop(
       Animated.timing(pulso, { toValue: 1, duration: 1800, easing: Easing.out(Easing.ease), useNativeDriver: true }),
     )
     loop.start()
     return () => loop.stop()
-  }, [pulso])
+  }, [pulso, parado])
 
   return (
     <View style={[styles.pilula, { backgroundColor: corComAlpha(cor, 0.12), borderColor: corComAlpha(cor, 0.28) }]}>
       <View style={styles.pontoCaixa}>
-        <Animated.View
-          style={[
-            styles.pontoPulso,
-            { backgroundColor: cor, opacity: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }), transform: [{ scale: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.5, 2] }) }] },
-          ]}
-        />
+        {!parado && (
+          <Animated.View
+            style={[
+              styles.pontoPulso,
+              { backgroundColor: cor, opacity: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }), transform: [{ scale: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.5, 2] }) }] },
+            ]}
+          />
+        )}
         <View style={[styles.ponto, { backgroundColor: cor }]} />
       </View>
       <Text style={[styles.texto, { color: cor }]}>{rotuloStatus(status)}</Text>

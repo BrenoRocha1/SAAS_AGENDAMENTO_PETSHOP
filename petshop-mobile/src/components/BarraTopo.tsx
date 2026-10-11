@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
-import { IconeMenu, IconePets } from '@/components/IconesAbas'
+import { IconeMenu } from '@/components/IconesAbas'
+import { LogoSaip } from '@/components/LogoSaip'
 import { MenuLateral } from '@/components/MenuLateral'
-import { Text } from '@/components/Texto'
-import { FONTE_TITULO } from '@/theme/fontes'
 import { colors, radius, spacing } from '@/theme/theme'
 
 interface Props {
@@ -31,14 +30,7 @@ export function BarraTopo({ rotuloMenu = 'Abrir menu' }: Props) {
         <IconeMenu size={22} color={colors.text} />
       </Pressable>
 
-      <View style={styles.marca}>
-        <View style={styles.logo}>
-          <IconePets size={16} color={colors.white} />
-        </View>
-        <Text style={styles.nome}>
-          SA<Text style={{ color: colors.primary600 }}>IP</Text>
-        </Text>
-      </View>
+      <LogoSaip altura={24} cor={colors.primary600} corTexto={colors.text} />
 
       <MenuLateral visivel={menuAberto} onFechar={() => setMenuAberto(false)} />
     </View>
@@ -57,16 +49,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  marca: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  logo: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.sm,
-    backgroundColor: colors.primary600,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nome: { fontSize: 18, fontWeight: '800', letterSpacing: -0.36, fontFamily: FONTE_TITULO, color: colors.text },
   menu: {
     width: 40,
     height: 40,
