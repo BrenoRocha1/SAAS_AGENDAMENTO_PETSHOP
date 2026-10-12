@@ -13,6 +13,9 @@ import { createClient } from '@/lib/supabase/client'
 import { IconAlert, IconClose, IconPencil, IconPlus, IconSliders, IconTrash } from '@/components/icons'
 import { formatarReais } from '@/lib/taxidog'
 import Ilustracao from '@/components/Ilustracao'
+import PromocaoModal from '@/components/lojista/PromocaoModal'
+import { precoComDesconto, promoVigente, periodoPromo, type Promocao } from '@/lib/promocao'
+import { hojeBrasilISO } from '@/lib/agenda'
 
 interface Servico {
   id_servico: string
@@ -21,6 +24,10 @@ interface Servico {
   preco: number
   duracao: number
   status: string
+  // Promoção (migration 095)
+  promo_percentual?: number | null
+  promo_inicio?: string | null
+  promo_fim?: string | null
 }
 
 interface Variacao {
@@ -60,6 +67,8 @@ export default function ServicosList({ servicos: inicial }: Props) {
   const [alternandoId, setAlternandoId] = useState<string | null>(null)
   const [alternarErro, setAlternarErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [promoAlvo, setPromoAlvo] = useState<Servico | null>(null)
+  const hoje = hojeBrasilISO()
 
   function handleAlternarStatus(s: Servico) {
     setAlternarErro(null)
@@ -187,9 +196,19 @@ export default function ServicosList({ servicos: inicial }: Props) {
                 <span className="dash-app-linha-info">
                   <span className={`dash-app-linha-pet ${s.status === 'Ativo' ? '' : 'is-apagado'}`}>{s.nome}</span>
                   <span className="dash-app-linha-sub is-media">
-                    {formatarReais(s.preco)} · {s.duracao} min{s.status === 'Ativo' ? '' : ' · Inativo'}
+                    {promoVigente(s, hoje) > 0
+                      ? <><s>{formatarReais(s.preco)}</s> {formatarReais(precoComDesconto(s.preco, promoVigente(s, hoje)))}</>
+                      : formatarReais(s.preco)} · {s.duracao} min{s.status === 'Ativo' ? '' : ' · Inativo'}
                   </span>
                 </span>
+                <button
+                  type="button"
+                  className={`promo-chip ${promoVigente(s, hoje) > 0 ? 'is-ativa' : s.promo_percentual ? 'is-agendada' : ''}`}
+                  onClick={e => { e.stopPropagation(); setPromoAlvo(s) }}
+                  aria-label={`Promoção de ${s.nome}`}
+                >
+                  {s.promo_percentual ? `-${s.promo_percentual}%` : '% Promo'}
+                </button>
                 <button
                   type="button"
                   className={`switch ${s.status === 'Ativo' ? 'switch-on' : ''}`}
@@ -234,7 +253,14 @@ export default function ServicosList({ servicos: inicial }: Props) {
                     <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{s.nome}</div>
                     {s.descricao && <div className="text-sm text-muted">{s.descricao}</div>}
                   </td>
-                  <td className="text-success font-semibold">{formatarReais(s.preco)}</td>
+                  <td>
+                    {promoVigente(s, hoje) > 0 ? (
+                      <>
+                        <div className="text-xs text-muted"><s>{formatarReais(s.preco)}</s></div>
+                        <div className="text-success font-semibold">{formatarReais(precoComDesconto(s.preco, promoVigente(s, hoje)))}</div>
+                      </>
+                    ) : <span className="text-success font-semibold">{formatarReais(s.preco)}</span>}
+                  </td>
                   <td>{s.duracao} min</td>
                   <td>
                     <div className="flex items-center gap-2">
@@ -261,6 +287,14 @@ export default function ServicosList({ servicos: inicial }: Props) {
                         <IconPencil style={{ width: 14, height: 14 }} /> Editar
                       </button>
                       <button
+                        type="button"
+                        className={`promo-chip ${promoVigente(s, hoje) > 0 ? 'is-ativa' : s.promo_percentual ? 'is-agendada' : ''}`}
+                        onClick={() => setPromoAlvo(s)}
+                        title={s.promo_percentual ? periodoPromo(s) : 'Colocar em promoção'}
+                      >
+                        {s.promo_percentual ? `Promoção -${s.promo_percentual}%` : '% Promoção'}
+                      </button>
+                      <button
                         className="btn btn-ghost btn-sm"
                         onClick={() => handleExcluir(s)}
                         disabled={excluindoId === s.id_servico}
@@ -278,6 +312,21 @@ export default function ServicosList({ servicos: inicial }: Props) {
         </div>
       )}
       </div>
+
+      {promoAlvo && (
+        <PromocaoModal
+          tipo="servico"
+          id={promoAlvo.id_servico}
+          nome={promoAlvo.nome}
+          preco={promoAlvo.preco}
+          atual={{ promo_percentual: promoAlvo.promo_percentual ?? null, promo_inicio: promoAlvo.promo_inicio ?? null, promo_fim: promoAlvo.promo_fim ?? null }}
+          onFechar={() => setPromoAlvo(null)}
+          onSalvo={(p: Promocao) => {
+            setServicos(prev => prev.map(x => x.id_servico === promoAlvo.id_servico ? { ...x, ...p } : x))
+            setPromoAlvo(null)
+          }}
+        />
+      )}
 
       {/* Modal */}
       {showModal && (

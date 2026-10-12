@@ -511,3 +511,7 @@
   .pdv kbd, .pdv-finalizar kbd { display: none !important; }
   .pdv-busca input { padding-right: var(--space-3); }
 }
+
+/* Promoção (migration 095) */
+.pdv-produto-promo { position: absolute; top: 8px; left: 8px; z-index: 1; padding: 2px 7px; border-radius: 6px; background: var(--success-500); color: #fff; font-size: 0.6875rem; font-weight: 800; }
+.pdv-produto-preco s { font-size: 0.75rem; font-weight: 500; color: var(--gray-500); margin-right: 4px; }

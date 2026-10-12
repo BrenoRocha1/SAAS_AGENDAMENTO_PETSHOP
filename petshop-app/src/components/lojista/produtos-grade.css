@@ -102,3 +102,9 @@
 .fiscal-produto-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--space-3); margin-top: var(--space-2); }
 .fiscal-produto-campos .form-group:first-child { grid-column: 1 / -1; }
 @media (max-width: 560px) { .fiscal-produto-campos { grid-template-columns: 1fr; } }
+
+/* Promoção (migration 095) */
+.prod-card-selo.is-promo { color: #fff; background: var(--success-500); }
+.prod-card-acao.is-promo { font-weight: 800; font-size: 0.875rem; }
+.prod-card-acao.is-promo.is-ativa { color: var(--success-400); border-color: var(--success-500); }
+.prod-card-preco s { font-size: 0.8125rem; }

@@ -380,6 +380,7 @@ export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLo
                     aria-label={`Adicionar ${p.nome}, ${formatarReais(p.preco_venda)}`}
                   >
                     {qtd !== undefined && <span className="pdv-produto-qtd">{textoNumero(qtd)}</span>}
+                    {!!p.promo && <span className="pdv-produto-promo">-{p.promo}%</span>}
                     <span className="pdv-produto-foto">
                       {p.foto_url ? (
                         // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
@@ -394,6 +395,7 @@ export default function PdvCaixa({ produtos: inicial, categorias, formas, nomeLo
                         {status === 'zerado' ? 'Sem estoque' : status === 'baixo' ? `Restam ${rotuloEstoqueApp(p.estoque_atual, p.unidade_venda)}` : rotuloEstoqueApp(p.estoque_atual, p.unidade_venda)}
                       </span>
                       <span className="pdv-produto-preco">
+                        {!!p.promo && <s>{formatarReais(p.preco_original ?? p.preco_venda)}</s>}
                         {formatarReais(p.preco_venda)}<small>{sufixoUnidade(p.unidade_venda)}</small>
                       </span>
                     </span>

@@ -45,6 +45,9 @@ import {
 import Ilustracao from '@/components/Ilustracao'
 import './produtos-grade.css'
 import CamposFiscaisProduto from '@/components/lojista/CamposFiscaisProduto'
+import PromocaoModal from '@/components/lojista/PromocaoModal'
+import { precoComDesconto, promoVigente, periodoPromo, type Promocao } from '@/lib/promocao'
+import { hojeBrasilISO } from '@/lib/agenda'
 import type { ProdutoFiscal } from '@/lib/fiscal'
 
 interface Categoria {
@@ -67,6 +70,10 @@ interface Produto {
   custo_unitario?: number | null
   // Informações fiscais (migration 094) — vem de produto_fiscal.
   fiscal?: ProdutoFiscal | null
+  // Promoção (migration 095)
+  promo_percentual?: number | null
+  promo_inicio?: string | null
+  promo_fim?: string | null
 }
 
 interface Props {
@@ -131,6 +138,14 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
   const [processandoFoto, setProcessandoFoto] = useState(false)
 
   const [estoqueAlvo, setEstoqueAlvo] = useState<Produto | null>(null)
+  const [promoAlvo, setPromoAlvo] = useState<Produto | null>(null)
+  const hoje = hojeBrasilISO()
+  const precoNaTela = (p: Produto) => {
+    const pct = promoVigente(p, hoje)
+    return pct > 0
+      ? <><s className="text-muted" style={{ fontWeight: 400 }}>{formatarReais(p.preco_venda)}</s> {formatarReais(precoComDesconto(Number(p.preco_venda), pct))}</>
+      : formatarReais(p.preco_venda)
+  }
 
   // Celular (igual ao app): filtro em botões e o painel do produto com as
   // abas "Estoque" e "Dados do produto".
@@ -447,8 +462,9 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
             // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
             <img src={p.foto_url} alt="" loading="lazy" />
           ) : <IconPackage />}
-          {(st !== 'em_estoque' || p.status === 'Inativo') && (
+          {(st !== 'em_estoque' || p.status === 'Inativo' || promoVigente(p, hoje) > 0) && (
             <span className="prod-card-selos">
+              {promoVigente(p, hoje) > 0 && <span className="prod-card-selo is-promo">-{promoVigente(p, hoje)}%</span>}
               {st !== 'em_estoque' && <span className={`prod-card-selo is-${st === 'zerado' ? 'zerado' : 'baixo'}`}>{ROTULO_STATUS_ESTOQUE[st]}</span>}
               {p.status === 'Inativo' && <span className="prod-card-selo">Inativo</span>}
             </span>
@@ -458,7 +474,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
           <span className="prod-card-nome">{p.nome}</span>
           <span className="prod-card-sub">{nomeCategoria ?? 'Sem categoria'}</span>
           <span className="prod-card-preco">
-            {formatarReais(p.preco_venda)} <small>/ {rotuloUnidade(p.unidade_venda).toLowerCase()}</small>
+            {precoNaTela(p)} <small>/ {rotuloUnidade(p.unidade_venda).toLowerCase()}</small>
           </span>
           <span className="prod-card-pe">
             <span>{rotuloEstoqueApp(p.estoque_atual, p.unidade_venda)} em estoque</span>
@@ -478,6 +494,15 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
         <div className="prod-card-acoes">
           <button type="button" className="prod-card-acao" onClick={e => { e.stopPropagation(); abrirEditar(p) }} aria-label="Editar produto" title="Editar produto">
             <IconPencil />
+          </button>
+          <button
+            type="button"
+            className={`prod-card-acao is-promo ${p.promo_percentual ? 'is-ativa' : ''}`}
+            onClick={e => { e.stopPropagation(); setPromoAlvo(p) }}
+            aria-label="Promoção"
+            title={p.promo_percentual ? `Promoção -${p.promo_percentual}% · ${periodoPromo(p)}` : 'Colocar em promoção'}
+          >
+            %
           </button>
           <button
             type="button"
@@ -591,7 +616,8 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                   <span className="dash-app-linha-info">
                     <span className={`dash-app-linha-pet is-duas ${p.status === 'Inativo' ? 'is-apagado' : ''}`}>{p.nome}</span>
                     <span className="dash-app-linha-sub is-media is-solta">
-                      {formatarReais(p.preco_venda)} / {rotuloUnidade(p.unidade_venda).toLowerCase()}
+                      {precoNaTela(p)} / {rotuloUnidade(p.unidade_venda).toLowerCase()}
+                      {promoVigente(p, hoje) > 0 ? ` · promoção -${promoVigente(p, hoje)}%` : ''}
                       {categoria ? ` · ${categoria}` : ''}
                       {p.status === 'Inativo' ? ' · Inativo' : ''}
                     </span>
@@ -662,7 +688,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                     </td>
                     <td className="text-sm text-muted">{(p.id_categoria && nomeCategoriaPorId.get(p.id_categoria)) ?? 'Sem categoria'}</td>
                     <td className="text-success font-semibold">
-                      {formatarReais(p.preco_venda)} <span className="text-xs text-muted">/ {rotuloUnidade(p.unidade_venda)}</span>
+                      {precoNaTela(p)} <span className="text-xs text-muted">/ {rotuloUnidade(p.unidade_venda)}</span>
                       {p.custo_unitario != null && (
                         <div className="text-xs text-muted" style={{ fontWeight: 400 }}>
                           custo {formatarReais(p.custo_unitario)} · margem {textoMargem(Number(p.preco_venda), Number(p.custo_unitario))?.split(' (')[0] ?? '—'}
@@ -697,6 +723,14 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                       <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
                         <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); abrirEditar(p) }}>
                           <IconPencil style={{ width: 14, height: 14 }} /> Editar
+                        </button>
+                        <button
+                          type="button"
+                          className={`promo-chip ${promoVigente(p, hoje) > 0 ? 'is-ativa' : p.promo_percentual ? 'is-agendada' : ''}`}
+                          onClick={e => { e.stopPropagation(); setPromoAlvo(p) }}
+                          title={p.promo_percentual ? periodoPromo(p) : 'Colocar em promoção'}
+                        >
+                          {p.promo_percentual ? `Promoção -${p.promo_percentual}%` : '% Promoção'}
                         </button>
                         <button
                           className="btn btn-ghost btn-sm"
@@ -940,6 +974,21 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
             </form>
           </div>
         </div>
+      )}
+
+      {promoAlvo && (
+        <PromocaoModal
+          tipo="produto"
+          id={promoAlvo.id_produto}
+          nome={promoAlvo.nome}
+          preco={Number(promoAlvo.preco_venda)}
+          atual={{ promo_percentual: promoAlvo.promo_percentual ?? null, promo_inicio: promoAlvo.promo_inicio ?? null, promo_fim: promoAlvo.promo_fim ?? null }}
+          onFechar={() => setPromoAlvo(null)}
+          onSalvo={(pr: Promocao) => {
+            setProdutos(prev => prev.map(x => x.id_produto === promoAlvo.id_produto ? { ...x, ...pr } : x))
+            setPromoAlvo(null)
+          }}
+        />
       )}
 
       {/* Modal: ajustar estoque */}

@@ -126,7 +126,7 @@ export default function PdvScreen() {
   const carregar = useCallback(async () => {
     if (!idLojista || !pode) return
     const inicioHoje = `${hojeBrasilISO()}T00:00:00-03:00`
-    const [produtosRes, categoriasRes, formasRes, lojaRes, hojeRes] = await Promise.all([
+    const [produtosRes, categoriasRes, formasRes, lojaRes, hojeRes, promoRes] = await Promise.all([
       supabase
         .from('produto')
         .select('id_produto, nome, id_categoria, unidade_venda, preco_venda, estoque_atual, estoque_minimo, foto_url')
@@ -138,16 +138,24 @@ export default function PdvScreen() {
       supabase.from('lojista').select('nome_loja').eq('id_lojista', idLojista).maybeSingle(),
       // Também serve de teste: sem a migration 083 a tabela não existe.
       supabase.from('venda').select('total').eq('id_lojista', idLojista).eq('status', 'concluida').gte('created_at', inicioHoje),
+      // Promoções (migration 095) — tolerante: sem a migration, sem promoção.
+      supabase.from('produto').select('id_produto, promo_percentual, promo_inicio, promo_fim').eq('id_lojista', idLojista).not('promo_percentual', 'is', null),
     ])
     setCarregando(false)
     if (hojeRes.error) return setErroCarga(true)
     setErroCarga(false)
+    // O banco cobra o produto com o desconto da promoção vigente
+    // (fn_preco_produto_vigente): a tela mostra o mesmo preço.
+    const hojeISO = hojeBrasilISO()
+    const promoPorProduto = new Map(((promoRes.error ? [] : promoRes.data ?? []) as { id_produto: string; promo_percentual: number; promo_inicio: string | null; promo_fim: string | null }[])
+      .filter(x => (!x.promo_inicio || hojeISO >= x.promo_inicio) && (!x.promo_fim || hojeISO <= x.promo_fim))
+      .map(x => [x.id_produto, Number(x.promo_percentual)]))
     setProdutos(((produtosRes.data ?? []) as Record<string, unknown>[]).map(p => ({
       id_produto: p.id_produto as string,
       nome: p.nome as string,
       id_categoria: (p.id_categoria as string | null) ?? null,
       unidade_venda: p.unidade_venda as string,
-      preco_venda: Number(p.preco_venda),
+      preco_venda: Math.round(Number(p.preco_venda) * (100 - (promoPorProduto.get(p.id_produto as string) ?? 0))) / 100,
       estoque_atual: Number(p.estoque_atual),
       estoque_minimo: Number(p.estoque_minimo),
       foto_url: (p.foto_url as string | null) ?? null,

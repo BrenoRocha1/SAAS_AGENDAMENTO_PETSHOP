@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { acessoDaLoja } from '@/lib/acesso-loja'
+import { precoComDesconto, promoVigente, type Promocao } from '@/lib/promocao'
 import { obterUsuario } from '@/lib/supabase/usuario'
 import type { Metadata } from 'next'
 import { diaSemanaBrasil, agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
@@ -224,6 +225,15 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
     cliente = c ?? cliente
   }
 
+  // Promoções (migration 095) numa consulta à parte e tolerante: sem a
+  // migration, a página segue sem promoção nenhuma.
+  const [promoServRes, promoProdRes] = await Promise.all([
+    supabase.from('servico').select('id_servico, promo_percentual, promo_inicio, promo_fim').eq('id_lojista', lojista.id_lojista).not('promo_percentual', 'is', null),
+    supabase.from('produto').select('id_produto, promo_percentual, promo_inicio, promo_fim').eq('id_lojista', lojista.id_lojista).not('promo_percentual', 'is', null),
+  ])
+  const promoServicos = new Map(((promoServRes.error ? [] : promoServRes.data ?? []) as (Promocao & { id_servico: string })[]).map(x => [x.id_servico, x]))
+  const promoProdutos = new Map(((promoProdRes.error ? [] : promoProdRes.data ?? []) as (Promocao & { id_produto: string })[]).map(x => [x.id_produto, x]))
+
   const agora = agoraBrasilHHMM()
   let statusHoje = 'Fechado hoje'
   if (horarioHoje) {
@@ -255,8 +265,11 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
           horarios={horarios ?? []}
           bloqueios={bloqueios}
           janela={janela}
-          servicos={servicos ?? []}
-          produtos={produtos ?? []}
+          servicos={(servicos ?? []).map(sv => ({ ...sv, promo: promoVigente(promoServicos.get(sv.id_servico), hojeBrasilISO()) }))}
+          produtos={(produtos ?? []).map(pr => {
+            const promo = promoVigente(promoProdutos.get(pr.id_produto), hojeBrasilISO())
+            return { ...pr, preco_venda: precoComDesconto(Number(pr.preco_venda), promo), preco_original: Number(pr.preco_venda), promo }
+          })}
           avaliacoes={avaliacoesPublicas}
           pets={pets}
           cliente={cliente}

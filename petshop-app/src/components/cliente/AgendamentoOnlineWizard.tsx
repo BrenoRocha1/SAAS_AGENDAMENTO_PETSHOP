@@ -42,6 +42,7 @@ import {
   IconPaw,
   IconPlus,
 } from '@/components/icons'
+import { precoComDesconto } from '@/lib/promocao'
 import './agendamento-online.css'
 
 interface Lojista {
@@ -77,6 +78,8 @@ interface Servico {
   descricao?: string | null
   preco: number
   duracao: number
+  // Desconto da promoção que vale hoje (migration 095); 0/ausente = sem.
+  promo?: number
 }
 interface Pet {
   id_pet: string
@@ -91,7 +94,10 @@ interface Pet {
 interface Produto {
   id_produto: string
   nome: string
+  // Já com a promoção aplicada; preco_original = antes do desconto.
   preco_venda: number
+  preco_original?: number
+  promo?: number
   unidade_venda: string
   estoque_atual: number
 }
@@ -210,7 +216,9 @@ export default function AgendamentoOnlineWizard({
   const petSel = pets.find(p => p.id_pet === petId) ?? null
   const servicosCarrinho = servicos.filter(s => carrinho.includes(s.id_servico))
   const duracaoTotal = servicosCarrinho.reduce((acc, s) => acc + s.duracao, 0)
-  const valorTotal = servicosCarrinho.reduce((acc, s) => acc + Number(precos[s.id_servico] ?? s.preco), 0)
+  // Preço "a partir de" já com a promoção (o preço exato vem do banco quando o pet é escolhido).
+  const precoBase = (s: Servico) => (s.promo ? precoComDesconto(s.preco, s.promo) : s.preco)
+  const valorTotal = servicosCarrinho.reduce((acc, s) => acc + Number(precos[s.id_servico] ?? precoBase(s)), 0)
   const precisaClassificar = !!petSel && (!petSel.especie || !petSel.porte)
   const itensCarrinhoProdutos = useMemo(() =>
     produtos
@@ -231,7 +239,7 @@ export default function AgendamentoOnlineWizard({
   const descontoPlano = vaiUsarPlano
     ? servicosCarrinho
         .filter(s => cobertura.cobertos.some(c => c.id_servico === s.id_servico))
-        .reduce((acc, s) => acc + Number(precos[s.id_servico] ?? s.preco), 0)
+        .reduce((acc, s) => acc + Number(precos[s.id_servico] ?? precoBase(s)), 0)
     : 0
   const totalGeral = totalSemPlano - descontoPlano
   // O plano cobre o pedido inteiro (só serviços do plano, sem produto nem
@@ -329,6 +337,14 @@ export default function AgendamentoOnlineWizard({
     }
     return lista
   }, [agora, minInstante, maxInstante, diasAbertos, bloqueios])
+
+  const servicosEmPromo = servicos.filter(s => !!s.promo)
+  const produtosEmPromo = produtos.filter(p => !!p.promo)
+
+  // Produto em promoção na primeira tela: um toque leva 1, outro tira.
+  function alternarProdutoPromo(p: Produto) {
+    setQuantidadesProdutos(prev => ({ ...prev, [p.id_produto]: (prev[p.id_produto] ?? 0) > 0 ? 0 : Math.min(1, p.estoque_atual) }))
+  }
 
   function alternarServico(id: string) {
     setCarrinho(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -552,6 +568,36 @@ export default function AgendamentoOnlineWizard({
             {servicos.length === 0 ? (
               <p className="ag2-vazio">Esta loja ainda não cadastrou serviços.</p>
             ) : (
+              <div className="ag2-servicos-rolagem">
+              {(servicosEmPromo.length > 0 || produtosEmPromo.length > 0) && (
+                <section className="ag2-promos" aria-label="Em promoção">
+                  <div className="ag2-promos-titulo">Em promoção</div>
+                  <div className="ag2-promos-lista">
+                    {servicosEmPromo.map(s => {
+                      const marcado = carrinho.includes(s.id_servico)
+                      return (
+                        <button key={s.id_servico} type="button" className={`ag2-promo ${marcado ? 'is-marcado' : ''}`} onClick={() => alternarServico(s.id_servico)} aria-pressed={marcado}>
+                          <span className="ag2-promo-selo">-{s.promo}%</span>
+                          <strong>{s.nome}</strong>
+                          <span className="ag2-promo-preco"><s>{formatarReais(s.preco)}</s> {formatarReais(precoBase(s))}</span>
+                          <span className="ag2-promo-acao">{marcado ? 'No pedido ✓' : 'Adicionar'}</span>
+                        </button>
+                      )
+                    })}
+                    {produtosEmPromo.map(pr => {
+                      const marcado = (quantidadesProdutos[pr.id_produto] ?? 0) > 0
+                      return (
+                        <button key={pr.id_produto} type="button" className={`ag2-promo is-produto ${marcado ? 'is-marcado' : ''}`} onClick={() => alternarProdutoPromo(pr)} aria-pressed={marcado}>
+                          <span className="ag2-promo-selo">-{pr.promo}%</span>
+                          <strong>{pr.nome}</strong>
+                          <span className="ag2-promo-preco"><s>{formatarReais(pr.preco_original ?? pr.preco_venda)}</s> {formatarReais(pr.preco_venda)}</span>
+                          <span className="ag2-promo-acao">{marcado ? 'No pedido ✓' : 'Levar junto'}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </section>
+              )}
               <ul className="ag2-lista">
                 {servicos.map(s => {
                   const marcado = carrinho.includes(s.id_servico)
@@ -564,9 +610,13 @@ export default function AgendamentoOnlineWizard({
                         aria-pressed={marcado}
                       >
                         <span className="ag2-servico-texto">
+                          {!!s.promo && <span className="ag2-promo-selo">-{s.promo}%</span>}
                           <span className="ag2-servico-nome">{s.nome}</span>
                           <span className="ag2-servico-info">{duracaoTexto(s.duracao)}</span>
-                          <span className="ag2-servico-preco">{formatarReais(s.preco)}</span>
+                          <span className="ag2-servico-preco">
+                            {!!s.promo && <s>{formatarReais(s.preco)}</s>}
+                            {formatarReais(precoBase(s))}
+                          </span>
                         </span>
                         <span className="ag2-check" aria-hidden="true">{marcado && <IconCheck style={{ width: 14, height: 14 }} />}</span>
                       </button>
@@ -579,6 +629,7 @@ export default function AgendamentoOnlineWizard({
                   )
                 })}
               </ul>
+              </div>
             )}
           </div>
 
@@ -610,7 +661,7 @@ export default function AgendamentoOnlineWizard({
                     {s.descricao && <p className="ag2-pedido-item-desc">{s.descricao}</p>}
                     <div className="ag2-pedido-item-rodape">
                       <span><IconClock style={{ width: 13, height: 13 }} /> {duracaoTexto(s.duracao)}</span>
-                      <span className="ag2-pedido-item-preco">a partir de <strong>{formatarReais(s.preco)}</strong></span>
+                      <span className="ag2-pedido-item-preco">a partir de {!!s.promo && <s>{formatarReais(s.preco)}</s>} <strong>{formatarReais(precoBase(s))}</strong></span>
                     </div>
                   </li>
                 ))}
@@ -621,7 +672,13 @@ export default function AgendamentoOnlineWizard({
               {servicosCarrinho.length > 0 && (
                 <>
                   <div className="ag2-pedido-linha"><span>Tempo total</span><span>{duracaoTexto(duracaoTotal)}</span></div>
-                  <div className="ag2-pedido-linha is-total"><span>Total</span><strong>{formatarReais(valorTotal)}</strong></div>
+                  {itensCarrinhoProdutos.map(i => (
+                    <div key={i.produto.id_produto} className="ag2-pedido-linha">
+                      <span>{i.produto.nome} · {String(i.quantidade).replace('.', ',')}</span>
+                      <span>{formatarReais(i.produto.preco_venda * i.quantidade)}</span>
+                    </div>
+                  ))}
+                  <div className="ag2-pedido-linha is-total"><span>Total</span><strong>{formatarReais(valorTotal + totalProdutos)}</strong></div>
                   <p className="ag2-pedido-nota">Valor a partir de: o final depende do porte do pet. A seguir você escolhe o pet, o dia e o horário.</p>
                 </>
               )}
@@ -635,7 +692,7 @@ export default function AgendamentoOnlineWizard({
             <button type="button" className="ag2-cta" disabled={carrinho.length === 0} onClick={irParaQuando}>
               {carrinho.length === 0
                 ? 'Escolha um serviço'
-                : <>Continuar <span className="ag2-cta-extra">{carrinho.length} · {duracaoTexto(duracaoTotal)} · {formatarReais(valorTotal)}</span></>}
+                : <>Continuar <span className="ag2-cta-extra">{carrinho.length} · {duracaoTexto(duracaoTotal)} · {formatarReais(valorTotal + totalProdutos)}</span></>}
             </button>
           </div>
         </div>
@@ -858,7 +915,11 @@ export default function AgendamentoOnlineWizard({
                       <li key={p.id_produto}>
                         <span className="ag2-produto-texto">
                           <span className="ag2-servico-nome">{p.nome}</span>
-                          <span className="ag2-servico-info">{formatarReais(p.preco_venda)} / {rotuloUnidade(p.unidade_venda)}</span>
+                          <span className="ag2-servico-info">
+                            {!!p.promo && <><s>{formatarReais(p.preco_original ?? p.preco_venda)}</s> </>}
+                            {formatarReais(p.preco_venda)} / {rotuloUnidade(p.unidade_venda)}
+                            {!!p.promo && <span className="ag2-promo-selo is-pequeno">-{p.promo}%</span>}
+                          </span>
                         </span>
                         <span className="ag2-stepper">
                           <button type="button" onClick={() => mudarQuantidade(p, -1)} disabled={q <= 0} aria-label={`Menos ${p.nome}`}><IconMinus style={{ width: 14, height: 14 }} /></button>
@@ -894,7 +955,7 @@ export default function AgendamentoOnlineWizard({
                 <span className="ag2-resumo-rotulo">{servicosCarrinho.length > 1 ? 'Serviços' : 'Serviço'}</span>
                 <button type="button" className="ag2-link" onClick={() => setStep('servicos')}>Editar</button>
                 {servicosCarrinho.map(s => (
-                  <span key={s.id_servico} className="ag2-resumo-item">{s.nome}<span>{formatarReais(precos[s.id_servico] ?? s.preco)}</span></span>
+                  <span key={s.id_servico} className="ag2-resumo-item">{s.nome}<span>{formatarReais(precos[s.id_servico] ?? precoBase(s))}</span></span>
                 ))}
               </div>
               <div className="ag2-resumo-linha">
@@ -964,7 +1025,7 @@ export default function AgendamentoOnlineWizard({
       {servicoDetalhe && (
         <Folha titulo={servicoDetalhe.nome} onFechar={() => setServicoDetalhe(null)}>
           {servicoDetalhe.descricao && <p className="ag2-sub" style={{ marginBottom: 'var(--space-4)' }}>{servicoDetalhe.descricao}</p>}
-          <p className="ag2-nota">{duracaoTexto(servicoDetalhe.duracao)} · a partir de {formatarReais(servicoDetalhe.preco)}</p>
+          <p className="ag2-nota">{duracaoTexto(servicoDetalhe.duracao)} · a partir de {!!servicoDetalhe.promo && <><s>{formatarReais(servicoDetalhe.preco)}</s> </>}{formatarReais(precoBase(servicoDetalhe))}</p>
           <button
             type="button"
             className="ag2-cta"

@@ -7,6 +7,7 @@ import { normalizarFormasLoja } from '@/lib/pagamento'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { formatarReais } from '@/lib/taxidog'
 import type { ProdutoPdv } from '@/lib/pdv'
+import { precoComDesconto, promoVigente, type Promocao } from '@/lib/promocao'
 import { IconAlert, IconReceipt } from '@/components/icons'
 import type { Metadata } from 'next'
 import './pdv.css'
@@ -39,7 +40,7 @@ export default async function PdvPage() {
   const hoje = hojeBrasilISO()
   const inicioHoje = `${hoje}T00:00:00-03:00`
 
-  const [produtosRes, categoriasRes, formasRes, lojaRes, hojeRes, barrasRes] = await Promise.all([
+  const [produtosRes, categoriasRes, formasRes, lojaRes, hojeRes, barrasRes, promoRes] = await Promise.all([
     supabase
       .from('produto')
       .select('id_produto, nome, id_categoria, unidade_venda, preco_venda, estoque_atual, estoque_minimo, foto_url')
@@ -68,6 +69,12 @@ export default async function PdvPage() {
       .select('id_produto, codigo_barras')
       .eq('id_lojista', contexto.idLojista)
       .not('codigo_barras', 'is', null),
+    // Promoções (migration 095) — tolerante: sem a migration, sem promoção.
+    supabase
+      .from('produto')
+      .select('id_produto, promo_percentual, promo_inicio, promo_fim')
+      .eq('id_lojista', contexto.idLojista)
+      .not('promo_percentual', 'is', null),
   ])
 
   if (hojeRes.error) {
@@ -91,17 +98,26 @@ export default async function PdvPage() {
     ((barrasRes.error ? [] : barrasRes.data ?? []) as { id_produto: string; codigo_barras: string }[])
       .map(b => [b.id_produto, b.codigo_barras]),
   )
-  const produtos: ProdutoPdv[] = (produtosRes.data ?? []).map(p => ({
+  const promoPorProduto = new Map(
+    ((promoRes.error ? [] : promoRes.data ?? []) as (Promocao & { id_produto: string })[]).map(x => [x.id_produto, x]),
+  )
+  const produtos: ProdutoPdv[] = (produtosRes.data ?? []).map(p => {
+    const promo = promoVigente(promoPorProduto.get(p.id_produto), hoje)
+    return {
     id_produto: p.id_produto,
     nome: p.nome,
     id_categoria: p.id_categoria,
     unidade_venda: p.unidade_venda,
-    preco_venda: Number(p.preco_venda),
+    // O banco cobra com o desconto da promoção (fn_preco_produto_vigente).
+    preco_venda: precoComDesconto(Number(p.preco_venda), promo),
+    preco_original: Number(p.preco_venda),
+    promo,
     estoque_atual: Number(p.estoque_atual),
     estoque_minimo: Number(p.estoque_minimo),
     foto_url: p.foto_url,
     codigo_barras: barrasPorProduto.get(p.id_produto) ?? null,
-  }))
+  }
+  })
 
   const vendasHoje = hojeRes.data ?? []
   const totalHoje = vendasHoje.reduce((s, v) => s + Number(v.total), 0)
