@@ -37,6 +37,8 @@ type Acao = (...args: never[]) => Promise<unknown>
 const ACOES: Record<string, Acao> = {
   // Cliente (a conta do próprio cliente)
   criarAgendamentoAction: acoes.criarAgendamentoAction,
+  // O mesmo do link da loja: vários serviços num pedido só.
+  criarAgendamentoOnlineAction: acoes.criarAgendamentoOnlineAction,
   criarPetAction: acoes.criarPetAction,
   editarPetAction: acoes.editarPetAction,
   desativarPetAction: acoes.desativarPetAction,
