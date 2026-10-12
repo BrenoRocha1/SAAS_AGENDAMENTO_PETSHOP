@@ -13,10 +13,9 @@ import { createClient } from '@/lib/supabase/client'
 import { IconAlert, IconClose, IconPencil, IconPlus, IconSliders, IconTrash } from '@/components/icons'
 import { formatarReais } from '@/lib/taxidog'
 import Ilustracao from '@/components/Ilustracao'
-import PromocaoModal from '@/components/lojista/PromocaoModal'
-import { precoComDesconto, promoVigente, periodoPromo, type Promocao } from '@/lib/promocao'
+import PromocaoServicoModal, { FORM_PROMOCAO_VAZIO, PromocaoServicoCampos, agoraBrasilPromocao, dadosDoFormPromocao, formDaPromocao, type FormPromocao } from '@/components/lojista/PromocaoServico'
+import { ROTULO_STATUS_PROMOCAO, periodoPromoServico, precoPromocionalServico, seloDesconto, statusPromocaoServico, type StatusPromocao } from '@/lib/promocao'
 import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
-import { hojeBrasilISO } from '@/lib/agenda'
 
 interface Servico {
   id_servico: string
@@ -25,10 +24,24 @@ interface Servico {
   preco: number
   duracao: number
   status: string
-  // Promoção (migration 095)
+  // Promoção (migrations 095 e 096)
   promo_percentual?: number | null
   promo_inicio?: string | null
   promo_fim?: string | null
+  promo_preco?: number | null
+  promo_hora_inicio?: string | null
+  promo_hora_fim?: string | null
+  promo_ativa?: boolean | null
+  promo_exibir_online?: boolean | null
+}
+
+// O botão de promoção da lista: mostra o desconto quando ela vale agora e,
+// fora disso, em que pé está (programada, desativada, encerrada).
+const CLASSE_BOTAO_PROMO: Record<StatusPromocao, string> = {
+  sem: '', ativa: 'is-ativa', programada: 'is-agendada', pausada: 'is-parada', encerrada: 'is-parada',
+}
+const ROTULO_CURTO_PROMO: Record<StatusPromocao, string> = {
+  sem: '% Promo', ativa: '', programada: 'Programada', pausada: 'Desativada', encerrada: 'Encerrada',
 }
 
 interface Variacao {
@@ -70,7 +83,21 @@ export default function ServicosList({ servicos: inicial }: Props) {
   const [isPending, startTransition] = useTransition()
   const botao = useEstadoBotao()
   const [promoAlvo, setPromoAlvo] = useState<Servico | null>(null)
-  const hoje = hojeBrasilISO()
+  const agora = agoraBrasilPromocao()
+  // Seção "Promoção" do cadastro: o preço digitado no formulário (a conta do
+  // desconto usa ele) e se a loja mexeu na seção — só aí ela é gravada.
+  const [precoForm, setPrecoForm] = useState('')
+  const [nomeForm, setNomeForm] = useState('')
+  const [promoForm, setPromoForm] = useState<FormPromocao>(FORM_PROMOCAO_VAZIO)
+  const [promoTocada, setPromoTocada] = useState(false)
+
+  const statusPromo = (s: Servico) => statusPromocaoServico(s, agora)
+  const precoComPromo = (s: Servico) => precoPromocionalServico(Number(s.preco), Number(s.preco), s)
+
+  async function recarregar() {
+    const { data } = await supabase.from('servico').select('*').is('excluido_em', null).order('created_at', { ascending: false })
+    setServicos(data ?? [])
+  }
 
   function handleAlternarStatus(s: Servico) {
     setAlternarErro(null)
@@ -112,12 +139,20 @@ export default function ServicosList({ servicos: inicial }: Props) {
     setEditando(null)
     setDraftVariacoes([])
     setError(null)
+    setPrecoForm('')
+    setNomeForm('')
+    setPromoForm(FORM_PROMOCAO_VAZIO)
+    setPromoTocada(false)
     setShowModal(true)
   }
 
   function abrirEditar(s: Servico) {
     setEditando(s)
     setError(null)
+    setPrecoForm(String(s.preco))
+    setNomeForm(s.nome)
+    setPromoForm(formDaPromocao(s, Number(s.preco)))
+    setPromoTocada(false)
     setShowModal(true)
   }
 
@@ -133,6 +168,8 @@ export default function ServicosList({ servicos: inicial }: Props) {
       if (!editando && draftVariacoes.length > 0) {
         formData.set('variacoes', JSON.stringify(draftVariacoes.map(v => ({ tipo: v.tipo, especie: v.especie, porte: v.porte, raca: v.raca, preco: v.preco }))))
       }
+      // Promoção: vai junto só se a loja mexeu na seção (ver actions).
+      if (promoTocada) formData.set('promocao', JSON.stringify(dadosDoFormPromocao(promoForm)))
       const result = editando
         ? await editarServicoAction(editando.id_servico, formData)
         : await criarServicoAction(formData)
@@ -143,9 +180,7 @@ export default function ServicosList({ servicos: inicial }: Props) {
         await botao.sucesso()
         setShowModal(false)
         setDraftVariacoes([])
-        // Recarregar lista
-        const { data } = await supabase.from('servico').select('*').is('excluido_em', null).order('created_at', { ascending: false })
-        setServicos(data ?? [])
+        await recarregar()
       }
     })
   }
@@ -200,18 +235,18 @@ export default function ServicosList({ servicos: inicial }: Props) {
                 <span className="dash-app-linha-info">
                   <span className={`dash-app-linha-pet ${s.status === 'Ativo' ? '' : 'is-apagado'}`}>{s.nome}</span>
                   <span className="dash-app-linha-sub is-media">
-                    {promoVigente(s, hoje) > 0
-                      ? <><s>{formatarReais(s.preco)}</s> {formatarReais(precoComDesconto(s.preco, promoVigente(s, hoje)))}</>
+                    {statusPromo(s) === 'ativa'
+                      ? <><s>{formatarReais(s.preco)}</s> {formatarReais(precoComPromo(s))}</>
                       : formatarReais(s.preco)} · {s.duracao} min{s.status === 'Ativo' ? '' : ' · Inativo'}
                   </span>
                 </span>
                 <button
                   type="button"
-                  className={`promo-chip ${promoVigente(s, hoje) > 0 ? 'is-ativa' : s.promo_percentual ? 'is-agendada' : ''}`}
+                  className={`promo-chip ${CLASSE_BOTAO_PROMO[statusPromo(s)]}`}
                   onClick={e => { e.stopPropagation(); setPromoAlvo(s) }}
-                  aria-label={`Promoção de ${s.nome}`}
+                  aria-label={`Promoção de ${s.nome}: ${ROTULO_STATUS_PROMOCAO[statusPromo(s)]}`}
                 >
-                  {s.promo_percentual ? `-${s.promo_percentual}%` : '% Promo'}
+                  {statusPromo(s) === 'ativa' ? `-${seloDesconto(Number(s.preco), precoComPromo(s))}%` : ROTULO_CURTO_PROMO[statusPromo(s)]}
                 </button>
                 <button
                   type="button"
@@ -258,10 +293,10 @@ export default function ServicosList({ servicos: inicial }: Props) {
                     {s.descricao && <div className="text-sm text-muted">{s.descricao}</div>}
                   </td>
                   <td>
-                    {promoVigente(s, hoje) > 0 ? (
+                    {statusPromo(s) === 'ativa' ? (
                       <>
                         <div className="text-xs text-muted"><s>{formatarReais(s.preco)}</s></div>
-                        <div className="text-success font-semibold">{formatarReais(precoComDesconto(s.preco, promoVigente(s, hoje)))}</div>
+                        <div className="text-success font-semibold">{formatarReais(precoComPromo(s))}</div>
                       </>
                     ) : <span className="text-success font-semibold">{formatarReais(s.preco)}</span>}
                   </td>
@@ -292,11 +327,13 @@ export default function ServicosList({ servicos: inicial }: Props) {
                       </button>
                       <button
                         type="button"
-                        className={`promo-chip ${promoVigente(s, hoje) > 0 ? 'is-ativa' : s.promo_percentual ? 'is-agendada' : ''}`}
+                        className={`promo-chip ${CLASSE_BOTAO_PROMO[statusPromo(s)]}`}
                         onClick={() => setPromoAlvo(s)}
-                        title={s.promo_percentual ? periodoPromo(s) : 'Colocar em promoção'}
+                        title={statusPromo(s) === 'sem' ? 'Colocar em promoção' : `${ROTULO_STATUS_PROMOCAO[statusPromo(s)]} · ${periodoPromoServico(s)}`}
                       >
-                        {s.promo_percentual ? `Promoção -${s.promo_percentual}%` : '% Promoção'}
+                        {statusPromo(s) === 'sem' ? '% Promoção'
+                          : statusPromo(s) === 'ativa' ? `Em promoção -${seloDesconto(Number(s.preco), precoComPromo(s))}%`
+                          : ROTULO_STATUS_PROMOCAO[statusPromo(s)]}
                       </button>
                       <button
                         className="btn btn-ghost btn-sm"
@@ -318,15 +355,14 @@ export default function ServicosList({ servicos: inicial }: Props) {
       </div>
 
       {promoAlvo && (
-        <PromocaoModal
-          tipo="servico"
+        <PromocaoServicoModal
           id={promoAlvo.id_servico}
           nome={promoAlvo.nome}
-          preco={promoAlvo.preco}
-          atual={{ promo_percentual: promoAlvo.promo_percentual ?? null, promo_inicio: promoAlvo.promo_inicio ?? null, promo_fim: promoAlvo.promo_fim ?? null }}
+          preco={Number(promoAlvo.preco)}
+          atual={promoAlvo}
           onFechar={() => setPromoAlvo(null)}
-          onSalvo={(p: Promocao) => {
-            setServicos(prev => prev.map(x => x.id_servico === promoAlvo.id_servico ? { ...x, ...p } : x))
+          onSalvo={async () => {
+            await recarregar()
             setPromoAlvo(null)
           }}
         />
@@ -359,6 +395,7 @@ export default function ServicosList({ servicos: inicial }: Props) {
                     type="text"
                     className="form-input"
                     defaultValue={editando?.nome}
+                    onChange={e => setNomeForm(e.target.value)}
                     placeholder="Ex: Banho e Tosa"
                     required
                   />
@@ -385,6 +422,7 @@ export default function ServicosList({ servicos: inicial }: Props) {
                       type="number"
                       className="form-input"
                       defaultValue={editando?.preco}
+                      onChange={e => setPrecoForm(e.target.value)}
                       placeholder="45.00"
                       step="0.01"
                       min="0"
@@ -411,6 +449,14 @@ export default function ServicosList({ servicos: inicial }: Props) {
                   idServico={editando?.id_servico ?? null}
                   draft={draftVariacoes}
                   onDraftChange={setDraftVariacoes}
+                />
+
+                <PromocaoServicoCampos
+                  nome={nomeForm}
+                  preco={Number(precoForm.replace(',', '.')) || 0}
+                  valor={promoForm}
+                  onChange={novo => { setPromoForm(novo); setPromoTocada(true) }}
+                  desativado={isPending}
                 />
               </div>
 

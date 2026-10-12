@@ -40,6 +40,8 @@ import {
 import { checkRateLimit } from '@/lib/rate-limit'
 import { aplicarAdicionaisDoPedido, lerAdicionaisDoFormulario, validarAdicionaisEscolhidos } from '@/lib/adicionais-servidor'
 import type { ServicoAdicional } from '@/lib/adicionais'
+import { colunasPromocaoServico, validarPromocaoServico } from '@/lib/promocao'
+import { conferirPrecosVistos, lerPromocaoDoFormulario, mensagemErroPromocaoServico, type PrecoAtual } from '@/lib/promocao-servidor'
 import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } from '@/lib/lojista-context'
 import { ORDEM_ETAPA, etapaEncerrada, etapaExigeDia } from '@/lib/status-agendamento'
 import { hojeBrasilISO } from '@/lib/agenda'
@@ -892,13 +894,26 @@ export async function criarServicoAction(formData: FormData) {
     }
   }
 
+  // Seção "Promoção" (migration 096): vai no mesmo INSERT, conferida aqui
+  // contra o preço que está sendo cadastrado — e de novo pelo banco.
+  const promocao = lerPromocaoDoFormulario(formData)
+  if ('erro' in promocao) return { error: promocao.erro }
+  if (promocao.veio && promocao.dados) {
+    const problema = validarPromocaoServico(promocao.dados, parsed.data.preco)
+    if (problema) return { error: problema }
+  }
+
   const { data: novoServico, error } = await supabase
     .from('servico')
-    .insert({ id_lojista: contexto.idLojista, ...parsed.data })
+    .insert({
+      id_lojista: contexto.idLojista,
+      ...parsed.data,
+      ...(promocao.veio && promocao.dados ? colunasPromocaoServico(promocao.dados) : {}),
+    })
     .select('id_servico')
     .single()
 
-  if (error || !novoServico) return { error: 'Erro ao cadastrar serviço.' }
+  if (error || !novoServico) return { error: mensagemErroPromocaoServico(error?.message) ?? 'Erro ao cadastrar serviço.' }
 
   if (variacoesParsed.length > 0) {
     const { error: variacaoError } = await supabase.from('servico_variacao').insert(
@@ -939,13 +954,24 @@ export async function editarServicoAction(id_servico: string, formData: FormData
   const parsed = servicoSchema.omit({ status: true }).safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
+  // Seção "Promoção" (migration 096): só é gravada se a loja mexeu nela. O
+  // preço do serviço e a promoção vão no mesmo UPDATE — o banco recusa o
+  // conjunto se o preço promocional não ficar abaixo do preço do serviço
+  // (inclusive quando a loja só baixou o preço de um serviço em promoção).
+  const promocao = lerPromocaoDoFormulario(formData)
+  if ('erro' in promocao) return { error: promocao.erro }
+  if (promocao.veio && promocao.dados) {
+    const problema = validarPromocaoServico(promocao.dados, parsed.data.preco)
+    if (problema) return { error: problema }
+  }
+
   const { error } = await supabase
     .from('servico')
-    .update(parsed.data)
+    .update({ ...parsed.data, ...(promocao.veio ? colunasPromocaoServico(promocao.dados) : {}) })
     .eq('id_servico', id_servico)
     .eq('id_lojista', contexto.idLojista)
 
-  if (error) return { error: 'Erro ao atualizar serviço.' }
+  if (error) return { error: mensagemErroPromocaoServico(error.message) ?? 'Erro ao atualizar serviço.' }
 
   revalidatePath('/lojista/servicos')
   return { success: true }
@@ -1814,6 +1840,10 @@ export async function criarAgendamentoAction(formData: FormData) {
   if (adicionais.erro) return { error: adicionais.erro }
   const conferencia = await validarAdicionaisEscolhidos(supabase, parsed.data.id_lojista, [parsed.data.id_servico], adicionais.itens)
   if (conferencia.erro) return { error: conferencia.erro, adicionais_atuais: conferencia.adicionaisAtuais }
+  // Preço que o cliente viu x preço de agora (promoção que terminou ou
+  // começou nesse meio-tempo): nada é criado sem ele rever o total.
+  const precoMudou = await conferirPrecosVistos(supabase, formData, parsed.data.id_pet, [parsed.data.id_servico])
+  if (precoMudou) return precoMudou
 
   let pagamento = lerFormaPagamento(formData)
   if (pagamento.erro && formData.get('usar_plano') === '1') {
@@ -1897,7 +1927,7 @@ export async function criarAgendamentoAction(formData: FormData) {
 // serviço, encadeados, numa transação só (ou agenda tudo, ou nada).
 export async function criarAgendamentoOnlineAction(
   formData: FormData
-): Promise<{ error?: string; success?: boolean; ids_agendamento?: string[]; plano?: PlanoNoPedido; aviso_adicionais?: string; adicionais_atuais?: ServicoAdicional[] }> {
+): Promise<{ error?: string; success?: boolean; ids_agendamento?: string[]; plano?: PlanoNoPedido; aviso_adicionais?: string; adicionais_atuais?: ServicoAdicional[]; precos_atuais?: Record<string, PrecoAtual> }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || user.user_metadata?.role !== 'cliente') {
@@ -1941,6 +1971,10 @@ export async function criarAgendamentoOnlineAction(
   if (adicionais.erro) return { error: adicionais.erro }
   const conferencia = await validarAdicionaisEscolhidos(supabase, parsed.data.id_lojista, parsed.data.servicos, adicionais.itens)
   if (conferencia.erro) return { error: conferencia.erro, adicionais_atuais: conferencia.adicionaisAtuais }
+  // Preço que o cliente viu x preço de agora (promoção que terminou ou
+  // começou nesse meio-tempo): nada é criado sem ele rever o total.
+  const precoMudou = await conferirPrecosVistos(supabase, formData, parsed.data.id_pet, parsed.data.servicos)
+  if (precoMudou) return precoMudou
 
   let pagamento = lerFormaPagamento(formData)
   if (pagamento.erro && formData.get('usar_plano') === '1') {
