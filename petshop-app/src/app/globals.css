@@ -4562,7 +4562,7 @@ html[data-theme='dark'] { --logo-saip: #6366f1; --logo-texto: #eceff5; }
 /* Tempo limite de espera na retirada (TaxiDog) */
 .espera-retirada { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
 
-/* Botão/selo de promoção (serviços e produtos — migration 095) */
+/* Botão/selo de promoção (serviços e produtos — migration 096) */
 .promo-chip {
   display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border-radius: 999px; flex-shrink: 0;
   border: 1px dashed var(--gray-700); background: var(--gray-900); color: var(--gray-400);

@@ -226,7 +226,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
     cliente = c ?? cliente
   }
 
-  // Promoções (migration 095) numa consulta à parte e tolerante: sem a
+  // Promoções (migration 096) numa consulta à parte e tolerante: sem a
   // migration, a página segue sem promoção nenhuma.
   const [promoServRes, promoProdRes] = await Promise.all([
     supabase.from('servico').select('id_servico, promo_percentual, promo_inicio, promo_fim').eq('id_lojista', lojista.id_lojista).not('promo_percentual', 'is', null),

@@ -19,7 +19,7 @@ export interface ProdutoPdv {
   // Código de barras (GTIN/EAN) das informações fiscais (migration 094) —
   // o leitor do caixa acha o produto por ele.
   codigo_barras?: string | null
-  // Promoção (migration 095): preco_venda já vem com o desconto; aqui o de antes.
+  // Promoção (migration 096): preco_venda já vem com o desconto; aqui o de antes.
   preco_original?: number
   promo?: number
 }

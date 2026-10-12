@@ -81,7 +81,7 @@ interface Servico {
   descricao?: string | null
   preco: number
   duracao: number
-  // Desconto da promoção que vale hoje (migration 095); 0/ausente = sem.
+  // Desconto da promoção que vale hoje (migration 096); 0/ausente = sem.
   promo?: number
 }
 interface Pet {

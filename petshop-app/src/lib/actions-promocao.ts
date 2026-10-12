@@ -1,6 +1,6 @@
 'use server'
 
-// Promoção de um serviço ou produto (migration 095). Grava só as colunas da
+// Promoção de um serviço ou produto (migration 096). Grava só as colunas da
 // promoção — o resto do cadastro não muda. Quem pode: quem gerencia serviços
 // (serviço) ou produtos (produto).
 
@@ -40,7 +40,7 @@ export async function salvarPromocaoAction(
   const coluna = tipo === 'servico' ? 'id_servico' : 'id_produto'
   const { error } = await supabase.from(tabela).update(valores).eq(coluna, id).eq('id_lojista', contexto.idLojista)
   if (error) {
-    if (/promo_percentual|column/i.test(error.message)) return { error: 'Execute a migration 095_promocoes.sql para usar promoções.' }
+    if (/promo_percentual|column/i.test(error.message)) return { error: 'Execute a migration 096_promocoes.sql para usar promoções.' }
     return { error: 'Não foi possível salvar a promoção.' }
   }
 

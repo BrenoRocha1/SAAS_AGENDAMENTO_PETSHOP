@@ -25,7 +25,7 @@ interface Servico {
   preco: number
   duracao: number
   status: string
-  // Promoção (migration 095)
+  // Promoção (migration 096)
   promo_percentual?: number | null
   promo_inicio?: string | null
   promo_fim?: string | null

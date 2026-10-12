@@ -8,7 +8,7 @@ import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
 import { IconAlert, IconClose } from '@/components/icons'
 
 // Colocar / editar / encerrar a promoção de um serviço ou produto
-// (migration 095). O desconto vale no link de agendamento, nos agendamentos
+// (migration 096). O desconto vale no link de agendamento, nos agendamentos
 // feitos pela loja e no Caixa.
 export default function PromocaoModal({ tipo, id, nome, preco, atual, onFechar, onSalvo }: {
   tipo: 'servico' | 'produto'

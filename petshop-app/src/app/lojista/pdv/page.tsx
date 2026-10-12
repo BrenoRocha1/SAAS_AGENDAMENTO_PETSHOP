@@ -69,7 +69,7 @@ export default async function PdvPage() {
       .select('id_produto, codigo_barras')
       .eq('id_lojista', contexto.idLojista)
       .not('codigo_barras', 'is', null),
-    // Promoções (migration 095) — tolerante: sem a migration, sem promoção.
+    // Promoções (migration 096) — tolerante: sem a migration, sem promoção.
     supabase
       .from('produto')
       .select('id_produto, promo_percentual, promo_inicio, promo_fim')

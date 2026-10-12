@@ -365,7 +365,7 @@
   .ag2-pagamento .ag2-radio { display: none; }
 }
 
-/* ---------- Promoções (migration 095) ---------- */
+/* ---------- Promoções (migration 096) ---------- */
 .ag2-promo-selo {
   align-self: flex-start; display: inline-block; padding: 2px 8px; border-radius: 6px;
   background: var(--success-500); color: #fff; font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.02em; margin-bottom: 4px;

@@ -1,4 +1,4 @@
-// Promoções de serviços e produtos (migration 095): desconto em % com início
+// Promoções de serviços e produtos (migration 096): desconto em % com início
 // e fim opcionais. O banco aplica o desconto na cobrança; aqui é só para
 // mostrar na tela. Não é um arquivo 'use server'.
 

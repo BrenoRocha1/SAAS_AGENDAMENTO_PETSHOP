@@ -138,7 +138,7 @@ export default function PdvScreen() {
       supabase.from('lojista').select('nome_loja').eq('id_lojista', idLojista).maybeSingle(),
       // Também serve de teste: sem a migration 083 a tabela não existe.
       supabase.from('venda').select('total').eq('id_lojista', idLojista).eq('status', 'concluida').gte('created_at', inicioHoje),
-      // Promoções (migration 095) — tolerante: sem a migration, sem promoção.
+      // Promoções (migration 096) — tolerante: sem a migration, sem promoção.
       supabase.from('produto').select('id_produto, promo_percentual, promo_inicio, promo_fim').eq('id_lojista', idLojista).not('promo_percentual', 'is', null),
     ])
     setCarregando(false)

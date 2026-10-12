@@ -71,7 +71,7 @@ interface Produto {
   custo_unitario?: number | null
   // Informações fiscais (migration 094) — vem de produto_fiscal.
   fiscal?: ProdutoFiscal | null
-  // Promoção (migration 095)
+  // Promoção (migration 096)
   promo_percentual?: number | null
   promo_inicio?: string | null
   promo_fim?: string | null
