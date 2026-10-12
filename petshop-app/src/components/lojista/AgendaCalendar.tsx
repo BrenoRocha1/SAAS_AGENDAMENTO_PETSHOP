@@ -46,6 +46,7 @@ import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lo
 import { BotaoEditar, EditarModal } from '@/components/EditarAgendamento'
 import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
 import HistoricoAlteracoes from '@/components/lojista/HistoricoAlteracoes'
+import AdicionaisAgendamento from '@/components/lojista/AdicionaisAgendamento'
 import type { TaxiDogPendente } from '@/lib/actions'
 import type { FormaPagamento } from '@/lib/pagamento'
 import { bloqueiosDoDia, somarDiasISO, type BloqueioLoja } from '@/lib/bloqueios'
@@ -665,6 +666,7 @@ export default function AgendaCalendar({
               <div className="dash-detail-row"><span>Cliente</span><span>{selecionado.nome_cliente}</span></div>
               <div className="dash-detail-row"><span>Pet</span><span>{selecionado.nome_pet}</span></div>
               <div className="dash-detail-row"><span>Serviço</span><span>{selecionado.nome_servico}</span></div>
+              <AdicionaisAgendamento key={`adicionais:${selecionado.id_agendamento}`} idAgendamento={selecionado.id_agendamento} status={selecionado.status} pagamento={selecionado.status_pagamento} />
               <HistoricoAlteracoes key={`${selecionado.id_agendamento}:${selecionado.dt_agendamento}:${selecionado.hr_agendamento}:${selecionado.nome_servico}:${selecionado.nome_pet}`} idAgendamento={selecionado.id_agendamento} />
               <div className="dash-detail-row"><span>Data</span><span>{format(parseDia(selecionado.dt_agendamento), 'dd/MM/yyyy')}</span></div>
               <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>

@@ -5,6 +5,7 @@ import { obterUsuario } from '@/lib/supabase/usuario'
 import type { Metadata } from 'next'
 import { diaSemanaBrasil, agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
 import { fechadoODiaTodo, normalizarBloqueios } from '@/lib/bloqueios'
+import { carregarAdicionaisOnline } from '@/lib/adicionais-servidor'
 import AgendamentoOnlineWizard from '@/components/cliente/AgendamentoOnlineWizard'
 import { normalizarFormasLoja } from '@/lib/pagamento'
 import { IconAlert, IconPaw } from '@/components/icons'
@@ -243,6 +244,9 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   const fechadoHoje = fechadoODiaTodo(bloqueios, hojeBrasilISO())
   if (fechadoHoje) statusHoje = `Fechado hoje · ${fechadoHoje.motivo}`
 
+  // Serviços adicionais liberados para o agendamento online (migration 095).
+  const adicionais = await carregarAdicionaisOnline(supabase, lojista.id_lojista)
+
   return (
     <div className="agenonline-shell lojista-shell">
       <div className="agenonline-content">
@@ -270,6 +274,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
             const promo = promoVigente(promoProdutos.get(pr.id_produto), hojeBrasilISO())
             return { ...pr, preco_venda: precoComDesconto(Number(pr.preco_venda), promo), preco_original: Number(pr.preco_venda), promo }
           })}
+          adicionais={adicionais}
           avaliacoes={avaliacoesPublicas}
           pets={pets}
           cliente={cliente}

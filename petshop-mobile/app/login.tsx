@@ -1,190 +1,149 @@
-import { useState } from 'react'
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native'
+import { useState, type ReactNode } from 'react'
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import Svg, { Circle, Path } from 'react-native-svg'
 import { IconeApp } from '@/components/IconeApp'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { IconeGoogle } from '@/components/IconeGoogle'
 import { Ilustracao } from '@/components/Ilustracao'
 import { MarcaSaip } from '@/components/MarcaSaip'
-import { Text, TextInput } from '@/components/Texto'
+import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
-import { urlDoSite } from '@/lib/site'
 import { colors, radius, spacing, typography } from '@/theme/theme'
+import { FONTE_TITULO } from '@/theme/fontes'
 
+type Perfil = 'cliente' | 'lojista'
+
+// Os desenhos da própria tela de entrar do site (login/page.tsx).
+function Traco({ size, color, children }: { size: number; color: string; children: ReactNode }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      {children}
+    </Svg>
+  )
+}
+const IconeCerquilha = ({ size, color }: { size: number; color: string }) => (
+  <Traco size={size} color={color}><Path d="M5 9h14M5 15h14M10 4 8 20M16 4l-2 16" /></Traco>
+)
+const IconePessoa = ({ size, color }: { size: number; color: string }) => (
+  <Traco size={size} color={color}><Circle cx={12} cy={8} r={4} /><Path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /></Traco>
+)
+const IconeLoja = ({ size, color }: { size: number; color: string }) => (
+  <Traco size={size} color={color}>
+    <Path d="M3 9l1-5h16l1 5" />
+    <Path d="M3 9a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0" />
+    <Path d="M5 9v11h14V9" />
+    <Path d="M10 14h4v6h-4z" />
+  </Traco>
+)
+
+// Entrar — a tela do site no celular (petshop-app/src/app/login/page.tsx),
+// com as mesmas medidas: só com a conta Google (quem ainda não tem cadastro
+// termina ali mesmo, em CompletarCadastro) ou, para a equipe do petshop, com
+// o código de acesso rápido. Não há e-mail e senha.
 export default function LoginScreen() {
-  const { signIn, signInWithGoogle } = useAuth()
+  const { signInWithGoogle } = useAuth()
   const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [senha, setSenha] = useState('')
-  const [mostrarSenha, setMostrarSenha] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
-  const [enviando, setEnviando] = useState(false)
   const [abrindoGoogle, setAbrindoGoogle] = useState(false)
-  const [info, setInfo] = useState<string | null>(null)
+  const [perfil, setPerfil] = useState<Perfil>('cliente')
 
   async function entrarComGoogle() {
     setErro(null)
-    setInfo(null)
     setAbrindoGoogle(true)
     const { error } = await signInWithGoogle()
     setAbrindoGoogle(false)
     if (error) setErro(error)
   }
 
-  // A redefinição de senha é a do painel web (o link do e-mail abre lá).
-  function esqueciSenha() {
-    const url = urlDoSite('/esqueci-senha')
-    setErro(null)
-    if (url) Linking.openURL(url)
-    else setInfo('Para criar uma senha nova, abra o site da loja e toque em "Esqueci minha senha" na tela de entrar.')
-  }
-
-  async function handleSubmit() {
-    if (!email.trim() || !senha) {
-      setErro('Preencha e-mail e senha.')
-      return
-    }
-    setErro(null)
-    setInfo(null)
-    setEnviando(true)
-    const { error } = await signIn(email.trim(), senha)
-    setEnviando(false)
-    if (error) setErro(error)
-  }
-
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <MarcaSaip />
+      <ScrollView contentContainerStyle={styles.content}>
+        <MarcaSaip style={styles.marca} />
 
-          <Ilustracao nome="login" altura={120} style={styles.ilustracao} />
+        <Ilustracao nome="login" altura={110} style={styles.ilustracao} />
 
-          <Text style={styles.title}>Entrar</Text>
-          <Text style={styles.subtitle}>Cliente, loja ou equipe: a mesma conta do site</Text>
+        <Text style={styles.title}>Entrar ou criar conta</Text>
+        {/* No app só o cliente cria a conta: a loja nova se cadastra pelo site. */}
+        <Text style={styles.subtitle}>
+          {perfil === 'lojista'
+            ? 'Acesse o painel do seu petshop com a conta Google da loja. Loja nova se cadastra pelo site.'
+            : 'Agende serviços para o seu pet. É só com a sua conta Google: o sistema identifica sozinho se você já tem conta — se não tiver, ela é criada na hora.'}
+        </Text>
 
-          {erro && (
-            <View style={styles.alerta}>
-              <IconeApp name="alert-circle" size={16} color={colors.dangerFg} />
-              <Text style={styles.alertaTexto}>{erro}</Text>
-            </View>
-          )}
-
-          {info && (
-            <View style={[styles.alerta, styles.alertaInfo]}>
-              <IconeApp name="information-circle" size={16} color={colors.infoFg} />
-              <Text style={[styles.alertaTexto, { color: colors.infoFg }]}>{info}</Text>
-            </View>
-          )}
-
-          <View style={styles.campo}>
-            <Text style={styles.label}>E-mail</Text>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="voce@petshop.com"
-              placeholderTextColor={colors.textFaint}
-              autoCapitalize="none"
-              autoComplete="email"
-              keyboardType="email-address"
-              style={styles.input}
-            />
-          </View>
-
-          <View style={styles.campo}>
-            <Text style={styles.label}>Senha</Text>
-            <View style={styles.senhaWrap}>
-              <TextInput
-                value={senha}
-                onChangeText={setSenha}
-                placeholder="••••••••"
-                placeholderTextColor={colors.textFaint}
-                secureTextEntry={!mostrarSenha}
-                autoCapitalize="none"
-                style={[styles.input, styles.senhaInput]}
-              />
-              <Pressable onPress={() => setMostrarSenha(v => !v)} hitSlop={8} style={styles.olho}>
-                <IconeApp name={mostrarSenha ? 'eye-off-outline' : 'eye-outline'} size={19} color={colors.textMuted} />
+        <View style={styles.perfis} accessibilityRole="tablist">
+          {([['cliente', IconePessoa, 'Sou cliente'], ['lojista', IconeLoja, 'Sou lojista']] as const).map(([valor, Icone, rotulo]) => {
+            const ativo = perfil === valor
+            return (
+              <Pressable
+                key={valor}
+                onPress={() => { setPerfil(valor); setErro(null) }}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: ativo }}
+                style={[styles.perfil, ativo && styles.perfilAtivo]}
+              >
+                <Icone size={15} color={ativo ? colors.primary600 : colors.textMuted} />
+                <Text style={[styles.perfilTexto, ativo && { color: colors.primary600 }]}>{rotulo}</Text>
               </Pressable>
-            </View>
+            )
+          })}
+        </View>
+
+        {erro && (
+          <View style={styles.alerta}>
+            <IconeApp name="alert-circle" size={15} color={colors.dangerFg} />
+            <Text style={styles.alertaTexto}>{erro}</Text>
           </View>
+        )}
 
-          <Pressable
-            onPress={handleSubmit}
-            disabled={enviando || abrindoGoogle}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.botao, (pressed || enviando) && styles.botaoPressionado]}
-          >
-            {enviando ? <ActivityIndicator color={colors.white} /> : <Text style={styles.botaoTexto}>Entrar</Text>}
-          </Pressable>
-
-          <Pressable onPress={esqueciSenha} hitSlop={8} accessibilityRole="link" style={styles.esqueci}>
-            <Text style={styles.esqueciTexto}>Esqueci minha senha</Text>
-          </Pressable>
-
-          <View style={styles.divisor}>
-            <View style={styles.divisorLinha} />
-            <Text style={styles.divisorTexto}>ou</Text>
-            <View style={styles.divisorLinha} />
-          </View>
-
+        <View style={styles.botoes}>
+          {/* Botão do Google como a marca pede: fundo branco e o "G" nas
+              quatro cores. */}
           <Pressable
             onPress={entrarComGoogle}
-            disabled={enviando || abrindoGoogle}
+            disabled={abrindoGoogle}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.botaoGoogle, (pressed || abrindoGoogle) && styles.botaoPressionado]}
+            style={({ pressed }) => [styles.botao, (pressed || abrindoGoogle) && styles.botaoPressionado]}
           >
             {abrindoGoogle ? (
               <ActivityIndicator color={colors.text} />
             ) : (
               <>
-                <IconeApp name="logo-google" size={18} color={colors.text} />
-                <Text style={styles.botaoGoogleTexto}>Entrar com Google</Text>
+                <IconeGoogle size={16} />
+                <Text style={styles.botaoTexto}>Continuar com o Google</Text>
               </>
             )}
           </Pressable>
 
           {/* Equipe do petshop: entra só com o código de 6 dígitos que o
-              responsável gera (sem e-mail nem senha). */}
+              responsável gera. */}
           <Pressable
             onPress={() => router.push('/codigo')}
-            disabled={enviando || abrindoGoogle}
+            disabled={abrindoGoogle}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.botaoGoogle, styles.botaoCodigo, pressed && styles.botaoPressionado]}
+            style={({ pressed }) => [styles.botao, pressed && styles.botaoPressionado]}
           >
-            <Text style={styles.cerquilha}>#</Text>
-            <Text style={styles.botaoGoogleTexto}>Código de acesso rápido</Text>
+            <IconeCerquilha size={16} color={colors.text} />
+            <Text style={styles.botaoTexto}>Código de acesso rápido</Text>
           </Pressable>
-
-          <Pressable onPress={() => router.push('/cadastro')} hitSlop={8} accessibilityRole="link" style={styles.criarConta}>
-            <Text style={styles.criarContaTexto}>
-              Ainda não tem conta? <Text style={styles.esqueciTexto}>Criar conta de cliente</Text>
-            </Text>
-          </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
 
+// Medidas do site em 375 de largura (`.login-*` em globals.css).
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  flex: { flex: 1 },
-  content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing['2xl'] },
-  ilustracao: { marginBottom: spacing.xl },
-  title: { ...typography.heading.xl, color: colors.text, marginBottom: 4 },
-  subtitle: { ...typography.body.lg, color: colors.textMuted, marginBottom: spacing['2xl'] },
+  safe: { flex: 1, backgroundColor: colors.surface },
+  content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing.xl, paddingVertical: 40 },
+  marca: { marginBottom: 48 },
+  ilustracao: { marginBottom: spacing.lg },
+  title: { fontFamily: FONTE_TITULO, fontSize: 22, lineHeight: 27.5, fontWeight: '700', letterSpacing: -0.33, color: colors.text, marginBottom: 8 },
+  subtitle: { fontSize: 14, lineHeight: 21.7, color: colors.textMuted, marginBottom: 32 },
+  perfis: { flexDirection: 'row', gap: 4, padding: 4, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
+  perfil: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 36, borderRadius: 8 },
+  perfilAtivo: { backgroundColor: colors.surface, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' },
+  perfilTexto: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: colors.textMuted },
   alerta: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -192,54 +151,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.dangerBg,
     borderRadius: radius.md,
     padding: spacing.md,
-    marginBottom: spacing.lg,
+    marginTop: 24,
   },
   alertaTexto: { ...typography.body.md, color: colors.dangerFg, flex: 1 },
-  alertaInfo: { backgroundColor: colors.infoBg },
-  campo: { marginBottom: spacing.lg },
-  label: { ...typography.label.md, color: colors.textDim, marginBottom: spacing.xs },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    height: 48,
-    ...typography.body.lg,
-    color: colors.text,
-  },
-  senhaWrap: { justifyContent: 'center' },
-  senhaInput: { paddingRight: 44 },
-  olho: { position: 'absolute', right: spacing.md },
+  botoes: { gap: 12, marginTop: 32 },
   botao: {
-    backgroundColor: colors.primary600,
-    borderRadius: radius.md,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.sm,
-  },
-  botaoPressionado: { opacity: 0.85 },
-  esqueci: { alignSelf: 'center', marginTop: spacing.lg, minHeight: 32, justifyContent: 'center' },
-  esqueciTexto: { ...typography.label.md, color: colors.primary600 },
-  divisor: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginVertical: spacing.lg },
-  divisorLinha: { flex: 1, height: 1, backgroundColor: colors.border },
-  divisorTexto: { ...typography.body.sm, color: colors.textFaint },
-  botaoGoogle: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
+    gap: 8,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.borderStrong,
     borderRadius: radius.md,
-    height: 50,
+    height: 42,
   },
-  botaoGoogleTexto: { ...typography.heading.sm, color: colors.text },
-  botaoCodigo: { marginTop: spacing.md },
-  cerquilha: { ...typography.heading.sm, fontSize: 18, color: colors.text },
-  botaoTexto: { color: colors.white, ...typography.heading.sm },
-  criarConta: { alignSelf: 'center', marginTop: spacing['2xl'], minHeight: 32, justifyContent: 'center' },
-  criarContaTexto: { ...typography.body.md, color: colors.textMuted, textAlign: 'center' },
+  botaoPressionado: { opacity: 0.85 },
+  botaoTexto: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: colors.text },
 })

@@ -38,6 +38,8 @@ import {
   completarCadastroLojistaGoogleSchema,
 } from '@/lib/validations'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { aplicarAdicionaisDoPedido, lerAdicionaisDoFormulario, validarAdicionaisEscolhidos } from '@/lib/adicionais-servidor'
+import type { ServicoAdicional } from '@/lib/adicionais'
 import { obterContextoLojista, ehResponsavelPelaConta, type ContextoLojista } from '@/lib/lojista-context'
 import { ORDEM_ETAPA, etapaEncerrada, etapaExigeDia } from '@/lib/status-agendamento'
 import { hojeBrasilISO } from '@/lib/agenda'
@@ -1805,6 +1807,14 @@ export async function criarAgendamentoAction(formData: FormData) {
   // O cliente não escolhe quem faz a corrida (só a loja).
   const taxidog = lerTaxiDogDoFormulario(formData, { semEscolhaDeTaxiDog: true })
   if (taxidog.erro) return { error: taxidog.erro }
+  // Serviços adicionais escolhidos (migration 095): conferidos ANTES de
+  // criar — se um saiu do ar ou mudou de preço, nada é criado e a tela
+  // recebe a lista atual para o cliente rever o resumo.
+  const adicionais = lerAdicionaisDoFormulario(formData)
+  if (adicionais.erro) return { error: adicionais.erro }
+  const conferencia = await validarAdicionaisEscolhidos(supabase, parsed.data.id_lojista, [parsed.data.id_servico], adicionais.itens)
+  if (conferencia.erro) return { error: conferencia.erro, adicionais_atuais: conferencia.adicionaisAtuais }
+
   let pagamento = lerFormaPagamento(formData)
   if (pagamento.erro && formData.get('usar_plano') === '1') {
     const forma = await formaSemCobrancaPeloPlano(supabase, {
@@ -1812,7 +1822,7 @@ export async function criarAgendamentoAction(formData: FormData) {
       idPet: parsed.data.id_pet,
       data: parsed.data.dt_agendamento,
       idsServicos: [parsed.data.id_servico],
-      temExtras: (parsed.data.produtos?.length ?? 0) > 0 || !!taxidog.dados,
+      temExtras: (parsed.data.produtos?.length ?? 0) > 0 || !!taxidog.dados || adicionais.itens.length > 0,
     })
     if (forma) pagamento = { forma }
   }
@@ -1872,8 +1882,13 @@ export async function criarAgendamentoAction(formData: FormData) {
     ? await usarPlanoDoCliente(supabase, [data])
     : undefined
 
+  // Depois do plano: o benefício abate só o serviço, o adicional é à parte.
+  const avisoAdicionais = typeof data === 'string'
+    ? (await aplicarAdicionaisDoPedido(supabase, [data], adicionais.itens)).aviso
+    : undefined
+
   revalidatePath('/cliente/agendamentos')
-  return { success: true, id_agendamento: data, plano }
+  return { success: true, id_agendamento: data, plano, aviso_adicionais: avisoAdicionais }
 }
 
 // Carrinho com um ou mais serviços, criado a partir do link público de
@@ -1882,7 +1897,7 @@ export async function criarAgendamentoAction(formData: FormData) {
 // serviço, encadeados, numa transação só (ou agenda tudo, ou nada).
 export async function criarAgendamentoOnlineAction(
   formData: FormData
-): Promise<{ error?: string; success?: boolean; ids_agendamento?: string[]; plano?: PlanoNoPedido }> {
+): Promise<{ error?: string; success?: boolean; ids_agendamento?: string[]; plano?: PlanoNoPedido; aviso_adicionais?: string; adicionais_atuais?: ServicoAdicional[] }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || user.user_metadata?.role !== 'cliente') {
@@ -1919,6 +1934,14 @@ export async function criarAgendamentoOnlineAction(
 
   const taxidog = lerTaxiDogDoFormulario(formData, { semEscolhaDeTaxiDog: true })
   if (taxidog.erro) return { error: taxidog.erro }
+  // Serviços adicionais escolhidos (migration 095): conferidos ANTES de
+  // criar — se um saiu do ar ou mudou de preço, nada é criado e a tela
+  // recebe a lista atual para o cliente rever o resumo.
+  const adicionais = lerAdicionaisDoFormulario(formData)
+  if (adicionais.erro) return { error: adicionais.erro }
+  const conferencia = await validarAdicionaisEscolhidos(supabase, parsed.data.id_lojista, parsed.data.servicos, adicionais.itens)
+  if (conferencia.erro) return { error: conferencia.erro, adicionais_atuais: conferencia.adicionaisAtuais }
+
   let pagamento = lerFormaPagamento(formData)
   if (pagamento.erro && formData.get('usar_plano') === '1') {
     const forma = await formaSemCobrancaPeloPlano(supabase, {
@@ -1926,7 +1949,7 @@ export async function criarAgendamentoOnlineAction(
       idPet: parsed.data.id_pet,
       data: parsed.data.dt_agendamento,
       idsServicos: parsed.data.servicos,
-      temExtras: (parsed.data.produtos?.length ?? 0) > 0 || !!taxidog.dados,
+      temExtras: (parsed.data.produtos?.length ?? 0) > 0 || !!taxidog.dados || adicionais.itens.length > 0,
     })
     if (forma) pagamento = { forma }
   }
@@ -1987,8 +2010,10 @@ export async function criarAgendamentoOnlineAction(
     ? await usarPlanoDoCliente(supabase, ids)
     : undefined
 
+  const avisoAdicionais = (await aplicarAdicionaisDoPedido(supabase, ids, adicionais.itens)).aviso
+
   revalidatePath('/cliente/agendamentos')
-  return { success: true, ids_agendamento: ids, plano }
+  return { success: true, ids_agendamento: ids, plano, aviso_adicionais: avisoAdicionais }
 }
 
 // Agendamento manual criado pelo LOJISTA (walk-in / telefone) para um

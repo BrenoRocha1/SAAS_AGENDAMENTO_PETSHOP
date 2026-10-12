@@ -6,7 +6,6 @@ import { differenceInHours, format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cancelarAgendamentoAction } from '@/lib/actions'
 import { agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
-import { classeBadgeStatus, rotuloStatus } from '@/lib/status-agendamento'
 import { rotuloEstoque } from '@/lib/produto'
 import { ROTULO_MODALIDADE, formatarReais, rotuloStatusCorrida, type ModalidadeTaxiDog } from '@/lib/taxidog'
 import { CLASSE_STATUS_PAGAMENTO, ROTULO_FORMA_PLANO, ROTULO_STATUS_PAGAMENTO, ehFormaPlano, ehStatusPagamento, rotuloForma } from '@/lib/pagamento'
@@ -17,6 +16,7 @@ import { EditarModal } from '@/components/EditarAgendamento'
 import { RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
 import { Estrelas } from './Estrelas'
 import Ilustracao from '@/components/Ilustracao'
+import StatusAgendamentoMinimo from './StatusAgendamentoMinimo'
 
 type Status = 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
 
@@ -239,7 +239,7 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
                   <div className="text-xs text-muted">{ag.hr_agendamento.slice(0, 5)} · {ag.servico?.duracao ?? '—'} min</div>
                 </div>
                 <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
-                  {v.itens.length > 1 && <span className={`badge ${classeBadgeStatus(ag.status)}`}>{rotuloStatus(ag.status)}</span>}
+                  {v.itens.length > 1 && <StatusAgendamentoMinimo status={ag.status} />}
                   {noPlano[ag.id_agendamento] && ag.status !== 'Cancelado' ? (
                     <span className="badge badge-aceito" title={`Coberto pelo plano ${noPlano[ag.id_agendamento]}`}>Pelo plano</span>
                   ) : (
@@ -388,18 +388,19 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
 
   const renderVisita = (v: Visita, emDestaque = false) => {
     const dataObj = parseISO(v.dt)
-    const aberta = emDestaque || abertas.has(v.chave)
+    const aberta = abertas.has(v.chave)
     const loja = v.itens[0].lojista?.nome_loja ?? ''
     const novo = differenceInHours(new Date(), new Date(v.criadoEm)) < 24
     return (
       <div key={v.chave} className={`card agc-card ${emDestaque ? 'agc-card-destaque' : ''} ${v.status === 'Cancelado' ? 'agc-card-cancelada' : ''}`}>
-        <button type="button" className="agc-resumo" onClick={() => !emDestaque && alternar(v.chave)} aria-expanded={aberta} disabled={emDestaque}>
+        <button type="button" className="agc-resumo" onClick={() => alternar(v.chave)} aria-expanded={aberta}>
           <div className="agc-data">
             <span className="agc-data-dia">{format(dataObj, 'dd')}</span>
             <span className="agc-data-mes">{format(dataObj, 'MMM', { locale: ptBR })}</span>
             <span className="agc-data-semana">{format(dataObj, 'EEE', { locale: ptBR })}</span>
           </div>
           <div className="agc-info">
+            {emDestaque && <div className="agc-destaque-rotulo">Seu próximo agendamento</div>}
             <div className="agc-servicos-titulo">{v.itens.map(i => i.servico?.nome ?? 'Serviço').join(' + ')}</div>
             <div className="text-sm text-muted">
               {v.itens[0].pet?.nome ?? 'Pet'} · {primeiraHora(v).slice(0, 5)}
@@ -409,8 +410,8 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
               <span className="flex items-center gap-1"><IconStore style={{ width: 12, height: 12 }} /> {loja}</span>
               <span>Agendado em {format(new Date(v.criadoEm), "dd/MM 'às' HH:mm")}</span>
             </div>
-            <div className="flex gap-1" style={{ flexWrap: 'wrap', marginTop: 'var(--space-2)' }}>
-              <span className={`badge ${classeBadgeStatus(v.status)}`}>{rotuloStatus(v.status)}</span>
+            <div className="flex items-center gap-2" style={{ flexWrap: 'wrap', marginTop: 'var(--space-2)' }}>
+              <StatusAgendamentoMinimo status={v.status} />
               {v.taxidog && v.taxidog.status !== 'cancelada' && (
                 <span className="badge badge-inativo" style={{ textTransform: 'none', letterSpacing: 0 }}>
                   <IconCar style={{ width: 11, height: 11, marginRight: 3, verticalAlign: -1 }} />TaxiDog
@@ -422,9 +423,7 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
           <div className="agc-valor">
             <span className="font-semibold text-success">{formatarReais(v.valor)}</span>
             {v.taxidog && v.taxidog.status !== 'cancelada' && <span className="text-xs text-muted so-desktop">inclui TaxiDog</span>}
-            {!emDestaque && (
-              <IconChevronRight className="agc-seta" style={{ width: 16, height: 16, transform: aberta ? 'rotate(90deg)' : 'none' }} />
-            )}
+            <IconChevronRight className="agc-seta" style={{ width: 16, height: 16, transform: aberta ? 'rotate(90deg)' : 'none' }} />
           </div>
         </button>
         {aberta && renderDetalhes(v)}

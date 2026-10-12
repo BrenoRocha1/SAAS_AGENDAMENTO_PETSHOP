@@ -8,6 +8,7 @@ import { formatarReais } from '@/lib/taxidog'
 import { ROTULO_FORMA_PAGAMENTO, type FormaPagamento } from '@/lib/pagamento'
 import { PixDaLoja } from './PagamentoEtapa'
 import { IconCheck, IconLink, IconWhatsapp } from '@/components/icons'
+import './confirmacao-agendamento.css'
 
 // Tela "Serviço agendado!" dos dois fluxos do cliente (link público e
 // conta do cliente): WhatsApp com o resumo e o link pra acompanhar o
@@ -57,73 +58,94 @@ export default function ConfirmacaoAgendamento({ idAgendamento, loja, pet, itens
   const mensagemCompartilhar = [`Agendamento em ${loja.nome}:`, ...resumo, ...linhaLink].join('\n')
   const telefoneLoja = (loja.telefone ?? '').replace(/\D/g, '')
 
+  const quandoLongo = (() => {
+    const texto = format(parseISO(data), "EEEE, d 'de' MMMM", { locale: ptBR })
+    return `${texto.charAt(0).toUpperCase()}${texto.slice(1)} às ${hora.slice(0, 5)}`
+  })()
+
+  // Topo de confirmação, o pedido num "recibo" (o que, para quem, quando,
+  // quanto) e as ações em ordem de uso: avisar a loja, guardar/acompanhar.
   return (
-    <div className="card" style={{ textAlign: 'center' }}>
-      <span style={{
-        display: 'inline-flex', width: 64, height: 64, borderRadius: 'var(--radius-full)',
-        background: 'rgba(16,185,129,0.15)', color: 'var(--success-400)',
-        alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-5)',
-      }}>
-        <IconCheck style={{ width: 30, height: 30 }} />
-      </span>
-      <h2 style={{ fontSize: '1.3rem', marginBottom: 'var(--space-2)' }}>Serviço agendado!</h2>
-      <p className="text-sm text-muted" style={{ marginBottom: pagamento ? 'var(--space-2)' : 'var(--space-6)' }}>
-        {pet} · {quando} · {loja.nome}
-      </p>
+    <div className="conf">
+      <div className="conf-topo">
+        <span className="conf-selo"><IconCheck /></span>
+        <h2 className="conf-titulo">Serviço agendado!</h2>
+        <p className="conf-sub">A loja {loja.nome} já recebeu o seu pedido.</p>
+      </div>
+
       {aviso && (
-        <div className="alert alert-warning" style={{ marginBottom: 'var(--space-4)', textAlign: 'left' }}>
+        <div className="alert alert-warning" style={{ textAlign: 'left' }}>
           <span>{aviso}</span>
         </div>
       )}
-      {usouPlano && (
-        <p className="text-sm" style={{ margin: '0 0 var(--space-2)' }}>
-          Saldo do plano usado: <strong>{formatarReais(plano.valorAbatido)}</strong>
-          {nadaAPagar && ' — nada a pagar neste agendamento'}
-        </p>
-      )}
-      {pagamento && !nadaAPagar && (
-        <div style={{ marginBottom: 'var(--space-6)', textAlign: 'left' }}>
-          <p className="text-sm" style={{ textAlign: 'center', margin: '0 0 var(--space-3)' }}>
-            Pagamento: <strong>{ROTULO_FORMA_PAGAMENTO[pagamento.forma]}</strong> · {formatarReais(total)}
-          </p>
-          {pagamento.forma === 'pix' && <PixDaLoja chave={pagamento.pixChave ?? null} nome={pagamento.pixNome ?? null} />}
-        </div>
-      )}
-      {nadaAPagar && <div style={{ marginBottom: 'var(--space-4)' }} />}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      <div className="conf-recibo">
+        <div className="conf-linha">
+          <span>Pet</span>
+          <strong>{pet}</strong>
+        </div>
+        <div className="conf-linha">
+          <span>Quando</span>
+          <strong>{quandoLongo}</strong>
+        </div>
+        <div className="conf-linha is-itens">
+          <span>Pedido</span>
+          <ul>
+            {itens.map((i, n) => <li key={n}>{i}</li>)}
+          </ul>
+        </div>
+        {usouPlano && (
+          <div className="conf-linha">
+            <span>Plano</span>
+            <strong className="conf-plano">− {formatarReais(plano.valorAbatido)}</strong>
+          </div>
+        )}
+        {pagamento && !nadaAPagar && (
+          <div className="conf-linha">
+            <span>Pagamento</span>
+            <strong>{ROTULO_FORMA_PAGAMENTO[pagamento.forma]}</strong>
+          </div>
+        )}
+        <div className="conf-linha is-total">
+          <span>{nadaAPagar ? 'Coberto pelo plano' : 'Total'}</span>
+          <strong>{formatarReais(total)}</strong>
+        </div>
+      </div>
+
+      {pagamento && !nadaAPagar && pagamento.forma === 'pix' && (
+        <PixDaLoja chave={pagamento.pixChave ?? null} nome={pagamento.pixNome ?? null} />
+      )}
+
+      <div className="conf-acoes">
         {telefoneLoja && (
           <a
             href={`https://wa.me/55${telefoneLoja}?text=${encodeURIComponent(mensagemLoja)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="btn btn-primary btn-lg"
-            style={{ width: '100%', justifyContent: 'center' }}
+            className="conf-botao is-principal"
           >
-            <IconWhatsapp style={{ width: 16, height: 16 }} /> Enviar no WhatsApp da loja
+            <IconWhatsapp /> Enviar no WhatsApp da loja
           </a>
         )}
-        <a
-          href={`https://wa.me/?text=${encodeURIComponent(mensagemCompartilhar)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`btn ${telefoneLoja ? 'btn-secondary' : 'btn-primary btn-lg'}`}
-          style={{ width: '100%', justifyContent: 'center' }}
-        >
-          <IconWhatsapp style={{ width: 16, height: 16 }} /> Guardar no meu WhatsApp
-        </a>
-        <p className="text-xs text-muted" style={{ margin: 0 }}>
+        <div className="conf-dupla">
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent(mensagemCompartilhar)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`conf-botao ${telefoneLoja ? '' : 'is-principal'}`}
+          >
+            <IconWhatsapp /> Guardar no meu WhatsApp
+          </a>
+          {linkAcompanhar && (
+            <Link href={linkAcompanhar} className="conf-botao">
+              <IconLink /> Acompanhar
+            </Link>
+          )}
+        </div>
+        <p className="conf-nota">
           A mensagem vai com o link para acompanhar o agendamento — dá para mandar para você mesmo ou para quem vai levar o pet.
         </p>
-
-        {linkAcompanhar && (
-          <Link href={linkAcompanhar} className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center' }}>
-            <IconLink style={{ width: 15, height: 15 }} /> Acompanhar agendamento
-          </Link>
-        )}
-        <Link href="/cliente/agendamentos" className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center' }}>
-          Ver meus agendamentos
-        </Link>
+        <Link href="/cliente/agendamentos" className="conf-link">Ver meus agendamentos</Link>
       </div>
     </div>
   )

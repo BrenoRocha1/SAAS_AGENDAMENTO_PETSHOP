@@ -1,6 +1,7 @@
 import { preflightDoApp, respostaDoApp, tokenDaRequisicao } from '@/lib/api-app'
 import { comSessaoDoApp, conferirSessaoDoApp } from '@/lib/supabase/sessao-do-app'
 import * as acoes from '@/lib/actions'
+import * as acoesAdicionais from '@/lib/actions-adicionais'
 import * as acoesBloqueios from '@/lib/actions-bloqueios'
 import * as acoesPagamento from '@/lib/actions-pagamento'
 import * as acoesPlanos from '@/lib/actions-planos'
@@ -36,6 +37,8 @@ type Acao = (...args: never[]) => Promise<unknown>
 const ACOES: Record<string, Acao> = {
   // Cliente (a conta do próprio cliente)
   criarAgendamentoAction: acoes.criarAgendamentoAction,
+  // O mesmo do link da loja: vários serviços num pedido só.
+  criarAgendamentoOnlineAction: acoes.criarAgendamentoOnlineAction,
   criarPetAction: acoes.criarPetAction,
   editarPetAction: acoes.editarPetAction,
   desativarPetAction: acoes.desativarPetAction,
@@ -53,6 +56,13 @@ const ACOES: Record<string, Acao> = {
   editarAgendamentoAction: acoes.editarAgendamentoAction,
   atribuirFuncionarioAction: acoes.atribuirFuncionarioAction,
   atualizarPagamentoAction: acoesPagamento.atualizarPagamentoAction,
+  // Serviços adicionais (migration 095)
+  salvarServicoAdicionalAction: acoesAdicionais.salvarServicoAdicionalAction,
+  alternarStatusServicoAdicionalAction: acoesAdicionais.alternarStatusServicoAdicionalAction,
+  excluirServicoAdicionalAction: acoesAdicionais.excluirServicoAdicionalAction,
+  adicionaisDoAgendamentoAction: acoesAdicionais.adicionaisDoAgendamentoAction,
+  incluirAdicionaisAction: acoesAdicionais.incluirAdicionaisAction,
+  removerAdicionalAction: acoesAdicionais.removerAdicionalAction,
   // Clientes e pets
   cadastrarClienteLojistaAction: acoes.cadastrarClienteLojistaAction,
   editarClienteLojistaAction: acoes.editarClienteLojistaAction,

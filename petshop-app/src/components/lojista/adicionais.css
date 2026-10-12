@@ -1,0 +1,127 @@
+/* ============================================================
+   Serviços adicionais (migration 095): a seção da tela de Serviços, o
+   bloco do detalhe do agendamento e as janelas de incluir e de avisar o
+   cliente. Mesmas peças do painel (tabela, lista do celular, chave,
+   seletor); aqui só o que é próprio.
+   ============================================================ */
+
+/* ---------- Tela de Serviços ---------- */
+.adic-secao { margin-top: var(--space-8); }
+.adic-cabecalho {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.adic-titulo {
+  margin: 0; font-family: var(--font-heading); font-size: 1.125rem; font-weight: 700;
+  letter-spacing: -0.01em; color: var(--gray-100);
+}
+.adic-sub { margin: 4px 0 0; max-width: 640px; font-size: 0.875rem; line-height: 1.45; color: var(--gray-500); }
+.adic-novo { flex-shrink: 0; }
+.adic-vazio {
+  display: flex; flex-direction: column; gap: 2px; padding: var(--space-5);
+  background: var(--gray-900); border: 1px dashed var(--gray-700); border-radius: var(--radius-lg);
+  font-size: 0.875rem; color: var(--gray-500);
+}
+.adic-vazio strong { font-size: 0.9375rem; font-weight: 600; color: var(--gray-200); }
+
+.adic-onde { display: flex; flex-wrap: wrap; gap: 6px; }
+.adic-selo {
+  display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px;
+  background: var(--primary-soft-bg); border-radius: var(--radius-full);
+  font-size: 0.75rem; font-weight: 600; white-space: nowrap; color: var(--primary-300);
+}
+.adic-selo svg { width: 12px; height: 12px; }
+
+/* Formulário */
+.adic-campos { grid-template-columns: minmax(0, 1fr) 132px; }
+.adic-servicos { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+.adic-chip {
+  height: 34px; padding: 0 0.85rem;
+  background: var(--gray-900); border: 1.5px solid var(--gray-700); border-radius: var(--radius-full);
+  font-family: var(--font-body); font-size: 0.8125rem; font-weight: 600; color: var(--gray-200);
+  cursor: pointer; transition: all var(--transition-fast);
+}
+.adic-chip:hover { border-color: var(--primary-200); }
+.adic-chip.is-ativo { border-color: var(--primary-600); background: var(--primary-soft-bg); color: var(--primary-300); }
+
+@media (max-width: 768px) {
+  .adic-secao { margin-top: var(--space-6); }
+  .adic-cabecalho { flex-direction: column; gap: var(--space-3); }
+  .adic-titulo { font-size: 1.0625rem; }
+  .adic-sub { font-size: 0.8125rem; }
+  .adic-novo { width: 100%; height: 44px; justify-content: center; }
+  .adic-campos { grid-template-columns: minmax(0, 1fr) 112px; }
+}
+
+/* ---------- Detalhe do agendamento ---------- */
+.adic-bloco { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) 0; border-bottom: 1px solid var(--gray-850); }
+.adic-bloco-topo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.adic-bloco-titulo { display: flex; align-items: center; gap: 6px; font-size: 0.875rem; font-weight: 600; color: var(--gray-200); }
+.adic-bloco-titulo svg { width: 14px; height: 14px; color: var(--primary-400); }
+.adic-itens { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.adic-item { display: flex; align-items: flex-start; gap: var(--space-2); }
+.adic-item-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.adic-item-nome { font-size: 0.875rem; font-weight: 600; color: var(--gray-100); overflow-wrap: anywhere; }
+.adic-item-sub { font-size: 0.75rem; line-height: 1.4; color: var(--gray-500); overflow-wrap: anywhere; }
+.adic-item-valor { flex-shrink: 0; font-size: 0.875rem; font-weight: 700; white-space: nowrap; color: var(--gray-100); }
+.adic-item.is-removido .adic-item-nome, .adic-item.is-removido .adic-item-valor { font-weight: 500; text-decoration: line-through; color: var(--gray-500); }
+.adic-remover {
+  flex-shrink: 0; width: 26px; height: 26px; margin-top: -3px; display: grid; place-items: center;
+  background: none; border: 0; border-radius: var(--radius-sm); color: var(--gray-500); cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.adic-remover:hover:not(:disabled) { background: rgba(239, 68, 68, 0.08); color: var(--danger-400); }
+.adic-remover svg { width: 14px; height: 14px; }
+.adic-contas {
+  display: flex; flex-direction: column; gap: 2px; padding: var(--space-2) var(--space-3);
+  background: var(--gray-950); border-radius: var(--radius-md); font-size: 0.8125rem; color: var(--gray-400);
+}
+.adic-contas > div { display: flex; justify-content: space-between; gap: var(--space-3); }
+.adic-contas > div.is-total { margin-top: 2px; padding-top: 4px; border-top: 1px solid var(--gray-800); font-weight: 700; color: var(--gray-100); }
+.adic-remocao { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); background: var(--gray-950); border-radius: var(--radius-md); }
+.adic-remocao-acoes { display: flex; gap: var(--space-2); justify-content: flex-end; }
+
+/* ---------- Janela "Adicionar serviço adicional" ---------- */
+.adic-janela { max-width: 480px; }
+.adic-opcoes { display: flex; flex-direction: column; gap: var(--space-2); max-height: min(44vh, 320px); overflow-y: auto; margin: 0 -2px; padding: 2px; }
+.adic-opcao {
+  display: flex; align-items: flex-start; gap: var(--space-3); width: 100%; padding: 0.7rem 0.85rem; text-align: left;
+  background: var(--gray-900); border: 1.5px solid var(--gray-700); border-radius: var(--radius-md);
+  font-family: var(--font-body); cursor: pointer; transition: all var(--transition-fast);
+}
+.adic-opcao:hover { border-color: var(--primary-200); }
+.adic-opcao.is-ativa { border-color: var(--primary-600); background: var(--primary-soft-bg-8); box-shadow: 0 0 0 3px var(--focus-ring); }
+.adic-caixa {
+  flex-shrink: 0; width: 18px; height: 18px; margin-top: 2px; display: grid; place-items: center;
+  border: 1.5px solid var(--gray-600); border-radius: 5px; color: transparent; transition: all var(--transition-fast);
+}
+.adic-caixa svg { width: 12px; height: 12px; }
+.adic-opcao.is-ativa .adic-caixa { background: var(--primary-600); border-color: var(--primary-600); color: #fff; }
+.adic-opcao-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.adic-opcao-nome { font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
+.adic-opcao-desc { font-size: 0.8125rem; line-height: 1.4; color: var(--gray-500); }
+.adic-opcao-preco { flex-shrink: 0; font-size: 0.9375rem; font-weight: 700; white-space: nowrap; color: var(--primary-300); }
+.adic-total {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  margin-top: var(--space-4); padding: 0.7rem 0.85rem;
+  background: var(--gray-950); border-radius: var(--radius-md); font-size: 0.875rem; color: var(--gray-400);
+}
+.adic-total strong { font-size: 1.0625rem; font-weight: 800; letter-spacing: -0.01em; color: var(--gray-100); }
+.adic-total small { display: block; font-size: 0.75rem; color: var(--gray-500); }
+
+/* ---------- Janela "Valor do atendimento atualizado" ---------- */
+.adic-resumo { display: flex; flex-direction: column; margin-bottom: var(--space-4); border: 1px solid var(--gray-800); border-radius: var(--radius-md); overflow: hidden; }
+.adic-resumo > div { display: flex; justify-content: space-between; gap: var(--space-3); padding: 0.5rem 0.8rem; font-size: 0.875rem; }
+.adic-resumo > div + div { border-top: 1px solid var(--gray-850); }
+.adic-resumo span:first-child { color: var(--gray-500); flex-shrink: 0; }
+.adic-resumo span:last-child { font-weight: 600; text-align: right; color: var(--gray-100); overflow-wrap: anywhere; }
+.adic-resumo > div.is-total { background: var(--primary-soft-bg-8); }
+.adic-resumo > div.is-total span:last-child { font-weight: 800; color: var(--primary-300); }
+.adic-mensagem { min-height: 190px; font-size: 0.875rem; line-height: 1.45; }
+.adic-nota { margin: var(--space-2) 0 0; font-size: 0.75rem; line-height: 1.45; color: var(--gray-500); }
+.adic-whatsapp { background: #128c7e; border-color: #128c7e; color: #fff; }
+.adic-whatsapp:hover { background: #0f7a6e; border-color: #0f7a6e; color: #fff; }
+
+@media (max-width: 768px) {
+  .adic-opcoes { max-height: 40vh; }
+}

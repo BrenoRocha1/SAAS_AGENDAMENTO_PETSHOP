@@ -1,5 +1,6 @@
-import { createContext, useContext, type Ref } from 'react'
+import { createContext, useContext, useState, type Ref } from 'react'
 import {
+  Platform,
   StyleSheet,
   Text as TextoRN,
   TextInput as CampoRN,
@@ -7,6 +8,7 @@ import {
   type TextProps,
   type TextStyle,
 } from 'react-native'
+import { colors } from '@/theme/colors'
 import { FONTE_TITULO, arquivoDaFonte } from '@/theme/fontes'
 
 // Text e TextInput do app: os do React Native, já na fonte do site (Inter;
@@ -46,13 +48,42 @@ export function Text({ style, ...resto }: TextProps & { ref?: Ref<TextoRN> }) {
   )
 }
 
-export function TextInput({ style, ...resto }: TextInputProps & { ref?: Ref<CampoRN> }) {
-  const { estilo } = fonteDoEstilo((StyleSheet.flatten(style) ?? {}) as TextStyle, null)
+// Campo com o cursor nele: a cor é sempre a principal do app (índigo), como
+// o `.form-input:focus` do site — borda índigo e um halo claro em volta. Sem
+// isto, cada aparelho usava a cor de destaque dele (o contorno do navegador,
+// o cursor e a seleção do Android), que saía alaranjada.
+const CORES_DO_CURSOR: Partial<TextInputProps> = Platform.select<Partial<TextInputProps>>({
+  android: { cursorColor: colors.primary600, selectionHandleColor: colors.primary600, selectionColor: 'rgba(79,70,229,0.28)' },
+  default: { selectionColor: colors.primary600 },
+}) ?? {}
+
+export function TextInput({ style, onFocus, onBlur, ...resto }: TextInputProps & { ref?: Ref<CampoRN> }) {
+  const [focado, setFocado] = useState(false)
+  const plano = (StyleSheet.flatten(style) ?? {}) as TextStyle
+  const { estilo } = fonteDoEstilo(plano, null)
   // Campo de uma linha fica sem altura de linha: com ela, o texto sai do
   // centro da caixa no celular.
   const semLinha = resto.multiline ? null : { lineHeight: undefined }
-  return <CampoRN {...resto} style={[style, estilo, semLinha]} />
+  // O halo só faz sentido no campo que desenha a própria borda (a busca,
+  // por exemplo, tem a borda na caixa de fora).
+  const comBorda = Number(plano.borderWidth ?? 0) > 0
+  return (
+    <CampoRN
+      {...CORES_DO_CURSOR}
+      {...resto}
+      onFocus={e => { setFocado(true); onFocus?.(e) }}
+      onBlur={e => { setFocado(false); onBlur?.(e) }}
+      style={[style, estilo, semLinha, estilos.semContorno, focado && comBorda && estilos.focado]}
+    />
+  )
 }
+
+const estilos = StyleSheet.create({
+  // No navegador, tira o contorno padrão (que segue a cor do sistema).
+  semContorno: Platform.OS === 'web' ? ({ outlineWidth: 0, caretColor: colors.primary600 } as unknown as TextStyle) : {},
+  // `.form-input:focus` do site.
+  focado: { borderColor: colors.primary500, boxShadow: '0 0 0 3px rgba(79,70,229,0.15)' },
+})
 
 // Quem tipa uma referência (`useRef<TextInput>`) continua podendo.
 export type Text = TextoRN

@@ -12,6 +12,7 @@ import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lo
 import { BotaoEditar, EditarModal } from '@/components/EditarAgendamento'
 import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
 import HistoricoAlteracoes from '@/components/lojista/HistoricoAlteracoes'
+import AdicionaisAgendamento from '@/components/lojista/AdicionaisAgendamento'
 import type { TaxiDogPendente } from '@/lib/actions'
 import ResumoPlanosCard from '@/components/lojista/planos/ResumoPlanosCard'
 import SegmentedControl from '@/components/ui/segmented-control'
@@ -791,6 +792,7 @@ function DetalheAgendamento({
       <div className="dash-detail-row"><span>Cliente</span><span>{cliente}</span></div>
       <div className="dash-detail-row"><span>Pet</span><span>{pet}{raca ? ` — ${raca}` : ''}</span></div>
       <div className="dash-detail-row"><span>Serviço</span><span>{servico}</span></div>
+      <AdicionaisAgendamento key={`adicionais:${id}`} idAgendamento={id} status={status} />
       <div className="dash-detail-row"><span>Horário</span><span>{hora}</span></div>
       <div className="dash-detail-row"><span>Valor</span><span>{formatarReais(valor)}</span></div>
       <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(status)}`}>{rotuloStatus(status)}</span></span></div>

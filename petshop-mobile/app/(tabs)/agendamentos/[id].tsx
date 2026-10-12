@@ -9,6 +9,7 @@ import { Aviso } from '@/components/Aviso'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { FormasDePagamento, Segmentos } from '@/components/EscolhaPagamento'
 import { EtapaTransporte } from '@/components/EtapaTransporte'
+import { AdicionaisAgendamento } from '@/components/AdicionaisAgendamento'
 import { Folha } from '@/components/Folha'
 import { IconCalendar, IconCar, IconCheck, IconLink, IconMoney, IconPencil, IconRepeat, IconStore, type IconeProps } from '@/components/IconesDoSite'
 import { Seletor } from '@/components/Seletor'
@@ -412,6 +413,17 @@ export default function AgendamentoDetalheScreen() {
               <Text style={styles.valor}>{ROTULO_ORIGEM[a.origem]}</Text>
             </View>
           </Linha>
+        )}
+
+        {/* Serviços adicionais (migration 095) */}
+        {!cancelado && (
+          <AdicionaisAgendamento
+            idAgendamento={a.id_agendamento}
+            idLojista={ctx.idLojista}
+            status={a.status}
+            podeAlterar={podeGerenciar && comSite}
+            onMudou={carregar}
+          />
         )}
 
         {/* Transporte */}

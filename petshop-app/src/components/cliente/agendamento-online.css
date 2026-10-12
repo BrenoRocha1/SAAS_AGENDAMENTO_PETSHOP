@@ -390,3 +390,49 @@
   .ag2-promos-lista { margin: 0; padding: 2px 0 4px; flex-wrap: wrap; overflow: visible; }
   .ag2-promo { flex: 0 0 calc((100% - 20px) / 3); }
 }
+
+/* ============================================================
+   Ajustes de celular (11/10/2026)
+   ============================================================ */
+/* Formas de pagamento: no celular são duas por linha e "Cartão de crédito"
+   quebrava em duas — ali aparece o nome curto ("Crédito", "Débito"). */
+.ag2-pagamento-curto { display: none; }
+.ag2-pagamento { white-space: nowrap; }
+@media (max-width: 480px) {
+  .ag2-pagamentos { grid-template-columns: 1fr 1fr; }
+  .ag2-pagamento { padding: 0 12px; }
+  .ag2-pagamento-rotulo { display: none; }
+  .ag2-pagamento-curto { display: inline; }
+}
+
+/* Título do bloco e o valor ao lado ("+ R$ 15,00") na mesma linha: o
+   título não quebra quando o valor aparece. */
+.ag2-bloco-titulo { min-width: 0; }
+.ag2-bloco-valor { flex-shrink: 0; line-height: 1.25; }
+@media (max-width: 420px) {
+  .ag2-bloco-titulo { font-size: 1rem; }
+}
+
+/* Revisão no celular: o botão de confirmar vira uma barra presa embaixo,
+   de ponta a ponta e com fundo — antes ele flutuava sobre o texto e
+   "pulava" quando a barra do navegador aparecia ou sumia. */
+@media (max-width: 899px) {
+  .ag2.is-checkout { padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
+  .ag2-checkout .ag2-rodape.is-so-celular {
+    position: fixed; left: 0; right: 0; bottom: 0; margin: 0;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: var(--gray-950); border-top: 1px solid var(--gray-850);
+    box-shadow: 0 -6px 18px rgba(17, 24, 39, 0.06);
+  }
+  .ag2-checkout .ag2-rodape.is-so-celular .ag2-cta { max-width: 600px; margin: 0 auto; }
+}
+
+/* Cliente logado que veio da conta: um caminho de volta, discreto, no topo
+   da primeira tela. */
+.ag2-voltar-conta {
+  display: inline-flex; align-items: center; gap: 4px; margin-bottom: var(--space-3);
+  font-size: 0.875rem; font-weight: 600; text-decoration: none; color: var(--primary-400);
+}
+.ag2-voltar-conta svg { width: 16px; height: 16px; }
+.ag2-voltar-conta:hover { color: var(--primary-300); }
+

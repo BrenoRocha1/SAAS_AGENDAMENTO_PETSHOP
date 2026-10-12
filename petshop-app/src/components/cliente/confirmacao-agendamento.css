@@ -1,0 +1,44 @@
+/* Tela "Serviço agendado!" (link da loja e conta do cliente): confirmação
+   no topo, o pedido num recibo e as ações embaixo. */
+.conf { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; padding: 8px 0 24px; }
+.conf-topo { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 12px 0 4px; }
+.conf-selo {
+  width: 60px; height: 60px; margin-bottom: 8px; display: grid; place-items: center; border-radius: 999px;
+  background: var(--primary-600); color: #fff; box-shadow: 0 0 0 8px var(--primary-soft-bg);
+}
+.conf-selo svg { width: 28px; height: 28px; }
+.conf-titulo { margin: 0; font-family: var(--font-heading); font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; color: var(--gray-50); }
+.conf-sub { margin: 0; font-size: 0.9375rem; line-height: 1.45; color: var(--gray-400); }
+
+.conf-recibo { background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px; padding: 4px 18px; }
+.conf-linha { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 12px 0; font-size: 0.9375rem; }
+.conf-linha + .conf-linha { border-top: 1px solid var(--gray-850); }
+.conf-linha > span { flex-shrink: 0; color: var(--gray-400); }
+.conf-linha > strong { min-width: 0; font-weight: 600; text-align: right; color: var(--gray-100); overflow-wrap: anywhere; }
+.conf-linha.is-itens ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; text-align: right; }
+.conf-linha.is-itens li { font-weight: 600; color: var(--gray-100); overflow-wrap: anywhere; }
+.conf-linha .conf-plano { color: var(--primary-300); }
+.conf-linha.is-total { align-items: center; }
+.conf-linha.is-total > span { font-weight: 600; color: var(--gray-300); }
+.conf-linha.is-total > strong { font-family: var(--font-heading); font-size: 1.5rem; font-weight: 800; color: var(--gray-50); }
+
+.conf-acoes { display: flex; flex-direction: column; gap: 10px; }
+.conf-dupla { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 10px; }
+.conf-botao {
+  display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; padding: 0 14px;
+  border-radius: 12px; border: 1.5px solid var(--gray-700); background: var(--gray-900);
+  font-size: 0.9375rem; font-weight: 600; text-align: center; text-decoration: none; color: var(--gray-100);
+  transition: all var(--transition-fast);
+}
+.conf-botao svg { width: 17px; height: 17px; flex-shrink: 0; color: var(--primary-400); }
+.conf-botao:hover { border-color: var(--primary-300); color: var(--gray-100); }
+.conf-botao.is-principal { min-height: 54px; border-color: var(--primary-600); background: var(--primary-600); font-size: 1rem; font-weight: 700; color: #fff; box-shadow: var(--shadow-glow-sm); }
+.conf-botao.is-principal svg { color: #fff; }
+.conf-botao.is-principal:hover { background: var(--primary-500); border-color: var(--primary-500); color: #fff; }
+.conf-nota { margin: 0; font-size: 0.8125rem; line-height: 1.45; text-align: center; color: var(--gray-400); }
+.conf-link { align-self: center; padding: 8px 12px; font-size: 0.9375rem; font-weight: 600; text-decoration: none; color: var(--primary-400); }
+.conf-link:hover { color: var(--primary-300); }
+
+@media (max-width: 380px) {
+  .conf-dupla { grid-template-columns: 1fr; }
+}
