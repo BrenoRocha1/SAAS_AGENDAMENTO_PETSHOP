@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -156,6 +157,15 @@ const PASSOS: Exclude<Step, 'feito'>[] = ['servicos', 'quando', 'revisar']
 const DIAS_ORDEM = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
 const NOMES_DIA_POR_INDICE = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'] as const
 const DIAS_NA_FAIXA = 14
+
+// No celular as quatro formas ficam duas a duas, e "Cartão de crédito" não
+// cabe numa linha ao lado da bolinha — ali vale o nome curto.
+const ROTULO_CURTO_FORMA: Record<FormaPagamento, string> = {
+  pix: 'Pix',
+  dinheiro: 'Dinheiro',
+  cartao_credito: 'Crédito',
+  cartao_debito: 'Débito',
+}
 
 const duracaoTexto = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? String(min % 60).padStart(2, '0') : ''}` : `${min} min`)
 
@@ -524,6 +534,13 @@ export default function AgendamentoOnlineWizard({
         </div>
       )}
 
+      {/* Cliente logado (veio de "Novo agendamento" da conta): volta para lá. */}
+      {step === 'servicos' && autenticado && (
+        <Link href="/cliente/dashboard" className="ag2-voltar-conta">
+          <IconChevronLeft /> Minha conta
+        </Link>
+      )}
+
       {step === 'servicos' && (
         // A loja é a identidade da página (não um seletor): logo, nome e o
         // "Sobre a loja" discreto que abre os detalhes.
@@ -844,9 +861,10 @@ export default function AgendamentoOnlineWizard({
                 ) : (
                   <div className="ag2-pagamentos">
                     {opcoesPagamento.map(f => (
-                      <button key={f} type="button" className={`ag2-pagamento ${formaPagamento === f ? 'is-ativo' : ''}`} onClick={() => setFormaPagamento(f)} aria-pressed={formaPagamento === f}>
+                      <button key={f} type="button" className={`ag2-pagamento ${formaPagamento === f ? 'is-ativo' : ''}`} onClick={() => setFormaPagamento(f)} aria-pressed={formaPagamento === f} aria-label={ROTULO_FORMA_PAGAMENTO[f]}>
                         <span className="ag2-radio" aria-hidden="true" />
-                        {ROTULO_FORMA_PAGAMENTO[f]}
+                        <span className="ag2-pagamento-rotulo">{ROTULO_FORMA_PAGAMENTO[f]}</span>
+                        <span className="ag2-pagamento-curto" aria-hidden="true">{ROTULO_CURTO_FORMA[f]}</span>
                       </button>
                     ))}
                   </div>
@@ -859,7 +877,9 @@ export default function AgendamentoOnlineWizard({
             {gruposAdicionais.length > 0 && (
               <section className="ag2-bloco">
                 <div className="ag2-bloco-topo">
-                  <h2 className="ag2-bloco-titulo">Seu pet precisa de algo a mais? <span className="ag2-opcional">opcional</span></h2>
+                  {/* Título curto: cabe na mesma linha com o valor, e o
+                      "opcional" dá lugar a ele — marcar não muda a altura. */}
+                  <h2 className="ag2-bloco-titulo">Algo a mais para o pet?{totalAdicionais <= 0 && <span className="ag2-opcional"> opcional</span>}</h2>
                   {totalAdicionais > 0 && <span className="ag2-bloco-valor">+ {formatarReais(totalAdicionais)}</span>}
                 </div>
                 {gruposAdicionais.map(g => (
@@ -879,11 +899,9 @@ export default function AgendamentoOnlineWizard({
                               onClick={() => setAdicionaisMarcados(m => alternarAdicionalMarcado(m, g.servico.id_servico, a.id_adicional))}
                             >
                               <span className="ag2-caixa" aria-hidden="true"><IconCheck /></span>
-                              <span className="ag2-adicional-texto">
-                                <span className="ag2-servico-nome">{a.nome}</span>
-                                {a.descricao && <span className="ag2-servico-info">{a.descricao}</span>}
-                              </span>
+                              <span className="ag2-servico-nome ag2-adicional-nome">{a.nome}</span>
                               <span className="ag2-adicional-preco">+ {formatarReais(a.preco)}</span>
+                              {a.descricao && <span className="ag2-servico-info ag2-adicional-desc">{a.descricao}</span>}
                             </button>
                           </li>
                         )
