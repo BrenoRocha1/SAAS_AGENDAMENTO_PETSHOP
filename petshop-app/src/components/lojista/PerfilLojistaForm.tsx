@@ -2,7 +2,8 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { atualizarPerfilLojistaAction } from '@/lib/actions'
-import { IconAlert, IconCheck, IconSave } from '@/components/icons'
+import { IconAlert, IconCheck } from '@/components/icons'
+import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
 import Ilustracao from '@/components/Ilustracao'
 
 function formatarCep(cep: string): string {
@@ -34,6 +35,7 @@ export default function PerfilLojistaForm({ lojista }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const botao = useEstadoBotao()
 
   // Endereço controlado: o CEP preenche rua, bairro, cidade e UF (ViaCEP),
   // o que evita rua digitada errado — o mapa do TaxiDog depende disso.
@@ -99,7 +101,9 @@ export default function PerfilLojistaForm({ lojista }: Props) {
       const result = await atualizarPerfilLojistaAction(new FormData(form))
       if (result?.error) {
         setError(result.error)
+        botao.erro()
       } else {
+        void botao.sucesso()
         setSuccess(true)
         setTimeout(() => setSuccess(false), 3000)
       }
@@ -293,14 +297,7 @@ export default function PerfilLojistaForm({ lojista }: Props) {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            type="submit"
-            id="btn-salvar-perfil"
-            className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
-            disabled={isPending}
-          >
-            {isPending ? 'Salvando...' : (<><IconSave style={{ width: 15, height: 15 }} /> Salvar alterações</>)}
-          </button>
+          <BotaoConfirmar estado={botao.estadoCom(isPending)} id="btn-salvar-perfil" rotuloPendente="Salvando…">Salvar alterações</BotaoConfirmar>
         </div>
       </form>
     </div>

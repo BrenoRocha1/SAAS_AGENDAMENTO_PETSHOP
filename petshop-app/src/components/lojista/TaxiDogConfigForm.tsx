@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { salvarTaxiDogConfigAction } from '@/lib/actions-taxidog'
+import { IndicadorSalvo, useSalvarSozinho } from '@/components/ui/salvo-sozinho'
 import { ROTULO_MODO_COBRANCA, formatarReais, type ModoCobrancaTaxiDog } from '@/lib/taxidog'
 import { IconAlert, IconCar, IconCheck, IconMapPin, IconPlus, IconTrash, IconUsers } from '@/components/icons'
 
@@ -59,17 +60,13 @@ export default function TaxiDogConfigForm({ inicial, taxidogs }: { inicial: Taxi
   const [origemEndereco, setOrigemEndereco] = useState(inicial.origem_endereco)
   const [temOrigem, setTemOrigem] = useState(inicial.tem_origem)
 
-  const [erro, setErro] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
-  const [salvo, setSalvo] = useState(false)
-  const [isPending, startTransition] = useTransition()
 
   const usaDistancia = modo === 'distancia' || modo === 'personalizado'
   const usaRegiao = modo === 'regiao' || modo === 'personalizado'
 
-  function marcarAlterado() {
-    setSalvo(false)
-  }
+  // Salva sozinho (useSalvarSozinho, mais abaixo); nada a fazer aqui.
+  function marcarAlterado() {}
 
   function adicionarFaixa() {
     const ultima = faixas[faixas.length - 1]
@@ -119,56 +116,52 @@ export default function TaxiDogConfigForm({ inicial, taxidogs }: { inicial: Taxi
     return null
   }
 
-  function salvar() {
-    setErro(null)
-    setAviso(null)
-    const problema = validarLocalmente()
-    if (problema) {
-      setErro(problema)
-      return
-    }
+  // Salva sozinho a cada mudança — só quando o que está na tela está completo
+  // (o aviso do que falta aparece no rodapé, sem precisar clicar em salvar).
+  const problema = validarLocalmente()
+  const payload = {
+    ativo,
+    disponivel_online: online,
+    modo_cobranca: modo,
+    valor_buscar: valido(valorBuscar) ? num(valorBuscar) : 0,
+    valor_entregar: valido(valorEntregar) ? num(valorEntregar) : 0,
+    valor_buscar_entregar: valido(valorAmbos) ? num(valorAmbos) : 0,
+    distancia_max_km: numOuNull(distMax),
+    valor_minimo: numOuNull(valorMinimo),
+    // Faixas e regiões vão sempre, mesmo fora do modo atual — trocar de
+    // modo e voltar não pode apagar o que o lojista já tinha cadastrado.
+    faixas: [...faixas]
+      .filter(f => valido(f.km_ate) && valido(f.valor_trecho))
+      .sort((a, b) => num(a.km_ate) - num(b.km_ate))
+      .map(f => ({ km_ate: num(f.km_ate), valor_trecho: num(f.valor_trecho), valor_ida_volta: numOuNull(f.valor_ida_volta) })),
+    regioes: regioes
+      .filter(r => r.cidade.trim().length >= 2 && valido(r.valor_trecho))
+      .map(r => ({
+        bairro: r.bairro.trim() || null,
+        cidade: r.cidade.trim(),
+        uf: r.uf.trim().toUpperCase() || null,
+        valor_trecho: num(r.valor_trecho),
+        valor_ida_volta: numOuNull(r.valor_ida_volta),
+        ativo: r.ativo,
+      })),
+  }
 
-    const payload = {
-      ativo,
-      disponivel_online: online,
-      modo_cobranca: modo,
-      valor_buscar: valido(valorBuscar) ? num(valorBuscar) : 0,
-      valor_entregar: valido(valorEntregar) ? num(valorEntregar) : 0,
-      valor_buscar_entregar: valido(valorAmbos) ? num(valorAmbos) : 0,
-      distancia_max_km: numOuNull(distMax),
-      valor_minimo: numOuNull(valorMinimo),
-      // Faixas e regiões vão sempre, mesmo fora do modo atual — trocar de
-      // modo e voltar não pode apagar o que o lojista já tinha cadastrado.
-      faixas: [...faixas]
-        .filter(f => valido(f.km_ate) && valido(f.valor_trecho))
-        .sort((a, b) => num(a.km_ate) - num(b.km_ate))
-        .map(f => ({ km_ate: num(f.km_ate), valor_trecho: num(f.valor_trecho), valor_ida_volta: numOuNull(f.valor_ida_volta) })),
-      regioes: regioes
-        .filter(r => r.cidade.trim().length >= 2 && valido(r.valor_trecho))
-        .map(r => ({
-          bairro: r.bairro.trim() || null,
-          cidade: r.cidade.trim(),
-          uf: r.uf.trim().toUpperCase() || null,
-          valor_trecho: num(r.valor_trecho),
-          valor_ida_volta: numOuNull(r.valor_ida_volta),
-          ativo: r.ativo,
-        })),
-    }
 
-    startTransition(async () => {
-      const result = await salvarTaxiDogConfigAction(payload)
-      if (result.error) {
-        setErro(result.error)
-        return
-      }
-      setSalvo(true)
+  const auto = useSalvarSozinho({
+    valores: payload,
+    pronto: !problema,
+    espera: 900,
+    salvar: async p => {
+      const result = await salvarTaxiDogConfigAction(p)
+      if (result.error) return result
       setAviso(result.aviso ?? null)
       if (result.origemEndereco !== undefined) {
         setOrigemEndereco(result.origemEndereco)
         setTemOrigem(!!result.origemEndereco)
       }
-    })
-  }
+      return result
+    },
+  })
 
   // Valor mínimo vale por cima de qualquer regra (fn_cotar_taxidog) — no
   // modo fixo isso muda o preço de verdade, então o resumo mostra o
@@ -451,12 +444,10 @@ export default function TaxiDogConfigForm({ inicial, taxidogs }: { inicial: Taxi
         )}
       </div>
 
-      {/* Erro fica junto do botão: o formulário é comprido e quem clica em
-          salvar está aqui embaixo — no topo da página ele passava batido. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-        {erro && (
+        {auto.estado === 'erro' && (
           <div className="alert alert-error">
-            <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{erro}</span>
+            <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{auto.erro}</span>
           </div>
         )}
         {aviso && (
@@ -464,14 +455,11 @@ export default function TaxiDogConfigForm({ inicial, taxidogs }: { inicial: Taxi
             <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{aviso}</span>
           </div>
         )}
-        <div className="flex items-center justify-end gap-3">
-          {salvo && !isPending && (
-            <span className="text-sm text-success flex items-center gap-1"><IconCheck style={{ width: 14, height: 14 }} /> Configuração salva</span>
-          )}
-          <button type="button" className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`} disabled={isPending} onClick={salvar}>
-            {isPending ? 'Salvando...' : 'Salvar configuração'}
-          </button>
-        </div>
+        {problema && (
+          <p className="text-sm text-muted" style={{ margin: 0, textAlign: 'right' }}>{problema} As mudanças são salvas assim que estiver completo.</p>
+        )}
+        {/* A página é comprida: o "Salvo" fica flutuando no canto. */}
+        <IndicadorSalvo estado={auto.estado} flutuante />
         {taxidogs.length === 0 && ativo && (
           <p className="text-xs text-muted flex items-center gap-1" style={{ justifyContent: 'flex-end' }}>
             <IconUsers style={{ width: 12, height: 12 }} />

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { criarAvaliacaoAction, editarAvaliacaoAction } from '@/lib/actions'
 import { IconAlert, IconCheck, IconClose } from '@/components/icons'
+import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
 import EstrelasInput from './EstrelasInput'
 
 const LIMITE_COMENTARIO = 500
@@ -32,6 +33,7 @@ export default function AvaliacaoModal({ idAgendamento, nomePet, nomeServico, no
   const [erro, setErro] = useState<string | null>(null)
   const [enviado, setEnviado] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const botao = useEstadoBotao()
 
   function enviar(e: React.FormEvent) {
     e.preventDefault()
@@ -52,8 +54,10 @@ export default function AvaliacaoModal({ idAgendamento, nomePet, nomeServico, no
         : await criarAvaliacaoAction(idAgendamento, fd)
       if (result?.error) {
         setErro(result.error)
+        botao.erro()
         return
       }
+      await botao.sucesso()
       setEnviado(true)
     })
   }
@@ -124,9 +128,7 @@ export default function AvaliacaoModal({ idAgendamento, nomePet, nomeServico, no
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={onClose} disabled={isPending}>Cancelar</button>
-              <button type="submit" className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`} disabled={isPending}>
-                {isPending ? 'Enviando...' : editando ? 'Salvar alterações' : 'Enviar avaliação'}
-              </button>
+              <BotaoConfirmar estado={botao.estadoCom(isPending)} rotuloPendente="Enviando…" rotuloSucesso={editando ? 'Salvo' : 'Enviada'}>{editando ? 'Salvar alterações' : 'Enviar avaliação'}</BotaoConfirmar>
             </div>
           </form>
         )}

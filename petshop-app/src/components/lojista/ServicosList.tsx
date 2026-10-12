@@ -15,6 +15,7 @@ import { formatarReais } from '@/lib/taxidog'
 import Ilustracao from '@/components/Ilustracao'
 import PromocaoModal from '@/components/lojista/PromocaoModal'
 import { precoComDesconto, promoVigente, periodoPromo, type Promocao } from '@/lib/promocao'
+import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
 import { hojeBrasilISO } from '@/lib/agenda'
 
 interface Servico {
@@ -67,6 +68,7 @@ export default function ServicosList({ servicos: inicial }: Props) {
   const [alternandoId, setAlternandoId] = useState<string | null>(null)
   const [alternarErro, setAlternarErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const botao = useEstadoBotao()
   const [promoAlvo, setPromoAlvo] = useState<Servico | null>(null)
   const hoje = hojeBrasilISO()
 
@@ -136,7 +138,9 @@ export default function ServicosList({ servicos: inicial }: Props) {
         : await criarServicoAction(formData)
       if (result?.error) {
         setError(result.error)
+        botao.erro()
       } else {
+        await botao.sucesso()
         setShowModal(false)
         setDraftVariacoes([])
         // Recarregar lista
@@ -425,14 +429,7 @@ export default function ServicosList({ servicos: inicial }: Props) {
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  id="btn-salvar-servico"
-                  className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
-                  disabled={isPending}
-                >
-                  {isPending ? 'Salvando...' : 'Salvar Serviço'}
-                </button>
+                <BotaoConfirmar estado={botao.estadoCom(isPending)} id="btn-salvar-servico" rotuloPendente="Salvando…" rotuloSucesso={editando ? 'Salvo' : 'Serviço cadastrado'}>Salvar serviço</BotaoConfirmar>
               </div>
             </form>
           </div>

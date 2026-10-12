@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { salvarPromocaoAction } from '@/lib/actions-promocao'
 import { precoComDesconto, type Promocao } from '@/lib/promocao'
 import { formatarReais } from '@/lib/taxidog'
+import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
 import { IconAlert, IconClose } from '@/components/icons'
 
 // Colocar / editar / encerrar a promoção de um serviço ou produto
@@ -23,6 +24,7 @@ export default function PromocaoModal({ tipo, id, nome, preco, atual, onFechar, 
   const [fim, setFim] = useState(atual.promo_fim ?? '')
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const botao = useEstadoBotao()
   const pct = Number(percentual)
   const valido = Number.isInteger(pct) && pct >= 1 && pct <= 90
 
@@ -33,7 +35,8 @@ export default function PromocaoModal({ tipo, id, nome, preco, atual, onFechar, 
       : { percentual: pct, inicio: inicio || null, fim: fim || null }
     startTransition(async () => {
       const r = await salvarPromocaoAction(tipo, id, dados)
-      if (r.error) { setErro(r.error); return }
+      if (r.error) { setErro(r.error); botao.erro(); return }
+      await botao.sucesso()
       onSalvo({ promo_percentual: dados.percentual, promo_inicio: dados.inicio, promo_fim: dados.fim })
     })
   }
@@ -81,9 +84,7 @@ export default function PromocaoModal({ tipo, id, nome, preco, atual, onFechar, 
             {atual.promo_percentual ? (
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => salvar(true)} disabled={isPending}>Encerrar promoção</button>
             ) : <span />}
-            <button type="submit" className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`} disabled={!valido || isPending}>
-              {isPending ? 'Salvando…' : atual.promo_percentual ? 'Salvar promoção' : 'Ativar promoção'}
-            </button>
+            <BotaoConfirmar estado={botao.estadoCom(isPending)} disabled={!valido} rotuloPendente="Salvando…" rotuloSucesso="Promoção salva">{atual.promo_percentual ? 'Salvar promoção' : 'Ativar promoção'}</BotaoConfirmar>
           </div>
         </form>
       </div>

@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { editarPetAction } from '@/lib/actions'
-import { IconAlert, IconCheck, IconSave } from '@/components/icons'
+import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
+import { IconAlert, IconCheck } from '@/components/icons'
 
 interface Pet {
   id_pet: string
@@ -26,6 +27,7 @@ export default function EditarPetForm({ pet }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const botao = useEstadoBotao()
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -34,8 +36,9 @@ export default function EditarPetForm({ pet }: Props) {
     const form = e.currentTarget
     startTransition(async () => {
       const result = await editarPetAction(pet.id_pet, new FormData(form))
-      if (result?.error) setError(result.error)
+      if (result?.error) { setError(result.error); botao.erro() }
       else {
+        void botao.sucesso()
         setSuccess(true)
         setTimeout(() => setSuccess(false), 3000)
         router.refresh()
@@ -148,14 +151,7 @@ export default function EditarPetForm({ pet }: Props) {
           >
             Voltar
           </button>
-          <button
-            type="submit"
-            className={`btn btn-primary btn-lg ${isPending ? 'btn-loading' : ''}`}
-            disabled={isPending}
-            style={{ flex: 1 }}
-          >
-            {isPending ? 'Salvando...' : (<><IconSave style={{ width: 15, height: 15, flexShrink: 0 }} /> Salvar alterações</>)}
-          </button>
+          <BotaoConfirmar estado={botao.estadoCom(isPending)} className="btn btn-primary btn-lg" style={{ flex: 1 }} rotuloPendente="Salvando…">Salvar alterações</BotaoConfirmar>
         </div>
       </form>
     </div>

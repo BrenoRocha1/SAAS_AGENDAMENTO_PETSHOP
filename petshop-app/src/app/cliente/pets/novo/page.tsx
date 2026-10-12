@@ -3,12 +3,14 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { criarPetAction } from '@/lib/actions'
+import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
 import { IconAlert } from '@/components/icons'
 
 export default function NovoPetPage() {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const botao = useEstadoBotao()
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -16,8 +18,8 @@ export default function NovoPetPage() {
     const form = e.currentTarget
     startTransition(async () => {
       const result = await criarPetAction(new FormData(form))
-      if (result?.error) setError(result.error)
-      else router.push('/cliente/pets')
+      if (result?.error) { setError(result.error); botao.erro() }
+      else { await botao.sucesso(); router.push('/cliente/pets') }
     })
   }
 
@@ -124,15 +126,7 @@ export default function NovoPetPage() {
             >
               Cancelar
             </button>
-            <button
-              type="submit"
-              id="btn-salvar-pet"
-              className={`btn btn-primary btn-lg ${isPending ? 'btn-loading' : ''}`}
-              disabled={isPending}
-              style={{ flex: 1 }}
-            >
-              {isPending ? 'Salvando...' : 'Cadastrar Pet'}
-            </button>
+            <BotaoConfirmar estado={botao.estadoCom(isPending)} id="btn-salvar-pet" className="btn btn-primary btn-lg" style={{ flex: 1 }} rotuloPendente="Salvando…" rotuloSucesso="Pet cadastrado">Cadastrar pet</BotaoConfirmar>
           </div>
         </form>
       </div>

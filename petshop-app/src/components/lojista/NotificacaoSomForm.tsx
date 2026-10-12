@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { atualizarSomNotificacaoAction } from '@/lib/actions'
 import { tocarSom, SONS_DISPONIVEIS, type TipoSom } from '@/lib/sons-notificacao'
-import { IconAlert, IconBell, IconCheck, IconPlay, IconSave } from '@/components/icons'
+import { IconAlert, IconBell, IconPlay } from '@/components/icons'
+import { IndicadorSalvo, useSalvarSozinho } from '@/components/ui/salvo-sozinho'
 
 interface Props {
   somAtivoInicial: boolean
@@ -18,28 +19,18 @@ interface Props {
 export default function NotificacaoSomForm({ somAtivoInicial, somTipoInicial, podeEditar, migrationPendente }: Props) {
   const [ativo, setAtivo] = useState(somAtivoInicial)
   const [tipo, setTipo] = useState<TipoSom>(somTipoInicial as TipoSom)
-  const [erro, setErro] = useState<string | null>(null)
-  const [sucesso, setSucesso] = useState(false)
-  const [isPending, startTransition] = useTransition()
-
-  const houveMudanca = ativo !== somAtivoInicial || tipo !== somTipoInicial
-
-  function salvar() {
-    setErro(null)
-    setSucesso(false)
-    const fd = new FormData()
-    fd.set('ativo', String(ativo))
-    fd.set('tipo', tipo)
-    startTransition(async () => {
-      const result = await atualizarSomNotificacaoAction(fd)
-      if (result?.error) {
-        setErro(result.error)
-        return
-      }
-      setSucesso(true)
-      setTimeout(() => setSucesso(false), 3000)
-    })
-  }
+  // Salva sozinho a cada mudança.
+  const auto = useSalvarSozinho({
+    valores: { ativo, tipo },
+    pronto: podeEditar,
+    espera: 300,
+    salvar: v => {
+      const fd = new FormData()
+      fd.set('ativo', String(v.ativo))
+      fd.set('tipo', v.tipo)
+      return atualizarSomNotificacaoAction(fd)
+    },
+  })
 
   return (
     <div className="card" style={{ maxWidth: 700 }}>
@@ -53,17 +44,10 @@ export default function NotificacaoSomForm({ somAtivoInicial, somTipoInicial, po
         </div>
       )}
 
-      {sucesso && (
-        <div className="alert alert-success" style={{ marginBottom: 'var(--space-5)' }}>
-          <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-          <span>Configuração salva!</span>
-        </div>
-      )}
-
-      {erro && (
+      {auto.estado === 'erro' && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-5)' }}>
           <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-          <span>{erro}</span>
+          <span>{auto.erro}</span>
         </div>
       )}
 
@@ -85,7 +69,7 @@ export default function NotificacaoSomForm({ somAtivoInicial, somTipoInicial, po
           type="button"
           className={`switch ${ativo ? 'switch-on' : ''}`}
           onClick={() => setAtivo(a => !a)}
-          disabled={!podeEditar || isPending}
+          disabled={!podeEditar}
           role="switch"
           aria-checked={ativo}
           title={ativo ? 'Desativar som de novos agendamentos' : 'Ativar som de novos agendamentos'}
@@ -115,7 +99,7 @@ export default function NotificacaoSomForm({ somAtivoInicial, somTipoInicial, po
                 value={som.value}
                 checked={tipo === som.value}
                 onChange={() => setTipo(som.value)}
-                disabled={!podeEditar || isPending}
+                disabled={!podeEditar}
                 style={{ width: 18, height: 18, accentColor: 'var(--primary-500)' }}
               />
               <span style={{ flex: 1, fontWeight: 500, color: 'var(--gray-100)' }}>{som.label}</span>
@@ -132,15 +116,8 @@ export default function NotificacaoSomForm({ somAtivoInicial, somTipoInicial, po
       </div>
 
       {podeEditar && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-6)' }}>
-          <button
-            type="button"
-            className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
-            onClick={salvar}
-            disabled={isPending || !houveMudanca}
-          >
-            {isPending ? 'Salvando...' : (<><IconSave style={{ width: 15, height: 15 }} /> Salvar alterações</>)}
-          </button>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-4)', minHeight: 24 }}>
+          <IndicadorSalvo estado={auto.estado} />
         </div>
       )}
     </div>

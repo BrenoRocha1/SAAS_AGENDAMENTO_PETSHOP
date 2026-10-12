@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { salvarFormasPagamentoAction } from '@/lib/actions-pagamento'
 import { ROTULO_FORMA_PAGAMENTO, type FormasLoja } from '@/lib/pagamento'
-import { IconAlert, IconCheck } from '@/components/icons'
+import { IconAlert } from '@/components/icons'
+import { IndicadorSalvo, useSalvarSozinho } from '@/components/ui/salvo-sozinho'
 
 type Chave = 'pix' | 'dinheiro' | 'cartao_credito' | 'cartao_debito'
 
@@ -26,34 +27,16 @@ export default function FormasPagamentoForm({ inicial }: { inicial: FormasLoja }
   })
   const [pixChave, setPixChave] = useState(inicial.pix_chave ?? '')
   const [pixNome, setPixNome] = useState(inicial.pix_nome ?? '')
-  const [erro, setErro] = useState<string | null>(null)
-  const [salvo, setSalvo] = useState(false)
-  const [isPending, startTransition] = useTransition()
+  const pixIncompleto = ativo.pix && (!pixChave.trim() || !pixNome.trim())
+  // Salva sozinho a cada mudança; com o Pix ligado, espera a chave e o nome.
+  const auto = useSalvarSozinho({
+    valores: { ...ativo, pix_chave: pixChave.trim(), pix_nome: pixNome.trim() },
+    pronto: !pixIncompleto,
+    salvar: salvarFormasPagamentoAction,
+  })
 
   function alternar(chave: Chave) {
     setAtivo(prev => ({ ...prev, [chave]: !prev[chave] }))
-    setSalvo(false)
-    setErro(null)
-  }
-
-  function salvar() {
-    setErro(null)
-    setSalvo(false)
-    startTransition(async () => {
-      const r = await salvarFormasPagamentoAction({
-        pix: ativo.pix,
-        pix_chave: pixChave,
-        pix_nome: pixNome,
-        dinheiro: ativo.dinheiro,
-        cartao_credito: ativo.cartao_credito,
-        cartao_debito: ativo.cartao_debito,
-      })
-      if (r.error) {
-        setErro(r.error)
-        return
-      }
-      setSalvo(true)
-    })
   }
 
   return (
@@ -94,7 +77,8 @@ export default function FormasPagamentoForm({ inicial }: { inicial: FormasLoja }
                     id="pix-chave"
                     className="form-input"
                     value={pixChave}
-                    onChange={e => { setPixChave(e.target.value); setSalvo(false) }}
+                    onChange={e => setPixChave(e.target.value)}
+                    onBlur={auto.salvarAgora}
                     placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
                     maxLength={140}
                   />
@@ -105,7 +89,8 @@ export default function FormasPagamentoForm({ inicial }: { inicial: FormasLoja }
                     id="pix-nome"
                     className="form-input"
                     value={pixNome}
-                    onChange={e => { setPixNome(e.target.value); setSalvo(false) }}
+                    onChange={e => setPixNome(e.target.value)}
+                    onBlur={auto.salvarAgora}
                     placeholder="Ex.: Pet Shop SAIP"
                     maxLength={100}
                   />
@@ -117,21 +102,16 @@ export default function FormasPagamentoForm({ inicial }: { inicial: FormasLoja }
         ))}
       </div>
 
-      {erro && (
+      {auto.estado === 'erro' && (
         <div className="alert alert-error">
-          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{erro}</span>
+          <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{auto.erro}</span>
         </div>
       )}
 
-      <div className="flex items-center gap-3" style={{ justifyContent: 'flex-end' }}>
-        {salvo && (
-          <span className="text-sm text-success flex items-center gap-1">
-            <IconCheck style={{ width: 14, height: 14 }} /> Salvo
-          </span>
-        )}
-        <button type="button" className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`} disabled={isPending} onClick={salvar}>
-          Salvar
-        </button>
+      <div className="flex items-center gap-3" style={{ justifyContent: 'flex-end', minHeight: 24 }}>
+        {pixIncompleto
+          ? <span className="text-sm text-muted">Preencha a chave e o nome do Pix para salvar.</span>
+          : <IndicadorSalvo estado={auto.estado} />}
       </div>
     </div>
   )

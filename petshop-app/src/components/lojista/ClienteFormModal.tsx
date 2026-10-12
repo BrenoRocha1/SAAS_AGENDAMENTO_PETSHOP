@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { cadastrarClienteLojistaAction, editarClienteLojistaAction } from '@/lib/actions'
+import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
 import { IconAlert, IconCheck, IconClose, IconUsers } from '@/components/icons'
 
 export interface ClienteParaEditar {
@@ -21,6 +22,7 @@ export default function ClienteFormModal({ cliente, onClose, onSaved }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [convidado, setConvidado] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const botao = useEstadoBotao()
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -33,8 +35,10 @@ export default function ClienteFormModal({ cliente, onClose, onSaved }: Props) {
         : await cadastrarClienteLojistaAction(formData)
       if (result?.error) {
         setError(result.error)
+        botao.erro()
         return
       }
+      await botao.sucesso()
       if (isEdicao) {
         onSaved()
       } else {
@@ -174,14 +178,7 @@ export default function ClienteFormModal({ cliente, onClose, onSaved }: Props) {
             <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isPending}>
               Cancelar
             </button>
-            <button
-              type="submit"
-              className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
-              disabled={isPending}
-              id="btn-salvar-cliente"
-            >
-              {isPending ? 'Salvando...' : isEdicao ? 'Salvar Alterações' : 'Convidar Cliente'}
-            </button>
+            <BotaoConfirmar estado={botao.estadoCom(isPending)} id="btn-salvar-cliente" rotuloPendente="Salvando…" rotuloSucesso={isEdicao ? 'Salvo' : 'Convite enviado'}>{isEdicao ? 'Salvar alterações' : 'Convidar cliente'}</BotaoConfirmar>
           </div>
         </form>
       </div>

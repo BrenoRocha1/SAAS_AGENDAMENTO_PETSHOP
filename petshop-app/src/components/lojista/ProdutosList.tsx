@@ -48,6 +48,7 @@ import CamposFiscaisProduto from '@/components/lojista/CamposFiscaisProduto'
 import PromocaoModal from '@/components/lojista/PromocaoModal'
 import { precoComDesconto, promoVigente, periodoPromo, type Promocao } from '@/lib/promocao'
 import { hojeBrasilISO } from '@/lib/agenda'
+import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
 import type { ProdutoFiscal } from '@/lib/fiscal'
 
 interface Categoria {
@@ -170,6 +171,8 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
   const [isPendingCategoria, startTransitionCategoria] = useTransition()
 
   const [isPending, startTransition] = useTransition()
+
+  const botao = useEstadoBotao()
 
   const produtosFiltrados = useMemo(() => {
     const buscaLower = busca.trim().toLowerCase()
@@ -316,6 +319,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
         : await criarProdutoAction(formData)
       if (result?.error || !result.produto) {
         setError(result?.error ?? 'Erro ao salvar produto.')
+        botao.erro()
         return
       }
 
@@ -351,8 +355,10 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
       // e deixa o formulário aberto.
       if ('aviso' in result && result.aviso) {
         setError(result.aviso)
+        botao.erro()
         return
       }
+      await botao.sucesso()
       setShowModal(false)
       limparEstadoFoto()
     })
@@ -962,14 +968,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                 <button type="button" className="btn btn-secondary so-desktop" onClick={() => setShowModal(false)}>
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  id="btn-salvar-produto"
-                  className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
-                  disabled={isPending || processandoFoto}
-                >
-                  {isPending ? 'Salvando...' : 'Salvar Produto'}
-                </button>
+                <BotaoConfirmar estado={botao.estadoCom(isPending)} id="btn-salvar-produto" disabled={processandoFoto} rotuloPendente="Salvando…" rotuloSucesso={editando ? 'Salvo' : 'Produto cadastrado'}>Salvar produto</BotaoConfirmar>
               </div>
             </form>
           </div>

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { criarPetAction } from '@/lib/actions'
+import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
 import { IconAlert } from '@/components/icons'
 
 export interface PetCriado {
@@ -27,6 +28,7 @@ interface Props {
 export default function NovoPetNoAgendamento({ onCriado, onCancelar }: Props) {
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const botao = useEstadoBotao()
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -36,8 +38,10 @@ export default function NovoPetNoAgendamento({ onCriado, onCancelar }: Props) {
       const resultado = await criarPetAction(new FormData(form))
       if (resultado?.error || !resultado?.pet) {
         setErro(resultado?.error ?? 'Erro ao cadastrar pet.')
+        botao.erro()
         return
       }
+      await botao.sucesso()
       onCriado(resultado.pet as PetCriado)
     })
   }
@@ -109,9 +113,7 @@ export default function NovoPetNoAgendamento({ onCriado, onCancelar }: Props) {
             Cancelar
           </button>
         )}
-        <button type="submit" className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`} disabled={isPending}>
-          {isPending ? 'Salvando...' : 'Cadastrar pet'}
-        </button>
+        <BotaoConfirmar estado={botao.estadoCom(isPending)} rotuloPendente="Salvando…" rotuloSucesso="Pet cadastrado">Cadastrar pet</BotaoConfirmar>
       </div>
     </form>
   )

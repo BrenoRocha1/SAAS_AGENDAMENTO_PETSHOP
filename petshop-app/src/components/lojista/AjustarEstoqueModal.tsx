@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { movimentarEstoqueAction } from '@/lib/actions'
 import { rotuloUnidade } from '@/lib/produto'
 import CampoQuantidade from './CampoQuantidade'
+import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
 import { IconAlert, IconClose } from '@/components/icons'
 
 interface ProdutoResumo {
@@ -29,6 +30,7 @@ interface Props {
 export default function AjustarEstoqueModal({ produto, onClose, onSucesso }: Props) {
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const botao = useEstadoBotao()
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -57,8 +59,10 @@ export default function AjustarEstoqueModal({ produto, onClose, onSucesso }: Pro
       const result = await movimentarEstoqueAction(produto.id_produto, fd)
       if (result?.error) {
         setErro(result.error)
+        botao.erro()
         return
       }
+      await botao.sucesso()
       onSucesso(result.novoEstoque as number)
     })
   }
@@ -104,9 +108,7 @@ export default function AjustarEstoqueModal({ produto, onClose, onSucesso }: Pro
             <button type="button" className="btn btn-secondary" onClick={onClose} disabled={isPending}>
               Cancelar
             </button>
-            <button type="submit" className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`} disabled={isPending}>
-              {isPending ? 'Salvando...' : 'Confirmar'}
-            </button>
+            <BotaoConfirmar estado={botao.estadoCom(isPending)} rotuloPendente="Salvando…" rotuloSucesso="Estoque ajustado">Confirmar</BotaoConfirmar>
           </div>
         </form>
       </div>

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { atualizarPerfilClienteAction } from '@/lib/actions'
-import { IconAlert, IconCheck, IconSave } from '@/components/icons'
+import { IconAlert, IconCheck } from '@/components/icons'
+import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
 import { formatarTelefone } from '@/lib/format'
 
 interface Cliente {
@@ -24,6 +25,7 @@ export default function PerfilClienteForm({ cliente }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const botao = useEstadoBotao()
   // Com a máscara de sempre — vinha só com os números, como está no banco
   // (a action tira a pontuação antes de salvar).
   const [telefone, setTelefone] = useState(formatarTelefone(cliente.telefone))
@@ -37,7 +39,9 @@ export default function PerfilClienteForm({ cliente }: Props) {
       const result = await atualizarPerfilClienteAction(new FormData(form))
       if (result?.error) {
         setError(result.error)
+        botao.erro()
       } else {
+        void botao.sucesso()
         setSuccess(true)
         setTimeout(() => setSuccess(false), 3000)
       }
@@ -93,13 +97,7 @@ export default function PerfilClienteForm({ cliente }: Props) {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            type="submit"
-            className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
-            disabled={isPending}
-          >
-            {isPending ? 'Salvando...' : (<><IconSave style={{ width: 15, height: 15 }} /> Salvar alterações</>)}
-          </button>
+          <BotaoConfirmar estado={botao.estadoCom(isPending)} rotuloPendente="Salvando…">Salvar alterações</BotaoConfirmar>
         </div>
       </form>
     </div>

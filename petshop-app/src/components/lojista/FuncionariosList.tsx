@@ -29,6 +29,7 @@ import {
   IconUserPlus,
 } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
+import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
 import './equipe-membro.css'
 
 interface Funcionario {
@@ -88,6 +89,7 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
   // comum — a mesma regra de podeEditar, conferida de novo no banco.
   const [codigoPara, setCodigoPara] = useState<Funcionario | null>(null)
   const [isPending, startTransition] = useTransition()
+  const botao = useEstadoBotao()
   const formRef = useRef<HTMLFormElement>(null)
 
   const editFunc = editId
@@ -125,7 +127,9 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
         const result = await editarFuncionarioAction(editId, new FormData(form))
         if (result?.error) {
           setError(result.error)
+          botao.erro()
         } else {
+          await botao.sucesso()
           setSuccess('Membro atualizado com sucesso!')
           closeModal()
         }
@@ -133,7 +137,9 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
         const result = await cadastrarFuncionarioAction(new FormData(form))
         if (result?.error) {
           setError(result.error)
+          botao.erro()
         } else {
+          await botao.sucesso()
           setSuccess('Membro cadastrado! Para ele entrar, gere o código em "Código de acesso".')
           closeModal()
           formRef.current?.reset()
@@ -472,26 +478,14 @@ export default function FuncionariosList({ funcionarios: initial, podeConcederAc
                   >
                     Cancelar
                   </button>
-                  <button
-                    type="submit"
-                    className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`}
-                    disabled={isPending}
-                    id="btn-salvar-funcionario"
-                  >
-                    {isPending
-                      ? (editId ? 'Salvando...' : 'Cadastrando...')
-                      : (editId ? 'Salvar Alterações' : 'Cadastrar Membro')
-                    }
-                  </button>
+                  <BotaoConfirmar estado={botao.estadoCom(isPending)} id="btn-salvar-funcionario" rotuloPendente={editId ? 'Salvando…' : 'Cadastrando…'} rotuloSucesso={editId ? 'Salvo' : 'Cadastrado'}>{editId ? 'Salvar alterações' : 'Cadastrar membro'}</BotaoConfirmar>
                 </div>
               </div>
 
               {/* Celular: os botões do painel do app. */}
               <div className="so-celular">
                 <div className="tela-app-pilha">
-                  <button type="submit" className="botao-app" disabled={isPending}>
-                    {isPending ? (editId ? 'Salvando...' : 'Cadastrando...') : (editId ? 'Salvar' : 'Cadastrar')}
-                  </button>
+                  <BotaoConfirmar estado={botao.estadoCom(isPending)} className="botao-app" rotuloPendente={editId ? 'Salvando…' : 'Cadastrando…'} rotuloSucesso={editId ? 'Salvo' : 'Cadastrado'}>{editId ? 'Salvar' : 'Cadastrar'}</BotaoConfirmar>
                   {editFunc && (podeConcederAcessoTotal || !editFunc.acesso_total) && (
                     <button type="button" className="botao-app is-perigo" onClick={() => setConfirmarExclusao(editFunc)} disabled={isPending}>
                       <IconTrash style={{ width: 18, height: 18 }} /> Excluir da equipe

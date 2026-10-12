@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatarTelefone } from '@/lib/format'
 import { IconAlert, IconCheck, IconClose, IconDog, IconSearch } from '@/components/icons'
 import PetFotoUpload from '@/components/cliente/PetFotoUpload'
+import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
 import PerfilPetCampos, { PERFIL_PET_VAZIO, perfilPetParaAction, type PerfilPet } from './PerfilPetCampos'
 
 export interface ClienteBasico {
@@ -46,6 +47,7 @@ interface Props {
 export default function PetFormModal({ pet, clientes, clienteFixo, onClose, onSaved }: Props) {
   const isEdicao = !!pet
   const [isPending, startTransition] = useTransition()
+  const botao = useEstadoBotao()
   const [error, setError] = useState<string | null>(null)
   const [buscaCliente, setBuscaCliente] = useState('')
   const [clienteId, setClienteId] = useState(pet?.id_cliente ?? clienteFixo?.id_cliente ?? '')
@@ -106,10 +108,10 @@ export default function PetFormModal({ pet, clientes, clienteFixo, onClose, onSa
 
       if (isEdicao) {
         const result = await editarPetLojistaAction(pet!.id_pet, formData)
-        if (result?.error) { setError(result.error); return }
+        if (result?.error) { setError(result.error); botao.erro(); return }
       } else if (!petCriadoId) {
         const result = await criarPetLojistaAction(formData)
-        if (result?.error) { setError(result.error); return }
+        if (result?.error) { setError(result.error); botao.erro(); return }
         idPet = (result as { id_pet?: string }).id_pet ?? null
         setPetCriadoId(idPet)
       }
@@ -118,9 +120,11 @@ export default function PetFormModal({ pet, clientes, clienteFixo, onClose, onSa
         const resultPerfil = await salvarPerfilPetAction(idPet, perfilPetParaAction(perfil))
         if (resultPerfil?.error) {
           setError(`Pet salvo, mas as informações adicionais não: ${resultPerfil.error} Tente salvar de novo.`)
+          botao.erro()
           return
         }
       }
+      await botao.sucesso()
       onSaved()
     })
   }
@@ -328,9 +332,7 @@ export default function PetFormModal({ pet, clientes, clienteFixo, onClose, onSa
             <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isPending}>
               Cancelar
             </button>
-            <button type="submit" className={`btn btn-primary ${isPending ? 'btn-loading' : ''}`} disabled={isPending}>
-              {isPending ? 'Salvando...' : isEdicao ? 'Salvar Alterações' : 'Cadastrar Pet'}
-            </button>
+            <BotaoConfirmar estado={botao.estadoCom(isPending)} rotuloPendente="Salvando…" rotuloSucesso={isEdicao ? 'Salvo' : 'Pet cadastrado'}>{isEdicao ? 'Salvar alterações' : 'Cadastrar pet'}</BotaoConfirmar>
           </div>
         </form>
       </div>
