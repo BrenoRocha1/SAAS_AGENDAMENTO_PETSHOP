@@ -122,7 +122,7 @@ BEGIN
 END;
 $$;
 
--- fn_criar_agendamento: igual à versão da 076_agendamentos_simultaneos.sql, só que o preço do produto agora é o vigente (com promoção).
+-- fn_criar_agendamento: igual à versão da 093_quantidade_inteira_produtos_agendamento.sql, só que o preço do produto agora é o vigente (com promoção).
 CREATE OR REPLACE FUNCTION fn_criar_agendamento(
   p_id_pet        UUID,
   p_id_servico    UUID,
@@ -240,6 +240,12 @@ BEGIN
         RAISE EXCEPTION 'Quantidade inválida para %', v_produto.nome;
       END IF;
 
+      -- Mesma regra do PDV (migration 083): produto que não é kg/litro só
+      -- se vende em unidades inteiras (migration 093).
+      IF v_produto.unidade_venda NOT IN ('kg', 'litro') AND p_quantidades[i] <> TRUNC(p_quantidades[i]) THEN
+        RAISE EXCEPTION '"%" é vendido por %: informe uma quantidade inteira.', v_produto.nome, v_produto.unidade_venda;
+      END IF;
+
       IF v_produto.estoque_atual < p_quantidades[i] THEN
         RAISE EXCEPTION 'Estoque insuficiente de %', v_produto.nome;
       END IF;
@@ -262,7 +268,7 @@ BEGIN
 END;
 $$;
 
--- fn_criar_agendamento_multiplo: igual à versão da 076_agendamentos_simultaneos.sql, só que o preço do produto agora é o vigente (com promoção).
+-- fn_criar_agendamento_multiplo: igual à versão da 093_quantidade_inteira_produtos_agendamento.sql, só que o preço do produto agora é o vigente (com promoção).
 CREATE OR REPLACE FUNCTION fn_criar_agendamento_multiplo(
   p_id_pet          UUID,
   p_id_cliente      UUID,
@@ -460,6 +466,12 @@ BEGIN
 
       IF p_quantidades[i] IS NULL OR p_quantidades[i] <= 0 THEN
         RAISE EXCEPTION 'Quantidade inválida para %', v_produto.nome;
+      END IF;
+
+      -- Mesma regra do PDV (migration 083): produto que não é kg/litro só
+      -- se vende em unidades inteiras (migration 093).
+      IF v_produto.unidade_venda NOT IN ('kg', 'litro') AND p_quantidades[i] <> TRUNC(p_quantidades[i]) THEN
+        RAISE EXCEPTION '"%" é vendido por %: informe uma quantidade inteira.', v_produto.nome, v_produto.unidade_venda;
       END IF;
 
       IF v_produto.estoque_atual < p_quantidades[i] THEN
