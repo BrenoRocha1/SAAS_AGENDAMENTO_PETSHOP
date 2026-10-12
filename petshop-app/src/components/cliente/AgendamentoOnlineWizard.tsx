@@ -524,7 +524,10 @@ export default function AgendamentoOnlineWizard({
     if (vaiUsarPlano) fd.set('usar_plano', '1')
     // Os preços que estão na tela: se algum mudou (a promoção terminou ou
     // começou nesse meio-tempo), o servidor não cria nada e devolve os atuais.
-    fd.set('precos_vistos', JSON.stringify(servicosCarrinho.map(s => ({ id_servico: s.id_servico, preco: Number(precos[s.id_servico] ?? precoBase(s)) }))))
+    fd.set('precos_vistos', JSON.stringify(servicosCarrinho.map(s => {
+      const preco = Number(precos[s.id_servico] ?? precoBase(s))
+      return { id_servico: s.id_servico, preco, promo: precoCheio(s) > preco }
+    })))
 
     startTransition(async () => {
       const result = await criarAgendamentoOnlineAction(fd)

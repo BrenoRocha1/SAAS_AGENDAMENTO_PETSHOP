@@ -430,7 +430,7 @@ export default function NovoAgendamentoClienteScreen() {
       usar_plano: vaiUsarPlano ? '1' : null,
       // Os preços que estão na tela: se algum mudou, o site não cria nada e
       // devolve os de agora.
-      precos_vistos: JSON.stringify(servicosCarrinho.map(s => ({ id_servico: s.id_servico, preco: precoDe(s) }))),
+      precos_vistos: JSON.stringify(servicosCarrinho.map(s => ({ id_servico: s.id_servico, preco: precoDe(s), promo: cheioDe(s) > precoDe(s) }))),
     }
     // Um serviço: a action de sempre. Vários: a do link do site, que cria um
     // agendamento por serviço, encadeados, numa transação só.

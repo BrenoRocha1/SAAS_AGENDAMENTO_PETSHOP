@@ -55,15 +55,16 @@ export async function conferirPrecosVistos(
 ): Promise<{ error: string; precos_atuais: Record<string, PrecoAtual> } | null> {
   const bruto = formData.get('precos_vistos')
   if (typeof bruto !== 'string' || bruto === '') return null
+  // `promo`: o preço que o cliente viu era promocional.
   let vistos: Map<string, number>
+  const vistosEmPromo = new Set<string>()
   try {
     const lista = JSON.parse(bruto) as unknown
     if (!Array.isArray(lista)) return null
-    vistos = new Map(
-      lista
-        .filter((i): i is { id_servico: string; preco: number } => !!i && typeof i === 'object' && typeof (i as { id_servico?: unknown }).id_servico === 'string' && Number.isFinite(Number((i as { preco?: unknown }).preco)))
-        .map(i => [i.id_servico, Number(i.preco)]),
-    )
+    const itens = lista.filter((i): i is { id_servico: string; preco: number; promo?: unknown } =>
+      !!i && typeof i === 'object' && typeof (i as { id_servico?: unknown }).id_servico === 'string' && Number.isFinite(Number((i as { preco?: unknown }).preco)))
+    vistos = new Map(itens.map(i => [i.id_servico, Number(i.preco)]))
+    for (const i of itens) if (i.promo === true) vistosEmPromo.add(i.id_servico)
   } catch {
     return null
   }
@@ -95,8 +96,8 @@ export async function conferirPrecosVistos(
     const antes = vistos.get(id) as number
     const agora = precosAtuais[id]
     const motivo = agora.preco > antes
-      ? (agora.preco === agora.cheio ? ' — a promoção terminou' : '')
-      : (agora.preco < agora.cheio ? ' — entrou em promoção' : '')
+      ? (vistosEmPromo.has(id) && agora.preco === agora.cheio ? ' — a promoção terminou' : '')
+      : (agora.preco < agora.cheio && !vistosEmPromo.has(id) ? ' — entrou em promoção' : '')
     return `${nome(id)} passou de ${formatarReais(antes)} para ${formatarReais(agora.preco)}${motivo}`
   })
   return {
