@@ -7,7 +7,10 @@
 .promo-grade .form-group { margin: 0; min-width: 0; }
 .promo-somente-leitura { display: flex; align-items: center; background: var(--gray-800); color: var(--gray-400); }
 .promo-opcional { font-weight: 400; color: var(--gray-500); }
-.promo-data-hora { display: grid; grid-template-columns: minmax(0, 1fr) 104px; gap: 6px; }
+/* Início e encerramento: data e hora lado a lado, um período por linha
+   (a data não cabe inteira em meia coluna da janela). */
+.promo-grade.promo-periodo { grid-template-columns: 1fr; }
+.promo-data-hora { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 6px; }
 .promo-data-hora .form-input { min-width: 0; padding-left: 10px; padding-right: 8px; }
 
 .promo-conta { margin: 0; font-size: 0.875rem; color: var(--gray-400); }

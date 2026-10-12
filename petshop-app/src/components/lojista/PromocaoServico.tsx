@@ -186,7 +186,7 @@ export function PromocaoServicoCampos({ nome, preco, valor, onChange, desativado
             <p className="promo-conta is-apagada">O desconto e a economia aparecem aqui quando você informar o preço promocional.</p>
           )}
 
-          <div className="promo-grade">
+          <div className="promo-grade promo-periodo">
             <div className="form-group">
               <label className="form-label" htmlFor={`${prefixo}-inicio`}>Início <span className="promo-opcional">(opcional)</span></label>
               <div className="promo-data-hora">
