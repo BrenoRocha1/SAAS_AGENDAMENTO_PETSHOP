@@ -381,7 +381,7 @@ export default function DashboardClient({
 
         {avisosDeAcao}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
           <Indicador compacto rotulo="Agendamentos hoje" valor={stats.agendamentosHoje} icone={<IconCalendar />} />
           <Indicador compacto rotulo="Pets na loja agora" valor={stats.petsEmAtendimento.length} icone={<IconPaw />} />
         </div>
