@@ -292,7 +292,7 @@ export default function ServicosList({ servicos: inicial }: Props) {
                     <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{s.nome}</div>
                     {s.descricao && <div className="text-sm text-muted">{s.descricao}</div>}
                   </td>
-                  <td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
                     {statusPromo(s) === 'ativa' ? (
                       <>
                         <div className="text-xs text-muted"><s>{formatarReais(s.preco)}</s></div>
