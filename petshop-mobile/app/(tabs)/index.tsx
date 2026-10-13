@@ -3,8 +3,9 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { Pressable, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { BarraTopo } from '@/components/BarraTopo'
-import { IconeAgenda, IconeMais, IconePets, IconeSeta } from '@/components/IconesAbas'
-import { StatCard } from '@/components/StatCard'
+import { IconeAgenda, IconeMais, IconeSeta } from '@/components/IconesAbas'
+import { IconCalendar, IconPaw } from '@/components/IconesDoSite'
+import { Indicador } from '@/components/Indicador'
 import { SectionHeader } from '@/components/SectionHeader'
 import { AppointmentRow } from '@/components/AppointmentRow'
 import { ResumoStatus } from '@/components/ResumoStatus'
@@ -63,8 +64,8 @@ export default function InicioScreen() {
       ) : (
         <>
           <View style={styles.statsRow}>
-            <StatCard icon={IconeAgenda} value={resumo.total} label="Agendamentos hoje" />
-            <StatCard icon={IconePets} value={resumo.naLoja} label="Pets na loja agora" tint={colors.accent600} />
+            <Indicador icone={IconCalendar} valor={resumo.total} rotulo="Agendamentos hoje" />
+            <Indicador icone={IconPaw} valor={resumo.naLoja} rotulo="Pets na loja agora" />
           </View>
 
           <View style={styles.resumoWrap}>
