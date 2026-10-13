@@ -53,6 +53,7 @@ import NovoAgendamentoModal from './NovoAgendamentoModal'
 import BotaoCopiarLinkAgendamento from './BotaoCopiarLinkAgendamento'
 import { formatarReais } from '@/lib/taxidog'
 import Ilustracao from '@/components/Ilustracao'
+import StatusAgendamentoMinimo from '@/components/StatusAgendamentoMinimo'
 
 // ============================================================
 // Tipos — refletem o retorno das RPCs/queries existentes
@@ -381,17 +382,9 @@ export default function DashboardClient({
 
         {avisosDeAcao}
 
-        <div className="dash-app-stats">
-          <div className="dash-app-stat">
-            <span className="dash-app-stat-icone"><IconCalendar style={{ width: 18, height: 18 }} /></span>
-            <strong>{stats.agendamentosHoje}</strong>
-            <span>Agendamentos hoje</span>
-          </div>
-          <div className="dash-app-stat">
-            <span className="dash-app-stat-icone is-ambar"><IconPaw style={{ width: 18, height: 18 }} /></span>
-            <strong>{stats.petsEmAtendimento.length}</strong>
-            <span>Pets na loja agora</span>
-          </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+          <Indicador compacto rotulo="Agendamentos hoje" valor={stats.agendamentosHoje} icone={<IconCalendar />} />
+          <Indicador compacto rotulo="Pets na loja agora" valor={stats.petsEmAtendimento.length} icone={<IconPaw />} />
         </div>
 
         <div className="dash-app-resumo">
@@ -436,7 +429,7 @@ export default function DashboardClient({
                       <IconScissors style={{ width: 13, height: 13 }} /> {item.nome_servico}
                     </span>
                   </span>
-                  <span className={`badge ${classeBadgeStatus(item.status)}`}>{rotuloStatus(item.status)}</span>
+                  <StatusAgendamentoMinimo status={item.status} />
                 </button>
               ))}
             </div>

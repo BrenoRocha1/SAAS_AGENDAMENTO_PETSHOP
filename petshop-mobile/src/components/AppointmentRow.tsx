@@ -1,7 +1,7 @@
 import { IconeApp } from '@/components/IconeApp'
 import { StyleSheet, View } from 'react-native'
 import { Card } from './Card'
-import { StatusBadge } from './StatusBadge'
+import { StatusAgendamentoMinimo } from './StatusAgendamentoMinimo'
 import { Text } from '@/components/Texto'
 import { colors, spacing, typography } from '@/theme/theme'
 import type { Agendamento } from '@/types/database'
@@ -44,7 +44,7 @@ export function AppointmentRow({ item, onPress, atrasado }: { item: Agendamento;
         )}
       </View>
 
-      <StatusBadge status={item.status} style={styles.selo} />
+      <StatusAgendamentoMinimo status={item.status} />
     </Card>
   )
 }
@@ -56,7 +56,6 @@ const styles = StyleSheet.create({
   atrasado: { fontSize: 10.5, fontWeight: '600', color: colors.dangerFg, marginTop: 1 },
   divider: { width: 1, alignSelf: 'stretch', backgroundColor: colors.border },
   // No meio da linha, como no site.
-  selo: { alignSelf: 'center' },
   info: { flex: 1, gap: 2 },
   pet: { ...typography.body.lg, fontWeight: '700', color: colors.text },
   linha: { ...typography.body.sm, color: colors.textMuted },

@@ -1,7 +1,8 @@
-import { useCallback, useState, type ComponentType } from 'react'
+import { useCallback, useState } from 'react'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { StyleSheet, View } from 'react-native'
-import { IconCalendar, IconDog, IconMoney, type IconeProps } from '@/components/IconesDoSite'
+import { IconCalendar, IconDog, IconMoney } from '@/components/IconesDoSite'
+import { Indicador } from '@/components/Indicador'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { BarraTopo } from '@/components/BarraTopo'
 import { Card } from '@/components/Card'
@@ -17,7 +18,6 @@ import { dataBR, hojeBrasilISO, saudacao } from '@/lib/agenda'
 import { formatarMoeda } from '@/lib/format'
 import type { AssinaturaDoCliente } from '@/lib/planos-cliente'
 import type { StatusAgendamento } from '@/lib/statusAgendamento'
-import { FONTE_TITULO } from '@/theme/fontes'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 interface Proximo {
@@ -97,11 +97,11 @@ export default function InicioClienteScreen() {
       <Botao rotulo="Novo agendamento" icone="add" onPress={() => router.push('/cliente/agendamentos/novo' as never)} style={{ marginBottom: spacing.lg }} />
 
       <View style={styles.statsRow}>
-        <IndicadorCliente icone={IconDog} valor={totais.pets} rotulo="Pets cadastrados" />
-        <IndicadorCliente icone={IconCalendar} valor={totais.agendamentos} rotulo="Agendamentos" />
+        <Indicador icone={IconDog} valor={totais.pets} rotulo="Pets cadastrados" />
+        <Indicador icone={IconCalendar} valor={totais.agendamentos} rotulo="Agendamentos" />
       </View>
       <View style={[styles.statsRow, { marginBottom: spacing.xl }]}>
-        <IndicadorCliente icone={IconMoney} valor={formatarMoeda(totais.investido)} rotulo="Total investido" />
+        <Indicador icone={IconMoney} valor={formatarMoeda(totais.investido)} rotulo="Total investido" />
       </View>
 
       {planos.length > 0 && (
@@ -170,39 +170,12 @@ export default function InicioClienteScreen() {
   )
 }
 
-// Indicador no mesmo formato do relatório de vendas do lojista (web):
-// rótulo e ícone numa linha, número grande embaixo — só aqui no Início
-// do cliente, por isso não fica em @/components (StatCard é a versão
-// genérica, usada também pelo lojista).
-function IndicadorCliente({ rotulo, valor, icone: Icone }: { rotulo: string; valor: string | number; icone: ComponentType<IconeProps> }) {
-  return (
-    <View style={styles.indicador}>
-      <View style={styles.indicadorTopo}>
-        <Text style={styles.indicadorRotulo}>{rotulo}</Text>
-        <Icone size={16} color={colors.primary600} />
-      </View>
-      <Text style={styles.indicadorValor}>{valor}</Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
   // 20 até o botão, como no site (`.dash-app-cabecalho`).
   header: { marginBottom: 20 },
   saudacao: { ...typography.heading.xl, color: colors.text },
   sub: { ...typography.body.lg, color: colors.textMuted, marginTop: 2 },
   statsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
-  indicador: {
-    flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.lg, padding: spacing.md, gap: 6,
-  },
-  indicadorTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  // 12px/500 — igual ao "text-xs font-medium" do rótulo no site.
-  indicadorRotulo: { fontSize: 12, lineHeight: 16.8, fontWeight: '500', color: colors.textMuted, flexShrink: 1 },
-  // Igual ao "text-xl font-semibold" do cartão compacto no site: 20px,
-  // peso 600, sem letter-spacing (heading.lg é 22px/700/-0.2, pensado
-  // pra outro contexto — usar só a fonte e sobrescrever o resto).
-  indicadorValor: { fontFamily: FONTE_TITULO, fontWeight: '600', fontSize: 20, lineHeight: 28, letterSpacing: 0, color: colors.text },
   titulo: { ...typography.body.lg, fontWeight: '700', color: colors.text },
   texto: { ...typography.body.md, color: colors.textMuted },
   destaque: { ...typography.body.md, fontWeight: '700', color: colors.primary600 },
