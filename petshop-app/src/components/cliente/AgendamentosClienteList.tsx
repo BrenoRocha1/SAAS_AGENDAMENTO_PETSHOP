@@ -16,7 +16,7 @@ import { EditarModal } from '@/components/EditarAgendamento'
 import { RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
 import { Estrelas } from './Estrelas'
 import Ilustracao from '@/components/Ilustracao'
-import StatusAgendamentoMinimo from './StatusAgendamentoMinimo'
+import StatusAgendamentoMinimo from '@/components/StatusAgendamentoMinimo'
 
 type Status = 'Pendente' | 'Confirmado' | 'Em andamento' | 'Concluído' | 'Cancelado'
 

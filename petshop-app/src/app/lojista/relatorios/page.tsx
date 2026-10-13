@@ -13,6 +13,7 @@ import RelatorioVendasClient, {
   type LinhaDetalhamento,
   type VendaPorPagamento,
   type VendasProdutos,
+  type RelatorioPromocoes,
 } from '@/components/lojista/RelatorioVendasClient'
 import { carregarPagamentos } from '@/lib/pagamento-servidor'
 import type { RelatorioPlanos } from '@/lib/planos'
@@ -108,6 +109,7 @@ export default async function RelatoriosVendasPage({ searchParams }: Props) {
     porPagamentoRes,
     planosRes,
     produtosRes,
+    promocoesRes,
     { data: funcionariosRaw },
     { data: servicosRaw },
     detalhamentoRes,
@@ -122,6 +124,8 @@ export default async function RelatoriosVendasPage({ searchParams }: Props) {
     supabase.rpc('fn_relatorio_vendas_por_pagamento', { p_id_lojista: lojistaId, p_data_ini: periodo.ini, p_data_fim: periodo.fim }),
     supabase.rpc('fn_relatorio_planos', { p_id_lojista: lojistaId, p_data_ini: periodo.ini, p_data_fim: periodo.fim }),
     supabase.rpc('fn_relatorio_vendas_produtos', { p_id_lojista: lojistaId, p_data_ini: periodo.ini, p_data_fim: periodo.fim }),
+    // Promoções de serviços (migration 096) — sem ela, a seção não aparece.
+    supabase.rpc('fn_relatorio_promocoes', { p_id_lojista: lojistaId, p_data_ini: periodo.ini, p_data_fim: periodo.fim }),
     supabase.from('funcionario').select('id_funcionario, nome').eq('id_lojista', lojistaId).eq('ativo', true).order('nome'),
     supabase.from('servico').select('id_servico, nome').eq('id_lojista', lojistaId).order('nome'),
     baseDetalhamento()
@@ -217,6 +221,7 @@ export default async function RelatoriosVendasPage({ searchParams }: Props) {
       porPagamento={porPagamento}
       relatorioPlanos={planosRes.error ? null : (planosRes.data as RelatorioPlanos | null)}
       vendasProdutos={produtosRes.error ? null : (produtosRes.data as VendasProdutos | null)}
+      relatorioPromocoes={promocoesRes.error ? null : (promocoesRes.data as RelatorioPromocoes | null)}
       funcionarios={funcionarios}
       servicos={servicos}
       filtroFuncionario={filtroFuncionario}

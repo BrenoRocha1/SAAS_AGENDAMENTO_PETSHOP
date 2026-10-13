@@ -16,15 +16,18 @@ import { IconPlus, IconSliders, IconTrash } from '@/components/IconesDoSite'
 import { Seletor } from '@/components/Seletor'
 import { Interruptor } from '@/components/Interruptor'
 import { ServicosAdicionais } from '@/components/ServicosAdicionais'
+import { BotaoPromocao, FORM_PROMOCAO_VAZIO, FolhaPromocaoServico, PromocaoServicoCampos, agoraBrasilPromocao, dadosDoFormPromocao, formDaPromocao, problemaDoFormPromocao, type FormPromocao } from '@/components/PromocaoServico'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { MSG_SEM_SITE, acoesDisponiveis, chamarAcao, form } from '@/lib/acoes'
 import { formatarMoeda } from '@/lib/format'
 import { numeroParaCampo, paraNumero, soDigitos } from '@/lib/mascaras'
+import { COLUNAS_PROMOCAO_SERVICO, precoPromocionalServico, seloDesconto, statusPromocaoServico, type PromocaoServico } from '@/lib/promocao'
 import { colors, spacing, typography } from '@/theme/theme'
 
-interface Servico {
+// Com a promoção do serviço (migrations 095 e 096), quando o banco tem.
+interface Servico extends PromocaoServico {
   id_servico: string
   nome: string
   descricao: string | null
@@ -32,6 +35,8 @@ interface Servico {
   duracao: number
   status: 'Ativo' | 'Inativo'
 }
+
+const COLUNAS_SERVICO = 'id_servico, nome, descricao, preco, duracao, status'
 
 // Faixa de um serviço que ainda não foi salvo.
 interface Rascunho {
@@ -75,6 +80,11 @@ export default function ServicosScreen() {
   const [salvando, setSalvando] = useState(false)
   // Serviço esperando o "sim" da janela de exclusão.
   const [excluir, setExcluir] = useState<Servico | null>(null)
+  // Seção "Promoção" do cadastro (só é gravada se a loja mexeu nela) e a
+  // janela que o botão de promoção da lista abre.
+  const [promoForm, setPromoForm] = useState<FormPromocao>(FORM_PROMOCAO_VAZIO)
+  const [promoTocada, setPromoTocada] = useState(false)
+  const [promoAlvo, setPromoAlvo] = useState<Servico | null>(null)
 
   // Faixas de preço do serviço aberto.
   const [variacoes, setVariacoes] = useState<Variacao[] | null>(null)
@@ -91,17 +101,21 @@ export default function ServicosScreen() {
 
   const carregar = useCallback(async () => {
     if (!idLojista || !pode) return
-    const { data, error } = await supabase
+    const buscar = (colunas: string) => supabase
       .from('servico')
-      .select('id_servico, nome, descricao, preco, duracao, status')
+      .select(colunas)
       .eq('id_lojista', idLojista)
       // Serviço excluído (migration 081) fica só no histórico e no relatório.
       .is('excluido_em', null)
       .order('created_at', { ascending: false })
+    // Com a promoção; sem as migrations 095/096 a consulta falha e a lista
+    // vem como era, sem promoção.
+    let { data, error } = await buscar(`${COLUNAS_SERVICO}, ${COLUNAS_PROMOCAO_SERVICO}`)
+    if (error) ({ data, error } = await buscar(COLUNAS_SERVICO))
     if (error) setErro('Não foi possível carregar os serviços.')
     else {
       setErro(null)
-      setServicos(((data ?? []) as Servico[]).map(s => ({ ...s, preco: Number(s.preco) })))
+      setServicos(((data ?? []) as unknown as Servico[]).map(s => ({ ...s, preco: Number(s.preco) })))
     }
     setLoading(false)
   }, [idLojista, pode])
@@ -143,6 +157,8 @@ export default function ServicosScreen() {
     setVPorte('')
     setVRaca('')
     setVPreco('')
+    setPromoForm(s ? formDaPromocao(s, s.preco) : FORM_PROMOCAO_VAZIO)
+    setPromoTocada(false)
     if (s) carregarVariacoes(s.id_servico)
     setPainel(true)
   }
@@ -153,6 +169,10 @@ export default function ServicosScreen() {
     if (nome.trim().length < 2) return setErroPainel('Dê um nome ao serviço.')
     if (!Number.isFinite(valor) || valor < 0) return setErroPainel('Informe o preço.')
     if (!minutos) return setErroPainel('Informe a duração em minutos (de 15 a 480).')
+    if (promoTocada) {
+      const problema = problemaDoFormPromocao(promoForm, valor)
+      if (problema) return setErroPainel(problema)
+    }
     setErroPainel(null)
     setSalvando(true)
     const campos = form({
@@ -164,6 +184,8 @@ export default function ServicosScreen() {
       variacoes: !editando && rascunho.length > 0
         ? JSON.stringify(rascunho.map(v => ({ tipo: v.tipo, especie: v.especie, porte: v.porte, raca: v.raca, preco: v.preco })))
         : null,
+      // Promoção: vai junto só se a loja mexeu na seção (o site confere de novo).
+      promocao: promoTocada ? JSON.stringify(dadosDoFormPromocao(promoForm)) : null,
     })
     const r = editando
       ? await chamarAcao('editarServicoAction', editando.id_servico, campos)
@@ -254,6 +276,8 @@ export default function ServicosScreen() {
     carregarVariacoes(editando.id_servico)
   }
 
+  const agora = agoraBrasilPromocao()
+
   return (
     <ScreenContainer refreshing={loading} onRefresh={carregar}>
       <DetailHeader title="Serviços" />
@@ -267,14 +291,20 @@ export default function ServicosScreen() {
         <EmptyState icon="cut-outline" ilustracao="servicos" title="Nenhum serviço cadastrado" subtitle="Cadastre o primeiro serviço para a loja poder receber agendamentos." />
       ) : (
         <View style={{ gap: spacing.md }}>
-          {servicos.map(s => (
+          {servicos.map(s => {
+            const statusPromo = statusPromocaoServico(s, agora)
+            const precoPromo = precoPromocionalServico(s.preco, s.preco, s)
+            return (
             <Card key={s.id_servico} style={styles.item} onPress={() => abrir(s)}>
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={[styles.nome, s.status === 'Inativo' && styles.apagado]} numberOfLines={2}>{s.nome}</Text>
                 <Text style={styles.sub}>
-                  {formatarMoeda(s.preco)} · {s.duracao} min{s.status === 'Inativo' ? ' · Inativo' : ''}
+                  {statusPromo === 'ativa'
+                    ? <><Text style={styles.riscado}>{formatarMoeda(s.preco)}</Text> {formatarMoeda(precoPromo)}</>
+                    : formatarMoeda(s.preco)} · {s.duracao} min{s.status === 'Inativo' ? ' · Inativo' : ''}
                 </Text>
               </View>
+              <BotaoPromocao status={statusPromo} selo={seloDesconto(s.preco, precoPromo)} nome={s.nome} onPress={() => setPromoAlvo(s)} />
               <Interruptor
                 value={s.status === 'Ativo'}
                 disabled={alterando === s.id_servico}
@@ -282,7 +312,8 @@ export default function ServicosScreen() {
                 accessibilityLabel={`${s.nome} ativo`}
               />
             </Card>
-          ))}
+            )
+          })}
         </View>
       )}
 
@@ -372,6 +403,15 @@ export default function ServicosScreen() {
           )}
         </View>
 
+        {/* Promoção (migration 096): preço promocional, período e onde vale. */}
+        <PromocaoServicoCampos
+          nome={nome}
+          preco={Number.isFinite(paraNumero(preco)) ? paraNumero(preco) : 0}
+          valor={promoForm}
+          onChange={novo => { setPromoForm(novo); setPromoTocada(true) }}
+          desativado={salvando}
+        />
+
         {/* `.modal-footer` no celular: salvar, cancelar e, por último, excluir. */}
         <View style={styles.rodape}>
           <BotaoPequeno normal variante="primario" rotulo={salvando ? 'Salvando...' : 'Salvar Serviço'} desativado={salvando} onPress={salvar} />
@@ -381,6 +421,12 @@ export default function ServicosScreen() {
           )}
         </View>
       </Folha>
+
+      <FolhaPromocaoServico
+        servico={promoAlvo}
+        onFechar={() => setPromoAlvo(null)}
+        onSalvo={() => { setPromoAlvo(null); carregar() }}
+      />
 
       <FolhaConfirmar visivel={!!excluir} titulo="Excluir serviço" nome={excluir?.nome} ocupado={salvando} onConfirmar={confirmarExclusao} onFechar={() => setExcluir(null)}>
         Ele sai da lista e não pode mais ser agendado. Os atendimentos já feitos continuam no relatório de vendas, e o que já está marcado com ele continua valendo. Essa ação não pode ser desfeita.
@@ -394,6 +440,7 @@ const styles = StyleSheet.create({
   nome: { ...typography.body.lg, fontWeight: '700', color: colors.text },
   apagado: { color: colors.textMuted },
   sub: { ...typography.body.md, color: colors.textMuted },
+  riscado: { textDecorationLine: 'line-through', opacity: 0.7 },
   // Medidas da janela do serviço no site, em 375 de largura.
   grupo: { gap: 4 },
   rotulo: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.textDim },

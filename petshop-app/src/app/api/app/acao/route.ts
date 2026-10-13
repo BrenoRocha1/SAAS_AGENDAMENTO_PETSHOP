@@ -5,6 +5,7 @@ import * as acoesAdicionais from '@/lib/actions-adicionais'
 import * as acoesBloqueios from '@/lib/actions-bloqueios'
 import * as acoesPagamento from '@/lib/actions-pagamento'
 import * as acoesPlanos from '@/lib/actions-planos'
+import * as acoesPromocao from '@/lib/actions-promocao'
 import * as acoesRotas from '@/lib/actions-rotas'
 import * as acoesTaxiDog from '@/lib/actions-taxidog'
 
@@ -78,6 +79,8 @@ const ACOES: Record<string, Acao> = {
   excluirServicoAction: acoes.excluirServicoAction,
   adicionarVariacaoServicoAction: acoes.adicionarVariacaoServicoAction,
   removerVariacaoServicoAction: acoes.removerVariacaoServicoAction,
+  // Promoção do serviço (migration 096)
+  salvarPromocaoServicoAction: acoesPromocao.salvarPromocaoServicoAction,
   // Produtos
   criarProdutoAction: acoes.criarProdutoAction,
   editarProdutoAction: acoes.editarProdutoAction,

@@ -7,6 +7,8 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { obterContextoLojista } from '@/lib/lojista-context'
+import { colunasPromocaoServico, lerDadosPromocaoServico, validarPromocaoServico } from '@/lib/promocao'
+import { mensagemErroPromocaoServico } from '@/lib/promocao-servidor'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const DATA_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -46,5 +48,49 @@ export async function salvarPromocaoAction(
 
   revalidatePath(tipo === 'servico' ? '/lojista/servicos' : '/lojista/produtos')
   revalidatePath('/lojista/pdv')
+  return { success: true }
+}
+
+// Promoção do SERVIÇO, completa (migration 096): preço promocional, período
+// com hora, liga/desliga e "oferecer no agendamento online". `dados` nulo
+// tira a promoção. O preço do serviço é lido do banco — a tela não manda —
+// e o banco confere tudo de novo (trigger da 096).
+export async function salvarPromocaoServicoAction(
+  id: string,
+  dados: unknown,
+): Promise<{ error?: string; success?: boolean }> {
+  if (typeof id !== 'string' || !UUID_RE.test(id)) return { error: 'Serviço inválido.' }
+  const lido = lerDadosPromocaoServico(dados)
+  if (lido === undefined) return { error: 'Dados da promoção inválidos.' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto) return { error: 'Acesso não autorizado' }
+  if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar serviços.' }
+
+  const { data: servico } = await supabase
+    .from('servico')
+    .select('id_servico, preco')
+    .eq('id_servico', id)
+    .eq('id_lojista', contexto.idLojista)
+    .is('excluido_em', null)
+    .maybeSingle()
+  if (!servico) return { error: 'Serviço não encontrado.' }
+
+  if (lido) {
+    const problema = validarPromocaoServico(lido, Number(servico.preco))
+    if (problema) return { error: problema }
+  }
+
+  const { error } = await supabase
+    .from('servico')
+    .update(colunasPromocaoServico(lido))
+    .eq('id_servico', id)
+    .eq('id_lojista', contexto.idLojista)
+  if (error) return { error: mensagemErroPromocaoServico(error.message) ?? 'Não foi possível salvar a promoção.' }
+
+  revalidatePath('/lojista/servicos')
   return { success: true }
 }

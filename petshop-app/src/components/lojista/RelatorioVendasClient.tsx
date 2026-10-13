@@ -81,6 +81,11 @@ export interface LinhaDetalhamento {
 // (sem cancelados) por forma — registrado, recebido (pago) e a receber.
 export interface VendaPorPagamento { forma: string; pedidos: number; total: number; recebido: number; pendente: number }
 
+// fn_relatorio_promocoes (migration 096): atendimentos do período (sem
+// cancelados nem cobertos por plano) feitos com promoção de serviço —
+// quanto foi cobrado e quanto a promoção descontou.
+export interface RelatorioPromocoes { atendimentos: number; desconto: number; cobrado: number }
+
 // fn_relatorio_vendas_produtos (migration 062): itens de atendimentos
 // concluídos no período — bruto, CMV (custo da venda) e líquido.
 export interface VendasProdutos {
@@ -120,6 +125,7 @@ interface Props {
   relatorioPlanos: RelatorioPlanos | null
   // Vendas de produtos com CMV (migration 062) — null sem ela.
   vendasProdutos: VendasProdutos | null
+  relatorioPromocoes: RelatorioPromocoes | null
   funcionarios: { id_funcionario: string; nome: string }[]
   servicos: { id_servico: string; nome: string }[]
   filtroFuncionario: string
@@ -156,6 +162,7 @@ export default function RelatorioVendasClient({
   porPagamento,
   relatorioPlanos,
   vendasProdutos,
+  relatorioPromocoes,
   funcionarios,
   servicos,
   filtroFuncionario,
@@ -328,6 +335,20 @@ export default function RelatorioVendasClient({
           {vendasProdutos && (
             <Secao titulo="Vendas de produtos" icone={<IconPackage />} descricao="Produtos vendidos junto de atendimentos concluídos">
               <VendasDeProdutos v={vendasProdutos} />
+            </Secao>
+          )}
+
+          {/* ── Promoções de serviços (migration 096) ── */}
+          {relatorioPromocoes && Number(relatorioPromocoes.atendimentos) > 0 && (
+            <Secao titulo="Promoções" icone={<IconMoney />} descricao="Atendimentos do período feitos com serviço em promoção, sem os cancelados">
+              <MiniIndicadores
+                itens={[
+                  { valor: String(relatorioPromocoes.atendimentos), rotulo: Number(relatorioPromocoes.atendimentos) === 1 ? 'atendimento em promoção' : 'atendimentos em promoção' },
+                  { valor: moeda(Number(relatorioPromocoes.cobrado) + Number(relatorioPromocoes.desconto)), rotulo: 'valor sem a promoção' },
+                  { valor: moeda(Number(relatorioPromocoes.desconto)), rotulo: 'desconto concedido', tom: 'perigo' },
+                  { valor: moeda(Number(relatorioPromocoes.cobrado)), rotulo: 'valor cobrado', tom: 'sucesso' },
+                ]}
+              />
             </Secao>
           )}
 

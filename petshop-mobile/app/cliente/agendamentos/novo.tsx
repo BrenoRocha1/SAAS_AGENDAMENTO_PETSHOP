@@ -19,12 +19,13 @@ import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { MSG_SEM_SITE, acoesDisponiveis, chamarAcao, form } from '@/lib/acoes'
-import { agoraBrasil, dataBR, dataExtensaISO, removerHorariosPassados } from '@/lib/agenda'
+import { agoraBrasil, agoraBrasilHHMM, dataBR, dataExtensaISO, hojeBrasilISO, removerHorariosPassados } from '@/lib/agenda'
 import type { Slot } from '@/lib/agendamentos'
 import { formatarMoeda, linkWhatsApp } from '@/lib/format'
 import { FORMAS_LOJA_PADRAO, ROTULO_FORMA_PAGAMENTO, formasAtivas, normalizarFormasLoja, type FormaPagamento, type FormasLoja } from '@/lib/pagamento'
 import { coberturaDoPlano, type BeneficiosDoPet } from '@/lib/planos-cliente'
 import { erroQuantidadeInteira, rotuloUnidade } from '@/lib/produto'
+import { COLUNAS_PROMOCAO_SERVICO, economia, precoComDesconto, precoPromocionalServico, promoServicoVigente, promoVigente, seloDesconto, type Promocao, type PromocaoServico } from '@/lib/promocao'
 import { ROTULO_MODALIDADE } from '@/lib/taxidog'
 import { ESTADO_TRANSPORTE_INICIAL, escolhaDoTransporte, taxiDogParaFormulario, transportePronto, type EstadoTransporte } from '@/lib/transporte'
 import { urlDoSite } from '@/lib/site'
@@ -35,7 +36,11 @@ import { format } from 'date-fns'
 interface Loja { id_lojista: string; nome_loja: string; telefone: string | null; cidade: string | null; estado: string | null; descricao: string | null; logo_url: string | null }
 interface Pet { id_pet: string; nome: string; raca: string | null }
 interface Servico { id_servico: string; nome: string; descricao: string | null; preco: number; duracao: number }
-interface Produto { id_produto: string; nome: string; preco_venda: number; unidade_venda: string; estoque_atual: number }
+// `preco_venda` já com a promoção do produto (migration 095), quando há;
+// `preco_original` é o de antes e `promo` o desconto em %.
+interface Produto { id_produto: string; nome: string; preco_venda: number; unidade_venda: string; estoque_atual: number; preco_original?: number; promo?: number }
+// Promoções que valem agora na loja (migrations 095 e 096).
+interface PromocoesDaLoja { lojaId: string; servicos: Record<string, PromocaoServico>; produtos: Record<string, number> }
 interface Bloqueio { dt_inicio: string; dt_fim: string; hr_inicio: string | null; motivo: string }
 interface Janela { minValor: number; minUnidade: 'horas' | 'dias'; maxValor: number; maxUnidade: 'horas' | 'dias' }
 
@@ -74,6 +79,9 @@ interface Feito {
 type RespostaDoAgendamento = {
   id_agendamento?: string
   ids_agendamento?: string[]
+  // O preço de um serviço mudou desde que o cliente viu (promoção que
+  // terminou ou começou): os de agora, com e sem a promoção.
+  precos_atuais?: Record<string, { preco: number; cheio: number }>
   plano?: { aplicados: number; valorAbatido: number; aviso?: string }
   aviso_adicionais?: string
   adicionais_atuais?: ServicoAdicional[]
@@ -130,7 +138,10 @@ export default function NovoAgendamentoClienteScreen() {
   const [diasAbertos, setDiasAbertos] = useState<Set<string> | null>(null)
   const [bloqueios, setBloqueios] = useState<Bloqueio[]>([])
   const [janela, setJanela] = useState<Janela>(JANELA_PADRAO)
-  const [precos, setPrecos] = useState<{ petId: string; valores: Record<string, number> } | null>(null)
+  const [precos, setPrecos] = useState<{ petId: string; valores: Record<string, number>; cheios: Record<string, number> } | null>(null)
+  const [promocoes, setPromocoes] = useState<PromocoesDaLoja | null>(null)
+  // Sobe quando o servidor avisa que um preço mudou: relê promoções e preços.
+  const [recargaPrecos, setRecargaPrecos] = useState(0)
   const [slots, setSlots] = useState<{ chave: string; lista: Slot[] } | null>(null)
   const [recarga, setRecarga] = useState(0)
   const [planos, setPlanos] = useState<{ chave: string; lista: BeneficiosDoPet[] } | null>(null)
@@ -201,16 +212,53 @@ export default function NovoAgendamentoClienteScreen() {
     return () => { cancelado = true }
   }, [lojaId])
 
-  // Preço de cada serviço PARA o pet escolhido (faixas por porte/raça).
+  // Promoções da loja que valem agora. Serviço: só as oferecidas no
+  // agendamento online (a mesma regra com que o banco cobra o cliente).
+  // Consultas à parte e tolerantes: sem as migrations, segue sem promoção.
+  useEffect(() => {
+    if (!lojaId) return
+    let cancelado = false
+    const agora = { data: hojeBrasilISO(), hora: agoraBrasilHHMM() }
+    const promoServicos = async () => {
+      const completa = await supabase.from('servico').select(`id_servico, ${COLUNAS_PROMOCAO_SERVICO}`).eq('id_lojista', lojaId).not('promo_percentual', 'is', null)
+      if (!completa.error) return completa.data
+      // Sem a 096: a promoção da 095, só percentual e datas.
+      const simples = await supabase.from('servico').select('id_servico, promo_percentual, promo_inicio, promo_fim').eq('id_lojista', lojaId).not('promo_percentual', 'is', null)
+      return simples.error ? [] : simples.data
+    }
+    Promise.all([
+      promoServicos(),
+      supabase.from('produto').select('id_produto, promo_percentual, promo_inicio, promo_fim').eq('id_lojista', lojaId).not('promo_percentual', 'is', null),
+    ]).then(([srv, prod]) => {
+      if (cancelado) return
+      const servicosEmPromo = ((srv ?? []) as unknown as (PromocaoServico & { id_servico: string })[])
+        .filter(x => promoServicoVigente(x, agora, { online: true }))
+      const produtosEmPromo = ((prod.error ? [] : prod.data ?? []) as (Promocao & { id_produto: string })[])
+        .map(x => [x.id_produto, promoVigente(x, agora.data)] as const)
+        .filter(par => par[1] > 0)
+      setPromocoes({ lojaId, servicos: Object.fromEntries(servicosEmPromo.map(x => [x.id_servico, x])), produtos: Object.fromEntries(produtosEmPromo) })
+    })
+    return () => { cancelado = true }
+  }, [lojaId, recargaPrecos])
+
+  // Preço de cada serviço PARA o pet escolhido (faixas por porte/raça), já
+  // com a promoção — e o preço sem ela (migration 096), para o "de/por".
   useEffect(() => {
     if (!petId || !servicos || servicos.length === 0) return
     let cancelado = false
-    Promise.all(servicos.map(s =>
-      supabase.rpc('fn_calcular_preco_servico', { p_id_servico: s.id_servico, p_id_pet: petId })
-        .then(({ data: preco, error }) => [s.id_servico, error || preco == null ? s.preco : Number(preco)] as const),
-    )).then(pares => { if (!cancelado) setPrecos({ petId, valores: Object.fromEntries(pares) }) })
+    Promise.all(servicos.map(async s => {
+      const [atual, cheio] = await Promise.all([
+        supabase.rpc('fn_calcular_preco_servico', { p_id_servico: s.id_servico, p_id_pet: petId }),
+        supabase.rpc('fn_preco_servico_cheio', { p_id_servico: s.id_servico, p_id_pet: petId }),
+      ])
+      const preco = atual.error || atual.data == null ? s.preco : Number(atual.data)
+      return [s.id_servico, preco, cheio.error || cheio.data == null ? preco : Number(cheio.data)] as const
+    })).then(trios => {
+      if (cancelado) return
+      setPrecos({ petId, valores: Object.fromEntries(trios.map(t => [t[0], t[1]])), cheios: Object.fromEntries(trios.map(t => [t[0], t[2]])) })
+    })
     return () => { cancelado = true }
-  }, [petId, servicos])
+  }, [petId, servicos, recargaPrecos])
 
   // Saldo do plano do pet nesta loja, no período da data escolhida
   // (fn_meus_beneficios, migration 075). Sem a migration, segue sem plano.
@@ -266,10 +314,25 @@ export default function NovoAgendamentoClienteScreen() {
 
   const loja = lojas?.find(l => l.id_lojista === lojaId) ?? null
   const pet = pets?.find(p => p.id_pet === petId) ?? null
-  const precoDe = (s: Servico) => (precos?.petId === petId && precos.valores[s.id_servico] != null ? precos.valores[s.id_servico] : s.preco)
+  // Promoção do serviço que vale agora para o cliente (ou nada).
+  const promoDe = (s: Servico) => (promocoes?.lojaId === lojaId ? promocoes.servicos[s.id_servico] ?? null : null)
+  const precoDoPet = (s: Servico) => (precos?.petId === petId && precos.valores[s.id_servico] != null ? precos.valores[s.id_servico] : null)
+  // O que o cliente paga: o preço do banco para o pet e, antes de haver
+  // pet, o "a partir de" já com a promoção.
+  const precoDe = (s: Servico) => precoDoPet(s) ?? (promoDe(s) ? precoPromocionalServico(s.preco, s.preco, promoDe(s)) : s.preco)
+  // O preço sem a promoção (para riscar e para a economia).
+  const cheioDe = (s: Servico) => (precoDoPet(s) != null ? precos?.cheios[s.id_servico] ?? precoDe(s) : s.preco)
+  const economiaPromo = servicosCarrinho.reduce((soma, s) => soma + economia(cheioDe(s), precoDe(s)), 0)
+  // Produtos com o preço da promoção, como o banco cobra.
+  const produtosVenda = useMemo<Produto[]>(() => produtos.map(p => {
+    const pct = promocoes?.lojaId === lojaId ? promocoes.produtos[p.id_produto] ?? 0 : 0
+    return pct > 0 ? { ...p, preco_venda: precoComDesconto(p.preco_venda, pct), preco_original: p.preco_venda, promo: pct } : p
+  }), [produtos, promocoes, lojaId])
+  const servicosEmPromo = (servicos ?? []).filter(s => cheioDe(s) > precoDe(s))
+  const produtosEmPromo = produtosVenda.filter(p => !!p.promo)
   const valorServicos = servicosCarrinho.reduce((soma, s) => soma + precoDe(s), 0)
   const escolhaTaxi = escolhaDoTransporte(transporte)
-  const itensProdutos = produtos
+  const itensProdutos = produtosVenda
     .map(p => ({ produto: p, quantidade: quantidades[p.id_produto] ?? 0 }))
     .filter(i => Number.isFinite(i.quantidade) && i.quantidade > 0)
   const totalProdutos = itensProdutos.reduce((soma, i) => soma + i.produto.preco_venda * i.quantidade, 0)
@@ -365,6 +428,9 @@ export default function NovoAgendamentoClienteScreen() {
         : null,
       forma_pagamento: planoCobreTudo ? null : forma,
       usar_plano: vaiUsarPlano ? '1' : null,
+      // Os preços que estão na tela: se algum mudou, o site não cria nada e
+      // devolve os de agora.
+      precos_vistos: JSON.stringify(servicosCarrinho.map(s => ({ id_servico: s.id_servico, preco: precoDe(s), promo: cheioDe(s) > precoDe(s) }))),
     }
     // Um serviço: a action de sempre. Vários: a do link do site, que cria um
     // agendamento por serviço, encadeados, numa transação só.
@@ -377,6 +443,20 @@ export default function NovoAgendamentoClienteScreen() {
       // Um adicional saiu do ar ou mudou de preço: o resumo passa a mostrar
       // a lista atual, e o cliente confirma de novo.
       if (r.adicionais_atuais) setAdicionaisLoja(r.adicionais_atuais)
+      // O preço de um serviço mudou (a promoção terminou ou começou): o
+      // resumo passa a mostrar o de agora e o cliente confirma de novo com o
+      // novo total, ou volta em "Editar".
+      if (r.precos_atuais) {
+        const atuais = r.precos_atuais
+        setPrecos(p => (p && p.petId === petId
+          ? {
+              petId,
+              valores: { ...p.valores, ...Object.fromEntries(Object.entries(atuais).map(([id, v]) => [id, v.preco])) },
+              cheios: { ...p.cheios, ...Object.fromEntries(Object.entries(atuais).map(([id, v]) => [id, v.cheio])) },
+            }
+          : p))
+        setRecargaPrecos(n => n + 1)
+      }
       // O servidor não confirmou a cobertura do plano: pede o pagamento.
       if (planoCobreTudo && r.error === 'Escolha a forma de pagamento.') setPlanoNaoCobriu(true)
       // O horário pode ter sido ocupado enquanto a pessoa confirmava.
@@ -523,9 +603,48 @@ export default function NovoAgendamentoClienteScreen() {
           ) : servicos.length === 0 ? (
             <Aviso tipo="info" texto="Este petshop ainda não tem serviços disponíveis." />
           ) : (
+            <>
+            {/* Em promoção: serviços e produtos com desconto agora — um toque põe no pedido. */}
+            {(servicosEmPromo.length > 0 || produtosEmPromo.length > 0) && (
+              <View style={{ gap: 8 }}>
+                <Text style={styles.promosTitulo}>Em promoção</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.promos}>
+                  {servicosEmPromo.map(s => {
+                    const marcado = carrinho.includes(s.id_servico)
+                    return (
+                      <Pressable key={s.id_servico} onPress={() => alternarServico(s.id_servico)} accessibilityRole="button" accessibilityState={{ selected: marcado }} style={[styles.promo, marcado && styles.promoMarcada]}>
+                        <View style={styles.selo}><Text style={styles.seloTexto}>-{seloDesconto(cheioDe(s), precoDe(s))}%</Text></View>
+                        <Text style={styles.promoNome} numberOfLines={2}>{s.nome}</Text>
+                        <Text style={styles.promoPreco}><Text style={styles.riscado}>{formatarMoeda(cheioDe(s))}</Text>  {formatarMoeda(precoDe(s))}</Text>
+                        <Text style={styles.promoEconomia}>Você economiza {formatarMoeda(economia(cheioDe(s), precoDe(s)))}</Text>
+                        <Text style={styles.promoAcao}>{marcado ? 'No pedido ✓' : 'Adicionar'}</Text>
+                      </Pressable>
+                    )
+                  })}
+                  {produtosEmPromo.map(pr => {
+                    const marcado = (quantidades[pr.id_produto] ?? 0) > 0
+                    return (
+                      <Pressable
+                        key={pr.id_produto}
+                        onPress={() => setQuantidades(atual => ({ ...atual, [pr.id_produto]: marcado ? 0 : Math.min(1, pr.estoque_atual) }))}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: marcado }}
+                        style={[styles.promo, marcado && styles.promoMarcada]}
+                      >
+                        <View style={styles.selo}><Text style={styles.seloTexto}>-{pr.promo}%</Text></View>
+                        <Text style={styles.promoNome} numberOfLines={2}>{pr.nome}</Text>
+                        <Text style={styles.promoPreco}><Text style={styles.riscado}>{formatarMoeda(pr.preco_original ?? pr.preco_venda)}</Text>  {formatarMoeda(pr.preco_venda)}</Text>
+                        <Text style={styles.promoAcao}>{marcado ? 'No pedido ✓' : 'Levar junto'}</Text>
+                      </Pressable>
+                    )
+                  })}
+                </ScrollView>
+              </View>
+            )}
             <View style={styles.grade}>
               {servicos.map(s => {
                 const marcado = carrinho.includes(s.id_servico)
+                const emPromo = cheioDe(s) > precoDe(s)
                 return (
                   <View key={s.id_servico} style={styles.gradeCaixa}>
                     <Pressable
@@ -536,14 +655,19 @@ export default function NovoAgendamentoClienteScreen() {
                       style={[styles.servico, marcado && styles.servicoMarcado]}
                     >
                       <View style={[styles.check, marcado && styles.checkMarcado]}>{marcado && <IconCheck size={14} color={colors.white} />}</View>
+                      {emPromo && <View style={styles.selo}><Text style={styles.seloTexto}>-{seloDesconto(cheioDe(s), precoDe(s))}%</Text></View>}
                       <Text style={styles.servicoNome} numberOfLines={2}>{s.nome}</Text>
                       <Text style={styles.textoPequeno}>{duracaoTexto(s.duracao)}</Text>
-                      <Text style={styles.servicoPreco}>{formatarMoeda(precoDe(s))}</Text>
+                      <Text style={styles.servicoPreco}>
+                        {emPromo && <><Text style={styles.riscado}>{formatarMoeda(cheioDe(s))}</Text>{'  '}</>}
+                        {formatarMoeda(precoDe(s))}
+                      </Text>
                     </Pressable>
                   </View>
                 )
               })}
             </View>
+            </>
           )}
           <Pressable
             onPress={() => { setErro(null); setEtapa('quando') }}
@@ -626,7 +750,10 @@ export default function NovoAgendamentoClienteScreen() {
                 <Text style={styles.resumoRotulo}>{servicosCarrinho.length > 1 ? 'Serviços' : 'Serviço'}</Text>
                 <Pressable onPress={() => setEtapa('servicos')} hitSlop={8} accessibilityRole="link"><Text style={styles.link}>Editar</Text></Pressable>
               </View>
-              {servicosCarrinho.map(s => <ItemResumo key={s.id_servico} nome={s.nome} valor={formatarMoeda(precoDe(s))} />)}
+              {servicosCarrinho.map(s => (
+                <ItemResumo key={s.id_servico} nome={s.nome} valor={formatarMoeda(precoDe(s))} riscado={cheioDe(s) > precoDe(s) ? formatarMoeda(cheioDe(s)) : undefined} />
+              ))}
+              {economiaPromo > 0 && <Text style={styles.resumoEconomia}>Você economiza {formatarMoeda(economiaPromo)} com a promoção</Text>}
             </View>
             <View style={[styles.resumoLinha, styles.resumoSeparada]}>
               <View style={styles.entre}>
@@ -751,20 +878,22 @@ export default function NovoAgendamentoClienteScreen() {
             </View>
           )}
 
-          {produtos.length > 0 && (
+          {produtosVenda.length > 0 && (
             <View style={styles.bloco}>
               <View style={styles.entre}>
                 <Text style={styles.blocoTitulo}>Quer levar algum produto?</Text>
                 {totalProdutos > 0 && <Text style={styles.blocoValor}>+ {formatarMoeda(totalProdutos)}</Text>}
               </View>
-              {produtos.map(p => {
+              {produtosVenda.map(p => {
                 const q = quantidades[p.id_produto] ?? 0
                 return (
                   <View key={p.id_produto} style={styles.produto}>
                     <View style={{ flex: 1, gap: 2 }}>
                       <Text style={styles.produtoNome} numberOfLines={2}>{p.nome}</Text>
                       <Text style={styles.textoPequeno}>
+                        {!!p.promo && <><Text style={styles.riscado}>{formatarMoeda(p.preco_original ?? p.preco_venda)}</Text>{' '}</>}
                         {formatarMoeda(p.preco_venda)} / {rotuloUnidade(p.unidade_venda).toLowerCase()}
+                        {!!p.promo && <Text style={styles.subtotal}> · -{p.promo}%</Text>}
                         {q > 0 ? <Text style={styles.subtotal}> · {formatarMoeda(p.preco_venda * q)}</Text> : null}
                       </Text>
                     </View>
@@ -802,11 +931,15 @@ export default function NovoAgendamentoClienteScreen() {
   )
 }
 
-function ItemResumo({ nome, valor, cor }: { nome: string; valor: string; cor?: string }) {
+// `riscado`: o preço sem a promoção, antes do valor.
+function ItemResumo({ nome, valor, cor, riscado }: { nome: string; valor: string; cor?: string; riscado?: string }) {
   return (
     <View style={styles.entre}>
       <Text style={[styles.resumoItem, cor ? { color: cor } : null]}>{nome}</Text>
-      <Text style={[styles.resumoItemValor, cor ? { color: cor } : null]}>{valor}</Text>
+      <Text style={[styles.resumoItemValor, cor ? { color: cor } : null]}>
+        {riscado ? <><Text style={styles.riscado}>{riscado}</Text>{'  '}</> : null}
+        {valor}
+      </Text>
     </View>
   )
 }
@@ -844,6 +977,20 @@ const styles = StyleSheet.create({
   checkMarcado: { backgroundColor: colors.primary600, borderColor: colors.primary600 },
   servicoNome: { paddingRight: 30, fontSize: 15, lineHeight: 19.5, fontWeight: '600', color: colors.text },
   servicoPreco: { marginTop: 'auto', paddingTop: 6, fontSize: 16, lineHeight: 21, fontWeight: '700', color: colors.text },
+
+  // Promoções (`.ag2-promo*` do site).
+  promosTitulo: { fontSize: 13, lineHeight: 18, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', color: colors.successFg },
+  promos: { gap: 10, paddingRight: 8 },
+  promo: { width: 200, gap: 2, alignItems: 'flex-start', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, backgroundColor: colors.successBg, borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.35)' },
+  promoMarcada: { borderColor: colors.success, backgroundColor: '#dcfce7' },
+  promoNome: { fontSize: 15, lineHeight: 19.5, fontWeight: '700', color: colors.text },
+  promoPreco: { fontSize: 16, lineHeight: 22, fontWeight: '700', color: colors.text },
+  promoEconomia: { fontSize: 12, lineHeight: 16, fontWeight: '600', color: colors.successFg },
+  promoAcao: { marginTop: 4, fontSize: 12, lineHeight: 16, fontWeight: '700', color: colors.successFg },
+  selo: { alignSelf: 'flex-start', paddingVertical: 2, paddingHorizontal: 8, borderRadius: 6, marginBottom: 4, backgroundColor: colors.success },
+  seloTexto: { fontSize: 11, lineHeight: 14, fontWeight: '800', letterSpacing: 0.2, color: colors.white },
+  riscado: { fontSize: 13, fontWeight: '500', color: '#858d99', textDecorationLine: 'line-through' },
+  resumoEconomia: { fontSize: 13, lineHeight: 18, fontWeight: '600', color: colors.successFg },
 
   // Botão principal (`.ag2-cta`).
   cta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 54, paddingHorizontal: 20, borderRadius: 12, backgroundColor: colors.primary600, ...shadow.sm },

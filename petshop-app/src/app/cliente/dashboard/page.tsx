@@ -9,7 +9,7 @@ import { IconCalendar, IconDog, IconMoney, IconPlus, IconRepeat, IconScissors, I
 import { dataBR, type AssinaturaDoCliente } from '@/lib/planos'
 import type { Metadata } from 'next'
 import Ilustracao from '@/components/Ilustracao'
-import StatusAgendamentoMinimo from '@/components/cliente/StatusAgendamentoMinimo'
+import StatusAgendamentoMinimo from '@/components/StatusAgendamentoMinimo'
 import { GradeIndicadores, Indicador } from '@/components/relatorio/Indicador'
 
 export const metadata: Metadata = { title: 'Dashboard — Cliente' }

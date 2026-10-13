@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { acessoDaLoja } from '@/lib/acesso-loja'
-import { precoComDesconto, promoVigente, type Promocao } from '@/lib/promocao'
+import { COLUNAS_PROMOCAO_SERVICO, precoComDesconto, precoPromocionalServico, promoServicoVigente, promoVigente, seloDesconto, type Promocao, type PromocaoServico } from '@/lib/promocao'
 import { obterUsuario } from '@/lib/supabase/usuario'
 import type { Metadata } from 'next'
 import { diaSemanaBrasil, agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
@@ -228,11 +228,17 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
 
   // Promoções (migration 096) numa consulta à parte e tolerante: sem a
   // migration, a página segue sem promoção nenhuma.
-  const [promoServRes, promoProdRes] = await Promise.all([
-    supabase.from('servico').select('id_servico, promo_percentual, promo_inicio, promo_fim').eq('id_lojista', lojista.id_lojista).not('promo_percentual', 'is', null),
+  const [promoServCompleta, promoProdRes] = await Promise.all([
+    supabase.from('servico').select(`id_servico, ${COLUNAS_PROMOCAO_SERVICO}`).eq('id_lojista', lojista.id_lojista).not('promo_percentual', 'is', null),
     supabase.from('produto').select('id_produto, promo_percentual, promo_inicio, promo_fim').eq('id_lojista', lojista.id_lojista).not('promo_percentual', 'is', null),
   ])
-  const promoServicos = new Map(((promoServRes.error ? [] : promoServRes.data ?? []) as (Promocao & { id_servico: string })[]).map(x => [x.id_servico, x]))
+  // Sem a migration 096 (preço promocional, hora, liga/desliga), fica a
+  // promoção da 095: só percentual e datas.
+  const promoServRes = promoServCompleta.error
+    ? await supabase.from('servico').select('id_servico, promo_percentual, promo_inicio, promo_fim').eq('id_lojista', lojista.id_lojista).not('promo_percentual', 'is', null)
+    : promoServCompleta
+  const promoServicos = new Map(((promoServRes.error ? [] : promoServRes.data ?? []) as (PromocaoServico & { id_servico: string })[]).map(x => [x.id_servico, x]))
+  const agoraPromo = { data: hojeBrasilISO(), hora: agoraBrasilHHMM() }
   const promoProdutos = new Map(((promoProdRes.error ? [] : promoProdRes.data ?? []) as (Promocao & { id_produto: string })[]).map(x => [x.id_produto, x]))
 
   const agora = agoraBrasilHHMM()
@@ -269,7 +275,14 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
           horarios={horarios ?? []}
           bloqueios={bloqueios}
           janela={janela}
-          servicos={(servicos ?? []).map(sv => ({ ...sv, promo: promoVigente(promoServicos.get(sv.id_servico), hojeBrasilISO()) }))}
+          servicos={(servicos ?? []).map(sv => {
+            // Só a promoção que vale agora E que a loja oferece no agendamento
+            // online — é a mesma regra com que o banco cobra o cliente.
+            const p = promoServicos.get(sv.id_servico)
+            if (!promoServicoVigente(p, agoraPromo, { online: true })) return { ...sv, promo: 0 }
+            const precoPromo = precoPromocionalServico(Number(sv.preco), Number(sv.preco), p)
+            return { ...sv, promo: seloDesconto(Number(sv.preco), precoPromo), preco_promo: precoPromo }
+          })}
           produtos={(produtos ?? []).map(pr => {
             const promo = promoVigente(promoProdutos.get(pr.id_produto), hojeBrasilISO())
             return { ...pr, preco_venda: precoComDesconto(Number(pr.preco_venda), promo), preco_original: Number(pr.preco_venda), promo }

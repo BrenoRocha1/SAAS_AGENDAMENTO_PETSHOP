@@ -45,7 +45,7 @@ import {
   IconPaw,
   IconPlus,
 } from '@/components/icons'
-import { precoComDesconto } from '@/lib/promocao'
+import { economia, precoComDesconto } from '@/lib/promocao'
 import './agendamento-online.css'
 
 interface Lojista {
@@ -83,6 +83,9 @@ interface Servico {
   duracao: number
   // Desconto da promoção que vale hoje (migration 096); 0/ausente = sem.
   promo?: number
+  // Preço promocional do preço base (migration 096). Promoção antiga, só
+  // com percentual, vem sem ele.
+  preco_promo?: number
 }
 interface Pet {
   id_pet: string
@@ -215,6 +218,9 @@ export default function AgendamentoOnlineWizard({
   const [obs, setObs] = useState('')
   const [slots, setSlots] = useState<Slot[] | null>(null)
   const [precos, setPrecos] = useState<Record<string, number>>({})
+  // Preço do serviço para o pet SEM a promoção (migration 096) — para
+  // mostrar o "de/por" e a economia do pet escolhido.
+  const [precosCheios, setPrecosCheios] = useState<Record<string, number>>({})
   const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, number>>({})
   const [adicionaisAtuais, setAdicionaisAtuais] = useState<ServicoAdicional[]>(adicionais ?? [])
   // Por serviço do pedido: os adicionais marcados.
@@ -235,8 +241,12 @@ export default function AgendamentoOnlineWizard({
   const servicosCarrinho = servicos.filter(s => carrinho.includes(s.id_servico))
   const duracaoTotal = servicosCarrinho.reduce((acc, s) => acc + s.duracao, 0)
   // Preço "a partir de" já com a promoção (o preço exato vem do banco quando o pet é escolhido).
-  const precoBase = (s: Servico) => (s.promo ? precoComDesconto(s.preco, s.promo) : s.preco)
+  const precoBase = (s: Servico) => (s.promo ? s.preco_promo ?? precoComDesconto(s.preco, s.promo) : s.preco)
   const valorTotal = servicosCarrinho.reduce((acc, s) => acc + Number(precos[s.id_servico] ?? precoBase(s)), 0)
+  // Preço sem a promoção: o do pet quando o banco já respondeu (migration
+  // 096) e, antes disso, o preço base do serviço.
+  const precoCheio = (s: Servico) => precosCheios[s.id_servico] ?? (precos[s.id_servico] == null ? s.preco : precos[s.id_servico])
+  const economiaPromo = servicosCarrinho.reduce((acc, s) => acc + economia(precoCheio(s), Number(precos[s.id_servico] ?? precoBase(s))), 0)
   const precisaClassificar = !!petSel && (!petSel.especie || !petSel.porte)
   const itensCarrinhoProdutos = useMemo(() =>
     produtos
@@ -280,13 +290,18 @@ export default function AgendamentoOnlineWizard({
     let cancelado = false
     Promise.all(
       carrinho.map(async id_servico => {
-        const { data } = await supabase.rpc('fn_calcular_preco_servico', { p_id_servico: id_servico, p_id_pet: petId })
+        const [{ data }, cheio] = await Promise.all([
+          supabase.rpc('fn_calcular_preco_servico', { p_id_servico: id_servico, p_id_pet: petId }),
+          // Sem a migration 096 a função não existe: fica sem o "de/por" do pet.
+          supabase.rpc('fn_preco_servico_cheio', { p_id_servico: id_servico, p_id_pet: petId }),
+        ])
         // NUMERIC do Postgres pode voltar como string via PostgREST — nunca usar direto num cálculo.
-        return [id_servico, data == null ? null : Number(data)] as const
+        return [id_servico, data == null ? null : Number(data), cheio.error || cheio.data == null ? null : Number(cheio.data)] as const
       })
-    ).then(pares => {
+    ).then(trios => {
       if (cancelado) return
-      setPrecos(prev => ({ ...prev, ...Object.fromEntries(pares.filter((par): par is [string, number] => par[1] != null)) }))
+      setPrecos(prev => ({ ...prev, ...Object.fromEntries(trios.filter(t => t[1] != null).map(t => [t[0], t[1] as number])) }))
+      setPrecosCheios(prev => ({ ...prev, ...Object.fromEntries(trios.filter(t => t[1] != null).map(t => [t[0], t[2] ?? (t[1] as number)])) }))
     })
     return () => { cancelado = true }
   }, [petId, carrinho, supabase])
@@ -507,11 +522,26 @@ export default function AgendamentoOnlineWizard({
     }
     if (!nadaAPagar && formaPagamento) fd.set('forma_pagamento', formaPagamento)
     if (vaiUsarPlano) fd.set('usar_plano', '1')
+    // Os preços que estão na tela: se algum mudou (a promoção terminou ou
+    // começou nesse meio-tempo), o servidor não cria nada e devolve os atuais.
+    fd.set('precos_vistos', JSON.stringify(servicosCarrinho.map(s => {
+      const preco = Number(precos[s.id_servico] ?? precoBase(s))
+      return { id_servico: s.id_servico, preco, promo: precoCheio(s) > preco }
+    })))
 
     startTransition(async () => {
       const result = await criarAgendamentoOnlineAction(fd)
       if (result?.error) {
         setErro(result.error)
+        // O preço de um serviço mudou: o resumo passa a mostrar o de agora
+        // (e a primeira tela, as promoções de agora); o cliente confirma de
+        // novo com o novo total ou volta em "Editar".
+        if (result.precos_atuais) {
+          const atuais = result.precos_atuais
+          setPrecos(prev => ({ ...prev, ...Object.fromEntries(Object.entries(atuais).map(([id, v]) => [id, v.preco])) }))
+          setPrecosCheios(prev => ({ ...prev, ...Object.fromEntries(Object.entries(atuais).map(([id, v]) => [id, v.cheio])) }))
+          router.refresh()
+        }
         // Um adicional saiu do ar ou mudou de preço: o resumo passa a
         // mostrar a lista atual, e o cliente confirma de novo.
         if (result.adicionais_atuais) setAdicionaisAtuais(result.adicionais_atuais)
@@ -617,6 +647,7 @@ export default function AgendamentoOnlineWizard({
                           <span className="ag2-promo-selo">-{s.promo}%</span>
                           <strong>{s.nome}</strong>
                           <span className="ag2-promo-preco"><s>{formatarReais(s.preco)}</s> {formatarReais(precoBase(s))}</span>
+                          <span className="ag2-promo-economia">Você economiza {formatarReais(economia(s.preco, precoBase(s)))}</span>
                           <span className="ag2-promo-acao">{marcado ? 'No pedido ✓' : 'Adicionar'}</span>
                         </button>
                       )
@@ -1031,8 +1062,12 @@ export default function AgendamentoOnlineWizard({
                 <span className="ag2-resumo-rotulo">{servicosCarrinho.length > 1 ? 'Serviços' : 'Serviço'}</span>
                 <button type="button" className="ag2-link" onClick={() => setStep('servicos')}>Editar</button>
                 {servicosCarrinho.map(s => (
-                  <span key={s.id_servico} className="ag2-resumo-item">{s.nome}<span>{formatarReais(precos[s.id_servico] ?? precoBase(s))}</span></span>
+                  <span key={s.id_servico} className="ag2-resumo-item">{s.nome}<span>
+                    {precoCheio(s) > Number(precos[s.id_servico] ?? precoBase(s)) && <s>{formatarReais(precoCheio(s))}</s>}
+                    {formatarReais(precos[s.id_servico] ?? precoBase(s))}
+                  </span></span>
                 ))}
+                {economiaPromo > 0 && <span className="ag2-resumo-sub ag2-resumo-economia">Você economiza {formatarReais(economiaPromo)} com a promoção</span>}
               </div>
               <div className="ag2-resumo-linha">
                 <span className="ag2-resumo-rotulo">Pet e horário</span>
