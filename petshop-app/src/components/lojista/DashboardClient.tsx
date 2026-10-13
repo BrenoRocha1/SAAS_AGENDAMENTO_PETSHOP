@@ -387,13 +387,21 @@ export default function DashboardClient({
         </div>
 
         <div className="dash-app-resumo">
-          {ETAPAS_DO_DIA.map(etapa => (
-            <div key={etapa}>
-              <i style={{ background: corSolidaStatus(etapa) }} />
-              <strong>{contagemPorStatus[etapa] ?? 0}</strong>
-              <span>{rotuloStatus(etapa)}</span>
-            </div>
-          ))}
+          <div className="dash-app-resumo-barra">
+            {ETAPAS_DO_DIA.map(etapa => {
+              const n = contagemPorStatus[etapa] ?? 0
+              return n > 0 ? <span key={etapa} style={{ background: corSolidaStatus(etapa), flex: n }} /> : null
+            })}
+          </div>
+          <div className="dash-app-resumo-legenda">
+            {ETAPAS_DO_DIA.map(etapa => (
+              <div key={etapa}>
+                <i style={{ background: corSolidaStatus(etapa) }} />
+                <strong>{contagemPorStatus[etapa] ?? 0}</strong>
+                <span>{rotuloStatus(etapa)}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="dash-app-secao">
