@@ -10,13 +10,14 @@ const ETAPAS: StatusAgendamento[] = ['Pendente', 'Confirmado', 'Em andamento', '
 // Uma barra só, dividida proporcionalmente por status, com a legenda
 // embaixo — igual ao resumo do dia no site.
 export function ResumoStatus({ contagem }: { contagem: Record<string, number> }) {
+  const total = ETAPAS.reduce((soma, e) => soma + (contagem[e] ?? 0), 0)
   return (
     <View style={styles.cartao}>
-      <View style={styles.barra}>
+      <View style={[styles.barra, total === 0 && styles.barraVazia]}>
         {ETAPAS.map(etapa => {
           const n = contagem[etapa] ?? 0
           if (n === 0) return null
-          return <View key={etapa} style={{ flex: n, backgroundColor: coresStatus(etapa).solid }} />
+          return <View key={etapa} style={{ width: `${(n / total) * 100}%`, borderRadius: 999, backgroundColor: coresStatus(etapa).solid }} />
         })}
       </View>
       <View style={styles.legenda}>
@@ -39,7 +40,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
     borderRadius: radius.lg, padding: spacing.md, gap: spacing.md,
   },
-  barra: { flexDirection: 'row', height: 8, borderRadius: 999, overflow: 'hidden', backgroundColor: colors.surfaceMuted },
+  barra: { flexDirection: 'row', gap: 3, height: 10 },
+  barraVazia: { backgroundColor: colors.surfaceMuted, borderRadius: 999 },
   legenda: { flexDirection: 'row' },
   item: { flex: 1, alignItems: 'center', gap: 2 },
   ponto: { width: 6, height: 6, borderRadius: 3, marginBottom: 2 },

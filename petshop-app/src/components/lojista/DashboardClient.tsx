@@ -387,10 +387,11 @@ export default function DashboardClient({
         </div>
 
         <div className="dash-app-resumo">
-          <div className="dash-app-resumo-barra">
+          <div className={`dash-app-resumo-barra ${ETAPAS_DO_DIA.every(e => !contagemPorStatus[e]) ? 'is-vazia' : ''}`}>
             {ETAPAS_DO_DIA.map(etapa => {
               const n = contagemPorStatus[etapa] ?? 0
-              return n > 0 ? <span key={etapa} style={{ background: corSolidaStatus(etapa), flex: n }} /> : null
+              const totalEtapas = ETAPAS_DO_DIA.reduce((soma, e) => soma + (contagemPorStatus[e] ?? 0), 0)
+              return n > 0 ? <span key={etapa} style={{ background: corSolidaStatus(etapa), width: `${(n / totalEtapas) * 100}%` }} /> : null
             })}
           </div>
           <div className="dash-app-resumo-legenda">
