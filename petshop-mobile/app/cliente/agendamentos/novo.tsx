@@ -94,7 +94,9 @@ type RespostaDoAgendamento = {
 // o servidor (criarAgendamentoAction para um serviço, criarAgendamentoOnlineAction
 // para vários), que calcula de novo preço, taxa do TaxiDog, adicionais e plano.
 export default function NovoAgendamentoClienteScreen() {
-  const params = useLocalSearchParams<{ loja?: string }>()
+  // produto: veio da busca de produtos (Petshops → Produtos → Comprar ao
+  // agendar, migration 098) — já entra no pedido.
+  const params = useLocalSearchParams<{ loja?: string; produto?: string }>()
   const router = useRouter()
   const { user } = useAuth()
   const idCliente = user?.id
@@ -197,7 +199,12 @@ export default function NovoAgendamentoClienteScreen() {
     ]).then(([srv, prod, taxi, est, formas, hrs, blq, jan]) => {
       if (cancelado) return
       setServicos(((srv.data ?? []) as Servico[]).map(s => ({ ...s, preco: Number(s.preco) })))
-      setProdutos(((prod.data ?? []) as Produto[]).map(p => ({ ...p, preco_venda: Number(p.preco_venda), estoque_atual: Number(p.estoque_atual) })))
+      const listaProdutos = ((prod.data ?? []) as Produto[]).map(p => ({ ...p, preco_venda: Number(p.preco_venda), estoque_atual: Number(p.estoque_atual) }))
+      setProdutos(listaProdutos)
+      const inicial = params.produto
+      if (inicial && lojaId === params.loja && listaProdutos.some(p => p.id_produto === inicial)) {
+        setQuantidades(q => (q[inicial] ? q : { ...q, [inicial]: 1 }))
+      }
       setTaxidogDisponivel(!!(taxi.data as { disponivel: boolean }[] | null)?.[0]?.disponivel)
       setPrecosEstimados(!!(est.data as { precos_estimados?: boolean } | null)?.precos_estimados)
       const f = normalizarFormasLoja(formas.data)
@@ -598,6 +605,12 @@ export default function NovoAgendamentoClienteScreen() {
               {loja ? `${loja.nome_loja} · ` : ''}Toque para escolher — dá para marcar mais de um. Os preços são “a partir de”: o valor final depende do porte do pet.
             </Text>
           </View>
+          {carrinho.length === 0 && itensProdutos.length > 0 && (
+            <Aviso
+              tipo="info"
+              texto={`${itensProdutos.map(i => i.produto.nome).join(', ')} ${itensProdutos.length === 1 ? 'já está' : 'já estão'} no seu pedido. Escolha um serviço para agendar e levar junto.`}
+            />
+          )}
           {servicos === null ? (
             <ActivityIndicator color={colors.primary600} />
           ) : servicos.length === 0 ? (

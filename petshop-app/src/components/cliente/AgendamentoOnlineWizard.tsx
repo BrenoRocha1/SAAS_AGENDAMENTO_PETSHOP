@@ -42,6 +42,7 @@ import {
   IconUser,
   IconUserPlus,
   IconMinus,
+  IconPackage,
   IconPaw,
   IconPlus,
 } from '@/components/icons'
@@ -141,6 +142,9 @@ interface Props {
   // Nome da conta conectada (do Google) — para a saudação do cadastro.
   nomeConta?: string
   carrinhoInicial: string[]
+  // Produtos que já entram no pedido (1 de cada) — "Comprar ao agendar" da
+  // busca de produtos (marketplace, migration 098). Fora da lista: ignorado.
+  produtosIniciais?: string[]
   // TaxiDog ligado e liberado pro agendamento online (fn_taxidog_publico,
   // migration 042) — decide se aparece a escolha de transporte.
   taxidogDisponivel: boolean
@@ -179,7 +183,7 @@ const ROTULO_CURTO_FORMA: Record<FormaPagamento, string> = {
 const duracaoTexto = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? String(min % 60).padStart(2, '0') : ''}` : `${min} min`)
 
 export default function AgendamentoOnlineWizard({
-  lojista, horarios, bloqueios, janela, servicos, produtos, adicionais, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, cadastroIncompleto = false, nomeConta = '', carrinhoInicial,
+  lojista, horarios, bloqueios, janela, servicos, produtos, adicionais, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, cadastroIncompleto = false, nomeConta = '', carrinhoInicial, produtosIniciais,
   taxidogDisponivel, precosEstimados, formasPagamento,
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
@@ -221,7 +225,8 @@ export default function AgendamentoOnlineWizard({
   // Preço do serviço para o pet SEM a promoção (migration 096) — para
   // mostrar o "de/por" e a economia do pet escolhido.
   const [precosCheios, setPrecosCheios] = useState<Record<string, number>>({})
-  const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, number>>({})
+  const [quantidadesProdutos, setQuantidadesProdutos] = useState<Record<string, number>>(() =>
+    Object.fromEntries((produtosIniciais ?? []).filter(id => produtos.some(p => p.id_produto === id)).map(id => [id, 1])))
   const [adicionaisAtuais, setAdicionaisAtuais] = useState<ServicoAdicional[]>(adicionais ?? [])
   // Por serviço do pedido: os adicionais marcados.
   const [adicionaisMarcados, setAdicionaisMarcados] = useState<Record<string, string[]>>({})
@@ -636,6 +641,15 @@ export default function AgendamentoOnlineWizard({
               <p className="ag2-vazio">Esta loja ainda não cadastrou serviços.</p>
             ) : (
               <div className="ag2-servicos-rolagem">
+              {carrinho.length === 0 && itensCarrinhoProdutos.length > 0 && (
+                <div className="ag2-aviso-produto">
+                  <IconPackage style={{ width: 18, height: 18, flexShrink: 0 }} />
+                  <span>
+                    <strong>{itensCarrinhoProdutos.map(i => i.produto.nome).join(', ')}</strong>
+                    {itensCarrinhoProdutos.length === 1 ? ' já está' : ' já estão'} no seu pedido. Escolha um serviço para agendar e levar junto.
+                  </span>
+                </div>
+              )}
               {(servicosEmPromo.length > 0 || produtosEmPromo.length > 0) && (
                 <section className="ag2-promos" aria-label="Em promoção">
                   <div className="ag2-promos-titulo">Em promoção</div>

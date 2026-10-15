@@ -438,3 +438,12 @@
 .ag2-voltar-conta svg { width: 16px; height: 16px; }
 .ag2-voltar-conta:hover { color: var(--primary-300); }
 
+
+/* Produto que já veio no pedido (busca de produtos da conta, migration 098). */
+.ag2-aviso-produto {
+  display: flex; align-items: flex-start; gap: 10px; margin-bottom: var(--space-4); padding: 12px 14px;
+  border: 1px solid var(--primary-soft-border); border-radius: 12px; background: var(--primary-soft-bg);
+  font-size: 0.875rem; line-height: 1.45; color: var(--gray-300);
+}
+.ag2-aviso-produto svg { color: var(--primary-400); margin-top: 1px; }
+.ag2-aviso-produto strong { color: var(--gray-100); }

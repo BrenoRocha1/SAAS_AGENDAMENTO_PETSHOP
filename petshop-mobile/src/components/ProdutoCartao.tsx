@@ -1,4 +1,4 @@
-import { Image, Pressable, StyleSheet, View } from 'react-native'
+import { Image, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 import { IconGrid, IconList, IconPackage } from '@/components/IconesDoSite'
 import { Text } from '@/components/Texto'
 import { FONTE_TITULO } from '@/theme/fontes'
@@ -35,33 +35,46 @@ export function TrocaDeVisualizacao({ modo, onChange }: { modo: ModoVisualizacao
 // (petshop-app/src/components/lojista/produtos-grade.css): a foto em cima
 // (4:3) com o selo do estoque por cima, o nome, a categoria, o preço e
 // quanto tem em estoque. Dois por linha; o card abre a janela do produto.
-export function ProdutoCartao({ nome, categoria, foto, preco, unidade, estoque, selo, inativo, onPress }: {
+// Também é o card da busca de produtos do cliente (marketplace): ali vêm o
+// preço antigo e o selo da promoção, e a linha de baixo diz como comprar.
+export function ProdutoCartao({ nome, categoria, foto, preco, unidade, estoque, selo, inativo, onPress, precoAntigo, promo, pe, acessivel, style }: {
   nome: string
   categoria: string | null
   foto?: string | null
   // "R$ 18,90" e "kg".
   preco: string
   unidade: string
-  // "45,5 kg".
-  estoque: string
+  // "45,5 kg" (lojista). Sem ele, a linha de baixo é `pe`.
+  estoque?: string
   // Estoque baixo ou zerado: o selo por cima da foto.
   selo?: { texto: string; tom: 'baixo' | 'zerado' } | null
   inativo?: boolean
   onPress: () => void
+  // Promoção: o preço de antes (riscado) e o selo "-10%".
+  precoAntigo?: string | null
+  promo?: number
+  pe?: string
+  acessivel?: string
+  style?: StyleProp<ViewStyle>
 }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${nome}, ver e ajustar o estoque`}
-      style={({ pressed }) => [styles.card, pressed && styles.pressionado]}
+      accessibilityLabel={acessivel ?? `${nome}, ver e ajustar o estoque`}
+      style={({ pressed }) => [styles.card, pressed && styles.pressionado, style]}
     >
       <View style={styles.foto}>
         {foto
           ? <Image source={{ uri: foto }} style={[styles.imagem, inativo && styles.apagada]} resizeMode="cover" />
           : <IconPackage size={38} color={colors.primary300} style={inativo ? styles.apagada : undefined} />}
-        {(selo || inativo) && (
+        {(selo || inativo || !!promo) && (
           <View style={styles.selos}>
+            {!!promo && (
+              <View style={[styles.selo, styles.seloPromo]}>
+                <Text style={[styles.seloTexto, { color: colors.white }]}>-{promo}%</Text>
+              </View>
+            )}
             {selo && (
               <View style={styles.selo}>
                 <Text style={[styles.seloTexto, { color: selo.tom === 'zerado' ? colors.dangerFg : colors.warningFg }]}>{selo.texto}</Text>
@@ -78,12 +91,15 @@ export function ProdutoCartao({ nome, categoria, foto, preco, unidade, estoque, 
       <View style={styles.info}>
         <Text style={styles.nome} numberOfLines={2}>{nome}</Text>
         <Text style={styles.sub} numberOfLines={1}>{categoria ?? 'Sem categoria'}</Text>
-        <Text style={styles.preco}>
+        {!!precoAntigo && <Text style={styles.precoAntigo}>{precoAntigo}</Text>}
+        <Text style={[styles.preco, !!precoAntigo && styles.precoComAntigo]} numberOfLines={1}>
           {preco} <Text style={styles.unidade}>/ {unidade}</Text>
         </Text>
-        <View style={styles.pe}>
-          <Text style={styles.peTexto}>{estoque} em estoque</Text>
-        </View>
+        {(estoque != null || pe) && (
+          <View style={styles.pe}>
+            <Text style={styles.peTexto} numberOfLines={1}>{estoque != null ? `${estoque} em estoque` : pe}</Text>
+          </View>
+        )}
       </View>
     </Pressable>
   )
@@ -102,6 +118,7 @@ const styles = StyleSheet.create({
   apagada: { opacity: 0.45 },
   selos: { position: 'absolute', left: 8, right: 8, bottom: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   selo: { paddingVertical: 3, paddingHorizontal: 9, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.94)' },
+  seloPromo: { backgroundColor: colors.success },
   seloTexto: { fontSize: 11, lineHeight: 17.6, fontWeight: '700', color: colors.textMuted },
   info: { flex: 1, gap: 2, paddingTop: 10, paddingHorizontal: 12, paddingBottom: 12 },
   nome: { fontSize: 15, lineHeight: 19.5, fontWeight: '700', color: colors.text },
@@ -109,6 +126,9 @@ const styles = StyleSheet.create({
   // `margin-top: auto`: o preço e o estoque ficam no pé do card, mesmo
   // quando o vizinho da linha tem o nome em duas linhas.
   preco: { marginTop: 'auto', paddingTop: 6, fontFamily: FONTE_TITULO, fontSize: 16, lineHeight: 21.6, fontWeight: '800', letterSpacing: -0.16, color: colors.text },
+  // Com o preço antigo em cima, o "margin-top: auto" fica com ele.
+  precoAntigo: { marginTop: 'auto', paddingTop: 6, fontSize: 12, lineHeight: 16, color: '#858d99', textDecorationLine: 'line-through' },
+  precoComAntigo: { marginTop: 0, paddingTop: 0 },
   unidade: { fontFamily: undefined, fontSize: 12, lineHeight: 16.2, fontWeight: '500', letterSpacing: 0, color: '#858d99' },
   pe: { marginTop: 6, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border },
   peTexto: { fontSize: 13, lineHeight: 17.55, color: colors.textDim },

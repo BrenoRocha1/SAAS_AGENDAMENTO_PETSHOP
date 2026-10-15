@@ -12,6 +12,11 @@
 -- do agendamento online (migration 039). Custo do produto continua em
 -- produto_custo, que essa policy não abre.
 --
+-- Busca sem acento: nome_busca guarda o nome em minúsculas e sem acento
+-- ("Ração Úmida" → "racao umida"); a tela normaliza o que o cliente digita
+-- do mesmo jeito. Categoria: o cliente lê o nome das categorias que têm
+-- produto no marketplace (para os filtros).
+--
 -- Pode rodar de novo sem problema.
 -- ============================================================
 
@@ -27,6 +32,24 @@ CREATE POLICY "produto: clientes veem os do marketplace"
     AND excluido_em IS NULL
     AND EXISTS (SELECT 1 FROM lojista l WHERE l.id_lojista = produto.id_lojista AND l.ativo = TRUE)
   );
+
+ALTER TABLE produto ADD COLUMN IF NOT EXISTS nome_busca TEXT GENERATED ALWAYS AS (
+  translate(
+    lower(nome),
+    'áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ',
+    'aaaaaeeeeiiiiooooouuuucnaaaaaeeeeiiiiooooouuuucn'
+  )
+) STORED;
+
+DROP POLICY IF EXISTS "categoria_produto: clientes veem as do marketplace" ON categoria_produto;
+CREATE POLICY "categoria_produto: clientes veem as do marketplace"
+  ON categoria_produto FOR SELECT
+  TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM produto p
+    WHERE p.id_categoria = categoria_produto.id_categoria
+      AND p.disponivel_marketplace = TRUE AND p.status = 'Ativo' AND p.excluido_em IS NULL
+  ));
 
 CREATE INDEX IF NOT EXISTS idx_produto_marketplace
   ON produto (id_lojista, nome)
