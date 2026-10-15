@@ -55,6 +55,7 @@ interface Produto {
   status: 'Ativo' | 'Inativo'
   foto_url?: string | null
   disponivel_agendamento_online?: boolean
+  disponivel_marketplace?: boolean
 }
 
 interface Categoria { id_categoria: string; nome: string }
@@ -132,6 +133,8 @@ export default function ProdutosScreen() {
   const [estoqueInicial, setEstoqueInicial] = useState('')
   const [estoqueMinimo, setEstoqueMinimo] = useState('')
   const [online, setOnline] = useState(false)
+  // "Ativo para vendas no marketplace" (migration 098), desligado por padrão.
+  const [marketplace, setMarketplace] = useState(false)
   // Estoque digitado em g/ml (produto vendido por kg/litro).
   const [minimoSub, setMinimoSub] = useState(false)
   const [inicialSub, setInicialSub] = useState(false)
@@ -226,6 +229,7 @@ export default function ProdutosScreen() {
     setEstoqueInicial('')
     setEstoqueMinimo(p ? formatarQuantidade(p.estoque_minimo) : '0')
     setOnline(!!p?.disponivel_agendamento_online)
+    setMarketplace(!!p?.disponivel_marketplace)
     setMinimoSub(false)
     setInicialSub(false)
     setFotoPendente(null)
@@ -272,6 +276,7 @@ export default function ProdutosScreen() {
       preco_venda: valor,
       estoque_minimo: minimo,
       disponivel_agendamento_online: online,
+      disponivel_marketplace: marketplace,
       // Só vai quando o custo existe no banco (migration 062).
       ...(custos ? { custo_unitario: custo.trim() ? String(paraNumero(custo)) : '' } : {}),
       // Só vai quando a tabela fiscal existe no banco (migration 094).
@@ -651,6 +656,14 @@ export default function ProdutosScreen() {
                 <Text style={styles.nota}>O cliente poderá adicionar este produto ao agendar pelo link da loja ou pela própria conta.</Text>
               </View>
               <Interruptor value={online} onValueChange={setOnline} accessibilityLabel="Vender no Agendamento Online" />
+            </View>
+
+            <View style={styles.online}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.onlineTitulo}>Ativo para vendas no marketplace</Text>
+                <Text style={styles.nota}>O produto aparece na busca de produtos da tela Petshops, para os clientes da plataforma.</Text>
+              </View>
+              <Interruptor value={marketplace} onValueChange={setMarketplace} accessibilityLabel="Ativo para vendas no marketplace" />
             </View>
 
             {/* `.modal-footer` no celular: salvar e, ao editar, excluir. */}

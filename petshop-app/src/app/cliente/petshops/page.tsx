@@ -15,6 +15,8 @@ import {
   IconScissors,
 } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
+import AbasPetshops from '@/components/cliente/AbasPetshops'
+import BuscaProdutos, { type LojaBusca } from '@/components/cliente/BuscaProdutos'
 
 export const metadata: Metadata = { title: 'Petshops — SAIP' }
 
@@ -103,9 +105,15 @@ export default async function MarketplacePage() {
     }
   })
 
+  // Busca de produtos do marketplace (migration 098): as mesmas lojas.
+  const lojasBusca: LojaBusca[] = cards.map(({ lj, linkAgendar }) => {
+    const telefone = (lj.telefone ?? '').replace(/\D/g, '')
+    return { id: lj.id_lojista, nome: lj.nome_loja, logoUrl: lj.logo_url, linkAgendar, whatsapp: telefone ? `55${telefone}` : null }
+  })
+
   return (
     <>
-      <PetshopsCelular lojas={lojasCelular} />
+      <PetshopsCelular lojas={lojasCelular} lojasBusca={lojasBusca} />
 
       <div className="so-desktop">
       <div className="page-header">
@@ -127,119 +135,124 @@ export default async function MarketplacePage() {
         </div>
       </div>
 
-      {/* Barra de busca e filtros — client-side via formulário nativo */}
-      <div className="card" style={{ marginBottom: 'var(--space-6)', padding: 'var(--space-4)' }}>
-        <form
-          id="form-busca-petshops"
-          method="GET"
-          className="flex gap-3"
-          style={{ flexWrap: 'wrap' }}
-        >
-          <div className="input-group" style={{ flex: 1, minWidth: 220 }}>
-            <span className="input-icon">
-              <IconSearch style={{ width: 16, height: 16 }} />
-            </span>
-            <input
-              id="busca-petshop-nome"
-              type="search"
-              name="q"
-              placeholder="Buscar por nome ou cidade…"
-              className="input input-with-icon"
-              autoComplete="off"
-            />
-          </div>
-          <button type="submit" className="btn btn-primary btn-sm">
-            Buscar
-          </button>
-        </form>
-      </div>
-
-      {/* Grid de cards */}
-      {cards.length === 0 ? (
-        <div className="empty-state">
-          <Ilustracao nome="loja" />
-          <div className="empty-state-title">Nenhum petshop disponível</div>
-          <p>Em breve novos petshops estarão disponíveis na plataforma.</p>
+      <AbasPetshops
+        produtos={<BuscaProdutos lojas={lojasBusca} />}
+        petshops={<>
+        {/* Barra de busca e filtros — client-side via formulário nativo */}
+        <div className="card" style={{ marginBottom: 'var(--space-6)', padding: 'var(--space-4)' }}>
+          <form
+            id="form-busca-petshops"
+            method="GET"
+            className="flex gap-3"
+            style={{ flexWrap: 'wrap' }}
+          >
+            <div className="input-group" style={{ flex: 1, minWidth: 220 }}>
+              <span className="input-icon">
+                <IconSearch style={{ width: 16, height: 16 }} />
+              </span>
+              <input
+                id="busca-petshop-nome"
+                type="search"
+                name="q"
+                placeholder="Buscar por nome ou cidade…"
+                className="input input-with-icon"
+                autoComplete="off"
+              />
+            </div>
+            <button type="submit" className="btn btn-primary btn-sm">
+              Buscar
+            </button>
+          </form>
         </div>
-      ) : (
-        <div className="marketplace-grid">
-          {cards.map(({ lj, status, linkVitrine, linkAgendar }) => (
-            <article key={lj.id_lojista} className="marketplace-card animate-slide-up">
-              {/* Cabeçalho do card */}
-              <Link href={linkVitrine} className="marketplace-card-header" tabIndex={-1}>
-                <div className="marketplace-logo-wrap">
-                  {lj.logo_url ? (
-                    <img
-                      src={lj.logo_url}
-                      alt={lj.nome_loja}
-                      className="marketplace-logo-img"
-                    />
-                  ) : (
-                    <div className="marketplace-logo-placeholder">
-                      <IconPaw style={{ width: 28, height: 28, color: 'var(--primary-400)' }} />
+  
+        {/* Grid de cards */}
+        {cards.length === 0 ? (
+          <div className="empty-state">
+            <Ilustracao nome="loja" />
+            <div className="empty-state-title">Nenhum petshop disponível</div>
+            <p>Em breve novos petshops estarão disponíveis na plataforma.</p>
+          </div>
+        ) : (
+          <div className="marketplace-grid">
+            {cards.map(({ lj, status, linkVitrine, linkAgendar }) => (
+              <article key={lj.id_lojista} className="marketplace-card animate-slide-up">
+                {/* Cabeçalho do card */}
+                <Link href={linkVitrine} className="marketplace-card-header" tabIndex={-1}>
+                  <div className="marketplace-logo-wrap">
+                    {lj.logo_url ? (
+                      <img
+                        src={lj.logo_url}
+                        alt={lj.nome_loja}
+                        className="marketplace-logo-img"
+                      />
+                    ) : (
+                      <div className="marketplace-logo-placeholder">
+                        <IconPaw style={{ width: 28, height: 28, color: 'var(--primary-400)' }} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="marketplace-card-overlay" />
+                </Link>
+  
+                {/* Corpo */}
+                <div className="marketplace-card-body">
+                  <div className="flex items-start justify-between gap-2" style={{ marginBottom: 'var(--space-2)' }}>
+                    <Link href={linkVitrine} className="marketplace-nome">
+                      {lj.nome_loja}
+                    </Link>
+                    <span className={`badge ${status.cls}`} style={{ flexShrink: 0, fontSize: '0.7rem' }}>
+                      {status.label}
+                    </span>
+                  </div>
+  
+                  {(lj.cidade || lj.estado) && (
+                    <div className="marketplace-meta">
+                      <IconMapPin style={{ width: 13, height: 13 }} />
+                      <span>{[lj.cidade, lj.estado].filter(Boolean).join(', ')}</span>
                     </div>
                   )}
+  
+                  {lj.descricao && (
+                    <p className="marketplace-descricao">{lj.descricao}</p>
+                  )}
                 </div>
-                <div className="marketplace-card-overlay" />
-              </Link>
-
-              {/* Corpo */}
-              <div className="marketplace-card-body">
-                <div className="flex items-start justify-between gap-2" style={{ marginBottom: 'var(--space-2)' }}>
-                  <Link href={linkVitrine} className="marketplace-nome">
-                    {lj.nome_loja}
+  
+                {/* Ações */}
+                <div className="marketplace-card-footer">
+                  <Link
+                    href={linkVitrine}
+                    id={`btn-ver-loja-${lj.id_lojista}`}
+                    className="btn btn-ghost btn-sm"
+                  >
+                    Ver loja
+                    <IconArrowRight style={{ width: 14, height: 14 }} />
                   </Link>
-                  <span className={`badge ${status.cls}`} style={{ flexShrink: 0, fontSize: '0.7rem' }}>
-                    {status.label}
-                  </span>
+                  <Link
+                    href={linkAgendar}
+                    id={`btn-agendar-${lj.id_lojista}`}
+                    className="btn btn-primary btn-sm"
+                  >
+                    <IconCalendar style={{ width: 14, height: 14 }} />
+                    Agendar
+                  </Link>
                 </div>
-
-                {(lj.cidade || lj.estado) && (
-                  <div className="marketplace-meta">
-                    <IconMapPin style={{ width: 13, height: 13 }} />
-                    <span>{[lj.cidade, lj.estado].filter(Boolean).join(', ')}</span>
-                  </div>
-                )}
-
-                {lj.descricao && (
-                  <p className="marketplace-descricao">{lj.descricao}</p>
-                )}
-              </div>
-
-              {/* Ações */}
-              <div className="marketplace-card-footer">
-                <Link
-                  href={linkVitrine}
-                  id={`btn-ver-loja-${lj.id_lojista}`}
-                  className="btn btn-ghost btn-sm"
-                >
-                  Ver loja
-                  <IconArrowRight style={{ width: 14, height: 14 }} />
-                </Link>
-                <Link
-                  href={linkAgendar}
-                  id={`btn-agendar-${lj.id_lojista}`}
-                  className="btn btn-primary btn-sm"
-                >
-                  <IconCalendar style={{ width: 14, height: 14 }} />
-                  Agendar
-                </Link>
-              </div>
-            </article>
-          ))}
+              </article>
+            ))}
+          </div>
+        )}
+  
+        {/* Dica — quando não tem petshop, sugere link direto */}
+        <div className="card" style={{ marginTop: 'var(--space-6)', background: 'var(--primary-soft-bg)', border: '1px solid var(--primary-soft-border)', textAlign: 'center', padding: 'var(--space-6)' }}>
+          <IconScissors style={{ width: 24, height: 24, color: 'var(--primary-400)', margin: '0 auto var(--space-3)' }} />
+          <div className="font-semibold" style={{ marginBottom: 'var(--space-1)', color: 'var(--gray-100)' }}>
+            Tem o link de um petshop?
+          </div>
+          <p className="text-sm text-muted">
+            Se o seu petshop te enviou um link direto (ex: <code>saip.com/petshop-do-pedro</code>), acesse diretamente pelo link para agendar.
+          </p>
         </div>
-      )}
-
-      {/* Dica — quando não tem petshop, sugere link direto */}
-      <div className="card" style={{ marginTop: 'var(--space-6)', background: 'var(--primary-soft-bg)', border: '1px solid var(--primary-soft-border)', textAlign: 'center', padding: 'var(--space-6)' }}>
-        <IconScissors style={{ width: 24, height: 24, color: 'var(--primary-400)', margin: '0 auto var(--space-3)' }} />
-        <div className="font-semibold" style={{ marginBottom: 'var(--space-1)', color: 'var(--gray-100)' }}>
-          Tem o link de um petshop?
-        </div>
-        <p className="text-sm text-muted">
-          Se o seu petshop te enviou um link direto (ex: <code>saip.com/petshop-do-pedro</code>), acesse diretamente pelo link para agendar.
-        </p>
-      </div>
+          </>}
+      />
       </div>
     </>
   )

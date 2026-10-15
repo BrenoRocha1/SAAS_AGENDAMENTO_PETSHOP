@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { iniciais } from '@/lib/format'
 import { IconCalendar, IconSearch, IconStore, IconWhatsapp } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
+import BuscaProdutos, { type LojaBusca } from '@/components/cliente/BuscaProdutos'
 
 export interface LojaCelular {
   id: string
@@ -23,8 +24,9 @@ export interface LojaCelular {
 
 // Celular (até 768px): a mesma tela Petshops do app — busca por nome ou
 // cidade, as lojas que o cliente já usa em cima.
-export default function PetshopsCelular({ lojas }: { lojas: LojaCelular[] }) {
+export default function PetshopsCelular({ lojas, lojasBusca }: { lojas: LojaCelular[]; lojasBusca: LojaBusca[] }) {
   const [busca, setBusca] = useState('')
+  const [aba, setAba] = useState<'petshops' | 'produtos'>('petshops')
 
   const visiveis = useMemo(() => {
     const termo = busca.trim().toLowerCase()
@@ -38,7 +40,13 @@ export default function PetshopsCelular({ lojas }: { lojas: LojaCelular[] }) {
       <h1 className="tela-app-h1">Petshops</h1>
       <p className="dash-app-sub">Encontre o petshop ideal para o seu pet</p>
 
-      <div className="tela-app-busca" style={{ marginTop: 'var(--space-4)' }}>
+      <div className="segmentos-app" role="tablist" style={{ marginTop: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
+        <button type="button" role="tab" aria-selected={aba === 'petshops'} className={`segmento-app ${aba === 'petshops' ? 'is-ativo' : ''}`} onClick={() => setAba('petshops')}>Petshops</button>
+        <button type="button" role="tab" aria-selected={aba === 'produtos'} className={`segmento-app ${aba === 'produtos' ? 'is-ativo' : ''}`} onClick={() => setAba('produtos')}>Produtos</button>
+      </div>
+
+      {aba === 'produtos' ? <BuscaProdutos lojas={lojasBusca} /> : <>
+      <div className="tela-app-busca">
         <IconSearch />
         <input placeholder="Buscar por nome ou cidade..." value={busca} onChange={e => setBusca(e.target.value)} />
       </div>
@@ -83,6 +91,7 @@ export default function PetshopsCelular({ lojas }: { lojas: LojaCelular[] }) {
           ))}
         </div>
       )}
+      </>}
     </div>
   )
 }

@@ -1241,20 +1241,42 @@ export async function criarProdutoAction(formData: FormData) {
   // não precisa existir).
   const aviso = custo && custo.custo !== null ? await salvarCustoProduto(supabase, novoProduto.id_produto, custo.custo) : undefined
   const avisoFiscal = fiscal ? await salvarFiscalProduto(supabase, novoProduto.id_produto, fiscal.dados) : undefined
+  const marketplace = await salvarMarketplaceProduto(supabase, novoProduto.id_produto, formData)
   return {
     success: true,
     produto: {
       ...novoProduto,
+      ...(marketplace.valor !== undefined ? { disponivel_marketplace: marketplace.valor } : {}),
       custo_unitario: aviso ? null : custo?.custo ?? null,
       fiscal: fiscal && !avisoFiscal ? fiscal.dados : null,
     } as Record<string, unknown>,
-    aviso: aviso ?? avisoFiscal,
+    aviso: aviso ?? avisoFiscal ?? marketplace.aviso,
   }
 }
 
 // Estoque atual fica de fora de propósito — depois de criado, só muda
 // por uma movimentação (movimentarEstoqueAction), nunca sobrescrito
 // direto na edição, senão a movimentação vira uma auditoria furada.
+// "Ativo para vendas no marketplace" (migration 098). Gravado à parte e só
+// quando o formulário manda o campo: sem a migration, o produto salva igual
+// e volta um aviso; quem não manda o campo não mexe no que está gravado.
+async function salvarMarketplaceProduto(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  idProduto: string,
+  formData: FormData,
+): Promise<{ valor?: boolean; aviso?: string }> {
+  if (!formData.has('disponivel_marketplace')) return {}
+  const valor = formData.get('disponivel_marketplace') === 'true'
+  const { error } = await supabase.from('produto').update({ disponivel_marketplace: valor }).eq('id_produto', idProduto)
+  if (error) {
+    if (/disponivel_marketplace|column/i.test(error.message)) {
+      return valor ? { aviso: 'Produto salvo, mas para vender no marketplace execute a migration 098_produto_marketplace.sql.' } : {}
+    }
+    return { aviso: devError('Produto salvo, mas não foi possível atualizar o marketplace.', error.message) }
+  }
+  return { valor }
+}
+
 export async function editarProdutoAction(id_produto: string, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -1297,14 +1319,16 @@ export async function editarProdutoAction(id_produto: string, formData: FormData
   // mesclar direto no estado, sem depender de um refetch separado.
   const aviso = custo ? await salvarCustoProduto(supabase, id_produto, custo.custo) : undefined
   const avisoFiscal = fiscal ? await salvarFiscalProduto(supabase, id_produto, fiscal.dados) : undefined
+  const marketplace = await salvarMarketplaceProduto(supabase, id_produto, formData)
   return {
     success: true,
     produto: {
       ...atualizado,
+      ...(marketplace.valor !== undefined ? { disponivel_marketplace: marketplace.valor } : {}),
       ...(custo && !aviso ? { custo_unitario: custo.custo } : {}),
       ...(fiscal && !avisoFiscal ? { fiscal: fiscal.dados } : {}),
     } as Record<string, unknown>,
-    aviso: aviso ?? avisoFiscal,
+    aviso: aviso ?? avisoFiscal ?? marketplace.aviso,
   }
 }
 

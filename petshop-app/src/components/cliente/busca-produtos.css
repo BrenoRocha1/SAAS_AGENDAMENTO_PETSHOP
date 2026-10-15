@@ -1,0 +1,48 @@
+/* Busca de produtos do marketplace (tela Petshops do cliente). */
+.busca-produtos { display: flex; flex-direction: column; gap: var(--space-4); }
+.busca-produtos-filtros { display: flex; gap: var(--space-3); align-items: center; }
+.busca-produtos-filtros .tela-app-busca { flex: 1; margin-bottom: 0; }
+.busca-produtos-loja { width: 240px; height: 44px; flex-shrink: 0; }
+.busca-produtos-grupos { display: flex; flex-direction: column; gap: var(--space-5); transition: opacity .15s ease; }
+.busca-produtos-grupo { display: flex; flex-direction: column; gap: var(--space-3); }
+.busca-produtos-loja-topo { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.busca-produtos-loja-topo strong { color: var(--gray-100); font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.busca-produtos-ver { margin-left: auto; white-space: nowrap; flex-shrink: 0; }
+.busca-produtos-qtd { white-space: nowrap; }
+.tela-app-avatar.is-32 { width: 32px; height: 32px; font-size: 12px; }
+
+.busca-produtos-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: var(--space-3); }
+.busca-produto {
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: var(--radius-md);
+}
+.busca-produto-foto {
+  position: relative; aspect-ratio: 16 / 10; display: grid; place-items: center;
+  background: var(--gray-850) center / cover no-repeat; color: var(--gray-500);
+}
+.busca-produto-selo {
+  position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 6px;
+  background: var(--success-500); color: #fff; font-size: 0.75rem; font-weight: 800;
+}
+.busca-produto-info { display: flex; flex-direction: column; gap: 4px; padding: var(--space-3) var(--space-3) 0; flex: 1; }
+.busca-produto-nome { color: var(--gray-100); font-size: 0.9375rem; line-height: 1.35; overflow-wrap: anywhere; }
+.busca-produto-preco { font-size: 1rem; font-weight: 700; color: var(--gray-100); }
+.busca-produto-preco s { font-weight: 500; font-size: 0.8125rem; color: var(--gray-500); margin-right: 6px; }
+.busca-produto-preco small { font-weight: 500; font-size: 0.75rem; color: var(--gray-500); }
+.busca-produto-acoes { padding: var(--space-3); }
+.busca-produto-acoes .btn { width: 100%; justify-content: center; }
+
+@media (max-width: 768px) {
+  .busca-produtos-filtros { flex-direction: column; align-items: stretch; gap: var(--space-2); }
+  .busca-produtos-filtros .tela-app-busca { flex: none; }
+  .busca-produtos-qtd { display: none; }
+  .busca-produtos-loja { width: 100%; }
+  /* Celular: lista em linhas (foto à esquerda), como as outras telas do app. */
+  .busca-produtos-lista { grid-template-columns: 1fr; gap: var(--space-2); }
+  .busca-produto { display: grid; grid-template-columns: 76px 1fr; grid-template-rows: auto auto; }
+  .busca-produto-foto { grid-row: 1 / 3; aspect-ratio: auto; min-height: 100%; }
+  .busca-produto-info { padding: var(--space-3) var(--space-3) 0; }
+  .busca-produto-acoes { padding: var(--space-2) var(--space-3) var(--space-3); }
+  .busca-produto-acoes .btn { width: auto; }
+  .busca-produto-selo { top: 6px; left: 6px; font-size: 0.6875rem; padding: 1px 6px; }
+}

@@ -67,6 +67,8 @@ interface Produto {
   status: string
   foto_url: string | null
   disponivel_agendamento_online: boolean
+  // migration 098 — ausente antes dela.
+  disponivel_marketplace?: boolean
   // Custo por unidade (CMV, migration 062) — vem de produto_custo.
   custo_unitario?: number | null
   // Informações fiscais (migration 094) — vem de produto_fiscal.
@@ -131,6 +133,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
   const [custoForm, setCustoForm] = useState('')
   const [unidadeSelecionada, setUnidadeSelecionada] = useState('unidade')
   const [disponivelOnline, setDisponivelOnline] = useState(false)
+  const [disponivelMarketplace, setDisponivelMarketplace] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fotoInputRef = useRef<HTMLInputElement>(null)
@@ -256,6 +259,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
     setCustoForm('')
     setUnidadeSelecionada('unidade')
     setDisponivelOnline(false)
+    setDisponivelMarketplace(false)
     setError(null)
     limparEstadoFoto()
     setShowModal(true)
@@ -267,6 +271,7 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
     setCustoForm(p.custo_unitario != null ? String(p.custo_unitario) : '')
     setUnidadeSelecionada(p.unidade_venda)
     setDisponivelOnline(p.disponivel_agendamento_online)
+    setDisponivelMarketplace(!!p.disponivel_marketplace)
     setError(null)
     limparEstadoFoto()
     setShowModal(true)
@@ -946,6 +951,25 @@ export default function ProdutosList({ produtos: inicial, categorias: categorias
                     onClick={() => setDisponivelOnline(v => !v)}
                     role="switch"
                     aria-checked={disponivelOnline}
+                    style={{ flexShrink: 0 }}
+                  >
+                    <span className="switch-thumb" />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between gap-3" style={{ padding: 'var(--space-3)', background: 'var(--gray-850)', borderRadius: 'var(--radius-md)' }}>
+                  <div>
+                    <div className="font-semibold" style={{ color: 'var(--gray-100)', fontSize: '0.9375rem' }}>Ativo para vendas no marketplace</div>
+                    <div className="text-xs text-muted">O produto aparece na busca de produtos da tela Petshops, para os clientes da plataforma.</div>
+                  </div>
+                  <input type="hidden" name="disponivel_marketplace" value={String(disponivelMarketplace)} />
+                  <button
+                    type="button"
+                    className={`switch ${disponivelMarketplace ? 'switch-on' : ''}`}
+                    onClick={() => setDisponivelMarketplace(v => !v)}
+                    role="switch"
+                    aria-checked={disponivelMarketplace}
+                    aria-label="Ativo para vendas no marketplace"
                     style={{ flexShrink: 0 }}
                   >
                     <span className="switch-thumb" />
