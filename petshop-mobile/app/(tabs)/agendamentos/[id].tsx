@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ComponentType } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
-import { ActivityIndicator, StyleSheet, View } from 'react-native'
+import { ActivityIndicator, Image, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { EmptyState } from '@/components/EmptyState'
@@ -17,7 +17,7 @@ import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { acoesDisponiveis, chamarAcao } from '@/lib/acoes'
 import { supabase } from '@/lib/supabase'
-import { dataBR, hojeBrasilISO } from '@/lib/agenda'
+import { hojeBrasilISO } from '@/lib/agenda'
 import {
   atribuirProfissional,
   atualizarPagamento,
@@ -45,6 +45,7 @@ import { PROXIMA_ETAPA, etapaExigeDia, type StatusAgendamento } from '@/lib/stat
 import { ROTULO_MODALIDADE, rotuloTransporte, type ModalidadeTaxiDog } from '@/lib/taxidog'
 import { ESTADO_TRANSPORTE_INICIAL, escolhaDoTransporte, transportePronto, type EstadoTransporte } from '@/lib/transporte'
 import { colors, spacing } from '@/theme/theme'
+import { FONTE_TITULO } from '@/theme/fontes'
 import { dialogo } from '@/lib/dialogo'
 import { perguntarBuscaTaxiDog } from '@/lib/perguntarTaxiDog'
 
@@ -153,6 +154,8 @@ export default function AgendamentoDetalheScreen() {
   // A consulta acima já respondeu? Só então dá para afirmar que a loja não usa TaxiDog.
   const [taxidogSabido, setTaxidogSabido] = useState(false)
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false)
+  // Total com os adicionais: o bloco deles lê e avisa.
+  const [resumo, setResumo] = useState<{ valor: number; totalAdicionais: number } | null>(null)
   // Plano
   const [erroPlano, setErroPlano] = useState<string | null>(null)
   const [mexendoNoPlano, setMexendoNoPlano] = useState(false)
@@ -365,6 +368,9 @@ export default function AgendamentoDetalheScreen() {
 
   const totalProdutos = a.produtos.reduce((s, p) => s + p.quantidade * p.preco_unitario, 0)
   const IconeOrigem = a.origem === 'loja' ? IconStore : IconLink
+  const escolheProfissional = acessoTotal && equipe.length > 0 && !cancelado
+  // Total com os adicionais (o bloco deles lê e avisa); antes disso, o valor.
+  const total = resumo?.valor ?? a.valor
 
   return (
     <ScreenContainer onRefresh={carregar} refreshing={false}>
@@ -380,39 +386,39 @@ export default function AgendamentoDetalheScreen() {
         />
       )}
 
-      <View style={styles.corpo}>
-        <Linha rotulo="Cliente" valor={a.cliente?.nome ?? 'Cliente excluído'} />
-        <Linha rotulo="Pet" valor={a.pet?.nome ?? 'Pet excluído'} />
-        <Linha rotulo="Serviço" valor={a.servico?.nome ?? 'Serviço'} />
-        {/* Só o app mostra: o site ainda não lista os produtos nesta janela. */}
-        {a.produtos.length > 0 && (
-          <Linha rotulo="Produtos" valor={`${a.produtos.map(p => `${p.quantidade}× ${p.nome}`).join(', ')} — ${formatarMoeda(totalProdutos)}`} />
-        )}
-
-        {alteracoes.length > 0 && (
-          <View style={styles.alteracoes}>
-            <Text style={styles.blocoTitulo}>Alterações</Text>
-            <View style={{ gap: 4 }}>
-              {alteracoes.map((l, i) => (
-                <Text key={`${l.em}-${i}`} style={styles.alteracao}>
-                  <Text style={styles.apoio}>{quando(l.em)}</Text>{' '}
-                  <Text style={[styles.forte, l.quem === 'Cliente' && { color: colors.warningFg }]}>{l.quem}</Text> {l.texto}
-                </Text>
-              ))}
-            </View>
+      <View style={det.det}>
+        {/* Quem: o pet em destaque, o tutor embaixo e o status ao lado. */}
+        <View style={det.topo}>
+          <View style={det.avatar}>
+            {a.pet?.foto_url
+              ? <Image source={{ uri: a.pet.foto_url }} style={det.foto} accessibilityIgnoresInvertColors />
+              : <Text style={det.inicial}>{(a.pet?.nome ?? '?').trim().charAt(0).toUpperCase() || '?'}</Text>}
           </View>
-        )}
+          <View style={det.quem}>
+            <Text style={det.pet}>{a.pet?.nome ?? 'Pet excluído'}</Text>
+            <Text style={det.sub}>{[a.pet?.raca, a.cliente?.nome ?? 'Cliente excluído'].filter(Boolean).join(' · ')}</Text>
+          </View>
+          <StatusBadge status={a.status} />
+        </View>
 
-        <Linha rotulo="Data" valor={dataBR(a.dt_agendamento)} />
-        <Linha rotulo="Horário" valor={a.hr_agendamento.slice(0, 5)} />
-        <Linha rotulo="Valor" valor={formatarMoeda(a.valor)} />
-        {a.origem && (
-          <Linha rotulo="Origem">
-            <View style={styles.origem}>
-              <IconeOrigem size={13} color={colors.text} />
-              <Text style={styles.valor}>{ROTULO_ORIGEM[a.origem]}</Text>
-            </View>
-          </Linha>
+        {/* O quê e quando. */}
+        <View style={det.grade}>
+          <ItemDaGrade rotulo="Serviço" valor={a.servico?.nome ?? 'Serviço'} />
+          <ItemDaGrade rotulo="Quando" valor={quandoDetalhe(a.dt_agendamento, a.hr_agendamento)} />
+          {a.origem && <ItemDaGrade rotulo="Origem" valor={ROTULO_ORIGEM[a.origem]} icone={IconeOrigem} />}
+          {!escolheProfissional && <ItemDaGrade rotulo="Profissional" valor={a.funcionario?.nome ?? 'Sem profissional'} />}
+        </View>
+
+        {a.produtos.length > 0 && (
+          <View style={det.secao}>
+            <Text style={det.secaoTitulo}>Produtos</Text>
+            {a.produtos.map((p, i) => (
+              <View key={i} style={det.produto}>
+                <Text style={det.produtoNome}>{p.quantidade}× {p.nome}</Text>
+                <Text style={det.produtoValor}>{formatarMoeda(p.quantidade * p.preco_unitario)}</Text>
+              </View>
+            ))}
+          </View>
         )}
 
         {/* Serviços adicionais (migration 095) */}
@@ -423,7 +429,61 @@ export default function AgendamentoDetalheScreen() {
             status={a.status}
             podeAlterar={podeGerenciar && comSite}
             onMudou={carregar}
+            compacto
+            onResumo={setResumo}
           />
+        )}
+
+        {/* Quanto: o total e, com adicionais, de onde ele vem. */}
+        <View style={det.total}>
+          <View style={det.totalLinha}>
+            <Text style={det.totalRotulo}>Total</Text>
+            <Text style={det.totalValor}>{formatarMoeda(total)}</Text>
+          </View>
+          {resumo && resumo.totalAdicionais > 0 && (
+            <Text style={det.totalConta}>
+              {formatarMoeda(Math.max(0, total - resumo.totalAdicionais))} do atendimento + {formatarMoeda(resumo.totalAdicionais)} de adicionais
+            </Text>
+          )}
+          {a.produtos.length > 0 && <Text style={det.totalConta}>Inclui {formatarMoeda(totalProdutos)} de produtos</Text>}
+        </View>
+
+        {/* Pagamento */}
+        {!cancelado && (
+          ehFormaPlano(a.forma_pagamento) ? (
+            // Pedido coberto pelo plano (migration 082): nada a escolher nem a receber.
+            <View style={styles.bloco}>
+              <TituloDoBloco icone={IconMoney} texto="Pagamento" />
+              <Text style={styles.texto}>{ROTULO_FORMA_PLANO}</Text>
+              <Text style={styles.apoio}>Coberto pelo plano — nada a pagar neste agendamento.</Text>
+            </View>
+          ) : (
+            <View style={styles.bloco}>
+              <View style={styles.blocoTopo}>
+                <TituloDoBloco icone={IconMoney} texto="Pagamento" />
+                {/* Quem pode alterar vê o status na escolha logo abaixo. */}
+                {statusPagamento && !podeGerenciar && <StatusBadge status={STATUS_DO_SELO[statusPagamento]} rotulo={ROTULO_STATUS_PAGAMENTO[statusPagamento]} />}
+              </View>
+
+              {podeGerenciar ? (
+                <View style={styles.pagamento}>
+                  <FormasDePagamento formas={opcoesForma} valor={formaAtual} desativado={enviando} onChange={f => salvarPagamento(f, null)} />
+                  <Segmentos<StatusPagamento>
+                    cheio
+                    rotulo="Status do pagamento"
+                    valor={statusPagamento}
+                    desativado={enviando || !formaAtual}
+                    opcoes={STATUS_QUE_A_LOJA_ESCOLHE.map(st => ({ valor: st, rotulo: ROTULO_STATUS_PAGAMENTO[st] }))}
+                    onChange={st => salvarPagamento(null, st)}
+                  />
+                </View>
+              ) : (
+                <Text style={styles.texto}>{formaAtual ? ROTULO_FORMA_PAGAMENTO[formaAtual] : 'Não informada'}</Text>
+              )}
+              {!formaAtual && podeGerenciar && <Text style={styles.apoio}>Sem forma de pagamento registrada — escolha a forma.</Text>}
+              {erroPagamento && <Text style={[styles.apoio, { color: colors.dangerFg }]}>{erroPagamento}</Text>}
+            </View>
+          )
         )}
 
         {/* Transporte */}
@@ -502,99 +562,70 @@ export default function AgendamentoDetalheScreen() {
           </View>
         )}
 
-        {/* Pagamento */}
-        {!cancelado && (
-          ehFormaPlano(a.forma_pagamento) ? (
-            // Pedido coberto pelo plano (migration 082): nada a escolher nem a receber.
-            <View style={styles.bloco}>
-              <TituloDoBloco icone={IconMoney} texto="Pagamento" />
-              <Text style={styles.texto}>{ROTULO_FORMA_PLANO}</Text>
-              <Text style={styles.apoio}>Coberto pelo plano — nada a pagar neste agendamento.</Text>
-            </View>
-          ) : (
-            <View style={styles.bloco}>
-              <View style={styles.blocoTopo}>
-                <TituloDoBloco icone={IconMoney} texto="Pagamento" />
-                {/* Quem pode alterar vê o status na escolha logo abaixo. */}
-                {statusPagamento && !podeGerenciar && <StatusBadge status={STATUS_DO_SELO[statusPagamento]} rotulo={ROTULO_STATUS_PAGAMENTO[statusPagamento]} />}
-              </View>
-
-              {podeGerenciar ? (
-                <View style={styles.pagamento}>
-                  <FormasDePagamento formas={opcoesForma} valor={formaAtual} desativado={enviando} onChange={f => salvarPagamento(f, null)} />
-                  <Segmentos<StatusPagamento>
-                    cheio
-                    rotulo="Status do pagamento"
-                    valor={statusPagamento}
-                    desativado={enviando || !formaAtual}
-                    opcoes={STATUS_QUE_A_LOJA_ESCOLHE.map(st => ({ valor: st, rotulo: ROTULO_STATUS_PAGAMENTO[st] }))}
-                    onChange={st => salvarPagamento(null, st)}
-                  />
-                </View>
-              ) : (
-                <Text style={styles.texto}>{formaAtual ? ROTULO_FORMA_PAGAMENTO[formaAtual] : 'Não informada'}</Text>
-              )}
-              {!formaAtual && podeGerenciar && <Text style={styles.apoio}>Sem forma de pagamento registrada — escolha a forma.</Text>}
-              {erroPagamento && <Text style={[styles.apoio, { color: colors.dangerFg }]}>{erroPagamento}</Text>}
-            </View>
-          )
-        )}
-
-        <Linha rotulo="Status"><StatusBadge status={a.status} /></Linha>
-
         {a.obs ? (
-          <View style={[styles.linha, styles.linhaEmColuna]}>
-            <Text style={styles.rotulo}>Descrição</Text>
-            <Text style={styles.descricao}>{a.obs}</Text>
+          <View style={det.secao}>
+            <Text style={det.secaoTitulo}>Observação</Text>
+            <Text style={det.caixa}>{a.obs}</Text>
           </View>
         ) : null}
-      </View>
 
-      {/* Profissional responsável */}
-      {acessoTotal && equipe.length > 0 && !cancelado ? (
-        <View style={styles.grupo}>
-          <Text style={styles.rotuloDoCampo}>Profissional responsável</Text>
-          <Seletor
-            titulo="Profissional responsável"
-            valor={a.id_funcionario ?? ''}
-            desativado={enviando}
-            opcoes={[{ valor: '', rotulo: 'Sem profissional' }, ...equipe.map(f => ({ valor: f.id_funcionario, rotulo: f.nome }))]}
-            onChange={v => escolherProfissional(v || null)}
-          />
-        </View>
-      ) : (
-        <View style={[styles.corpo, { marginTop: 12 }]}>
-          <Linha rotulo="Profissional responsável" valor={a.funcionario?.nome ?? 'Sem profissional'} />
-        </View>
-      )}
+        {/* Profissional responsável */}
+        {escolheProfissional && (
+          <View style={styles.grupo}>
+            <Text style={styles.rotuloDoCampo}>Profissional responsável</Text>
+            <Seletor
+              titulo="Profissional responsável"
+              valor={a.id_funcionario ?? ''}
+              desativado={enviando}
+              opcoes={[{ valor: '', rotulo: 'Sem profissional' }, ...equipe.map(f => ({ valor: f.id_funcionario, rotulo: f.nome }))]}
+              onChange={v => escolherProfissional(v || null)}
+            />
+          </View>
+        )}
 
-      {/* Ações */}
-      {podeGerenciar && emAberto && (
-        <View style={styles.acoes}>
-          {proxima && !aindaNaoEODia ? (
-            <BotaoPequeno rotulo={proxima.acao} icone={IconCheck} variante="sucesso" style={styles.cresce} desativado={enviando} onPress={pedirAvanco} />
-          ) : (
-            <Text style={[styles.apoio, styles.cresce, { alignSelf: 'center' }]}>Iniciar e finalizar a partir do dia do agendamento.</Text>
-          )}
-          {a.status !== 'Em andamento' && (
-            <BotaoPequeno rotulo="Remarcar" icone={IconCalendar} style={styles.cresce} onPress={() => router.push({ pathname: '/agendamentos/remarcar', params: { id: a.id_agendamento } })} />
-          )}
-          {a.status !== 'Em andamento' && (
-            <BotaoPequeno rotulo="Editar" icone={IconPencil} style={styles.cresce} onPress={() => router.push({ pathname: '/agendamentos/editar', params: { id: a.id_agendamento } })} />
-          )}
-          {confirmandoCancelar ? (
-            <View style={styles.confirmar}>
-              <Text style={styles.apoio}>Cancelar este agendamento? Não dá para desfazer.</Text>
-              <View style={styles.campos}>
-                <BotaoPequeno rotulo="Sim, cancelar" variante="perigo" style={styles.campo} desativado={enviando} onPress={confirmarCancelamento} />
-                <BotaoPequeno rotulo="Voltar" style={styles.campo} onPress={() => setConfirmandoCancelar(false)} />
+        {/* Ações: avançar (largo), remarcar e editar lado a lado, cancelar discreto. */}
+        {podeGerenciar && emAberto && (
+          <View style={det.acoes}>
+            {proxima && !aindaNaoEODia ? (
+              <BotaoPequeno normal rotulo={proxima.acao} icone={IconCheck} variante="sucesso" desativado={enviando} onPress={pedirAvanco} />
+            ) : (
+              <Text style={det.aviso}>Iniciar e finalizar a partir do dia do agendamento.</Text>
+            )}
+            {a.status !== 'Em andamento' && (
+              <View style={det.linhaBotoes}>
+                <BotaoPequeno normal rotulo="Remarcar" icone={IconCalendar} style={det.metade} onPress={() => router.push({ pathname: '/agendamentos/remarcar', params: { id: a.id_agendamento } })} />
+                <BotaoPequeno normal rotulo="Editar" icone={IconPencil} style={det.metade} onPress={() => router.push({ pathname: '/agendamentos/editar', params: { id: a.id_agendamento } })} />
               </View>
+            )}
+            {confirmandoCancelar ? (
+              <View style={styles.confirmar}>
+                <Text style={styles.apoio}>Cancelar este agendamento? Não dá para desfazer.</Text>
+                <View style={styles.campos}>
+                  <BotaoPequeno rotulo="Sim, cancelar" variante="perigo" style={styles.campo} desativado={enviando} onPress={confirmarCancelamento} />
+                  <BotaoPequeno rotulo="Voltar" style={styles.campo} onPress={() => setConfirmandoCancelar(false)} />
+                </View>
+              </View>
+            ) : (
+              <BotaoPequeno normal rotulo="Cancelar" variante="fantasmaPerigo" desativado={enviando} onPress={() => setConfirmandoCancelar(true)} />
+            )}
+          </View>
+        )}
+
+        {/* Por último: o histórico não empurra os botões. */}
+        {alteracoes.length > 0 && (
+          <View style={det.secao}>
+            <Text style={det.secaoTitulo}>Alterações</Text>
+            <View style={{ gap: 4 }}>
+              {alteracoes.map((l, i) => (
+                <Text key={`${l.em}-${i}`} style={styles.alteracao}>
+                  <Text style={styles.apoio}>{quando(l.em)}</Text>{' '}
+                  <Text style={[styles.forte, l.quem === 'Cliente' && { color: colors.warningFg }]}>{l.quem}</Text> {l.texto}
+                </Text>
+              ))}
             </View>
-          ) : (
-            <BotaoPequeno rotulo="Cancelar" variante="perigo" style={styles.cresce} desativado={enviando} onPress={() => setConfirmandoCancelar(true)} />
-          )}
-        </View>
-      )}
+          </View>
+        )}
+      </View>
 
       {/* Transporte: trocar sem TaxiDog ↔ só busca ↔ só entrega ↔ busca e entrega */}
       <Folha visivel={editandoTransporte} titulo="Transporte" onFechar={() => setEditandoTransporte(false)} ocupado={salvandoTransporte}>
@@ -627,12 +658,24 @@ export default function AgendamentoDetalheScreen() {
   )
 }
 
-// Linha "rótulo à esquerda, valor à direita" (`.dash-detail-row`).
-function Linha({ rotulo, valor, children }: { rotulo: string; valor?: string; children?: ReactNode }) {
+const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+
+// "Quinta, 15/10 · 16:30" — o mesmo do site (DetalheAgendamentoPartes).
+function quandoDetalhe(dataISO: string, hora: string): string {
+  const [ano, mes, dia] = dataISO.split('-').map(Number)
+  const semana = DIAS[new Date(Date.UTC(ano, mes - 1, dia)).getUTCDay()]
+  return `${semana}, ${dois(dia)}/${dois(mes)} · ${hora.slice(0, 5)}`
+}
+
+// Item do quadro "o quê e quando" (`.det-grade` do site): dois por linha.
+function ItemDaGrade({ rotulo, valor, icone: Icone }: { rotulo: string; valor: string; icone?: ComponentType<IconeProps> }) {
   return (
-    <View style={styles.linha}>
-      <Text style={styles.rotulo}>{rotulo}</Text>
-      {children ?? <Text style={styles.valor}>{valor}</Text>}
+    <View style={det.item}>
+      <Text style={det.itemRotulo}>{rotulo}</Text>
+      <View style={det.itemValorLinha}>
+        {Icone && <Icone size={13} color={colors.textMuted} />}
+        <Text style={[det.itemValor, Icone && det.itemValorComIcone]}>{valor}</Text>
+      </View>
     </View>
   )
 }
@@ -666,7 +709,7 @@ const styles = StyleSheet.create({
   descricao: { fontSize: 14, lineHeight: 22.4, color: colors.textDim },
   origem: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 4 },
   // `.transporte-bloco`
-  bloco: { gap: 4, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.surfaceMuted },
+  bloco: { gap: 4, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.surfaceMuted },
   blocoTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   blocoTituloLinha: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   blocoTitulo: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: '#1f2937' },
@@ -684,11 +727,46 @@ const styles = StyleSheet.create({
   // `.historico-alteracoes`
   alteracoes: { gap: 4, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   alteracao: { fontSize: 13, color: colors.textDim },
-  grupo: { marginTop: 16, gap: 4 },
+  grupo: { gap: 4 },
   rotuloDoCampo: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.textDim },
   // `.dash-detail-actions`: os botões dividem a linha e descem quando não cabem.
   acoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
   cresce: { flexGrow: 1 },
   confirmar: { width: '100%', gap: 8 },
   rodapeDaFolha: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+})
+
+// O detalhe no desenho novo — as medidas de `detalhe-agendamento.css` do
+// site em 375 de largura.
+const det = StyleSheet.create({
+  det: { gap: 16 },
+  topo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatar: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(79,70,229,0.12)' },
+  foto: { width: 44, height: 44 },
+  inicial: { fontFamily: FONTE_TITULO, fontSize: 18, lineHeight: 22, fontWeight: '700', color: colors.primary600 },
+  quem: { flex: 1, minWidth: 0, gap: 2 },
+  pet: { fontFamily: FONTE_TITULO, fontSize: 17, lineHeight: 21, fontWeight: '700', color: colors.text },
+  sub: { fontSize: 13, lineHeight: 17.5, color: colors.textMuted },
+  grade: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12, padding: 12, borderRadius: 10, backgroundColor: colors.surfaceMuted },
+  item: { width: '50%', paddingRight: 8, gap: 2 },
+  itemRotulo: { fontSize: 12, lineHeight: 16, fontWeight: '600', letterSpacing: 0.24, color: '#858d99' },
+  itemValorLinha: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  itemValor: { flexShrink: 1, fontSize: 15, lineHeight: 19.5, fontWeight: '600', color: colors.text },
+  // Origem: informação de apoio, menor e sem negrito (como no site).
+  itemValorComIcone: { fontSize: 13, lineHeight: 18, fontWeight: '500', color: colors.textMuted },
+  secao: { gap: 6 },
+  secaoTitulo: { fontSize: 12, lineHeight: 16, fontWeight: '600', letterSpacing: 0.24, color: '#858d99' },
+  caixa: { padding: 12, borderRadius: 10, backgroundColor: colors.surfaceMuted, fontSize: 14, lineHeight: 21, color: colors.textDim },
+  produto: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  produtoNome: { flex: 1, fontSize: 14, lineHeight: 20, color: colors.textDim },
+  produtoValor: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: colors.text },
+  total: { gap: 2, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
+  totalLinha: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
+  totalRotulo: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: colors.textDim },
+  totalValor: { fontFamily: FONTE_TITULO, fontSize: 22, lineHeight: 28, fontWeight: '700', color: colors.text },
+  totalConta: { fontSize: 13, lineHeight: 18, color: '#858d99', textAlign: 'right' },
+  acoes: { gap: 8 },
+  aviso: { fontSize: 13, lineHeight: 18, color: '#858d99', textAlign: 'center' },
+  linhaBotoes: { flexDirection: 'row', gap: 8 },
+  metade: { flex: 1 },
 })

@@ -30,6 +30,10 @@ interface Props {
   podeAlterar: boolean
   // Depois de incluir ou remover, a tela relê o agendamento (o valor mudou).
   onMudou: () => void
+  // O detalhe que já mostra o total com a conta não repete aqui o "valor sem
+  // os adicionais / subtotal / total"; recebe os números por `onResumo`.
+  compacto?: boolean
+  onResumo?: (r: { valor: number; totalAdicionais: number } | null) => void
 }
 
 const ABERTOS = ['Pendente', 'Confirmado', 'Em andamento']
@@ -38,9 +42,10 @@ const ABERTOS = ['Pendente', 'Confirmado', 'Em andamento']
 // (AdicionaisAgendamento): o que já foi cobrado a mais neste atendimento, o
 // botão de incluir e, depois de incluir, o resumo com a mensagem pronta
 // para o cliente. Sem a migration 095 (ou sem nada a mostrar), não aparece.
-export function AdicionaisAgendamento({ idAgendamento, idLojista, status, podeAlterar, onMudou }: Props) {
+export function AdicionaisAgendamento({ idAgendamento, idLojista, status, podeAlterar, onMudou, compacto, onResumo }: Props) {
   const alteravel = podeAlterar && ABERTOS.includes(status)
-  const [info, setInfo] = useState<AdicionaisDoAtendimento | null>(null)
+  // undefined = ainda lendo; null = sem a migration (o bloco não aparece).
+  const [info, setInfo] = useState<AdicionaisDoAtendimento | null | undefined>(undefined)
   const [versao, setVersao] = useState(0)
 
   const [incluindo, setIncluindo] = useState(false)
@@ -64,7 +69,27 @@ export function AdicionaisAgendamento({ idAgendamento, idLojista, status, podeAl
 
   useEffect(() => { carregar() }, [carregar, versao])
 
-  if (!info) return null
+  // O total com os adicionais vai para quem mostra a conta (detalhe compacto).
+  const chaveResumo = info ? `${info.valor}|${info.totalAdicionais}` : ''
+  useEffect(() => {
+    onResumo?.(info ? { valor: info.valor, totalAdicionais: info.totalAdicionais } : null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- avisa só quando os números mudam
+  }, [chaveResumo])
+
+  // Ainda lendo: o bloco já ocupa o lugar dele, para a tela não abrir de um
+  // jeito e mudar sozinha logo depois.
+  if (info === undefined) {
+    return (
+      <View style={[styles.bloco, compacto && styles.blocoCompacto]}>
+        <View style={styles.tituloLinha}>
+          <IconPlus size={14} color={colors.primary400} />
+          <Text style={styles.titulo}>Serviços adicionais</Text>
+        </View>
+        <View style={styles.esqueleto} />
+      </View>
+    )
+  }
+  if (info === null) return null
   const ativos = info.itens.filter(i => i.status === 'ativo')
   const removidos = info.itens.filter(i => i.status === 'removido')
   const podeIncluir = alteravel && info.disponiveis.length > 0
@@ -121,7 +146,7 @@ export function AdicionaisAgendamento({ idAgendamento, idLojista, status, podeAl
   const novos = resultado?.incluidos ?? []
 
   return (
-    <View style={styles.bloco}>
+    <View style={[styles.bloco, compacto && styles.blocoCompacto]}>
       <View style={styles.topo}>
         <View style={styles.tituloLinha}>
           <IconPlus size={14} color={colors.primary400} />
@@ -164,7 +189,7 @@ export function AdicionaisAgendamento({ idAgendamento, idLojista, status, podeAl
         </View>
       )}
 
-      {ativos.length > 0 && (
+      {ativos.length > 0 && !compacto && (
         <View style={styles.contas}>
           <LinhaConta rotulo="Valor sem os adicionais" valor={formatarMoeda(Math.max(0, info.valor - info.totalAdicionais))} />
           <LinhaConta rotulo="Subtotal dos adicionais" valor={formatarMoeda(info.totalAdicionais)} />
@@ -293,6 +318,9 @@ function LinhaResumo({ rotulo, valor, destaque }: { rotulo: string; valor: strin
 const styles = StyleSheet.create({
   // `.adic-bloco` do site em 375 de largura.
   bloco: { gap: 8, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.surfaceMuted },
+  // Dentro do detalhe novo: sem a borda e o respiro da lista antiga.
+  blocoCompacto: { paddingVertical: 0, borderBottomWidth: 0 },
+  esqueleto: { width: '62%', height: 14, marginVertical: 2, borderRadius: 6, backgroundColor: colors.surfaceMuted },
   topo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   tituloLinha: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   titulo: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: '#1f2937' },
