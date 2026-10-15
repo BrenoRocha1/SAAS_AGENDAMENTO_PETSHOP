@@ -48,6 +48,8 @@ const ACOES: Record<string, Acao> = {
   editarAvaliacaoAction: acoes.editarAvaliacaoAction,
   cotarTaxiDogAction: acoesTaxiDog.cotarTaxiDogAction,
   completarCadastroClienteGoogleAction: acoes.completarCadastroClienteGoogleAction,
+  // Cadastro do petshop em etapas, no primeiro acesso de quem escolheu "Sou lojista".
+  completarCadastroLojistaGoogleAction: acoes.completarCadastroLojistaGoogleAction,
   excluirMinhaContaAction: acoes.excluirMinhaContaAction,
   // Agenda
   criarAgendamentoLojistaAction: acoes.criarAgendamentoLojistaAction,

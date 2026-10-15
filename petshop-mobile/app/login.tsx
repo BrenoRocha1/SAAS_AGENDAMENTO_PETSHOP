@@ -9,6 +9,7 @@ import { Ilustracao } from '@/components/Ilustracao'
 import { MarcaSaip } from '@/components/MarcaSaip'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
+import { guardarPerfilCadastro } from '@/lib/cadastro-loja'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 import { FONTE_TITULO } from '@/theme/fontes'
 
@@ -51,6 +52,8 @@ export default function LoginScreen() {
   async function entrarComGoogle() {
     setErro(null)
     setAbrindoGoogle(true)
+    // Conta nova: o que foi escolhido aqui decide o cadastro que vem depois.
+    guardarPerfilCadastro(perfil)
     const { error } = await signInWithGoogle()
     setAbrindoGoogle(false)
     if (error) setErro(error)
@@ -64,10 +67,10 @@ export default function LoginScreen() {
         <Ilustracao nome="login" altura={110} style={styles.ilustracao} />
 
         <Text style={styles.title}>Entrar ou criar conta</Text>
-        {/* No app só o cliente cria a conta: a loja nova se cadastra pelo site. */}
+        {/* O mesmo texto do site: a loja nova se cadastra aqui também (CadastroLoja). */}
         <Text style={styles.subtitle}>
           {perfil === 'lojista'
-            ? 'Acesse o painel do seu petshop com a conta Google da loja. Loja nova se cadastra pelo site.'
+            ? 'Acesse o painel do seu petshop ou cadastre a sua loja. É só com a sua conta Google: o sistema identifica sozinho se você já tem conta — se não tiver, ela é criada na hora.'
             : 'Agende serviços para o seu pet. É só com a sua conta Google: o sistema identifica sozinho se você já tem conta — se não tiver, ela é criada na hora.'}
         </Text>
 
