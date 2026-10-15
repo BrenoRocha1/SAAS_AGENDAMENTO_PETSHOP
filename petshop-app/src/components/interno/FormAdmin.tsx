@@ -40,7 +40,7 @@ export default function FormAdmin() {
       </div>
       {erro && <div className="alert alert-error" role="alert"><span>{erro}</span></div>}
       {ok && <div className="alert alert-success" role="status"><span>Administrador adicionado.</span></div>}
-      <p className="form-hint">A pessoa precisa já ter conta (cliente ou lojista) com esse e-mail.</p>
+      <p className="form-hint">A pessoa precisa ter entrado no SAIP pelo menos uma vez com esse e-mail (como cliente, loja ou só pelo Google).</p>
     </form>
   )
 }

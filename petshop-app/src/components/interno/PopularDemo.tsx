@@ -10,7 +10,7 @@ export default function PopularDemo({ idLojista }: { idLojista: string }) {
   const [pendente, iniciar] = useTransition()
 
   function rodar() {
-    if (!window.confirm('Preencher esta loja com dados de demonstração? Muda o nome para "Loja Exemplo", o endereço público para /loja-exemplo e cria produtos, equipe, clientes, pets, agenda e vendas de exemplo. Só cria o que ainda não existe.')) return
+    if (!window.confirm('Atualizar os dados de demonstração? Só cria o que estiver faltando (nada é apagado).')) return
     setErro(null)
     setDemo(null)
     iniciar(async () => {
@@ -24,10 +24,10 @@ export default function PopularDemo({ idLojista }: { idLojista: string }) {
     <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-8)' }}>
       <h2 className="page-title" style={{ fontSize: '1.125rem', marginBottom: 'var(--space-2)' }}>Conta de demonstração</h2>
       <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-3)' }}>
-        Deixa a loja pronta para apresentar: logo, endereço, horários, serviços, produtos com foto, equipe, clientes, pets, agenda e vendas.
+        Esta é a loja de exemplo. Atualizar recria o que estiver faltando: logo, endereço, horários, formas de pagamento, serviços, produtos com foto, equipe, clientes, pets, agenda e vendas.
       </p>
       <button type="button" className="btn btn-primary btn-sm" onClick={rodar} disabled={pendente}>
-        {pendente ? 'Preenchendo… (pode levar um minuto)' : 'Preencher com dados de demonstração'}
+        {pendente ? 'Atualizando… (pode levar um minuto)' : 'Atualizar dados de demonstração'}
       </button>
       {erro && <div className="alert alert-error" role="alert" style={{ marginTop: 'var(--space-3)' }}><span>{erro}</span></div>}
       {demo && (

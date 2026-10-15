@@ -6,10 +6,14 @@ import Paginacao from '@/components/interno/Paginacao'
 import BotaoAcao from '@/components/interno/BotaoAcao'
 import { alterarStatusEmpresaAction, entrarComoAction } from '@/lib/actions-interno'
 import { calcularAcesso } from '@/lib/acesso-loja'
+import { acharContaDemo } from '@/lib/demo-loja'
+import ContaDemonstracao from '@/components/interno/ContaDemonstracao'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Empresas — Interno' }
 export const dynamic = 'force-dynamic'
+// "Criar conta de exemplo" roda daqui e faz muitas gravações.
+export const maxDuration = 60
 
 interface Props { searchParams: Promise<{ busca?: string; status?: string; pagina?: string }> }
 
@@ -33,9 +37,10 @@ export default async function InternoEmpresas({ searchParams }: Props) {
     .select('id_lojista, nome_loja, email, telefone, cidade, estado, ativo, created_at, acesso_ate, acesso_livre', { count: 'exact' })
   if (busca) q = q.or(`nome_loja.ilike.%${busca}%,email.ilike.%${busca}%,cidade.ilike.%${busca}%`)
   if (status) q = q.eq('ativo', status === 'ativas')
-  const { data, count } = await q
-    .order('created_at', { ascending: false })
-    .range((pagina - 1) * TAMANHO_PAGINA, pagina * TAMANHO_PAGINA - 1)
+  const [{ data, count, error }, demo] = await Promise.all([
+    q.order('created_at', { ascending: false }).range((pagina - 1) * TAMANHO_PAGINA, pagina * TAMANHO_PAGINA - 1),
+    acharContaDemo(db),
+  ])
   const lojas = (data ?? []) as Linha[]
 
   return (
@@ -44,6 +49,10 @@ export default async function InternoEmpresas({ searchParams }: Props) {
         <h1 className="page-title">Empresas</h1>
         <p className="page-subtitle">Todos os petshops da plataforma</p>
       </div>
+
+      <ContaDemonstracao demo={demo} />
+
+      {error && <div className="alert alert-error" role="alert" style={{ marginBottom: 'var(--space-4)' }}><span>Não foi possível carregar as empresas: {error.message}</span></div>}
 
       <form method="get" className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-5)', display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
         <input className="form-input" name="busca" defaultValue={busca} placeholder="Buscar por nome, e-mail ou cidade" style={{ flex: '1 1 240px' }} />

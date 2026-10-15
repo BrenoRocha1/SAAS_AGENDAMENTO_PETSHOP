@@ -9,7 +9,8 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { COOKIE_IMPERSONANDO, COOKIE_VOLTA_INTERNO } from '@/lib/impersonar'
-import { popularLojaDemo, type ResultadoDemo } from '@/lib/demo-loja'
+import { acharContaDemo, criarContaDemo, popularLojaDemo, type ResultadoDemo } from '@/lib/demo-loja'
+import { acharLoginPorEmail } from '@/lib/interno-util'
 import { getPlatformAdmin } from '@/lib/admin'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ROTA_INTERNA } from '@/lib/rota-interna'
@@ -108,8 +109,10 @@ export async function adicionarAdminAction(email: string, nome: string): Promise
   ])
   const lojista = lojistas?.[0]
   const cliente = clientes?.[0]
-  const id: string | undefined = lojista?.id_lojista ?? cliente?.id_cliente
-  if (!id) return { error: 'Não achei conta com esse e-mail. A pessoa precisa ter entrado no sistema antes.' }
+  // Sem cadastro de cliente ou loja: quem só entrou com o Google (e ainda
+  // não escolheu o perfil) também pode virar administrador.
+  const id: string | undefined = lojista?.id_lojista ?? cliente?.id_cliente ?? (await acharLoginPorEmail(ctx.db, mail))?.id
+  if (!id) return { error: 'Não achei login com esse e-mail. A pessoa precisa ter entrado no SAIP pelo menos uma vez.' }
 
   const nomeFinal = nome.trim() || lojista?.nome_loja || cliente?.nome || null
   const { error } = await ctx.db
@@ -325,16 +328,35 @@ export async function trocarEmailAction(tipo: 'lojista' | 'cliente', id: string,
 // Preenche a loja com perfil, produtos com foto, equipe, clientes, pets,
 // agenda e vendas de exemplo (lib/demo-loja). Pode rodar mais de uma vez:
 // só cria o que falta.
+// Só na conta de demonstração: em outra loja, isto trocaria o nome, o
+// telefone e o endereço de uma loja de verdade.
 export async function popularDemoAction(idLojista: string): Promise<Resultado & { demo?: ResultadoDemo }> {
   const ctx = await exigirAdmin()
   if ('erro' in ctx) return { error: ctx.erro }
   if (!UUID_RE.test(idLojista)) return { error: 'Empresa inválida.' }
-  const { data: loja } = await ctx.db.from('lojista').select('id_lojista').eq('id_lojista', idLojista).maybeSingle()
-  if (!loja) return { error: 'Empresa não encontrada.' }
+  const contaDemo = await acharContaDemo(ctx.db)
+  if (contaDemo?.id !== idLojista) return { error: 'Essa loja não é a conta de demonstração.' }
 
   const demo = await popularLojaDemo(ctx.db, idLojista)
   await auditar(ctx.db, ctx.admin, 'empresa.popular_demo', 'lojista', idLojista, { feito: demo.feito.length, avisos: demo.avisos.length })
   revalidarInterno()
   revalidatePath('/lojista', 'layout')
   return { success: true, demo }
+}
+
+// Cria a conta de demonstração (uma loja sem dono, isenta de cobrança, com o
+// endereço /loja-exemplo) e já a preenche. Se ela já existe, só atualiza os
+// dados de demonstração. Leva até um minuto.
+export async function criarContaDemoAction(): Promise<Resultado & { id?: string; criada?: boolean; demo?: ResultadoDemo }> {
+  const ctx = await exigirAdmin()
+  if ('erro' in ctx) return { error: ctx.erro }
+
+  const conta = await criarContaDemo(ctx.db)
+  if (conta.error || !conta.id) return { error: conta.error ?? 'Não foi possível criar a conta de demonstração.' }
+
+  const demo = await popularLojaDemo(ctx.db, conta.id)
+  await auditar(ctx.db, ctx.admin, conta.criada ? 'empresa.criar_demo' : 'empresa.popular_demo', 'lojista', conta.id, { feito: demo.feito.length, avisos: demo.avisos.length })
+  revalidarInterno()
+  revalidatePath('/lojista', 'layout')
+  return { success: true, id: conta.id, criada: conta.criada, demo }
 }

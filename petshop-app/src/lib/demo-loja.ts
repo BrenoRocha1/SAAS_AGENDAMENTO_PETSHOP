@@ -7,6 +7,7 @@
 // tem nenhuma. Não é um arquivo 'use server'.
 
 import { gerarEmailInterno } from '@/lib/email-interno'
+import { acharLoginPorEmail } from '@/lib/interno-util'
 import type { createAdminClient } from '@/lib/supabase/admin'
 
 type Db = NonNullable<ReturnType<typeof createAdminClient>>
@@ -15,6 +16,53 @@ export interface ResultadoDemo { feito: string[]; avisos: string[] }
 
 export const SLUG_DEMO = 'loja-exemplo'
 export const NOME_DEMO = 'Loja Exemplo'
+// Login da conta de demonstração criada pelo painel. Domínio reservado
+// (.invalid nunca existe): nada é enviado para ele, e ninguém entra por
+// e-mail — a equipe entra pelo "Entrar na conta" do painel interno.
+export const EMAIL_DEMO = 'loja-exemplo@demo.invalid'
+const TELEFONE_DEMO = '11987654321'
+
+// A conta de demonstração: a loja com o endereço /loja-exemplo (ou com o
+// login de demonstração). null = ainda não existe.
+export async function acharContaDemo(db: Db): Promise<{ id: string; nome: string; slug: string | null; ativo: boolean } | null> {
+  for (const [coluna, valor] of [['slug', SLUG_DEMO], ['email', EMAIL_DEMO]] as const) {
+    const { data } = await db.from('lojista').select('id_lojista, nome_loja, slug, ativo').eq(coluna, valor).limit(1)
+    const l = data?.[0]
+    if (l) return { id: l.id_lojista, nome: l.nome_loja, slug: l.slug ?? null, ativo: l.ativo }
+  }
+  return null
+}
+
+// Cria uma loja nova só para demonstração (sem dono): o login e a linha da
+// loja, isenta de cobrança — sem isso o antifraude do teste (migration 091)
+// bloquearia o telefone de demonstração. Se já existe, devolve a que existe.
+// Depois, popularLojaDemo() preenche tudo.
+export async function criarContaDemo(db: Db): Promise<{ id?: string; criada?: boolean; error?: string }> {
+  const existente = await acharContaDemo(db)
+  if (existente) return { id: existente.id, criada: false }
+
+  let idLogin: string | null = null
+  let criouLogin = false
+  const { data: u, error: eu } = await db.auth.admin.createUser({
+    email: EMAIL_DEMO, email_confirm: true, user_metadata: { role: 'lojista', nome: NOME_DEMO },
+  })
+  if (u?.user) { idLogin = u.user.id; criouLogin = true }
+  else {
+    // O login já existe (de uma tentativa anterior que parou no meio): reaproveita.
+    idLogin = (await acharLoginPorEmail(db, EMAIL_DEMO))?.id ?? null
+    if (!idLogin) return { error: `Não foi possível criar o login da conta de demonstração: ${eu?.message ?? 'erro desconhecido'}` }
+  }
+
+  const { error } = await db.from('lojista').insert({
+    id_lojista: idLogin, nome_loja: NOME_DEMO, email: EMAIL_DEMO, telefone: TELEFONE_DEMO,
+    acesso_livre: true, aceita_agendamento_online: true,
+  })
+  if (error) {
+    if (criouLogin) await db.auth.admin.deleteUser(idLogin)
+    return { error: `Não foi possível criar a loja de demonstração: ${error.message}` }
+  }
+  return { id: idLogin, criada: true }
+}
 
 // ── Imagens (ilustrações em SVG) ────────────────────────────────────────────
 // Vão para o Storage do Supabase; se o bucket não aceitar SVG, caem em
@@ -105,6 +153,8 @@ const SERVICOS = [
 const CATEGORIAS = ['Rações', 'Petiscos', 'Higiene', 'Brinquedos', 'Acessórios']
 
 interface ProdutoDemo {
+  // tipoEnum: a categoria antiga (coluna produto.categoria, apagada na
+  // migration 038) — só referência; a categoria de verdade é `cat`.
   nome: string; cat: string; tipoEnum: 'Ração' | 'Brinquedos' | 'Higiene' | 'Acessórios' | 'Outros'
   un: 'unidade' | 'kg' | 'pacote'; preco: number; custo: number; estoque: number; minimo: number
   img: string; cor: string; online?: boolean
@@ -160,22 +210,29 @@ export async function popularLojaDemo(db: Db, idLojista: string): Promise<Result
 
   // 1) Perfil da loja
   try {
+    // O endereço /loja-exemplo é único: se outra loja já o tem, esta fica
+    // com o endereço dela (e o resto é preenchido igual).
+    const { data: dona } = await db.from('lojista').select('id_lojista, nome_loja').eq('slug', SLUG_DEMO).neq('id_lojista', idLojista).limit(1)
+    const slugLivre = !dona?.[0]
+    if (!slugLivre) avisos.push(`Endereço público /${SLUG_DEMO}: já é da loja "${dona![0].nome_loja}", esta loja ficou sem ele.`)
     const logo = await subirImagem(db, 'logos-loja', `${idLojista}/logo-demo.svg`, svgLogo())
     const base = {
-      nome_loja: NOME_DEMO, slug: SLUG_DEMO,
+      nome_loja: NOME_DEMO, ...(slugLivre ? { slug: SLUG_DEMO } : {}),
       descricao: 'Banho, tosa e tudo para o seu melhor amigo. Atendimento carinhoso, produtos selecionados e TaxiDog para buscar e levar o seu pet.',
       telefone: '11987654321', endereco: 'Rua das Acácias', numero: '482', complemento: 'Loja 2', bairro: 'Jardim Paulista',
       cidade: 'São Paulo', estado: 'SP', cep: '01310100',
       aceita_agendamento_online: true, acesso_livre: true, logo_url: logo,
     }
+    // acesso_livre vai junto do telefone: sem ele, o antifraude do teste
+    // (migration 091) encerraria o acesso da loja por telefone repetido.
     let { error } = await db.from('lojista').update(base).eq('id_lojista', idLojista)
-    if (error) { // alguma coluna opcional pode não existir: tenta o essencial
-      const { complemento: _c, acesso_livre: _a, ...essencial } = base
-      void _c; void _a
+    if (error) { // alguma coluna opcional pode não existir: tenta sem ela
+      const { complemento: _c, ...essencial } = base
+      void _c
       ;({ error } = await db.from('lojista').update(essencial).eq('id_lojista', idLojista))
     }
     if (error) throw error
-    feito.push('Perfil da loja, endereço, logo e endereço público /loja-exemplo')
+    feito.push(slugLivre ? 'Perfil da loja, endereço, logo e endereço público /loja-exemplo' : 'Perfil da loja, endereço e logo')
   } catch (e) { falha('Perfil da loja', e) }
 
   // 2) Horários
@@ -186,6 +243,25 @@ export async function popularLojaDemo(db: Db, idLojista: string): Promise<Result
     if (novos.length) { const { error } = await db.from('horario').insert(novos); if (error) throw error }
     feito.push('Horários de funcionamento (segunda a sábado)')
   } catch (e) { falha('Horários', e) }
+
+  // 2b) Formas de pagamento (migration 057): todo agendamento nasce com uma
+  // forma aceita pela loja. Pix com chave de mentira (domínio .invalid);
+  // loja que já configurou fica como está.
+  let formasAgenda = ['dinheiro', 'cartao_credito', 'cartao_debito']
+  try {
+    await db.from('loja_pagamento').upsert({
+      id_lojista: idLojista, pix_ativo: true, pix_chave: 'pix@loja-exemplo.invalid', pix_nome: NOME_DEMO,
+      dinheiro_ativo: true, credito_ativo: true, debito_ativo: true,
+    }, { onConflict: 'id_lojista', ignoreDuplicates: true })
+    const { data: cfg, error } = await db.from('loja_pagamento').select('pix_ativo, dinheiro_ativo, credito_ativo, debito_ativo').eq('id_lojista', idLojista).maybeSingle()
+    if (error) throw error
+    if (cfg) {
+      formasAgenda = [
+        cfg.pix_ativo && 'pix', cfg.credito_ativo && 'cartao_credito', cfg.dinheiro_ativo && 'dinheiro', cfg.debito_ativo && 'cartao_debito',
+      ].filter((x): x is string => !!x)
+    }
+    feito.push('Formas de pagamento (Pix, dinheiro e cartões)')
+  } catch (e) { falha('Formas de pagamento', e) }
 
   // 3) Serviços (+ preço por porte)
   const servicoPorNome = new Map<string, { id: string; preco: number }>()
@@ -231,7 +307,7 @@ export async function popularLojaDemo(db: Db, idLojista: string): Promise<Result
     for (const p of PRODUTOS) {
       if (produtoPorNome.has(p.nome)) continue
       const base = {
-        id_lojista: idLojista, nome: p.nome, categoria: p.tipoEnum, unidade_venda: p.un, preco_venda: p.preco,
+        id_lojista: idLojista, nome: p.nome, unidade_venda: p.un, preco_venda: p.preco,
         estoque_atual: p.estoque, estoque_minimo: p.minimo, status: 'Ativo', id_categoria: idCat.get(p.cat) ?? null,
         disponivel_agendamento_online: !!p.online,
       }
@@ -239,11 +315,15 @@ export async function popularLojaDemo(db: Db, idLojista: string): Promise<Result
       if (error) throw error
       const foto = await subirImagem(db, 'fotos-produto', `${idLojista}/${data.id_produto}.svg`, svgProduto(p.img, p.cor, p.cat))
       await db.from('produto').update({ foto_url: foto }).eq('id_produto', data.id_produto)
+      // Na busca de produtos do cliente (migration 098). Sem a migration, só não liga.
+      await db.from('produto').update({ disponivel_marketplace: true }).eq('id_produto', data.id_produto)
       const { error: ec } = await db.from('produto_custo').insert({ id_produto: data.id_produto, id_lojista: idLojista, custo_unitario: p.custo })
       if (ec) avisos.push(`Custo de ${p.nome}: ${ec.message}`)
       produtoPorNome.set(p.nome, { id: data.id_produto, preco: p.preco })
       criados++
     }
+    // Os que já existiam (de uma rodada anterior) também entram na busca de produtos.
+    await db.from('produto').update({ disponivel_marketplace: true }).eq('id_lojista', idLojista).in('nome', PRODUTOS.map(p => p.nome))
     feito.push(`Categorias e produtos (${criados} novos, com foto, custo e estoque; alguns em estoque baixo)`)
   } catch (e) { falha('Produtos', e) }
 
@@ -326,7 +406,7 @@ export async function popularLojaDemo(db: Db, idLojista: string): Promise<Result
         { dia: 2, hora: '10:00', status: 'Pendente' }, { dia: 3, hora: '15:30', status: 'Confirmado' },
         { dia: 4, hora: '11:00', status: 'Pendente' },
       ]
-      const formas = ['pix', 'cartao_credito', 'dinheiro', 'cartao_debito']
+      const formas = formasAgenda.length ? formasAgenda : ['dinheiro']
       let criados = 0
       for (let i = 0; i < plano.length; i++) {
         const a = plano[i]
@@ -337,6 +417,7 @@ export async function popularLojaDemo(db: Db, idLojista: string): Promise<Result
         const { data, error } = await db.from('agendamento').insert({
           id_pet: pet.id, id_servico: srv.id, id_cliente: dono, id_lojista: idLojista,
           dt_agendamento: isoDia(30 + i), hr_agendamento: a.hora, valor: srv.preco, status: 'Pendente',
+          forma_pagamento: formas[i % formas.length],
           obs: i % 4 === 0 ? 'Cliente pediu laço no final.' : null, origem: i % 3 === 0 ? 'online' : 'loja',
           id_funcionario: idsEquipe.length ? idsEquipe[i % idsEquipe.length] : null,
         }).select('id_agendamento').single()
@@ -348,7 +429,8 @@ export async function popularLojaDemo(db: Db, idLojista: string): Promise<Result
         if (eu) avisos.push(`Agendamento ${i + 1} (ajuste): ${eu.message}`)
         criados++
       }
-      feito.push(`Agenda (${criados} agendamentos: concluídos, de hoje em diante e um cancelado)`)
+      if (criados) feito.push(`Agenda (${criados} agendamentos: concluídos, de hoje em diante e um cancelado)`)
+      else avisos.push('Agenda: nenhum agendamento entrou (veja os avisos acima).')
     } else if (count) feito.push('Agenda: a loja já tinha agendamentos, não mexi')
   } catch (e) { falha('Agenda', e) }
 

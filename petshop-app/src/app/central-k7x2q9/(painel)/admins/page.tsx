@@ -14,7 +14,7 @@ export default async function InternoAdmins() {
   if (!db) return <div className="alert alert-error"><span>SUPABASE_SERVICE_ROLE_KEY não configurada.</span></div>
   const eu = await getPlatformAdmin()
 
-  const { data } = await db.from('admin_usuario').select('id, email, nome, ativo, created_at').order('created_at')
+  const { data, error } = await db.from('admin_usuario').select('id, email, nome, ativo, created_at').order('created_at')
   const admins = (data ?? []) as { id: string; email: string; nome: string | null; ativo: boolean; created_at: string }[]
 
   return (
@@ -25,6 +25,8 @@ export default async function InternoAdmins() {
       </div>
 
       <FormAdmin />
+
+      {error && <div className="alert alert-error" role="alert" style={{ marginBottom: 'var(--space-4)' }}><span>Não foi possível carregar os administradores: {error.message}</span></div>}
 
       <div className="table-container">
         <table className="table">

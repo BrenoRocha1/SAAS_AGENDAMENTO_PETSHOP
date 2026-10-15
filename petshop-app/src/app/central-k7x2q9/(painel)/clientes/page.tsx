@@ -26,7 +26,7 @@ export default async function InternoClientes({ searchParams }: Props) {
     .from('cliente')
     .select('id_cliente, nome, email, telefone, ativo, created_at', { count: 'exact' })
   if (busca) q = q.or(`nome.ilike.%${busca}%,email.ilike.%${busca}%`)
-  const { data, count } = await q
+  const { data, count, error } = await q
     .order('created_at', { ascending: false })
     .range((pagina - 1) * TAMANHO_PAGINA, pagina * TAMANHO_PAGINA - 1)
   const clientes = (data ?? []) as Linha[]
@@ -43,7 +43,9 @@ export default async function InternoClientes({ searchParams }: Props) {
         <button className="btn btn-primary" type="submit">Buscar</button>
       </form>
 
-      {clientes.length === 0 ? (
+      {error ? (
+        <div className="alert alert-error" role="alert"><span>Não foi possível carregar os clientes: {error.message}</span></div>
+      ) : clientes.length === 0 ? (
         <div className="empty-state card"><div className="empty-state-title">Nenhum cliente encontrado</div></div>
       ) : (
         <div className="table-container">

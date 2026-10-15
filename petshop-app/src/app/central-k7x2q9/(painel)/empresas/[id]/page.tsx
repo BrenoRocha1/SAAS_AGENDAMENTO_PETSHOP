@@ -11,6 +11,7 @@ import TrocarEmail from '@/components/interno/TrocarEmail'
 import PopularDemo from '@/components/interno/PopularDemo'
 import { alterarStatusEmpresaAction, definirAcessoLivreAction, entrarComoAction, estenderAcessoAction } from '@/lib/actions-interno'
 import { calcularAcesso } from '@/lib/acesso-loja'
+import { acharContaDemo } from '@/lib/demo-loja'
 import { dataHoraBR } from '@/lib/interno-util'
 import type { Metadata } from 'next'
 
@@ -48,6 +49,7 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
   ])
 
   const acesso = calcularAcesso(loja.acesso_ate, loja.acesso_livre)
+  const ehDemo = (await acharContaDemo(db))?.id === id
 
   const cards: { valor: string | number; rotulo: string }[] = [
     { valor: agend.count ?? 0, rotulo: 'Agendamentos' },
@@ -64,7 +66,7 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-4)', flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <Link href={`${ROTA_INTERNA}/empresas`} className="text-sm text-muted">← Empresas</Link>
-          <h1 className="page-title">{loja.nome_loja}</h1>
+          <h1 className="page-title">{loja.nome_loja}{ehDemo && <span className="badge badge-aceito" style={{ marginLeft: 10, verticalAlign: 'middle' }}>Demonstração</span>}</h1>
           <p className="page-subtitle">
             {loja.email} · {telefoneBR(loja.telefone)}{loja.documento ? ` · ${loja.documento.length === 14 ? 'CNPJ' : 'CPF'} ${loja.documento}` : ' · sem CPF/CNPJ'} · cadastrada em {dataBRFmt(loja.created_at)}
           </p>
@@ -129,7 +131,8 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
         </div>
       )}
 
-      <PopularDemo idLojista={id} />
+      {/* Só na conta de demonstração: em outra loja trocaria nome e endereço de uma loja de verdade. */}
+      {ehDemo && <PopularDemo idLojista={id} />}
 
       <h2 className="page-title" style={{ fontSize: '1.125rem', marginBottom: 'var(--space-3)' }}>E-mail da conta</h2>
       <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-8)', display: 'flex', gap: 'var(--space-4)', alignItems: 'center', flexWrap: 'wrap' }}>

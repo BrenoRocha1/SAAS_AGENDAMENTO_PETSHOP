@@ -35,7 +35,7 @@ export default async function InternoAgendamentos({ searchParams }: Props) {
       { count: 'exact' },
     )
   if (status) q = q.eq('status', status)
-  const { data, count } = await q
+  const { data, count, error } = await q
     .order('dt_agendamento', { ascending: false })
     .order('hr_agendamento', { ascending: false })
     .range((pagina - 1) * TAMANHO_PAGINA, pagina * TAMANHO_PAGINA - 1)
@@ -56,7 +56,9 @@ export default async function InternoAgendamentos({ searchParams }: Props) {
         <button className="btn btn-primary" type="submit">Filtrar</button>
       </form>
 
-      {linhas.length === 0 ? (
+      {error ? (
+        <div className="alert alert-error" role="alert"><span>Não foi possível carregar os agendamentos: {error.message}</span></div>
+      ) : linhas.length === 0 ? (
         <div className="empty-state card"><div className="empty-state-title">Nenhum agendamento</div></div>
       ) : (
         <div className="table-container">

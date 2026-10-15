@@ -3,10 +3,14 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { formatarReais } from '@/lib/taxidog'
 import { ROTA_INTERNA } from '@/lib/rota-interna'
 import { dataBRFmt, diasAtras, hojeBrasil, somarVendas } from '@/lib/interno-util'
+import { acharContaDemo } from '@/lib/demo-loja'
+import ContaDemonstracao from '@/components/interno/ContaDemonstracao'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Visão geral — Interno' }
 export const dynamic = 'force-dynamic'
+// "Criar conta de exemplo" roda daqui e faz muitas gravações.
+export const maxDuration = 60
 
 export default async function InternoVisaoGeral() {
   const db = createAdminClient()
@@ -22,7 +26,7 @@ export default async function InternoVisaoGeral() {
   }
 
   const [
-    empresas, empresasAtivas, clientes, pets, agendamentos, agendHoje, funcionarios, vendas30, ultimas,
+    empresas, empresasAtivas, clientes, pets, agendamentos, agendHoje, funcionarios, vendas30, ultimas, demo,
   ] = await Promise.all([
     contar('lojista'),
     contar('lojista', q => q.eq('ativo', true)),
@@ -33,6 +37,7 @@ export default async function InternoVisaoGeral() {
     contar('funcionario', q => q.eq('ativo', true)),
     somarVendas(db, trintaDias),
     db.from('lojista').select('id_lojista, nome_loja, cidade, estado, ativo, created_at').order('created_at', { ascending: false }).limit(6),
+    acharContaDemo(db),
   ])
 
 
@@ -62,6 +67,8 @@ export default async function InternoVisaoGeral() {
           </div>
         ))}
       </div>
+
+      <ContaDemonstracao demo={demo} />
 
       <h2 className="page-title" style={{ fontSize: '1.125rem', marginBottom: 'var(--space-3)' }}>Últimas empresas</h2>
       <div className="table-container">

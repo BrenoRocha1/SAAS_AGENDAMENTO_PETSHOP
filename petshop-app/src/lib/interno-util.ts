@@ -76,3 +76,18 @@ export const BADGE_STATUS_AGENDAMENTO: Record<string, string> = {
   Concluído: 'badge-concluido',
   Cancelado: 'badge-cancelado',
 }
+
+// Acha o login (Supabase Auth) pelo e-mail. A API não busca por e-mail:
+// percorre a lista em páginas.
+export async function acharLoginPorEmail(db: DbInterno, email: string): Promise<{ id: string; email: string } | null> {
+  const alvo = email.trim().toLowerCase()
+  for (let page = 1; page <= 50; page++) {
+    const { data, error } = await db.auth.admin.listUsers({ page, perPage: 1000 })
+    if (error || !data) return null
+    const achado = data.users.find(u => (u.email ?? '').toLowerCase() === alvo)
+    if (achado) return { id: achado.id, email: achado.email ?? alvo }
+    if (data.users.length < 1000) return null
+  }
+  return null
+}
+

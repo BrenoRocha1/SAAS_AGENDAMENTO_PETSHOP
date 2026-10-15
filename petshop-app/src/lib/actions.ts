@@ -115,6 +115,10 @@ export async function getGoogleOAuthUrlAction(role?: string, voltarPara?: string
   const supabase = await createClient()
   const origin = await obterOriginDaRequisicao()
   await guardarVolta(voltarPara)
+  // Login comum: apaga a marca do login do painel interno. Se alguém começou
+  // a entrar no painel e desistiu no Google, ela ficaria 10 minutos e este
+  // login seria tratado como do painel (conta desconectada e página 404).
+  ;(await cookies()).delete(COOKIE_LOGIN_INTERNO)
   
   const callbackUrl = role 
     ? `${origin}/auth/callback?role=${role}`

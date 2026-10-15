@@ -4644,3 +4644,9 @@ html[data-theme='dark'] { --logo-saip: #6366f1; --logo-texto: #eceff5; }
 /* Painel interno: botões de ação numa célula da tabela (lado a lado, quebrando
    linha se faltar espaço) — sem mudar o display da própria célula. */
 .interno-acoes { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: flex-start; }
+/* Painel interno: cartão da conta de demonstração. */
+.interno-demo { padding: var(--space-5); margin-bottom: var(--space-6); }
+.interno-demo-topo { display: flex; gap: var(--space-4); align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.interno-demo-topo > div:first-child { flex: 1 1 320px; min-width: 0; }
+.interno-demo-titulo { margin: 0 0 4px; font-family: var(--font-heading); font-size: 1.0625rem; font-weight: 700; color: var(--gray-100); }
+.interno-demo-lista { margin: 0; padding-left: 1.1rem; font-size: 0.875rem; }
