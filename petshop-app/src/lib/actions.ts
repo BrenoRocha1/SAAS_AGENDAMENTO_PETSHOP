@@ -36,6 +36,7 @@ import {
   categoriaProdutoSchema,
   completarCadastroClienteGoogleSchema,
   completarCadastroLojistaGoogleSchema,
+  type PetData,
 } from '@/lib/validations'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { aplicarAdicionaisDoPedido, lerAdicionaisDoFormulario, validarAdicionaisEscolhidos } from '@/lib/adicionais-servidor'
@@ -577,6 +578,45 @@ export async function completarCadastroClienteNoLinkAction(formData: FormData): 
   return { success: true }
 }
 
+// Cadastro em etapas do site e do app (CadastroClienteEtapas): o mesmo
+// cadastro, com o nome escolhido e, se veio, o primeiro pet.
+export async function completarCadastroClienteEtapasAction(formData: FormData) {
+  const texto = (k: string) => ((formData.get(k) as string | null) ?? '').trim()
+  // O pet é conferido antes: um erro nele não pode deixar a conta pela metade.
+  let pet: PetData | null = null
+  if (texto('pet_nome')) {
+    const p = petSchema.safeParse({
+      nome: texto('pet_nome'),
+      raca: texto('pet_raca'),
+      sexo: texto('pet_sexo'),
+      especie: texto('pet_especie') || undefined,
+      porte: texto('pet_porte') || undefined,
+      dt_nasc: texto('pet_dt_nasc'),
+    })
+    if (!p.success) {
+      const campo = String(p.error.issues[0].path[0] ?? '')
+      return { error: `Pet: ${campo === 'nome' ? 'confira o nome do pet' : p.error.issues[0].message}` }
+    }
+    pet = p.data
+  }
+
+  const r = await gravarCadastroClienteDaConta(formData)
+  if ('error' in r) return r
+
+  if (pet) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const adminClient = createAdminClient()
+    if (user && adminClient) {
+      // A conta já está criada: se o pet falhar, ele cadastra depois em Meus pets.
+      const { error } = await adminClient.from('pet').insert({ id_cliente: user.id, ...pet })
+      if (error) console.error('[completarCadastroClienteEtapasAction] pet:', error.message)
+    }
+  }
+
+  redirect((await usarVolta()) ?? '/cliente/dashboard')
+}
+
 // Conta logada (Google) sem perfil nenhum vira cliente com CPF e telefone.
 // Já sendo cliente, só segue.
 async function gravarCadastroClienteDaConta(formData: FormData): Promise<{ error: string } | { ok: true }> {
@@ -604,7 +644,10 @@ async function gravarCadastroClienteDaConta(formData: FormData): Promise<{ error
     return { error: parsed.error.issues[0].message }
   }
 
-  const nome = user.user_metadata?.full_name || user.user_metadata?.name || 'Usuário'
+  // O cadastro em etapas deixa a pessoa ajustar o nome; senão, o do Google.
+  const nomeInformado = (formData.get('nome') as string | null)?.trim().slice(0, 120)
+  const nome = (nomeInformado && nomeInformado.length >= 2 ? nomeInformado : null)
+    || user.user_metadata?.full_name || user.user_metadata?.name || 'Usuário'
   const email = user.email!
 
   const { error: clienteError } = await adminClient.from('cliente').insert({

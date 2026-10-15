@@ -7,8 +7,6 @@
 // (completarCadastroLojistaGoogleSchema). O app tem uma cópia deste arquivo
 // (petshop-mobile/src/lib/cadastro-loja.ts) — se mudar aqui, muda lá.
 
-import AsyncStorage from '@react-native-async-storage/async-storage'
-
 export type EtapaLoja = 'nome' | 'whatsapp' | 'documento' | 'endereco' | 'sobre' | 'pronto'
 
 export const ETAPAS_LOJA: EtapaLoja[] = ['nome', 'whatsapp', 'documento', 'endereco', 'sobre', 'pronto']
@@ -94,7 +92,7 @@ export function mascaraCepLoja(t: string): string {
   return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d
 }
 
-function cpfValido(cpf: string): boolean {
+export function cpfValido(cpf: string): boolean {
   if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false
   let soma = 0
   for (let i = 0; i < 9; i++) soma += Number(cpf[i]) * (10 - i)
@@ -176,25 +174,5 @@ export function camposDoCadastro(d: DadosLoja): Record<string, string> {
     estado: d.estado,
     cep: soDigitos(d.cep),
     aceita_termos: d.aceita_termos ? 'on' : '',
-  }
-}
-
-// ── Só no app ──
-// O que a pessoa escolheu na tela de entrar ("Sou cliente" / "Sou lojista")
-// antes de ir para o Google: decide qual cadastro aparece se a conta for nova
-// (no site isso vai no endereço de retorno do Google).
-
-const CHAVE_PERFIL = 'saip:perfil-cadastro'
-export type PerfilCadastro = 'cliente' | 'lojista'
-
-export function guardarPerfilCadastro(perfil: PerfilCadastro) {
-  AsyncStorage.setItem(CHAVE_PERFIL, perfil).catch(() => {})
-}
-
-export async function lerPerfilCadastro(): Promise<PerfilCadastro> {
-  try {
-    return (await AsyncStorage.getItem(CHAVE_PERFIL)) === 'lojista' ? 'lojista' : 'cliente'
-  } catch {
-    return 'cliente'
   }
 }

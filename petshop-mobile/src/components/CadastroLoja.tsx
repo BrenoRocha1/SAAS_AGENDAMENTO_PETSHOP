@@ -28,11 +28,11 @@ import { FONTE_TITULO } from '@/theme/fontes'
 // pergunta por tela, a ilustração muda a cada passo e o nome da loja, depois
 // de escrito, acompanha até o fim. Quem grava é `onEnviar` (a action do
 // site), que confere tudo de novo.
-export function CadastroLoja({ email, onEnviar, onSair }: {
+export function CadastroLoja({ email, onEnviar, onVoltarInicio }: {
   email?: string | null
   onEnviar: (campos: Record<string, string>) => Promise<{ error?: string }>
-  // Na primeira etapa, em vez de voltar: sair (ou trocar para cliente).
-  onSair?: () => void
+  // No primeiro passo, a seta volta para a escolha "cliente ou lojista".
+  onVoltarInicio?: () => void
 }) {
   const [dados, setDados] = useState<DadosLoja>(DADOS_LOJA_VAZIOS)
   const [indice, setIndice] = useState(0)
@@ -103,8 +103,8 @@ export function CadastroLoja({ email, onEnviar, onSair }: {
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
       <View style={styles.topo}>
-        {indice > 0 ? (
-          <Pressable onPress={() => irPara(indice - 1)} disabled={enviando} hitSlop={8} accessibilityRole="button" accessibilityLabel="Voltar" style={styles.voltar}>
+        {indice > 0 || onVoltarInicio ? (
+          <Pressable onPress={() => (indice > 0 ? irPara(indice - 1) : onVoltarInicio?.())} disabled={enviando} hitSlop={8} accessibilityRole="button" accessibilityLabel="Voltar" style={styles.voltar}>
             <IconChevronLeft size={22} color={colors.text} />
           </Pressable>
         ) : (
@@ -223,11 +223,6 @@ export function CadastroLoja({ email, onEnviar, onSair }: {
                 <Text style={styles.pularTexto}>Pular por agora</Text>
               </Pressable>
             )}
-            {indice === 0 && onSair && (
-              <Pressable onPress={onSair} disabled={enviando} accessibilityRole="button" style={styles.pular}>
-                <Text style={styles.pularTexto}>Não tenho petshop — sou cliente</Text>
-              </Pressable>
-            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -277,7 +272,7 @@ const styles = StyleSheet.create({
   contador: { alignSelf: 'flex-end', fontSize: 12, lineHeight: 16, color: '#858d99' },
   campos: { gap: 10 },
   linha: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cresce: { flex: 1 },
+  cresce: { flex: 1, minWidth: 0 },
   numero: { width: 92 },
   uf: { width: 96 },
   google: { flexDirection: 'row', alignItems: 'center', gap: 6 },

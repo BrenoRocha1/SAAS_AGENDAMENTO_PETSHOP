@@ -89,7 +89,7 @@ export function mascaraCepLoja(t: string): string {
   return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d
 }
 
-function cpfValido(cpf: string): boolean {
+export function cpfValido(cpf: string): boolean {
   if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false
   let soma = 0
   for (let i = 0; i < 9; i++) soma += Number(cpf[i]) * (10 - i)

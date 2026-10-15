@@ -50,6 +50,7 @@ const ACOES: Record<string, Acao> = {
   completarCadastroClienteGoogleAction: acoes.completarCadastroClienteGoogleAction,
   // Cadastro do petshop em etapas, no primeiro acesso de quem escolheu "Sou lojista".
   completarCadastroLojistaGoogleAction: acoes.completarCadastroLojistaGoogleAction,
+  completarCadastroClienteEtapasAction: acoes.completarCadastroClienteEtapasAction,
   excluirMinhaContaAction: acoes.excluirMinhaContaAction,
   // Agenda
   criarAgendamentoLojistaAction: acoes.criarAgendamentoLojistaAction,

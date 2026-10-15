@@ -24,9 +24,11 @@ import './cadastro-loja.css'
 // Cadastro do petshop em etapas: uma pergunta por tela, a ilustração muda a
 // cada passo e o nome da loja, depois de escrito, acompanha até o fim.
 // Quem grava é `onEnviar` (a action do servidor), que confere tudo de novo.
-export default function CadastroLojaEtapas({ email, onEnviar }: {
+export default function CadastroLojaEtapas({ email, onEnviar, onVoltarInicio }: {
   email?: string | null
   onEnviar: (campos: Record<string, string>) => Promise<{ error?: string } | undefined | void>
+  // No primeiro passo, a seta volta para a escolha "cliente ou lojista".
+  onVoltarInicio?: () => void
 }) {
   const [dados, setDados] = useState<DadosLoja>(DADOS_LOJA_VAZIOS)
   const [indice, setIndice] = useState(0)
@@ -87,8 +89,8 @@ export default function CadastroLojaEtapas({ email, onEnviar }: {
   return (
     <div className="cl">
       <header className="cl-topo">
-        {indice > 0 ? (
-          <button type="button" className="cl-voltar" onClick={() => irPara(indice - 1)} aria-label="Voltar" disabled={enviando}>
+        {indice > 0 || onVoltarInicio ? (
+          <button type="button" className="cl-voltar" onClick={() => (indice > 0 ? irPara(indice - 1) : onVoltarInicio?.())} aria-label="Voltar" disabled={enviando}>
             <IconChevronLeft />
           </button>
         ) : (

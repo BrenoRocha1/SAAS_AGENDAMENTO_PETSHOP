@@ -1,5 +1,6 @@
-/* Cadastro do petshop em etapas (CadastroLojaEtapas). No celular ocupa a
-   tela; no computador, uma coluna de 480px no meio. */
+/* Cadastro em etapas — da loja (CadastroLojaEtapas) e do cliente
+   (CadastroClienteEtapas). No celular ocupa a tela; no computador, uma
+   coluna de 480px no meio. */
 .cl {
   min-height: 100dvh; display: flex; flex-direction: column;
   max-width: 480px; margin: 0 auto; padding: 0 20px;
@@ -62,6 +63,32 @@ select.cl-input { padding-right: 8px; }
 .cl-linha { display: flex; align-items: center; gap: 10px; }
 .cl-rua > .cl-input:last-child { flex: 0 0 92px; }
 .cl-cidade > select { flex: 0 0 96px; }
+/* Primeira tela do cadastro (/completar-cadastro): cliente ou lojista. */
+.cl-escolhas { display: flex; flex-direction: column; gap: 12px; }
+.cl-escolha {
+  display: flex; align-items: center; gap: 14px; width: 100%; padding: 16px; text-align: left;
+  border: 1.5px solid var(--gray-700); border-radius: 16px; background: var(--gray-900);
+  font: inherit; color: var(--gray-100); cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.cl-escolha:hover { border-color: var(--primary-600); box-shadow: 0 4px 16px rgba(79, 70, 229, 0.12); }
+.cl-escolha:active { transform: scale(0.99); }
+.cl-escolha-figura { width: 76px; height: 76px; flex-shrink: 0; display: grid; place-items: center; border-radius: 16px; background: var(--primary-50); overflow: hidden; }
+.cl-escolha-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cl-escolha-titulo { font-size: 1.0625rem; font-weight: 700; color: var(--gray-100); }
+.cl-escolha-desc { font-size: 0.875rem; line-height: 1.4; color: var(--gray-400); }
+.cl-escolha > svg { width: 20px; height: 20px; flex-shrink: 0; color: var(--gray-500); }
+
+/* Escolha em botões (espécie, sexo, porte do pet). */
+.cl-opcoes { display: flex; gap: 8px; }
+.cl-opcao {
+  flex: 1; height: 48px; border: 1.5px solid var(--gray-700); border-radius: 12px; background: var(--gray-900);
+  font: inherit; font-size: 0.9375rem; font-weight: 600; color: var(--gray-300); cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.cl-opcao:hover { border-color: var(--primary-400); }
+.cl-opcao.is-ativa { border-color: var(--primary-600); background: var(--primary-50); color: var(--primary-700); }
+.cl-nasc { flex: 0 0 136px; }
 .cl-buscando { flex-shrink: 0; font-size: 0.8125rem; color: var(--gray-500); }
 .cl-google { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--gray-500); }
 .cl-google svg { width: 15px; height: 15px; color: var(--success-500); }

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native'
-import Svg, { Circle, Path } from 'react-native-svg'
+import Svg, { Path } from 'react-native-svg'
 import { IconeApp } from '@/components/IconeApp'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -9,11 +9,8 @@ import { Ilustracao } from '@/components/Ilustracao'
 import { MarcaSaip } from '@/components/MarcaSaip'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
-import { guardarPerfilCadastro } from '@/lib/cadastro-loja'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 import { FONTE_TITULO } from '@/theme/fontes'
-
-type Perfil = 'cliente' | 'lojista'
 
 // Os desenhos da própria tela de entrar do site (login/page.tsx).
 function Traco({ size, color, children }: { size: number; color: string; children: ReactNode }) {
@@ -26,34 +23,21 @@ function Traco({ size, color, children }: { size: number; color: string; childre
 const IconeCerquilha = ({ size, color }: { size: number; color: string }) => (
   <Traco size={size} color={color}><Path d="M5 9h14M5 15h14M10 4 8 20M16 4l-2 16" /></Traco>
 )
-const IconePessoa = ({ size, color }: { size: number; color: string }) => (
-  <Traco size={size} color={color}><Circle cx={12} cy={8} r={4} /><Path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /></Traco>
-)
-const IconeLoja = ({ size, color }: { size: number; color: string }) => (
-  <Traco size={size} color={color}>
-    <Path d="M3 9l1-5h16l1 5" />
-    <Path d="M3 9a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0" />
-    <Path d="M5 9v11h14V9" />
-    <Path d="M10 14h4v6h-4z" />
-  </Traco>
-)
 
 // Entrar — a tela do site no celular (petshop-app/src/app/login/page.tsx),
-// com as mesmas medidas: só com a conta Google (quem ainda não tem cadastro
-// termina ali mesmo, em CompletarCadastro) ou, para a equipe do petshop, com
-// o código de acesso rápido. Não há e-mail e senha.
+// com as mesmas medidas: só com a conta Google ou, para a equipe do petshop,
+// com o código de acesso rápido. Não pergunta se é cliente ou lojista: conta
+// nova escolhe isso na primeira tela do cadastro (CompletarCadastro).
+// Não há e-mail e senha.
 export default function LoginScreen() {
   const { signInWithGoogle } = useAuth()
   const router = useRouter()
   const [erro, setErro] = useState<string | null>(null)
   const [abrindoGoogle, setAbrindoGoogle] = useState(false)
-  const [perfil, setPerfil] = useState<Perfil>('cliente')
 
   async function entrarComGoogle() {
     setErro(null)
     setAbrindoGoogle(true)
-    // Conta nova: o que foi escolhido aqui decide o cadastro que vem depois.
-    guardarPerfilCadastro(perfil)
     const { error } = await signInWithGoogle()
     setAbrindoGoogle(false)
     if (error) setErro(error)
@@ -67,30 +51,10 @@ export default function LoginScreen() {
         <Ilustracao nome="login" altura={110} style={styles.ilustracao} />
 
         <Text style={styles.title}>Entrar ou criar conta</Text>
-        {/* O mesmo texto do site: a loja nova se cadastra aqui também (CadastroLoja). */}
+        {/* O mesmo texto do site (login/page.tsx). */}
         <Text style={styles.subtitle}>
-          {perfil === 'lojista'
-            ? 'Acesse o painel do seu petshop ou cadastre a sua loja. É só com a sua conta Google: o sistema identifica sozinho se você já tem conta — se não tiver, ela é criada na hora.'
-            : 'Agende serviços para o seu pet. É só com a sua conta Google: o sistema identifica sozinho se você já tem conta — se não tiver, ela é criada na hora.'}
+          Para clientes e petshops, é só com a sua conta Google: o sistema identifica sozinho se você já tem conta. Se não tiver, a gente cria na hora e pergunta se você é cliente ou tem um petshop.
         </Text>
-
-        <View style={styles.perfis} accessibilityRole="tablist">
-          {([['cliente', IconePessoa, 'Sou cliente'], ['lojista', IconeLoja, 'Sou lojista']] as const).map(([valor, Icone, rotulo]) => {
-            const ativo = perfil === valor
-            return (
-              <Pressable
-                key={valor}
-                onPress={() => { setPerfil(valor); setErro(null) }}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: ativo }}
-                style={[styles.perfil, ativo && styles.perfilAtivo]}
-              >
-                <Icone size={15} color={ativo ? colors.primary600 : colors.textMuted} />
-                <Text style={[styles.perfilTexto, ativo && { color: colors.primary600 }]}>{rotulo}</Text>
-              </Pressable>
-            )
-          })}
-        </View>
 
         {erro && (
           <View style={styles.alerta}>
@@ -99,7 +63,8 @@ export default function LoginScreen() {
           </View>
         )}
 
-        <View style={styles.botoes}>
+        {/* Sem o aviso de erro, o espaço do texto (32) já separa os botões. */}
+        <View style={[styles.botoes, !erro && { marginTop: 0 }]}>
           {/* Botão do Google como a marca pede: fundo branco e o "G" nas
               quatro cores. */}
           <Pressable
@@ -143,10 +108,6 @@ const styles = StyleSheet.create({
   ilustracao: { marginBottom: spacing.lg },
   title: { fontFamily: FONTE_TITULO, fontSize: 22, lineHeight: 27.5, fontWeight: '700', letterSpacing: -0.33, color: colors.text, marginBottom: 8 },
   subtitle: { fontSize: 14, lineHeight: 21.7, color: colors.textMuted, marginBottom: 32 },
-  perfis: { flexDirection: 'row', gap: 4, padding: 4, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
-  perfil: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 36, borderRadius: 8 },
-  perfilAtivo: { backgroundColor: colors.surface, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' },
-  perfilTexto: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: colors.textMuted },
   alerta: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -154,7 +115,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.dangerBg,
     borderRadius: radius.md,
     padding: spacing.md,
-    marginTop: 24,
+    marginTop: 0,
   },
   alertaTexto: { ...typography.body.md, color: colors.dangerFg, flex: 1 },
   botoes: { gap: 12, marginTop: 32 },

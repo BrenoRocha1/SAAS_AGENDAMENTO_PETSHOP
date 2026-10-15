@@ -84,24 +84,6 @@ function IconStar() {
     </svg>
   )
 }
-function IconStore() {
-  return (
-    <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
-      <path d="M3 9l1-5h16l1 5" />
-      <path d="M3 9a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0" />
-      <path d="M5 9v11h14V9" />
-      <path d="M10 14h4v6h-4z" />
-    </svg>
-  )
-}
-function IconUser() {
-  return (
-    <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-    </svg>
-  )
-}
 
 /* ------------------------------------------------------------------ *
  * Conteúdo do painel de apoio.
@@ -199,43 +181,10 @@ function ErrorBanner({ message }: { message: string }) {
   )
 }
 
-/* Toggle Cliente / Lojista */
-type Perfil = 'cliente' | 'lojista'
-
-function PerfilToggle({ perfil, onChange }: { perfil: Perfil; onChange: (p: Perfil) => void }) {
-  return (
-    <div className="login-perfil-toggle" role="tablist" aria-label="Tipo de acesso">
-      <button
-        role="tab"
-        aria-selected={perfil === 'cliente'}
-        className={`login-perfil-tab${perfil === 'cliente' ? ' active' : ''}`}
-        onClick={() => onChange('cliente')}
-        type="button"
-        id="tab-cliente"
-      >
-        <IconUser />
-        Sou cliente
-      </button>
-      <button
-        role="tab"
-        aria-selected={perfil === 'lojista'}
-        className={`login-perfil-tab${perfil === 'lojista' ? ' active' : ''}`}
-        onClick={() => onChange('lojista')}
-        type="button"
-        id="tab-lojista"
-      >
-        <IconStore />
-        Sou lojista
-      </button>
-    </div>
-  )
-}
-
 function LoginFormPane() {
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(null)
   const [oauthPending, setOauthPending] = useState(false)
-  const [perfil, setPerfil] = useState<Perfil>(searchParams.get('perfil') === 'lojista' ? 'lojista' : 'cliente')
 
   const redirectTo = searchParams.get('redirectTo')
   // Vindo de "Excluir minha conta" (LGPD, migration 072).
@@ -265,9 +214,10 @@ function LoginFormPane() {
     setError(null)
     setOauthPending(true)
 
-    // Passa o perfil selecionado para o callback saber pra onde redirecionar
-    // caso seja um usuário novo (sem perfil no banco ainda).
-    const result = await getGoogleOAuthUrlAction(perfil, redirectTo)
+    // Sem perfil: quem já tem conta entra direto; conta nova escolhe se é
+    // cliente ou lojista na primeira tela do cadastro (/completar-cadastro),
+    // que é obrigatória.
+    const result = await getGoogleOAuthUrlAction(undefined, redirectTo)
 
     if (result.error || !result.url) {
       setOauthPending(false)
@@ -278,8 +228,6 @@ function LoginFormPane() {
     window.location.href = result.url
   }
 
-  const isLojista = perfil === 'lojista'
-
   return (
     <div className="login-form-inner">
       <MarcaSaip />
@@ -289,14 +237,8 @@ function LoginFormPane() {
 
       <h1 className="login-heading">Entrar ou criar conta</h1>
       <p className="login-sub">
-        {isLojista
-          ? 'Acesse o painel do seu petshop ou cadastre a sua loja.'
-          : 'Agende serviços para o seu pet.'}
-        {' '}É só com a sua conta Google: o sistema identifica sozinho se você já tem conta — se não tiver, ela é criada na hora.
+        Para clientes e petshops, é só com a sua conta Google: o sistema identifica sozinho se você já tem conta. Se não tiver, a gente cria na hora e pergunta se você é cliente ou tem um petshop.
       </p>
-
-      {/* Toggle de perfil */}
-      <PerfilToggle perfil={perfil} onChange={(p) => { setPerfil(p); setError(null) }} />
 
       {contaExcluida && !message && (
         <div className="alert alert-success" role="status" style={{ marginBottom: 'var(--space-4)' }}>
@@ -335,13 +277,10 @@ function LoginFormFallback() {
     <div className="login-form-inner">
       <MarcaSaip />
       <div className="so-celular"><Ilustracao nome="login" altura={110} /></div>
-      <h1 className="login-heading">Entrar</h1>
-      <p className="login-sub">Agende serviços para o seu pet.</p>
-
-      <div className="login-perfil-toggle">
-        <button className="login-perfil-tab active" disabled type="button"><IconUser />Sou cliente</button>
-        <button className="login-perfil-tab" disabled type="button"><IconStore />Sou lojista</button>
-      </div>
+      <h1 className="login-heading">Entrar ou criar conta</h1>
+      <p className="login-sub">
+        Para clientes e petshops, é só com a sua conta Google: o sistema identifica sozinho se você já tem conta. Se não tiver, a gente cria na hora e pergunta se você é cliente ou tem um petshop.
+      </p>
 
       <div className="login-secondary-stack" style={{ marginTop: 'var(--space-8)' }}>
         <button type="button" className="login-btn-outline" disabled>

@@ -1,46 +1,19 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { completarCadastroClienteGoogleAction } from '@/lib/actions'
+import { completarCadastroClienteEtapasAction } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
-import { IconIdCard, IconPhone } from '@/components/icons'
-import MarcaSaip from '@/components/MarcaSaip'
+import CadastroClienteEtapas from '@/components/CadastroClienteEtapas'
 
-const stroke = {
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 1.75,
-  strokeLinecap: 'round' as const,
-  strokeLinejoin: 'round' as const,
-}
-
-function IconAlert() {
-  return (
-    <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
-      <path d="M12 4 2.5 20h19L12 4Z" />
-      <path d="M12 10v4M12 17.5v.01" />
-    </svg>
-  )
-}
-
-function IconCheck() {
-  return (
-    <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
-      <path d="m5 13 4 4L19 7" />
-    </svg>
-  )
-}
-
+// Quem entrou com o Google pelo site, ainda não tem cadastro e escolheu
+// "Sou cliente" (/completar-cadastro): o cadastro do cliente, uma pergunta
+// por tela (CadastroClienteEtapas). Quem vem do link de agendamento não
+// passa aqui — completa o cadastro no próprio link.
 export default function CompletarCadastroClientePage() {
   const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
-  const [userName, setUserName] = useState<string>('')
-  const [userEmail, setUserEmail] = useState<string>('')
-  const [loading, setLoading] = useState(true)
+  const [conta, setConta] = useState<{ email: string | null; nome: string | null } | null>(null)
 
-  // Carregar dados do usuário Google
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -48,130 +21,27 @@ export default function CompletarCadastroClientePage() {
         router.push('/login')
         return
       }
-      setUserName(
-        user.user_metadata?.full_name ||
-        user.user_metadata?.name ||
-        'Usuário'
-      )
-      setUserEmail(user.email ?? '')
-      setLoading(false)
+      setConta({
+        email: user.email ?? null,
+        nome: user.user_metadata?.full_name || user.user_metadata?.name || null,
+      })
     })
   }, [router])
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    const form = e.currentTarget
-    startTransition(async () => {
-      const result = await completarCadastroClienteGoogleAction(new FormData(form))
-      if (result?.error) setError(result.error)
-    })
-  }
-
-  if (loading) {
-    return (
-      <div className="login-shell" style={{ gridTemplateColumns: '1fr' }}>
-        <div className="login-form-pane">
-          <div className="login-form-inner" style={{ maxWidth: 460, textAlign: 'center' }}>
-            <p style={{ color: 'var(--lg-ink-mute)' }}>Carregando...</p>
-          </div>
-        </div>
-      </div>
-    )
+  if (!conta) {
+    return <div className="cl" aria-busy="true" />
   }
 
   return (
-    <div className="login-shell" style={{ gridTemplateColumns: '1fr' }}>
-      <div className="login-form-pane">
-        <div className="login-form-inner" style={{ maxWidth: 460 }}>
-          <MarcaSaip />
-
-          <h1 className="login-heading">Completar cadastro</h1>
-          <p className="login-sub">
-            Quase lá! Precisamos de mais alguns dados para finalizar sua conta.
-          </p>
-
-          {/* Info do Google */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-3)',
-            padding: 'var(--space-3) var(--space-4)',
-            borderRadius: 'var(--radius-md)',
-            background: '#f0fdf4',
-            border: '1px solid #bbf7d0',
-            marginBottom: 'var(--space-5)',
-          }}>
-            <span style={{ width: 20, height: 20, flexShrink: 0, color: '#16a34a' }}><IconCheck /></span>
-            <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#15803d' }}>
-                Conectado com o Google
-              </span>
-              <span style={{ fontSize: '0.75rem', color: '#166534' }}>
-                {userName} • {userEmail}
-              </span>
-            </span>
-          </div>
-
-          {error && (
-            <div className="login-alert" role="alert">
-              <IconAlert />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <form className="login-form" onSubmit={handleSubmit} noValidate>
-            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-              <div className="login-field" style={{ flex: 1 }}>
-                <label htmlFor="cpf" className="login-label">CPF</label>
-                <div className="login-input-wrap">
-                  <IconIdCard />
-                  <input
-                    id="cpf"
-                    name="cpf"
-                    type="text"
-                    className="login-input"
-                    placeholder="000.000.000-00"
-                    maxLength={14}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="login-field" style={{ flex: 1 }}>
-                <label htmlFor="telefone" className="login-label">Telefone</label>
-                <div className="login-input-wrap">
-                  <IconPhone />
-                  <input
-                    id="telefone"
-                    name="telefone"
-                    type="tel"
-                    className="login-input"
-                    placeholder="(11) 99999-9999"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="login-field" style={{ marginTop: 'var(--space-2)' }}>
-              <label className="login-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <input type="checkbox" name="aceita_termos" required />
-                <span style={{ fontSize: '13px', color: 'var(--lg-text-secondary)' }}>
-                  Eu li e aceito os <a href="/termos" target="_blank" style={{ color: 'var(--lg-primary)', textDecoration: 'none' }}>Termos de Uso</a> e a <a href="/privacidade" target="_blank" style={{ color: 'var(--lg-primary)', textDecoration: 'none' }}>Política de Privacidade</a>
-                </span>
-              </label>
-            </div>
-
-            <button type="submit" className="login-submit" disabled={isPending}>
-              {isPending ? 'Finalizando...' : 'Finalizar cadastro'}
-            </button>
-          </form>
-
-          <p className="login-signup-hint" style={{ fontSize: '0.6875rem', marginTop: 'var(--space-4)' }}>
-            Seus dados são protegidos e não serão compartilhados.
-          </p>
-        </div>
-      </div>
-    </div>
+    <CadastroClienteEtapas
+      email={conta.email}
+      nomeGoogle={conta.nome}
+      onEnviar={async campos => {
+        const fd = new FormData()
+        for (const [chave, valor] of Object.entries(campos)) if (valor) fd.set(chave, valor)
+        return completarCadastroClienteEtapasAction(fd)
+      }}
+      onVoltarInicio={() => router.push('/completar-cadastro')}
+    />
   )
 }

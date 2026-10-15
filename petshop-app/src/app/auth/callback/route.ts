@@ -11,12 +11,11 @@ import { ROTA_INTERNA } from '@/lib/rota-interna'
 // uma sessão (grava os cookies) antes de seguir pra tela final — sem essa
 // troca, a pessoa chega em /redefinir-senha sem sessão nenhuma.
 //
-// GOOGLE OAUTH: quando o usuário vem de /cadastro ou /cadastro/lojista
-// clicando em "Continuar com Google", o redirectTo inclui ?role=cliente
-// ou ?role=lojista. Após trocar o code por sessão, verificamos se o
-// usuário já tem registro nas tabelas do banco:
+// GOOGLE OAUTH: após trocar o code por sessão, verificamos se o usuário já
+// tem registro nas tabelas do banco:
 // - Já tem → redireciona pro dashboard correto
-// - Não tem → redireciona pra /completar-cadastro/{role}
+// - Não tem → /completar-cadastro, que pergunta se é cliente ou lojista
+//   (quem veio do link de agendamento volta para o link).
 
 // ── Helper: origin correto pra Vercel (respeita x-forwarded-host) ─────────
 // Sempre o endereço desta requisição, nunca o NEXT_PUBLIC_SITE_URL: os
@@ -181,11 +180,8 @@ export async function GET(request: Request) {
     }
   }
 
-  // Usuário novo (sem perfil em nenhuma tabela) → completar cadastro
-  if (role === 'lojista') {
-    return NextResponse.redirect(`${origin}/completar-cadastro/lojista`)
-  }
-
-  // Default: completar cadastro como cliente
-  return NextResponse.redirect(`${origin}/completar-cadastro/cliente`)
+  // Usuário novo (sem perfil em nenhuma tabela) → completar cadastro. A
+  // tela de entrar não pergunta o perfil: a primeira tela do cadastro
+  // (/completar-cadastro, obrigatória) pergunta se é cliente ou lojista.
+  return NextResponse.redirect(`${origin}/completar-cadastro`)
 }
