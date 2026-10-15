@@ -5,6 +5,7 @@ import { Ilustracao, type NomeIlustracao } from '@/components/Ilustracao'
 import { LogoSaip } from '@/components/LogoSaip'
 import { IconAlert, IconCheck, IconChevronLeft, IconPaw, IconUser } from '@/components/IconesDoSite'
 import { Text, TextInput } from '@/components/Texto'
+import { TextoTermos } from '@/components/TextoTermos'
 import { mascaraTelefoneLoja } from '@/lib/cadastro-loja'
 import {
   DADOS_CLIENTE_VAZIOS,
@@ -191,7 +192,7 @@ export function CadastroClienteEtapas({ email, nomeGoogle, onEnviar, onVoltarIni
                 <LinhaRevisao rotulo="Pet" valor={petEmUmaLinha(dados) || 'Cadastrar depois'} apagado={!temPet(dados)} onAlterar={() => irPara(3)} />
                 <Pressable onPress={() => mudar({ aceita_termos: !dados.aceita_termos })} accessibilityRole="checkbox" accessibilityState={{ checked: dados.aceita_termos }} style={styles.termos}>
                   <View style={[styles.caixa, dados.aceita_termos && styles.caixaMarcada]}>{dados.aceita_termos && <IconCheck size={12} color={colors.white} />}</View>
-                  <Text style={styles.termosTexto}>Li e aceito os Termos de Uso e a Política de Privacidade</Text>
+                  <TextoTermos style={styles.termosTexto} />
                 </Pressable>
               </View>
             )}

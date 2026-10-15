@@ -6,6 +6,7 @@ import { LogoSaip } from '@/components/LogoSaip'
 import { Seletor } from '@/components/Seletor'
 import { IconAlert, IconCheck, IconChevronLeft, IconStore } from '@/components/IconesDoSite'
 import { Text, TextInput } from '@/components/Texto'
+import { TextoTermos } from '@/components/TextoTermos'
 import {
   DADOS_LOJA_VAZIOS,
   ETAPAS_LOJA,
@@ -200,7 +201,7 @@ export function CadastroLoja({ email, onEnviar, onVoltarInicio }: {
                 <LinhaRevisao rotulo="Sobre" valor={dados.descricao.trim() || 'Completar depois'} apagado={!dados.descricao.trim()} onAlterar={() => irPara(4)} />
                 <Pressable onPress={() => mudar({ aceita_termos: !dados.aceita_termos })} accessibilityRole="checkbox" accessibilityState={{ checked: dados.aceita_termos }} style={styles.termos}>
                   <View style={[styles.caixa, dados.aceita_termos && styles.caixaMarcada]}>{dados.aceita_termos && <IconCheck size={12} color={colors.white} />}</View>
-                  <Text style={styles.termosTexto}>Li e aceito os Termos de Uso e a Política de Privacidade</Text>
+                  <TextoTermos style={styles.termosTexto} />
                 </Pressable>
               </View>
             )}
