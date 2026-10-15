@@ -232,8 +232,9 @@ function LoginFormPane() {
     <div className="login-form-inner">
       <MarcaSaip />
 
-      {/* Só no celular: no computador o painel ao lado já faz esse papel. */}
-      <div className="so-celular"><Ilustracao nome="login" altura={110} /></div>
+      {/* No celular e no computador (no computador, sem a escolha cliente/
+          lojista, o formulário ficava vazio ao lado do painel). */}
+      <Ilustracao nome="login" altura={110} />
 
       <h1 className="login-heading">Entrar ou criar conta</h1>
       <p className="login-sub">
@@ -276,7 +277,7 @@ function LoginFormFallback() {
   return (
     <div className="login-form-inner">
       <MarcaSaip />
-      <div className="so-celular"><Ilustracao nome="login" altura={110} /></div>
+      <Ilustracao nome="login" altura={110} />
       <h1 className="login-heading">Entrar ou criar conta</h1>
       <p className="login-sub">
         Para clientes e petshops, é só com a sua conta Google: o sistema identifica sozinho se você já tem conta. Se não tiver, a gente cria na hora e pergunta se você é cliente ou tem um petshop.
