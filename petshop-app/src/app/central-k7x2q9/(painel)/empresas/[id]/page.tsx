@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ROTA_INTERNA } from '@/lib/rota-interna'
 import { formatarReais } from '@/lib/taxidog'
-import { dataBRFmt, telefoneBR } from '@/lib/interno-util'
+import { dataBRFmt, diasAtras, somarVendas, telefoneBR } from '@/lib/interno-util'
 import BotaoAcao from '@/components/interno/BotaoAcao'
 import FormEmpresa from '@/components/interno/FormEmpresa'
 import EditarAcesso from '@/components/interno/EditarAcesso'
@@ -30,7 +30,7 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
   const { data: loja } = await db.from('lojista').select('*').eq('id_lojista', id).maybeSingle()
   if (!loja) notFound()
 
-  const trintaDias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const trintaDias = diasAtras(30)
   const contar = (tabela: string, filtro?: (q: any) => any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const q = db.from(tabela).select('*', { count: 'exact', head: true }).eq('id_lojista', id)
     return filtro ? filtro(q) : q
@@ -43,12 +43,11 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
     contar('produto'),
     contar('funcionario', q => q.eq('ativo', true)),
     contar('assinatura', q => q.eq('status', 'ativa')),
-    db.from('venda').select('total').eq('id_lojista', id).eq('status', 'concluida').gte('created_at', trintaDias).limit(20000),
+    somarVendas(db, trintaDias, id),
     db.from('funcionario').select('id_funcionario, nome, cargo, ativo').eq('id_lojista', id).order('nome'),
   ])
 
   const acesso = calcularAcesso(loja.acesso_ate, loja.acesso_livre)
-  const totalVendas = ((vendas30.data ?? []) as { total: number }[]).reduce((s, v) => s + Number(v.total), 0)
 
   const cards: { valor: string | number; rotulo: string }[] = [
     { valor: agend.count ?? 0, rotulo: 'Agendamentos' },
@@ -57,7 +56,7 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
     { valor: produtos.count ?? 0, rotulo: 'Produtos' },
     { valor: equipe.count ?? 0, rotulo: 'Equipe ativa' },
     { valor: planos.count ?? 0, rotulo: 'Assinaturas ativas' },
-    { valor: formatarReais(totalVendas), rotulo: `PDV em 30 dias (${vendas30.data?.length ?? 0})` },
+    { valor: formatarReais(vendas30.total), rotulo: `PDV em 30 dias (${vendas30.quantidade})` },
   ]
 
   return (
@@ -74,7 +73,7 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
           <span className={`badge ${loja.ativo ? 'badge-ativo' : 'badge-inativo'}`}>{loja.ativo ? 'Ativa' : 'Inativa'}</span>
           <BotaoAcao
             acao={alterarStatusEmpresaAction.bind(null, id, !loja.ativo)}
-            confirmar={loja.ativo ? `Desativar ${loja.nome_loja}?` : undefined}
+            confirmar={loja.ativo ? `Desativar ${loja.nome_loja}? A loja deixa de aparecer para os clientes e o painel dela fica bloqueado até reativar.` : undefined}
             className={loja.ativo ? 'btn btn-danger btn-sm' : 'btn btn-success btn-sm'}
           >
             {loja.ativo ? 'Desativar empresa' : 'Reativar empresa'}
@@ -115,9 +114,9 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
             {acesso.livre ? 'Voltar a cobrar' : 'Isentar de cobrança'}
           </BotaoAcao>
           <BotaoAcao
-            acao={entrarComoAction.bind(null, 'lojista', id)}
+            acao={entrarComoAction.bind(null, id)}
             className="btn btn-primary btn-sm"
-            confirmar={`Entrar na conta de ${loja.nome_loja}? Sua sessão atual será trocada pela dela.`}
+            confirmar={`Entrar na conta de ${loja.nome_loja}? Você vê o painel como a loja vê; para voltar, use “Voltar ao painel” na faixa do topo.`}
           >
             Entrar na conta
           </BotaoAcao>
@@ -126,7 +125,7 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
 
       {!acesso.livre && (
         <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-8)' }}>
-          <EditarAcesso idLojista={id} acessoAte={loja.acesso_ate} />
+          <EditarAcesso idLojista={id} acessoAte={loja.acesso_ate ?? null} />
         </div>
       )}
 

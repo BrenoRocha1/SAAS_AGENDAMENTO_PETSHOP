@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { obterUsuario } from '@/lib/supabase/usuario'
 import { redirect } from 'next/navigation'
 import ClienteSidebar from '@/components/layout/ClienteSidebar'
-import FaixaImpersonando from '@/components/acesso/FaixaImpersonando'
+import ContaDesativada from '@/components/acesso/ContaDesativada'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Dashboard — Cliente' }
@@ -37,13 +37,17 @@ export default async function ClienteLayout({
   // A foto da conta (migration 085) vem numa consulta à parte: enquanto a
   // coluna não existir no banco, o menu segue com o nome e as iniciais.
   const [{ data: cliente }, { data: foto }] = await Promise.all([
-    supabase.from('cliente').select('nome').eq('id_cliente', user.id).single(),
+    supabase.from('cliente').select('nome, ativo').eq('id_cliente', user.id).single(),
     supabase.from('cliente').select('foto_url').eq('id_cliente', user.id).maybeSingle(),
   ])
 
+  // Conta desativada pela equipe do SAIP (painel interno).
+  if (cliente && cliente.ativo === false) {
+    return <ContaDesativada titulo="Conta desativada" texto="Sua conta no SAIP foi desativada. Seus dados estão guardados — fale com o petshop ou com a gente para reativar." />
+  }
+
   return (
     <div className="app-layout cliente-shell">
-      <FaixaImpersonando />
       <ClienteSidebar
         userName={cliente?.nome ?? user.email ?? 'Cliente'}
         userEmail={user.email ?? ''}

@@ -12,6 +12,7 @@ import { acessoDaLoja, testeBloqueado } from '@/lib/acesso-loja'
 import AcessoExpirado from '@/components/acesso/AcessoExpirado'
 import FaixaTeste from '@/components/acesso/FaixaTeste'
 import FaixaImpersonando from '@/components/acesso/FaixaImpersonando'
+import ContaDesativada from '@/components/acesso/ContaDesativada'
 
 export const metadata: Metadata = { title: 'Dashboard — Lojista' }
 
@@ -62,11 +63,13 @@ export default async function LojistaLayout({
   // "quebrada" por causa de uma migration pendente, só assume o padrão.
   let somAtivo = true
   let somTipo = 'sino'
+  // Empresa desativada pela equipe do SAIP (painel interno): painel bloqueado.
+  let lojaAtiva = true
   // As três consultas do menu saem juntas (antes, uma esperava a outra).
   const [{ data: lojista, error: lojistaError }, { data: taxidogCfg }, { data: funcionario }] = await Promise.all([
     supabase
       .from('lojista')
-      .select('nome_loja, kanban_ativo, som_novo_agendamento_ativo, som_novo_agendamento_tipo')
+      .select('nome_loja, ativo, kanban_ativo, som_novo_agendamento_ativo, som_novo_agendamento_tipo')
       .eq('id_lojista', contexto.idLojista)
       .single(),
     // TaxiDog ligado? (migration 042) — tolerante: sem a tabela, o item
@@ -86,12 +89,14 @@ export default async function LojistaLayout({
   if (lojistaError) {
     const { data: fallback } = await supabase
       .from('lojista')
-      .select('nome_loja')
+      .select('nome_loja, ativo')
       .eq('id_lojista', contexto.idLojista)
       .single()
     nomeLoja = fallback?.nome_loja ?? nomeLoja
+    lojaAtiva = fallback?.ativo ?? true
   } else {
     nomeLoja = lojista?.nome_loja ?? nomeLoja
+    lojaAtiva = lojista?.ativo ?? true
     kanbanAtivo = lojista?.kanban_ativo ?? true
     somAtivo = lojista?.som_novo_agendamento_ativo ?? true
     somTipo = lojista?.som_novo_agendamento_tipo ?? 'sino'
@@ -102,9 +107,29 @@ export default async function LojistaLayout({
     : nomeLoja
 
   // Período de teste de 30 dias (migration 088): acabou → só a tela de aviso.
+  // A faixa do acesso interno aparece também nessas telas: a equipe que
+  // entrou numa loja bloqueada precisa conseguir voltar ao painel.
+  if (!lojaAtiva) {
+    return (
+      <>
+        <FaixaImpersonando />
+        <ContaDesativada
+          titulo="Conta desativada"
+          texto={contexto.role === 'lojista'
+            ? `O acesso de ${nomeLoja} ao SAIP foi desativado. Seus dados estão guardados — fale com a gente para reativar.`
+            : `O acesso de ${nomeLoja} ao SAIP está desativado. Fale com o responsável pela loja.`}
+        />
+      </>
+    )
+  }
   const acesso = await acessoDaLoja(supabase, contexto.idLojista)
   if (!acesso.liberado) {
-    return <AcessoExpirado nomeLoja={nomeLoja} ehDono={contexto.role === 'lojista'} repetido={await testeBloqueado(supabase, contexto.idLojista)} />
+    return (
+      <>
+        <FaixaImpersonando />
+        <AcessoExpirado nomeLoja={nomeLoja} ehDono={contexto.role === 'lojista'} repetido={await testeBloqueado(supabase, contexto.idLojista)} />
+      </>
+    )
   }
 
   return (

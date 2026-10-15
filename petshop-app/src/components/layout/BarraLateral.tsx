@@ -42,6 +42,8 @@ interface Props {
   // Chave do localStorage que lembra se o menu ficou recolhido.
   chaveColapso: string
   idBotaoSair?: string
+  // O que o "Sair" faz — por padrão, o logout comum (volta ao /login).
+  acaoSair?: () => Promise<void>
 }
 
 const LARGURA = 260
@@ -59,6 +61,7 @@ export default function BarraLateral({
   usuario,
   chaveColapso,
   idBotaoSair,
+  acaoSair,
 }: Props) {
   const [saindo, startTransition] = useTransition()
   const [colapsada, setColapsada] = useState(false)
@@ -92,7 +95,7 @@ export default function BarraLateral({
   }
 
   function sair() {
-    startTransition(() => logoutAction())
+    startTransition(() => (acaoSair ? acaoSair() : logoutAction()))
   }
 
   // Celular: fora das abas, a barra do topo vira o cabeçalho do app (seta

@@ -1,6 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ROTA_INTERNA } from '@/lib/rota-interna'
-import { TAMANHO_PAGINA, numeroPagina } from '@/lib/interno-util'
+import { BADGE_STATUS_AGENDAMENTO, TAMANHO_PAGINA, numeroPagina } from '@/lib/interno-util'
 import { formatarReais } from '@/lib/taxidog'
 import Paginacao from '@/components/interno/Paginacao'
 import type { Metadata } from 'next'
@@ -70,7 +70,7 @@ export default async function InternoAgendamentos({ searchParams }: Props) {
                   <td><div>{a.cliente?.nome ?? '—'}</div><div className="text-sm text-muted">{a.pet?.nome ?? '—'}</div></td>
                   <td>{a.servico?.nome ?? '—'}</td>
                   <td>{formatarReais(a.valor)}</td>
-                  <td><span className="badge badge-pendente">{a.status}</span></td>
+                  <td><span className={`badge ${BADGE_STATUS_AGENDAMENTO[a.status] ?? 'badge-pendente'}`}>{a.status}</span></td>
                 </tr>
               ))}
             </tbody>

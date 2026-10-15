@@ -10,7 +10,8 @@ export default function BotaoAcao({
   className = 'btn btn-secondary btn-sm',
   confirmar,
 }: {
-  acao: () => Promise<{ error?: string; success?: boolean }>
+  // Pode não devolver nada: "Entrar na conta" termina num redirect.
+  acao: () => Promise<{ error?: string; success?: boolean } | void>
   children: React.ReactNode
   className?: string
   confirmar?: string
@@ -23,7 +24,7 @@ export default function BotaoAcao({
     setErro(null)
     iniciar(async () => {
       const r = await acao()
-      if (r.error) setErro(r.error)
+      if (r && r.error) setErro(r.error)
     })
   }
 

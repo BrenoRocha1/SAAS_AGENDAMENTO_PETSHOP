@@ -4612,3 +4612,35 @@ html[data-theme='dark'] { --logo-saip: #6366f1; --logo-texto: #eceff5; }
 .loja-opcao-nome { font-weight: 600; color: var(--gray-100); }
 .loja-opcao-sub { display: flex; align-items: center; gap: 4px; font-size: 0.875rem; color: var(--gray-500); }
 
+
+/* Faixa "você está na conta de…" (painel interno → entrar na conta da loja).
+   Fica presa no topo e empurra o menu e a página para baixo. */
+:root { --faixa-interna: 0px; }
+:root:has(.faixa-interna) { --faixa-interna: 40px; }
+.faixa-interna {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9999; height: var(--faixa-interna);
+  display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 12px;
+  background: var(--warning-500); color: #1f2937; font-size: 0.8125rem; font-weight: 500;
+}
+.faixa-interna-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.faixa-interna-botao {
+  flex-shrink: 0; height: 28px; padding: 0 12px; border: 0; border-radius: var(--radius-md);
+  background: #111827; color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+}
+.faixa-interna-botao:hover { background: #000; }
+:root:has(.faixa-interna) .app-sidebar { top: var(--faixa-interna); height: calc(100dvh - var(--faixa-interna)); }
+:root:has(.faixa-interna) .app-main { padding-top: var(--faixa-interna); }
+@media (max-width: 1024px) {
+  :root:has(.faixa-interna) .menu-mobile-barra { top: var(--faixa-interna); }
+  :root:has(.faixa-interna) .app-main { padding-top: calc(var(--menu-mobile-altura) + var(--faixa-interna)); }
+}
+.faixa-interna-curto { display: none; }
+@media (max-width: 480px) {
+  .faixa-interna { font-size: 0.75rem; gap: 8px; }
+  .faixa-interna-longo { display: none; }
+  .faixa-interna-curto { display: inline; }
+}
+
+/* Painel interno: botões de ação numa célula da tabela (lado a lado, quebrando
+   linha se faltar espaço) — sem mudar o display da própria célula. */
+.interno-acoes { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: flex-start; }
