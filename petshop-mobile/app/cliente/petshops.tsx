@@ -9,11 +9,14 @@ import { EmptyState } from '@/components/EmptyState'
 import { SearchField } from '@/components/SearchField'
 import { Aviso } from '@/components/Aviso'
 import { Botao } from '@/components/Botao'
+import { Segmentos } from '@/components/Opcao'
+import { BuscaProdutosMarketplace } from '@/components/BuscaProdutosMarketplace'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { agoraBrasil, agoraBrasilHHMM } from '@/lib/agenda'
 import { linkWhatsApp } from '@/lib/format'
+import { normalizarBusca, type LojaMarketplace } from '@/lib/marketplace'
 import { colors, radius, spacing, typography } from '@/theme/theme'
 
 interface Loja {
@@ -42,7 +45,8 @@ function statusHoje(horarios: Horario[], idLojista: string): { rotulo: string; a
 }
 
 // Petshops que aceitam agendamento online (a mesma lista de
-// /cliente/petshops no site), com os que o cliente já usa em cima.
+// /cliente/petshops no site), com os que o cliente já usa em cima, e a
+// aba Produtos: a busca de produtos do marketplace (migration 098).
 export default function PetshopsScreen() {
   const { user } = useAuth()
   const router = useRouter()
@@ -51,6 +55,7 @@ export default function PetshopsScreen() {
   const [horarios, setHorarios] = useState<Horario[]>([])
   const [minhas, setMinhas] = useState<Set<string>>(new Set())
   const [busca, setBusca] = useState('')
+  const [aba, setAba] = useState<'petshops' | 'produtos'>('petshops')
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -75,12 +80,24 @@ export default function PetshopsScreen() {
 
   useFocusEffect(useCallback(() => { carregar() }, [carregar]))
 
+  const ordenadas = useMemo(() => [...lojas]
+    .sort((a, b) => Number(minhas.has(b.id_lojista)) - Number(minhas.has(a.id_lojista)) || a.nome_loja.localeCompare(b.nome_loja, 'pt-BR')),
+  [lojas, minhas])
+
   const visiveis = useMemo(() => {
-    const termo = busca.trim().toLowerCase()
-    return lojas
-      .filter(l => !termo || l.nome_loja.toLowerCase().includes(termo) || (l.cidade ?? '').toLowerCase().includes(termo))
-      .sort((a, b) => Number(minhas.has(b.id_lojista)) - Number(minhas.has(a.id_lojista)) || a.nome_loja.localeCompare(b.nome_loja, 'pt-BR'))
-  }, [lojas, busca, minhas])
+    const termo = normalizarBusca(busca)
+    return ordenadas.filter(l => !termo || normalizarBusca(`${l.nome_loja} ${l.cidade ?? ''}`).includes(termo))
+  }, [ordenadas, busca])
+
+  // As mesmas lojas, no formato da busca de produtos.
+  const lojasProdutos: LojaMarketplace[] = useMemo(() => ordenadas.map(l => ({
+    id: l.id_lojista,
+    nome: l.nome_loja,
+    logoUrl: l.logo_url,
+    local: [l.cidade, l.estado].filter(Boolean).join(', '),
+    status: statusHoje(horarios, l.id_lojista),
+    telefone: l.telefone,
+  })), [ordenadas, horarios])
 
   return (
     <ScreenContainer
@@ -89,8 +106,26 @@ export default function PetshopsScreen() {
       topo={<BarraTopo rotuloMenu="Menu" onMenu={() => router.push('/cliente/menu' as never)} />}
     >
       <Text style={styles.h1}>Petshops</Text>
-      <Text style={styles.sub}>Encontre o petshop ideal para o seu pet</Text>
+      <Text style={styles.sub}>Encontre petshops e produtos para o seu pet</Text>
 
+      <View style={{ marginTop: spacing.lg }}>
+        <Segmentos
+          opcoes={[{ valor: 'petshops', rotulo: `Petshops ${lojas.length || ''}`.trim() }, { valor: 'produtos', rotulo: 'Produtos' }]}
+          valor={aba}
+          onChange={setAba}
+        />
+      </View>
+
+      {aba === 'produtos' ? (
+        <View style={{ marginTop: spacing.lg }}>
+          {!loading && (
+            <BuscaProdutosMarketplace
+              lojas={lojasProdutos}
+              onComprar={(loja, produto) => router.push({ pathname: '/cliente/agendamentos/novo', params: { loja: loja.id, produto: produto.id_produto } } as never)}
+            />
+          )}
+        </View>
+      ) : <>
       <View style={{ marginVertical: spacing.lg }}>
         <SearchField value={busca} onChangeText={setBusca} placeholder="Buscar por nome ou cidade..." />
       </View>
@@ -144,6 +179,7 @@ export default function PetshopsScreen() {
           })}
         </View>
       )}
+      </>}
     </ScreenContainer>
   )
 }

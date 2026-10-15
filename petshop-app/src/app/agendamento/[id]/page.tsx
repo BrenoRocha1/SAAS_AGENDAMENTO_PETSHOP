@@ -14,7 +14,8 @@ export const metadata: Metadata = { title: 'Agendar horário' }
 
 interface Props {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ servicos?: string }>
+  // produto: veio da busca de produtos da conta do cliente (já entra no pedido).
+  searchParams: Promise<{ servicos?: string; produto?: string }>
 }
 
 // UUID (link antigo, por id_lojista) vs slug personalizado (migration 024)
@@ -40,7 +41,7 @@ function AvisoShell({ children }: { children: React.ReactNode }) {
 
 export default async function AgendamentoOnlinePage({ params, searchParams }: Props) {
   const { id } = await params
-  const { servicos: servicosParam } = await searchParams
+  const { servicos: servicosParam, produto: produtoParam } = await searchParams
   const supabase = await createClient()
   const user = await obterUsuario()
 
@@ -296,6 +297,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
           cadastroIncompleto={cadastroIncompleto}
           nomeConta={String(user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? '')}
           carrinhoInicial={servicosParam ? servicosParam.split(',').filter(Boolean) : []}
+          produtosIniciais={produtoParam ? [produtoParam] : []}
           taxidogDisponivel={taxidogDisponivel}
           precosEstimados={precosEstimados}
           formasPagamento={normalizarFormasLoja(formasRaw)}

@@ -1,7 +1,7 @@
 -- ============================================================
--- PETSHOP SaaS - Migration 096: promoção do serviço, completa
+-- PETSHOP SaaS - Migration 097: promoção do serviço, completa
 -- ============================================================
--- Em cima da 095_promocoes.sql (desconto em % com datas), sem mudar o que
+-- Em cima da 096_promocoes.sql (desconto em % com datas), sem mudar o que
 -- ela já gravou:
 --   • preço promocional em R$ (o desconto em % e a economia saem dele);
 --   • hora de início e de encerramento, além da data;
@@ -12,7 +12,7 @@
 -- O preço continua saindo de fn_calcular_preco_servico — o navegador e o
 -- app nunca mandam preço.
 --
--- Pode rodar antes de o código novo ir ao ar: promoção já criada pela 095
+-- Pode rodar antes de o código novo ir ao ar: promoção já criada pela 096
 -- segue valendo igual. Pode rodar de novo sem problema.
 -- ============================================================
 
@@ -22,7 +22,7 @@ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 'servico' AND column_name = 'promo_percentual'
   ) THEN
-    RAISE EXCEPTION 'Rode antes a migration 095_promocoes.sql.';
+    RAISE EXCEPTION 'Rode antes a migration 096_promocoes.sql.';
   END IF;
 END
 $$;
@@ -33,7 +33,7 @@ ALTER TABLE servico ADD COLUMN IF NOT EXISTS promo_hora_fim TIME;
 ALTER TABLE servico ADD COLUMN IF NOT EXISTS promo_ativa BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE servico ADD COLUMN IF NOT EXISTS promo_exibir_online BOOLEAN NOT NULL DEFAULT TRUE;
 
--- Com preço promocional o desconto pode passar de 90% (a 095 parava aí).
+-- Com preço promocional o desconto pode passar de 90% (a 096 parava aí).
 ALTER TABLE servico DROP CONSTRAINT IF EXISTS servico_promo_valida;
 ALTER TABLE servico ADD CONSTRAINT servico_promo_valida CHECK (
   (promo_percentual IS NULL OR promo_percentual BETWEEN 1 AND 99)
@@ -47,10 +47,10 @@ ALTER TABLE servico ADD CONSTRAINT servico_promo_valida CHECK (
 );
 
 -- Regras do preço promocional, valendo para qualquer caminho que grave o
--- serviço (tela nova, tela da 095, edição do preço do serviço):
+-- serviço (tela nova, tela da 096, edição do preço do serviço):
 --   • maior que zero e menor que o preço do serviço;
 --   • o percentual é sempre o calculado a partir dele;
---   • quem grava só o percentual (tela da 095) passa a valer pelo percentual;
+--   • quem grava só o percentual (tela da 096) passa a valer pelo percentual;
 --   • sem promoção, o resto da configuração é limpo.
 CREATE OR REPLACE FUNCTION fn_servico_promocao_valida()
 RETURNS TRIGGER
@@ -172,7 +172,7 @@ $$;
 -- Preço que vale agora: o cheio e, por cima, a promoção vigente.
 --   • com preço promocional: o preço base vira exatamente ele, e os preços
 --     por porte/raça levam o mesmo desconto proporcional;
---   • só com percentual (promoção feita pela 095): o percentual;
+--   • só com percentual (promoção feita pela 096): o percentual;
 --   • promoção que a loja não oferece no agendamento online não vale para
 --     quem agenda como cliente — só para a loja.
 CREATE OR REPLACE FUNCTION fn_calcular_preco_servico(

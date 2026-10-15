@@ -13,7 +13,7 @@ import { formatarReais } from '@/lib/taxidog'
 // trigger da 096 ("O preço promocional…") já vêm prontas para a tela.
 // `null` = o erro não é da promoção.
 export function mensagemErroPromocaoServico(mensagem: string | null | undefined): string | null {
-  if (faltaMigrationPromocaoCompleta(mensagem)) return 'Execute a migration 096_promocao_servico_completa.sql para usar a promoção com preço promocional.'
+  if (faltaMigrationPromocaoCompleta(mensagem)) return 'Execute a migration 097_promocao_servico_completa.sql para usar a promoção com preço promocional.'
   if (/preço promocional/i.test(mensagem ?? '')) return mensagem as string
   if (/servico_promo_valida/i.test(mensagem ?? '')) return 'Confira o período da promoção: o encerramento precisa ser depois do início.'
   return null
