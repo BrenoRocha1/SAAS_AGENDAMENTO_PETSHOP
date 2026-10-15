@@ -719,8 +719,13 @@ export async function completarCadastroLojistaGoogleAction(formData: FormData) {
   // Número da loja em campo próprio (migration 045) — ver cadastroLojistaAction.
   await gravarDocumentoLoja(adminClient, user.id, parsed.data.documento)
   const numeroLoja = (formData.get('numero') as string)?.trim().slice(0, 20)
-  if (numeroLoja) {
-    await adminClient.from('lojista').update({ numero: numeroLoja }).eq('id_lojista', user.id)
+  // O cadastro em etapas também pergunta o bairro (campo próprio, migration 045).
+  const bairroLoja = (formData.get('bairro') as string | null)?.trim().slice(0, 80)
+  if (numeroLoja || bairroLoja) {
+    await adminClient.from('lojista').update({
+      ...(numeroLoja ? { numero: numeroLoja } : {}),
+      ...(bairroLoja ? { bairro: bairroLoja } : {}),
+    }).eq('id_lojista', user.id)
   }
 
   // Atualizar user_metadata com role
