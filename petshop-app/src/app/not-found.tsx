@@ -9,7 +9,8 @@ export const metadata: Metadata = { title: 'Página não encontrada' }
 export default function NaoEncontrado() {
   return (
     <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-6)' }}>
-      <div className="card empty-state" style={{ maxWidth: 420, width: '100%' }}>
+      {/* Sem cartão por cima: a página toda numa cor só. */}
+      <div className="empty-state" style={{ maxWidth: 420, width: '100%' }}>
         <Ilustracao nome="erro" altura={150} />
         <div className="empty-state-title">Página não encontrada</div>
         <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-4)' }}>
