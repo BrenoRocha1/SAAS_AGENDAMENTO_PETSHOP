@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatarReais } from '@/lib/taxidog'
 import { ROTA_INTERNA } from '@/lib/rota-interna'
-import { dataBRFmt } from '@/lib/interno-util'
+import { dataBRFmt, diasAtras, hojeBrasil, somarVendas } from '@/lib/interno-util'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Visão geral — Interno' }
@@ -14,8 +14,8 @@ export default async function InternoVisaoGeral() {
     return <div className="alert alert-error"><span>SUPABASE_SERVICE_ROLE_KEY não configurada no servidor.</span></div>
   }
 
-  const trintaDias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-  const hoje = new Date().toISOString().slice(0, 10)
+  const trintaDias = diasAtras(30)
+  const hoje = hojeBrasil()
   const contar = (tabela: string, filtro?: (q: any) => any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const q = db.from(tabela).select('*', { count: 'exact', head: true })
     return filtro ? filtro(q) : q
@@ -31,12 +31,10 @@ export default async function InternoVisaoGeral() {
     contar('agendamento'),
     contar('agendamento', q => q.eq('dt_agendamento', hoje)),
     contar('funcionario', q => q.eq('ativo', true)),
-    db.from('venda').select('total').eq('status', 'concluida').gte('created_at', trintaDias).limit(20000),
+    somarVendas(db, trintaDias),
     db.from('lojista').select('id_lojista, nome_loja, cidade, estado, ativo, created_at').order('created_at', { ascending: false }).limit(6),
   ])
 
-  const totalVendas30 = ((vendas30.data ?? []) as { total: number }[]).reduce((s, v) => s + Number(v.total), 0)
-  const qtdVendas30 = vendas30.data?.length ?? 0
 
   const cards: { valor: string | number; rotulo: string }[] = [
     { valor: empresas.count ?? 0, rotulo: 'Empresas cadastradas' },
@@ -46,7 +44,7 @@ export default async function InternoVisaoGeral() {
     { valor: agendamentos.count ?? 0, rotulo: 'Agendamentos (total)' },
     { valor: agendHoje.count ?? 0, rotulo: 'Agendamentos para hoje' },
     { valor: funcionarios.count ?? 0, rotulo: 'Funcionários ativos' },
-    { valor: formatarReais(totalVendas30), rotulo: `Vendas PDV em 30 dias (${qtdVendas30})` },
+    { valor: formatarReais(vendas30.total), rotulo: `Vendas PDV em 30 dias (${vendas30.quantidade})` },
   ]
 
   return (

@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { COOKIE_IMPERSONANDO } from '@/lib/impersonar'
+import { COOKIE_IMPERSONANDO, COOKIE_VOLTA_INTERNO } from '@/lib/impersonar'
 import { popularLojaDemo, type ResultadoDemo } from '@/lib/demo-loja'
 import { getPlatformAdmin } from '@/lib/admin'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -60,6 +60,7 @@ export async function alterarStatusClienteAction(idCliente: string, ativo: boole
   if (!UUID_RE.test(idCliente)) return { error: 'Cliente inválido.' }
   const { error } = await ctx.db.from('cliente').update({ ativo }).eq('id_cliente', idCliente)
   if (error) return { error: error.message }
+  await auditar(ctx.db, ctx.admin, ativo ? 'cliente.reativar' : 'cliente.desativar', 'cliente', idCliente)
   revalidarInterno()
   return { success: true }
 }
@@ -79,11 +80,13 @@ export async function editarEmpresaAction(
   if (!/^\d{10,11}$/.test(telefone)) return { error: 'Telefone com DDD, 10 ou 11 números.' }
   if (estado && !/^[A-Z]{2}$/.test(estado)) return { error: 'Estado com 2 letras (ex.: SP).' }
 
+  const cidade = dados.cidade.trim().slice(0, 100) || null
   const { error } = await ctx.db
     .from('lojista')
-    .update({ nome_loja: nome, telefone, cidade: dados.cidade.trim() || null, estado: estado || null })
+    .update({ nome_loja: nome, telefone, cidade, estado: estado || null })
     .eq('id_lojista', idLojista)
   if (error) return { error: error.message }
+  await auditar(ctx.db, ctx.admin, 'empresa.editar', 'lojista', idLojista, { nome_loja: nome, telefone, cidade, estado: estado || null })
   revalidarInterno()
   return { success: true }
 }
@@ -99,10 +102,12 @@ export async function adicionarAdminAction(email: string, nome: string): Promise
   // ilike com curinga escapado: "_" e "%" são válidos em e-mail e, sem escapar,
   // casariam com outra conta.
   const padrao = mail.replace(/[\\%_]/g, c => `\\${c}`)
-  const [{ data: lojista }, { data: cliente }] = await Promise.all([
-    ctx.db.from('lojista').select('id_lojista, nome_loja').ilike('email', padrao).maybeSingle(),
-    ctx.db.from('cliente').select('id_cliente, nome').ilike('email', padrao).maybeSingle(),
+  const [{ data: lojistas }, { data: clientes }] = await Promise.all([
+    ctx.db.from('lojista').select('id_lojista, nome_loja').ilike('email', padrao).limit(1),
+    ctx.db.from('cliente').select('id_cliente, nome').ilike('email', padrao).limit(1),
   ])
+  const lojista = lojistas?.[0]
+  const cliente = clientes?.[0]
   const id: string | undefined = lojista?.id_lojista ?? cliente?.id_cliente
   if (!id) return { error: 'Não achei conta com esse e-mail. A pessoa precisa ter entrado no sistema antes.' }
 
@@ -110,7 +115,8 @@ export async function adicionarAdminAction(email: string, nome: string): Promise
   const { error } = await ctx.db
     .from('admin_usuario')
     .upsert({ id, email: mail, nome: nomeFinal, ativo: true }, { onConflict: 'id' })
-  if (error) return { error: error.message }
+  if (error) return { error: /admin_usuario_email_key|duplicate/i.test(error.message) ? 'Esse e-mail já está em outro administrador.' : error.message }
+  await auditar(ctx.db, ctx.admin, 'admin.adicionar', 'admin', id, { email: mail })
   revalidarInterno()
   return { success: true }
 }
@@ -122,6 +128,7 @@ export async function alterarStatusAdminAction(idAdmin: string, ativo: boolean):
   if (idAdmin === ctx.admin.id) return { error: 'Você não pode desativar o próprio acesso.' }
   const { error } = await ctx.db.from('admin_usuario').update({ ativo }).eq('id', idAdmin)
   if (error) return { error: error.message }
+  await auditar(ctx.db, ctx.admin, ativo ? 'admin.reativar' : 'admin.desativar', 'admin', idAdmin)
   revalidarInterno()
   return { success: true }
 }
@@ -177,21 +184,29 @@ export async function definirAcessoLivreAction(idLojista: string, livre: boolean
   return { success: true }
 }
 
-// ── Entrar na conta de um cliente / loja ──────────────────────────────────
+// ── Entrar na conta de uma loja ───────────────────────────────────────────
+// Só conta de loja (lojista): a equipe não entra em conta de cliente.
 // Gera um link de uso único pelo Supabase e já o troca por sessão aqui no
-// servidor. A sessão do admin é SUBSTITUÍDA pela da pessoa (é assim que o
-// Supabase funciona); para voltar, "Sair desta conta" e entrar de novo em
-// /central-k7x2q9/entrar. Cada entrada fica gravada em admin_auditoria.
-export async function entrarComoAction(tipo: 'lojista' | 'cliente', id: string): Promise<Resultado> {
+// servidor — a sessão do navegador passa a ser a da loja. Antes, guarda a
+// sessão do administrador num cookie httpOnly: "Voltar ao painel" (a faixa
+// no topo) a restaura sem novo login. Entrada e volta ficam em admin_auditoria.
+const OPCOES_COOKIE_INTERNO = {
+  httpOnly: true, sameSite: 'lax' as const, secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 8,
+}
+
+export async function entrarComoAction(idLojista: string): Promise<Resultado> {
   const ctx = await exigirAdmin()
   if ('erro' in ctx) return { error: ctx.erro }
-  if (!UUID_RE.test(id) || (tipo !== 'lojista' && tipo !== 'cliente')) return { error: 'Conta inválida.' }
+  if (!UUID_RE.test(idLojista)) return { error: 'Empresa inválida.' }
+
+  const { data: loja } = await ctx.db.from('lojista').select('id_lojista, nome_loja').eq('id_lojista', idLojista).maybeSingle()
+  if (!loja) return { error: 'Empresa não encontrada.' }
 
   // Nunca entrar na conta de outro administrador.
-  const { data: ehAdmin } = await ctx.db.from('admin_usuario').select('id').eq('id', id).maybeSingle()
+  const { data: ehAdmin } = await ctx.db.from('admin_usuario').select('id').eq('id', idLojista).maybeSingle()
   if (ehAdmin) return { error: 'Não é possível entrar na conta de um administrador.' }
 
-  const { data: usuario, error: erroUsuario } = await ctx.db.auth.admin.getUserById(id)
+  const { data: usuario, error: erroUsuario } = await ctx.db.auth.admin.getUserById(idLojista)
   const email = usuario?.user?.email
   if (erroUsuario || !email) return { error: 'Não achei o login dessa conta.' }
 
@@ -199,29 +214,73 @@ export async function entrarComoAction(tipo: 'lojista' | 'cliente', id: string):
   const hash = link?.properties?.hashed_token
   if (erroLink || !hash) return { error: erroLink?.message ?? 'Não foi possível gerar o acesso.' }
 
-  await auditar(ctx.db, ctx.admin, 'conta.entrar', tipo, id, { email })
-
   const supabase = await createClient()
+  const { data: { session: sessaoAdmin } } = await supabase.auth.getSession()
   const { error: erroSessao } = await supabase.auth.verifyOtp({ token_hash: hash, type: 'magiclink' })
   if (erroSessao) return { error: erroSessao.message }
 
-  const nome = tipo === 'lojista'
-    ? (await ctx.db.from('lojista').select('nome_loja').eq('id_lojista', id).maybeSingle()).data?.nome_loja
-    : (await ctx.db.from('cliente').select('nome').eq('id_cliente', id).maybeSingle()).data?.nome
+  await auditar(ctx.db, ctx.admin, 'conta.entrar', 'lojista', idLojista, { email })
 
-  ;(await cookies()).set(COOKIE_IMPERSONANDO, encodeURIComponent(nome ?? email), {
-    httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 8,
-  })
+  const jar = await cookies()
+  jar.set(COOKIE_IMPERSONANDO, encodeURIComponent(loja.nome_loja ?? email), OPCOES_COOKIE_INTERNO)
+  if (sessaoAdmin?.refresh_token) {
+    jar.set(COOKIE_VOLTA_INTERNO, encodeURIComponent(JSON.stringify({ rt: sessaoAdmin.refresh_token, id: idLojista })), OPCOES_COOKIE_INTERNO)
+  }
   revalidatePath('/', 'layout')
-  // Cai direto no perfil pessoal da pessoa, para a equipe resolver o que ela precisar.
-  redirect(tipo === 'lojista' ? '/lojista/perfil' : '/cliente/perfil')
+  // Cai direto no perfil da loja, para a equipe resolver o que for preciso.
+  redirect('/lojista/perfil')
 }
 
-// Sai da conta vista e volta para a tela de entrada do painel interno.
+function lerVolta(valor: string | undefined): { rt: string; id: string | null } | null {
+  if (!valor) return null
+  try {
+    const v = JSON.parse(decodeURIComponent(valor)) as { rt?: unknown; id?: unknown }
+    if (typeof v.rt !== 'string' || !v.rt) return null
+    return { rt: v.rt, id: typeof v.id === 'string' && UUID_RE.test(v.id) ? v.id : null }
+  } catch {
+    return null
+  }
+}
+
+// Sai da conta da loja e volta ao painel interno com a sessão do
+// administrador (se ela ainda valer e ele ainda for admin). Se não der,
+// cai na tela de entrada do painel.
 export async function sairDaContaAction() {
+  const jar = await cookies()
+  const volta = lerVolta(jar.get(COOKIE_VOLTA_INTERNO)?.value)
+  jar.delete(COOKIE_IMPERSONANDO)
+  jar.delete(COOKIE_VOLTA_INTERNO)
+
   const supabase = await createClient()
   await supabase.auth.signOut({ scope: 'local' })
-  ;(await cookies()).delete(COOKIE_IMPERSONANDO)
+
+  if (volta) {
+    const { data, error } = await supabase.auth.refreshSession({ refresh_token: volta.rt })
+    if (!error && data.user) {
+      const { data: admin } = await supabase.from('admin_usuario').select('id, email').eq('id', data.user.id).eq('ativo', true).maybeSingle()
+      if (admin) {
+        const db = createAdminClient()
+        if (db && volta.id) {
+          await auditar(db, { id: admin.id, email: admin.email, nome: null, ativo: true }, 'conta.sair', 'lojista', volta.id)
+        }
+        revalidatePath('/', 'layout')
+        redirect(volta.id ? `${ROTA_INTERNA}/empresas/${volta.id}` : ROTA_INTERNA)
+      }
+      await supabase.auth.signOut({ scope: 'local' })
+    }
+  }
+  revalidatePath('/', 'layout')
+  redirect(`${ROTA_INTERNA}/entrar`)
+}
+
+// "Sair" do menu do painel interno: encerra a sessão e volta para a tela de
+// entrada do painel (e não para o login de clientes e lojas).
+export async function sairDoPainelAction() {
+  const jar = await cookies()
+  jar.delete(COOKIE_IMPERSONANDO)
+  jar.delete(COOKIE_VOLTA_INTERNO)
+  const supabase = await createClient()
+  await supabase.auth.signOut({ scope: 'local' })
   revalidatePath('/', 'layout')
   redirect(`${ROTA_INTERNA}/entrar`)
 }

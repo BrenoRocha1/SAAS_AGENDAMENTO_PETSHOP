@@ -5,6 +5,7 @@ import { TAMANHO_PAGINA, dataBRFmt, numeroPagina, termoSeguro, telefoneBR } from
 import Paginacao from '@/components/interno/Paginacao'
 import BotaoAcao from '@/components/interno/BotaoAcao'
 import { alterarStatusEmpresaAction, entrarComoAction } from '@/lib/actions-interno'
+import { calcularAcesso } from '@/lib/acesso-loja'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Empresas — Interno' }
@@ -69,24 +70,24 @@ export default async function InternoEmpresas({ searchParams }: Props) {
                   <td><div>{l.email}</div><div className="text-sm text-muted">{telefoneBR(l.telefone)}</div></td>
                   <td>{l.cidade ? `${l.cidade}${l.estado ? `/${l.estado}` : ''}` : '—'}</td>
                   <td><span className={`badge ${l.ativo ? 'badge-ativo' : 'badge-inativo'}`}>{l.ativo ? 'Ativa' : 'Inativa'}</span></td>
-                  <td className="text-sm">
-                    {l.acesso_livre ? 'Isenta' : l.acesso_ate ? (new Date(l.acesso_ate).getTime() > Date.now() ? `até ${dataBRFmt(l.acesso_ate)}` : 'Encerrado') : '—'}
-                  </td>
+                  <td className="text-sm"><SituacaoAcesso acessoAte={l.acesso_ate} livre={l.acesso_livre} /></td>
                   <td className="text-sm text-muted">{dataBRFmt(l.created_at)}</td>
-                  <td style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                  <td>
+                    <div className="interno-acoes">
                     <BotaoAcao
-                      acao={entrarComoAction.bind(null, 'lojista', l.id_lojista)}
+                      acao={entrarComoAction.bind(null, l.id_lojista)}
                       className="btn btn-primary btn-sm"
-                      confirmar={`Entrar na conta de ${l.nome_loja}? Sua sessão atual será trocada pela dela.`}
+                      confirmar={`Entrar na conta de ${l.nome_loja}? Você vê o painel como a loja vê; para voltar, use “Voltar ao painel” na faixa do topo.`}
                     >
                       Entrar na conta
                     </BotaoAcao>
                     <BotaoAcao
                       acao={alterarStatusEmpresaAction.bind(null, l.id_lojista, !l.ativo)}
-                      confirmar={l.ativo ? `Desativar ${l.nome_loja}?` : undefined}
+                      confirmar={l.ativo ? `Desativar ${l.nome_loja}? A loja deixa de aparecer para os clientes e o painel dela fica bloqueado até reativar.` : undefined}
                     >
                       {l.ativo ? 'Desativar' : 'Reativar'}
                     </BotaoAcao>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -97,4 +98,12 @@ export default async function InternoEmpresas({ searchParams }: Props) {
       <Paginacao base={`${ROTA_INTERNA}/empresas`} params={{ ...(busca ? { busca } : {}), ...(status ? { status } : {}) }} pagina={pagina} total={count ?? 0} tamanho={TAMANHO_PAGINA} />
     </>
   )
+}
+
+// "até 15/11", "Encerrado" ou "Isenta" — a mesma conta do painel da loja.
+function SituacaoAcesso({ acessoAte, livre }: { acessoAte: string | null; livre: boolean | null }) {
+  const a = calcularAcesso(acessoAte, livre)
+  if (a.livre) return <>Isenta</>
+  if (!a.acessoAte) return <>—</>
+  return a.liberado ? <>até {dataBRFmt(a.acessoAte)}</> : <span className="text-danger">Encerrado</span>
 }

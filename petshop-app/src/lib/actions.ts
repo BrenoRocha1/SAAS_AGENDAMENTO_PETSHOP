@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { cookies, headers } from 'next/headers'
-import { COOKIE_LOGIN_INTERNO } from '@/lib/impersonar'
+import { COOKIE_IMPERSONANDO, COOKIE_LOGIN_INTERNO, COOKIE_VOLTA_INTERNO } from '@/lib/impersonar'
 import { lerFiscalDoForm, type ProdutoFiscal } from '@/lib/fiscal'
 import { gerarEmailInterno } from '@/lib/email-interno'
 import { trocarCodigoPorToken } from '@/lib/codigo-acesso'
@@ -293,6 +293,11 @@ export async function logoutAction(redirectTo?: string) {
   // sessões da conta, e sair do site derrubava o app no celular (e o site
   // aberto em outro computador).
   await supabase.auth.signOut({ scope: 'local' })
+  // Saindo de uma loja vista pelo painel interno pelo "Sair" comum: a faixa
+  // e a volta para o painel não podem ficar para o próximo login.
+  const jar = await cookies()
+  jar.delete(COOKIE_IMPERSONANDO)
+  jar.delete(COOKIE_VOLTA_INTERNO)
   revalidatePath('/', 'layout')
   const volta = voltaValida(redirectTo)
   redirect(volta ? `/login?redirectTo=${encodeURIComponent(volta)}` : '/login')
