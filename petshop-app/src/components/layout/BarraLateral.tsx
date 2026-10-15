@@ -101,9 +101,34 @@ export default function BarraLateral({
   const router = useRouter()
   const tituloInterno = useTituloInterno()
   const telaInterna = !!abas && abas.length > 1 && !abas.some(a => a.href === pathname)
+  // Voltar sai da tela. Trocar o dia ou abrir uma rota deixa no histórico
+  // outras entradas da MESMA tela (só muda o ?data=, ?rota=…): um voltar
+  // simples parava nelas e parecia não sair do lugar (Rotas do TaxiDog).
+  // Então volta até a página mudar; sem mais nada para trás, sobe um nível.
   function voltar() {
-    if (window.history.length > 1) router.back()
-    else router.push(pathname.split('/').slice(0, -1).join('/') || '/')
+    const subir = () => router.push(pathname.split('/').slice(0, -1).join('/') || '/')
+    if (window.history.length <= 1) return subir()
+    const daqui = window.location.pathname
+    let passos = 0
+    let desiste: ReturnType<typeof setTimeout>
+    const encerrar = () => { window.removeEventListener('popstate', aoVoltar); clearTimeout(desiste) }
+    // O navegador não avisa quando não há mais para onde voltar.
+    const esperar = () => {
+      clearTimeout(desiste)
+      desiste = setTimeout(() => { encerrar(); if (window.location.pathname === daqui) subir() }, 800)
+    }
+    function aoVoltar() {
+      if (window.location.pathname === daqui && passos < 20) {
+        passos++
+        esperar()
+        window.history.back()
+        return
+      }
+      encerrar()
+    }
+    window.addEventListener('popstate', aoVoltar)
+    esperar()
+    window.history.back()
   }
 
   return (

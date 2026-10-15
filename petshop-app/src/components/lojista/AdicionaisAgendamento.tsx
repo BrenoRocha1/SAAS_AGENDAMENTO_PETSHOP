@@ -15,6 +15,28 @@ import { formatarReais } from '@/lib/taxidog'
 import { IconAlert, IconCheck, IconClose, IconPlus, IconWhatsapp } from '@/components/icons'
 import './adicionais.css'
 
+// O que já se sabe de cada atendimento: abrir o detalhe de novo (ou abrir
+// um que a lista já adiantou) mostra o bloco na hora, sem o detalhe "pular"
+// quando ele chega. A releitura de fundo só troca o que mudou.
+const jaLidos = new Map<string, AdicionaisDoAtendimento>()
+const emLeitura = new Map<string, Promise<AdicionaisDoAtendimento>>()
+
+function lerAdicionais(id: string): Promise<AdicionaisDoAtendimento> {
+  const andando = emLeitura.get(id)
+  if (andando) return andando
+  const leitura = adicionaisDoAgendamentoAction(id)
+    .then(r => { jaLidos.set(id, r); return r })
+    .finally(() => emLeitura.delete(id))
+  emLeitura.set(id, leitura)
+  return leitura
+}
+
+// Adianta a leitura dos atendimentos que estão na tela (a lista do dia),
+// para o detalhe já abrir completo.
+export function preCarregarAdicionais(ids: string[]) {
+  for (const id of ids) if (!jaLidos.has(id)) lerAdicionais(id).catch(() => {})
+}
+
 function quando(ts: string) {
   return new Date(ts).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
@@ -28,9 +50,19 @@ function quando(ts: string) {
 // `pagamento` (o status do pagamento, quando a tela de fora sabe) só serve
 // para o bloco reler quando ele muda. Se o bloco estiver com a informação
 // velha, o banco recusa do mesmo jeito e a confirmação aparece na hora.
-export default function AdicionaisAgendamento({ idAgendamento, status, pagamento }: { idAgendamento: string; status: string; pagamento?: string | null }) {
+//
+// `compacto`: o detalhe que já mostra o total com a conta (o do Dashboard)
+// não repete aqui o "valor sem os adicionais / subtotal / total"; recebe os
+// números por `onResumo`.
+export default function AdicionaisAgendamento({ idAgendamento, status, pagamento, compacto, onResumo }: {
+  idAgendamento: string
+  status: string
+  pagamento?: string | null
+  compacto?: boolean
+  onResumo?: (r: { valor: number; totalAdicionais: number } | null) => void
+}) {
   const router = useRouter()
-  const [info, setInfo] = useState<AdicionaisDoAtendimento | null>(null)
+  const [info, setInfo] = useState<AdicionaisDoAtendimento | null>(() => jaLidos.get(idAgendamento) ?? null)
   const [versao, setVersao] = useState(0)
   const [incluindo, setIncluindo] = useState(false)
   const [resultado, setResultado] = useState<ResultadoInclusao | null>(null)
@@ -43,16 +75,39 @@ export default function AdicionaisAgendamento({ idAgendamento, status, pagamento
 
   useEffect(() => {
     let cancelado = false
-    adicionaisDoAgendamentoAction(idAgendamento).then(r => { if (!cancelado) { setInfo(r); setPagoAgora(false) } })
+    // Releitura (status, pagamento ou inclusão mudaram): busca de novo, sem
+    // reaproveitar a leitura em andamento de antes da mudança.
+    if (versao > 0) jaLidos.delete(idAgendamento)
+    lerAdicionais(idAgendamento).then(r => { if (!cancelado) { setInfo(r); setPagoAgora(false) } }).catch(() => {})
     return () => { cancelado = true }
   }, [idAgendamento, status, pagamento, versao])
+
+  // O total com os adicionais vai para quem mostra a conta (detalhe compacto).
+  const resumo = info?.instalado ? { valor: info.valor, totalAdicionais: info.totalAdicionais } : null
+  const chaveResumo = resumo ? `${resumo.valor}|${resumo.totalAdicionais}` : ''
+  useEffect(() => {
+    onResumo?.(resumo)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- avisa só quando os números mudam
+  }, [chaveResumo])
 
   function recarregar() {
     setVersao(v => v + 1)
     router.refresh()
   }
 
-  if (!info?.instalado) return null
+  // Ainda lendo: o bloco já ocupa o lugar dele (título e uma linha), para o
+  // detalhe não abrir de um jeito e mudar sozinho logo depois.
+  if (!info) {
+    return (
+      <div className="adic-bloco is-carregando" aria-busy="true">
+        <div className="adic-bloco-topo">
+          <span className="adic-bloco-titulo"><IconPlus /> Serviços adicionais</span>
+        </div>
+        <span className="adic-esqueleto" />
+      </div>
+    )
+  }
+  if (!info.instalado) return null
   const ativos = info.itens.filter(i => i.status === 'ativo')
   const removidos = info.itens.filter(i => i.status === 'removido')
   const podeIncluir = info.podeAlterar && info.disponiveis.length > 0
@@ -147,7 +202,7 @@ export default function AdicionaisAgendamento({ idAgendamento, status, pagamento
         </div>
       )}
 
-      {ativos.length > 0 && (
+      {ativos.length > 0 && !compacto && (
         <div className="adic-contas">
           <div><span>Valor sem os adicionais</span><span>{formatarReais(Math.max(0, info.valor - info.totalAdicionais))}</span></div>
           <div><span>Subtotal dos adicionais</span><span>{formatarReais(info.totalAdicionais)}</span></div>

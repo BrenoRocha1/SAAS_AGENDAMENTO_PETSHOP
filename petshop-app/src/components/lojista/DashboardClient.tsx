@@ -12,7 +12,8 @@ import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lo
 import { BotaoEditar, EditarModal } from '@/components/EditarAgendamento'
 import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
 import HistoricoAlteracoes from '@/components/lojista/HistoricoAlteracoes'
-import AdicionaisAgendamento from '@/components/lojista/AdicionaisAgendamento'
+import AdicionaisAgendamento, { preCarregarAdicionais } from '@/components/lojista/AdicionaisAgendamento'
+import './detalhe-agendamento.css'
 import type { TaxiDogPendente } from '@/lib/actions'
 import ResumoPlanosCard from '@/components/lojista/planos/ResumoPlanosCard'
 import SegmentedControl from '@/components/ui/segmented-control'
@@ -335,6 +336,12 @@ export default function DashboardClient({
   // escondia o agendamento atrasado e a tela dizia "Nada pendente" com o
   // contador ao lado marcando 1 (mesma regra do app).
   const proximosDoApp = agenda.filter(a => ehEtapaAtiva(a.status)).slice(0, MAX_PROXIMOS_APP)
+  // Os poucos atendimentos da lista do celular já vêm com os adicionais
+  // lidos: tocar num deles abre o detalhe completo, sem ele mudar depois.
+  const idsProximos = proximosDoApp.map(a => a.id_agendamento).join(',')
+  useEffect(() => {
+    if (idsProximos) preCarregarAdicionais(idsProximos.split(','))
+  }, [idsProximos])
 
   const avisosDeAcao = (
     <>
@@ -415,7 +422,9 @@ export default function DashboardClient({
                   type="button"
                   key={item.id_agendamento}
                   className="dash-app-linha"
-                  onClick={() => setSelecionado({ tipo: 'agenda', item })}
+                  onPointerDown={() => preCarregarAdicionais([item.id_agendamento])}
+                  onMouseEnter={() => preCarregarAdicionais([item.id_agendamento])}
+                    onClick={() => setSelecionado({ tipo: 'agenda', item })}
                 >
                   <span className="dash-app-linha-hora">
                     {item.hr_agendamento.slice(0, 5)}
@@ -457,6 +466,7 @@ export default function DashboardClient({
             </div>
             <div className="modal-body">
               <DetalheAgendamento
+                key={selecionado.item.id_agendamento}
                 selecionado={selecionado}
                 isPending={isPending}
                 onMudarStatus={mudarStatus}
@@ -620,6 +630,7 @@ export default function DashboardClient({
                     key={item.id_agendamento}
                     className={`timeline-item ${itemSelecionado ? 'is-selected' : ''}`}
                     style={{ borderLeftColor: itemSelecionado ? 'var(--primary-500)' : corSolidaStatus(item.status) }}
+                    onMouseEnter={() => preCarregarAdicionais([item.id_agendamento])}
                     onClick={() => setSelecionado({ tipo: 'agenda', item })}
                   >
                     <div className="timeline-time">{item.hr_agendamento.slice(0, 5)}</div>
@@ -675,6 +686,7 @@ export default function DashboardClient({
               </div>
             ) : (
               <DetalheAgendamento
+                key={selecionado.item.id_agendamento}
                 selecionado={selecionado}
                 isPending={isPending}
                 onMudarStatus={mudarStatus}
@@ -749,7 +761,7 @@ export default function DashboardClient({
   )
 }
 
-function DetalheAgendamento({
+export function DetalheAgendamento({
   selecionado,
   isPending,
   onMudarStatus,
@@ -780,40 +792,80 @@ function DetalheAgendamento({
   const id = item.id_agendamento
   const dataItem = isAgenda ? dataAgenda : (item as PendenteItem).dt_agendamento
 
-  return (
-    <div>
-      <div className="dash-detail-row"><span>Cliente</span><span>{cliente}</span></div>
-      <div className="dash-detail-row"><span>Pet</span><span>{pet}{raca ? ` — ${raca}` : ''}</span></div>
-      <div className="dash-detail-row"><span>Serviço</span><span>{servico}</span></div>
-      <AdicionaisAgendamento key={`adicionais:${id}`} idAgendamento={id} status={status} />
-      <div className="dash-detail-row"><span>Horário</span><span>{hora}</span></div>
-      <div className="dash-detail-row"><span>Valor</span><span>{formatarReais(valor)}</span></div>
-      <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(status)}`}>{rotuloStatus(status)}</span></span></div>
-      <HistoricoAlteracoes key={`${id}:${dataItem}:${hora}:${servico}:${pet}`} idAgendamento={id} />
+  // Total com os adicionais (o bloco deles lê e avisa); antes disso, o
+  // valor da lista, que já é o mesmo total.
+  const [resumo, setResumo] = useState<{ valor: number; totalAdicionais: number } | null>(null)
+  const total = resumo?.valor ?? valor
+  const diaTexto = format(parseDia(dataItem), "EEE, dd/MM", { locale: ptBR }).replace('.', '')
+  const quandoTexto = `${diaTexto.charAt(0).toUpperCase()}${diaTexto.slice(1)} · ${hora}`
+  const ativo = status === 'Pendente' || status === 'Confirmado' || status === 'Em andamento'
 
-      {(status === 'Pendente' || status === 'Confirmado' || status === 'Em andamento') && (
-        <div className="dash-detail-actions">
+  return (
+    <div className="det">
+      {/* Quem: o pet em destaque, o tutor embaixo e o status ao lado. */}
+      <div className="det-topo">
+        <span className="det-avatar" aria-hidden="true">{pet.trim().charAt(0).toUpperCase() || '?'}</span>
+        <div className="det-quem">
+          <strong>{pet}</strong>
+          <span>{raca ? `${raca} · ` : ''}{cliente}</span>
+        </div>
+        <span className={`badge ${classeBadgeStatus(status)}`}>{rotuloStatus(status)}</span>
+      </div>
+
+      {/* O quê e quando. */}
+      <div className="det-grade">
+        <div>
+          <span>Serviço</span>
+          <strong>{servico}</strong>
+        </div>
+        <div>
+          <span>Quando</span>
+          <strong>{quandoTexto}</strong>
+        </div>
+      </div>
+
+      <AdicionaisAgendamento idAgendamento={id} status={status} compacto onResumo={setResumo} />
+
+      {/* Quanto: o total e, com adicionais, de onde ele vem. */}
+      <div className="det-total">
+        <div className="det-total-linha">
+          <span>Total</span>
+          <strong>{formatarReais(total)}</strong>
+        </div>
+        {resumo && resumo.totalAdicionais > 0 && (
+          <span className="det-total-conta">
+            {formatarReais(Math.max(0, total - resumo.totalAdicionais))} do atendimento + {formatarReais(resumo.totalAdicionais)} de adicionais
+          </span>
+        )}
+      </div>
+
+      {ativo && (
+        <div className="det-acoes">
           {podeAvancarEtapa(status, dataItem, hojeISO) ? (
             <button
-              className="btn btn-success btn-sm"
-              style={{ flex: 1 }}
+              className="btn btn-success det-acao-principal"
               disabled={isPending}
               onClick={() => onMudarStatus(id, PROXIMA_ETAPA[status]!.status)}
             >
-              <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[status]!.acao}
+              <IconCheck style={{ width: 16, height: 16 }} /> {PROXIMA_ETAPA[status]!.acao}
             </button>
           ) : (
-            <span className="text-xs text-muted" style={{ flex: 1, alignSelf: 'center' }}>
-              Iniciar e finalizar a partir do dia do agendamento.
-            </span>
+            <span className="det-aviso">Iniciar e finalizar a partir do dia do agendamento.</span>
           )}
           {status !== 'Em andamento' && (
-            <BotaoRemarcar onClick={() => onRemarcar({ idAgendamento: id, dataAtual: dataItem, horaAtual: item.hr_agendamento })} />
+            <div className="det-acoes-linha">
+              <BotaoRemarcar onClick={() => onRemarcar({ idAgendamento: id, dataAtual: dataItem, horaAtual: item.hr_agendamento })} />
+              <BotaoEditar onClick={() => onEditar(id)} />
+            </div>
           )}
-          {status !== 'Em andamento' && <BotaoEditar onClick={() => onEditar(id)} />}
-          <BotaoCancelarAgendamento key={id} disabled={isPending} onConfirmar={() => onMudarStatus(id, 'Cancelado')} />
+          <div className="det-cancelar">
+            <BotaoCancelarAgendamento key={id} disabled={isPending} onConfirmar={() => onMudarStatus(id, 'Cancelado')} />
+          </div>
         </div>
       )}
+
+      {/* Por último: quando chega (e se houver), não empurra os botões. */}
+      <HistoricoAlteracoes key={`${id}:${dataItem}:${hora}:${servico}:${pet}`} idAgendamento={id} />
     </div>
   )
 }

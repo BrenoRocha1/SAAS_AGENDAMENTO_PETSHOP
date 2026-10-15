@@ -1,0 +1,48 @@
+/* Detalhe do agendamento (Dashboard): a janela do celular e o painel do
+   computador. Quem → o quê e quando → adicionais → total → ações. */
+.det { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.det-topo { display: flex; align-items: center; gap: var(--space-3); }
+.det-avatar {
+  width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--primary-soft-bg); color: var(--primary-400);
+  font-family: var(--font-heading); font-size: 1.125rem; font-weight: 700;
+}
+.det-quem { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.det-quem strong {
+  font-family: var(--font-heading); font-size: 1.0625rem; font-weight: 700; line-height: 1.25;
+  color: var(--gray-100); overflow-wrap: anywhere;
+}
+.det-quem span { font-size: 0.8125rem; line-height: 1.35; color: var(--gray-400); overflow-wrap: anywhere; }
+.det-topo .badge { flex-shrink: 0; }
+
+.det-grade {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3);
+  padding: var(--space-3); border-radius: var(--radius-md); background: var(--gray-850);
+}
+.det-grade > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.det-grade span { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; color: var(--gray-500); }
+.det-grade strong { font-size: 0.9375rem; font-weight: 600; line-height: 1.3; color: var(--gray-100); overflow-wrap: anywhere; }
+
+/* O bloco de adicionais entre as seções, sem a borda própria da lista. */
+.det .adic-bloco { padding: 0; border-bottom: 0; }
+
+.det-total { display: flex; flex-direction: column; gap: 2px; padding-top: var(--space-3); border-top: 1px solid var(--gray-800); }
+.det-total-linha { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.det-total-linha span { font-size: 0.875rem; font-weight: 600; color: var(--gray-300); }
+.det-total-linha strong { font-family: var(--font-heading); font-size: 1.375rem; font-weight: 700; color: var(--gray-100); }
+.det-total-conta { font-size: 0.8125rem; color: var(--gray-500); text-align: right; }
+
+.det-acoes { display: flex; flex-direction: column; gap: var(--space-2); }
+.det-acao-principal { width: 100%; min-height: 44px; justify-content: center; font-size: 0.9375rem; }
+.det-aviso { font-size: 0.8125rem; color: var(--gray-500); text-align: center; }
+.det-acoes-linha { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.det-acoes-linha > .btn { width: 100%; min-height: 40px; justify-content: center; }
+.det-cancelar { display: flex; }
+.det-cancelar > .btn { width: 100%; min-height: 40px; justify-content: center; }
+/* Cancelar fica discreto (texto vermelho, sem fundo); a confirmação, que
+   vem depois, mantém os botões cheios. */
+.det-cancelar > .btn-danger { background: transparent; border-color: transparent; color: var(--status-cancelado-fg); }
+.det-cancelar > .btn-danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.08); }
+.det-cancelar > div { width: 100%; }

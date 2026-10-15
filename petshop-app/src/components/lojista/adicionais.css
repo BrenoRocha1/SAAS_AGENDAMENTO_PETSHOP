@@ -125,3 +125,11 @@
 @media (max-width: 768px) {
   .adic-opcoes { max-height: 40vh; }
 }
+
+/* Bloco ainda lendo: o mesmo tamanho de "nenhuma cobrança extra". */
+.adic-esqueleto {
+  display: block; width: 62%; height: 14px; margin: 3px 0; border-radius: 6px;
+  background: linear-gradient(90deg, var(--gray-850) 0%, var(--gray-800) 50%, var(--gray-850) 100%);
+  background-size: 200% 100%; animation: adic-brilho 1.2s ease-in-out infinite;
+}
+@keyframes adic-brilho { from { background-position: 100% 0; } to { background-position: -100% 0; } }
