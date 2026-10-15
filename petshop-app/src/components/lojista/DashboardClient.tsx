@@ -5,15 +5,14 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
-import { classeBadgeStatus, corSolidaStatus, ehAtrasado, ehEtapaAtiva, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
+import { classeBadgeStatus, corSolidaStatus, ehAtrasado, ehEtapaAtiva, rotuloStatus } from '@/lib/status-agendamento'
 import { agoraBrasilHHMM } from '@/lib/agenda'
-import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
-import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
-import { BotaoEditar, EditarModal } from '@/components/EditarAgendamento'
+import { RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
+import { EditarModal } from '@/components/EditarAgendamento'
 import { ConfirmarBuscaTaxiDog, type EscolhaBuscaTaxiDog } from '@/components/lojista/ConfirmarBuscaTaxiDog'
 import HistoricoAlteracoes from '@/components/lojista/HistoricoAlteracoes'
 import AdicionaisAgendamento, { preCarregarAdicionais } from '@/components/lojista/AdicionaisAgendamento'
-import './detalhe-agendamento.css'
+import { AcoesDetalhe, GradeDetalhe, TopoDetalhe, TotalDetalhe, quandoDetalhe } from '@/components/lojista/DetalheAgendamentoPartes'
 import type { TaxiDogPendente } from '@/lib/actions'
 import ResumoPlanosCard from '@/components/lojista/planos/ResumoPlanosCard'
 import SegmentedControl from '@/components/ui/segmented-control'
@@ -761,7 +760,7 @@ export default function DashboardClient({
   )
 }
 
-export function DetalheAgendamento({
+function DetalheAgendamento({
   selecionado,
   isPending,
   onMudarStatus,
@@ -792,78 +791,29 @@ export function DetalheAgendamento({
   const id = item.id_agendamento
   const dataItem = isAgenda ? dataAgenda : (item as PendenteItem).dt_agendamento
 
-  // Total com os adicionais (o bloco deles lê e avisa); antes disso, o
-  // valor da lista, que já é o mesmo total.
+  // Total com os adicionais: o bloco deles lê e avisa.
   const [resumo, setResumo] = useState<{ valor: number; totalAdicionais: number } | null>(null)
-  const total = resumo?.valor ?? valor
-  const diaTexto = format(parseDia(dataItem), "EEE, dd/MM", { locale: ptBR }).replace('.', '')
-  const quandoTexto = `${diaTexto.charAt(0).toUpperCase()}${diaTexto.slice(1)} · ${hora}`
-  const ativo = status === 'Pendente' || status === 'Confirmado' || status === 'Em andamento'
 
   return (
     <div className="det">
-      {/* Quem: o pet em destaque, o tutor embaixo e o status ao lado. */}
-      <div className="det-topo">
-        <span className="det-avatar" aria-hidden="true">{pet.trim().charAt(0).toUpperCase() || '?'}</span>
-        <div className="det-quem">
-          <strong>{pet}</strong>
-          <span>{raca ? `${raca} · ` : ''}{cliente}</span>
-        </div>
-        <span className={`badge ${classeBadgeStatus(status)}`}>{rotuloStatus(status)}</span>
-      </div>
-
-      {/* O quê e quando. */}
-      <div className="det-grade">
-        <div>
-          <span>Serviço</span>
-          <strong>{servico}</strong>
-        </div>
-        <div>
-          <span>Quando</span>
-          <strong>{quandoTexto}</strong>
-        </div>
-      </div>
-
+      <TopoDetalhe pet={pet} sub={`${raca ? `${raca} · ` : ''}${cliente}`} status={status} />
+      <GradeDetalhe itens={[
+        { rotulo: 'Serviço', valor: servico },
+        { rotulo: 'Quando', valor: quandoDetalhe(dataItem, hora) },
+      ]} />
       <AdicionaisAgendamento idAgendamento={id} status={status} compacto onResumo={setResumo} />
-
-      {/* Quanto: o total e, com adicionais, de onde ele vem. */}
-      <div className="det-total">
-        <div className="det-total-linha">
-          <span>Total</span>
-          <strong>{formatarReais(total)}</strong>
-        </div>
-        {resumo && resumo.totalAdicionais > 0 && (
-          <span className="det-total-conta">
-            {formatarReais(Math.max(0, total - resumo.totalAdicionais))} do atendimento + {formatarReais(resumo.totalAdicionais)} de adicionais
-          </span>
-        )}
-      </div>
-
-      {ativo && (
-        <div className="det-acoes">
-          {podeAvancarEtapa(status, dataItem, hojeISO) ? (
-            <button
-              className="btn btn-success det-acao-principal"
-              disabled={isPending}
-              onClick={() => onMudarStatus(id, PROXIMA_ETAPA[status]!.status)}
-            >
-              <IconCheck style={{ width: 16, height: 16 }} /> {PROXIMA_ETAPA[status]!.acao}
-            </button>
-          ) : (
-            <span className="det-aviso">Iniciar e finalizar a partir do dia do agendamento.</span>
-          )}
-          {status !== 'Em andamento' && (
-            <div className="det-acoes-linha">
-              <BotaoRemarcar onClick={() => onRemarcar({ idAgendamento: id, dataAtual: dataItem, horaAtual: item.hr_agendamento })} />
-              <BotaoEditar onClick={() => onEditar(id)} />
-            </div>
-          )}
-          <div className="det-cancelar">
-            <BotaoCancelarAgendamento key={id} disabled={isPending} onConfirmar={() => onMudarStatus(id, 'Cancelado')} />
-          </div>
-        </div>
-      )}
-
+      <TotalDetalhe total={valor} resumo={resumo} />
+      <AcoesDetalhe
+        status={status}
+        dataAgendamento={dataItem}
+        hojeISO={hojeISO}
+        isPending={isPending}
+        onAvancar={proximo => onMudarStatus(id, proximo)}
+        onRemarcar={() => onRemarcar({ idAgendamento: id, dataAtual: dataItem, horaAtual: item.hr_agendamento })}
+        onEditar={() => onEditar(id)}
+        onCancelar={() => onMudarStatus(id, 'Cancelado')}
+        chave={id}
+      />
       {/* Por último: quando chega (e se houver), não empurra os botões. */}
       <HistoricoAlteracoes key={`${id}:${dataItem}:${hora}:${servico}:${pet}`} idAgendamento={id} />
     </div>

@@ -5,10 +5,9 @@ import { useRouter } from 'next/navigation'
 import { format, addDays, subDays, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { atribuirFuncionarioAction, atualizarStatusAgendamentoAction, cancelarAgendamentoAction } from '@/lib/actions'
-import { classeBadgeStatus, ORDEM_ETAPA, PROXIMA_ETAPA, podeAvancarEtapa, rotuloStatus } from '@/lib/status-agendamento'
-import BotaoCancelarAgendamento from '@/components/lojista/BotaoCancelarAgendamento'
-import { BotaoRemarcar, RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
-import { BotaoEditar, EditarModal } from '@/components/EditarAgendamento'
+import { classeBadgeStatus, ORDEM_ETAPA, PROXIMA_ETAPA, podeAvancarEtapa } from '@/lib/status-agendamento'
+import { RemarcarModal, type AlvoRemarcar } from '@/components/lojista/RemarcarAgendamento'
+import { EditarModal } from '@/components/EditarAgendamento'
 import { useArrastarToque } from '@/components/lojista/useArrastarToque'
 import FaixaDoDia from '@/components/lojista/FaixaDoDia'
 import { EtapasDoQuadro, FiltroChip } from '@/components/lojista/PecasDoQuadro'
@@ -21,6 +20,7 @@ import { origemTaxiDogDaVisita, type TransporteVisita } from '@/lib/taxidog-visi
 import TransporteAgendamento from '@/components/lojista/TransporteAgendamento'
 import PagamentoAgendamento from '@/components/lojista/PagamentoAgendamento'
 import AdicionaisAgendamento from '@/components/lojista/AdicionaisAgendamento'
+import { AcoesDetalhe, GradeDetalhe, SecaoDetalhe, TopoDetalhe, TotalDetalhe, quandoDetalhe } from '@/components/lojista/DetalheAgendamentoPartes'
 import BeneficioAgendamento from '@/components/lojista/planos/BeneficioAgendamento'
 import NovoAgendamentoModal from '@/components/lojista/NovoAgendamentoModal'
 import type { ClienteComPets, ServicoAtivo } from '@/components/lojista/DashboardClient'
@@ -564,134 +564,30 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
                 </div>
               )}
 
-              <div className="flex items-center gap-3" style={{ marginBottom: 'var(--space-4)' }}>
-                <div className="pet-avatar" style={{ width: 48, height: 48 }}>
-                  {selecionado.foto_pet ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
-                    <img src={selecionado.foto_pet} alt={selecionado.nome_pet} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <IconDog style={{ width: 22, height: 22 }} />
-                  )}
-                </div>
-                <div>
-                  <div style={{ fontWeight: 600, color: 'var(--gray-100)' }}>{selecionado.nome_pet}</div>
-                  {descricaoPet(selecionado) && <div className="text-xs text-muted">{descricaoPet(selecionado)}</div>}
-                </div>
-              </div>
-
-              <div className="dash-detail-row"><span>Cliente</span><span>{selecionado.nome_cliente}</span></div>
-              <div className="dash-detail-row"><span>Serviço</span><span>{selecionado.nome_servico}</span></div>
-              {selecionado.produtos.length > 0 && (
-                <div className="dash-detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
-                  <span>Produtos</span>
-                  <div style={{ width: '100%' }}>
-                    {selecionado.produtos.map((p, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm" style={{ color: 'var(--gray-300)' }}>
-                        <span>{p.nome} — {rotuloEstoque(p.quantidade, p.unidade_venda)}</span>
-                        <span className="font-semibold text-success">{formatarReais(p.preco_unitario * p.quantidade)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <AdicionaisAgendamento key={`adicionais:${selecionado.id_agendamento}`} idAgendamento={selecionado.id_agendamento} status={selecionado.status} pagamento={selecionado.status_pagamento} />
-              {(selecionado.taxidog || taxidogAtivo) && (
-                <TransporteAgendamento
-                  key={`${selecionado.id_agendamento}:${selecionado.taxidog?.id_corrida ?? ''}:${selecionado.taxidog?.status ?? ''}`}
-                  idAgendamento={selecionado.id_agendamento}
-                  idCliente={selecionado.id_cliente}
-                  statusAgendamento={selecionado.status}
-                  transporte={selecionado.taxidog}
-                  podeAlterar
-                  origemVisita={origemTaxiDogDaVisita(selecionado.id_agendamento, selecionado.taxidog, itens).descricao}
-                />
-              )}
-              <BeneficioAgendamento idAgendamento={selecionado.id_agendamento} status={selecionado.status} />
-              <PagamentoAgendamento
-                idAgendamento={selecionado.id_agendamento}
-                forma={selecionado.forma_pagamento}
-                status={selecionado.status_pagamento}
-                formasAceitas={formasPagamento}
-                podeAlterar
+              <DetalheDoGestor
+                key={selecionado.id_agendamento}
+                selecionado={selecionado}
+                descricaoPet={descricaoPet(selecionado)}
+                isPending={isPending}
+                taxidogAtivo={taxidogAtivo}
+                origemVisita={origemTaxiDogDaVisita(selecionado.id_agendamento, selecionado.taxidog, itens).descricao}
+                formasPagamento={formasPagamento}
+                funcionarios={funcionarios}
+                podeAtribuirProfissional={podeAtribuirProfissional}
+                dataAgendamento={selectedDate}
+                hojeISO={hojeISO}
+                onAtribuir={atribuirModal}
+                onAvancar={mudarStatusModal}
+                onCancelar={cancelarModal}
+                onRemarcar={() => {
+                  setRemarcando({ idAgendamento: selecionado.id_agendamento, dataAtual: selecionado.dt_agendamento, horaAtual: selecionado.hr_agendamento })
+                  setSelecionadoId(null)
+                }}
+                onEditar={() => {
+                  setEditando(selecionado.id_agendamento)
+                  setSelecionadoId(null)
+                }}
               />
-              <HistoricoAlteracoes key={`${selecionado.id_agendamento}:${selecionado.dt_agendamento}:${selecionado.hr_agendamento}:${selecionado.nome_servico}:${selecionado.nome_pet}`} idAgendamento={selecionado.id_agendamento} />
-              <div className="dash-detail-row"><span>Data</span><span>{format(parseDia(selecionado.dt_agendamento), 'dd/MM/yyyy')}</span></div>
-              <div className="dash-detail-row"><span>Horário</span><span>{selecionado.hr_agendamento.slice(0, 5)}</span></div>
-              <div className="dash-detail-row">
-                <span>Valor</span>
-                <span style={{ textAlign: 'right' }}>
-                  {formatarReais(selecionado.valor)}
-                  {/* A taxa do TaxiDog já está somada em `valor`. */}
-                  {selecionado.taxidog?.id_agendamento === selecionado.id_agendamento && (
-                    <><br /><span className="text-xs text-muted">inclui TaxiDog</span></>
-                  )}
-                </span>
-              </div>
-              <div className="dash-detail-row"><span>Status</span><span><span className={`badge ${classeBadgeStatus(selecionado.status)}`}>{rotuloStatus(selecionado.status)}</span></span></div>
-              {selecionado.obs && (
-                <div className="dash-detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
-                  <span>Descrição</span>
-                  <span style={{ textAlign: 'left', fontWeight: 400, color: 'var(--gray-300)' }}>{selecionado.obs}</span>
-                </div>
-              )}
-
-              {funcionarios.length > 0 && (
-                podeAtribuirProfissional ? (
-                  <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-                    <label className="form-label">Profissional responsável</label>
-                    <select
-                      className="form-select"
-                      value={selecionado.id_funcionario ?? ''}
-                      onChange={e => atribuirModal(e.target.value)}
-                      disabled={isPending}
-                    >
-                      <option value="">Sem profissional</option>
-                      {funcionarios.map(f => (
-                        <option key={f.id_funcionario} value={f.id_funcionario}>{f.nome}</option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="dash-detail-row"><span>Profissional responsável</span><span>{selecionado.nome_funcionario ?? 'Sem profissional'}</span></div>
-                )
-              )}
-
-              {(selecionado.status === 'Pendente' || selecionado.status === 'Confirmado' || selecionado.status === 'Em andamento') && (
-                <div className="dash-detail-actions">
-                  {podeAvancarEtapa(selecionado.status, selectedDate, hojeISO) ? (
-                    <button
-                      className="btn btn-success btn-sm"
-                      style={{ flex: 1 }}
-                      disabled={isPending}
-                      onClick={() => mudarStatusModal(PROXIMA_ETAPA[selecionado.status]!.status)}
-                    >
-                      <IconCheck style={{ width: 14, height: 14 }} /> {PROXIMA_ETAPA[selecionado.status]!.acao}
-                    </button>
-                  ) : (
-                    <span className="text-xs text-muted" style={{ flex: 1, alignSelf: 'center' }}>
-                      Iniciar e finalizar a partir do dia do agendamento.
-                    </span>
-                  )}
-                  {selecionado.status !== 'Em andamento' && (
-                    <BotaoRemarcar onClick={() => {
-                      setRemarcando({ idAgendamento: selecionado.id_agendamento, dataAtual: selecionado.dt_agendamento, horaAtual: selecionado.hr_agendamento })
-                      setSelecionadoId(null)
-                    }} />
-                  )}
-                  {selecionado.status !== 'Em andamento' && (
-                    <BotaoEditar onClick={() => {
-                      setEditando(selecionado.id_agendamento)
-                      setSelecionadoId(null)
-                    }} />
-                  )}
-                  <BotaoCancelarAgendamento key={selecionado.id_agendamento} disabled={isPending} onConfirmar={cancelarModal} />
-                </div>
-              )}
-              {selecionado.status === 'Concluído' && (
-                <p className="text-sm text-muted" style={{ marginTop: 'var(--space-3)' }}>
-                  Agendamento finalizado — o status não pode mais ser alterado.
-                </p>
-              )}
             </div>
           </div>
         </div>
@@ -758,5 +654,120 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
         />
       )}
     </>
+  )
+}
+
+// Detalhe do agendamento no Gestor — as mesmas partes do Dashboard e da
+// Agenda (DetalheAgendamentoPartes), com o que o Gestor mostra a mais: a
+// foto e a descrição do pet, os produtos, pagamento, TaxiDog, plano,
+// observação e o profissional.
+function DetalheDoGestor({
+  selecionado, descricaoPet, isPending, taxidogAtivo, origemVisita, formasPagamento, funcionarios, podeAtribuirProfissional,
+  dataAgendamento, hojeISO, onAtribuir, onAvancar, onCancelar, onRemarcar, onEditar,
+}: {
+  selecionado: KanbanItem
+  descricaoPet: string | null
+  isPending: boolean
+  taxidogAtivo: boolean
+  origemVisita: string | null
+  formasPagamento: FormaPagamento[]
+  funcionarios: { id_funcionario: string; nome: string }[]
+  podeAtribuirProfissional: boolean
+  dataAgendamento: string
+  hojeISO: string
+  onAtribuir: (idFuncionario: string) => void
+  onAvancar: (status: KanbanItem['status']) => void
+  onCancelar: () => void
+  onRemarcar: () => void
+  onEditar: () => void
+}) {
+  // Total com os adicionais: o bloco deles lê e avisa.
+  const [resumo, setResumo] = useState<{ valor: number; totalAdicionais: number } | null>(null)
+  const s = selecionado
+  // A taxa do TaxiDog já está somada em `valor` do serviço que leva a corrida.
+  const incluiTaxiDog = s.taxidog?.id_agendamento === s.id_agendamento
+
+  return (
+    <div className="det">
+      <TopoDetalhe pet={s.nome_pet} foto={s.foto_pet} sub={[descricaoPet, s.nome_cliente].filter(Boolean).join(' · ')} status={s.status} />
+      <GradeDetalhe itens={[
+        { rotulo: 'Serviço', valor: s.nome_servico },
+        { rotulo: 'Quando', valor: quandoDetalhe(s.dt_agendamento, s.hr_agendamento) },
+        funcionarios.length > 0 && !podeAtribuirProfissional && { rotulo: 'Profissional', valor: s.nome_funcionario ?? 'Sem profissional' },
+      ]} />
+
+      {s.produtos.length > 0 && (
+        <SecaoDetalhe titulo="Produtos">
+          {s.produtos.map((p, i) => (
+            <div key={i} className="det-produto">
+              <span>{p.nome} — {rotuloEstoque(p.quantidade, p.unidade_venda)}</span>
+              <strong>{formatarReais(p.preco_unitario * p.quantidade)}</strong>
+            </div>
+          ))}
+        </SecaoDetalhe>
+      )}
+
+      <AdicionaisAgendamento idAgendamento={s.id_agendamento} status={s.status} pagamento={s.status_pagamento} compacto onResumo={setResumo} />
+      <TotalDetalhe total={s.valor} resumo={resumo} nota={incluiTaxiDog ? 'Inclui a taxa do TaxiDog' : null} />
+
+      <PagamentoAgendamento
+        idAgendamento={s.id_agendamento}
+        forma={s.forma_pagamento}
+        status={s.status_pagamento}
+        formasAceitas={formasPagamento}
+        podeAlterar
+      />
+      {(s.taxidog || taxidogAtivo) && (
+        <TransporteAgendamento
+          key={`${s.id_agendamento}:${s.taxidog?.id_corrida ?? ''}:${s.taxidog?.status ?? ''}`}
+          idAgendamento={s.id_agendamento}
+          idCliente={s.id_cliente}
+          statusAgendamento={s.status}
+          transporte={s.taxidog}
+          podeAlterar
+          origemVisita={origemVisita}
+        />
+      )}
+      <BeneficioAgendamento idAgendamento={s.id_agendamento} status={s.status} />
+
+      {s.obs && (
+        <SecaoDetalhe titulo="Observação">
+          <div className="det-secao-caixa">{s.obs}</div>
+        </SecaoDetalhe>
+      )}
+
+      {funcionarios.length > 0 && podeAtribuirProfissional && (
+        <div className="form-group">
+          <label className="form-label">Profissional responsável</label>
+          <select
+            className="form-select"
+            value={s.id_funcionario ?? ''}
+            onChange={e => onAtribuir(e.target.value)}
+            disabled={isPending}
+          >
+            <option value="">Sem profissional</option>
+            {funcionarios.map(f => (
+              <option key={f.id_funcionario} value={f.id_funcionario}>{f.nome}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <AcoesDetalhe
+        status={s.status}
+        dataAgendamento={dataAgendamento}
+        hojeISO={hojeISO}
+        isPending={isPending}
+        onAvancar={onAvancar}
+        onRemarcar={onRemarcar}
+        onEditar={onEditar}
+        onCancelar={onCancelar}
+        chave={s.id_agendamento}
+      />
+      {s.status === 'Concluído' && <p className="det-fim">Agendamento finalizado — o status não pode mais ser alterado.</p>}
+
+      {/* Por último: quando chega (e se houver), não empurra os botões. */}
+      <HistoricoAlteracoes key={`${s.id_agendamento}:${s.dt_agendamento}:${s.hr_agendamento}:${s.nome_servico}:${s.nome_pet}`} idAgendamento={s.id_agendamento} />
+    </div>
   )
 }
