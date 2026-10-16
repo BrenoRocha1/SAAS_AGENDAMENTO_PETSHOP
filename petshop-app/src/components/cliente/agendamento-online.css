@@ -173,6 +173,8 @@
 .ag2-servico-texto { padding-right: 28px; gap: 2px; }
 .ag2-servico-nome { font-size: 0.9375rem; line-height: 1.3; }
 .ag2-servico-detalhe { position: absolute; bottom: 14px; left: 14px; margin: 0; font-size: 0.75rem; }
+/* Fotos de referência (migration 101): no canto de baixo, à direita. */
+.ag2-servico-galeria { position: absolute; bottom: 10px; right: 10px; }
 @media (max-width: 340px) { .ag2-lista { grid-template-columns: 1fr; } }
 
 @media (min-width: 900px) {
@@ -183,6 +185,7 @@
   .ag2-servico .ag2-check { top: 14px; right: 14px; width: 26px; height: 26px; }
   .ag2-servico-nome { font-size: 1.0625rem; }
   .ag2-servico-detalhe { bottom: 16px; left: 18px; font-size: 0.8125rem; }
+  .ag2-servico-galeria { bottom: 12px; right: 14px; }
   .ag2-rodape.is-so-celular { display: none; }
 }
 

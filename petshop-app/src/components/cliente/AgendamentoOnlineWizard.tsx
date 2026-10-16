@@ -1,5 +1,7 @@
 'use client'
 
+import GaleriaServico from '@/components/servicos/GaleriaServico'
+import type { FotoServico } from '@/lib/galeria'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -153,6 +155,8 @@ interface Props {
   precosEstimados: boolean
   // Formas de pagamento aceitas pela loja (migration 057).
   formasPagamento: FormasLoja
+  // Fotos de referência de cada serviço (migration 101) — opcional.
+  fotosServicos?: Record<string, FotoServico[]>
 }
 
 // Três telas, no lugar das sete de antes:
@@ -184,7 +188,7 @@ const duracaoTexto = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h${mi
 
 export default function AgendamentoOnlineWizard({
   lojista, horarios, bloqueios, janela, servicos, produtos, adicionais, avaliacoes, pets: petsIniciais, cliente, autenticado, contaInvalida, cadastroIncompleto = false, nomeConta = '', carrinhoInicial, produtosIniciais,
-  taxidogDisponivel, precosEstimados, formasPagamento,
+  taxidogDisponivel, precosEstimados, formasPagamento, fotosServicos = {},
 }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
@@ -683,8 +687,9 @@ export default function AgendamentoOnlineWizard({
               <ul className="ag2-lista">
                 {servicos.map(s => {
                   const marcado = carrinho.includes(s.id_servico)
+                  const fotos = fotosServicos[s.id_servico]
                   return (
-                    <li key={s.id_servico} className={`ag2-servico-item ${marcado ? 'is-marcado' : ''} ${s.descricao ? 'tem-detalhe' : ''}`}>
+                    <li key={s.id_servico} className={`ag2-servico-item ${marcado ? 'is-marcado' : ''} ${s.descricao || fotos?.length ? 'tem-detalhe' : ''}`}>
                       <button
                         type="button"
                         className={`ag2-servico ${marcado ? 'is-marcado' : ''}`}
@@ -707,6 +712,10 @@ export default function AgendamentoOnlineWizard({
                           O que inclui
                         </button>
                       )}
+                      {/* Fotos de referência: abrir não marca o serviço. */}
+                      {fotos?.length ? (
+                        <span className="ag2-servico-galeria"><GaleriaServico fotos={fotos} nomeServico={s.nome} variante="icone" /></span>
+                      ) : null}
                     </li>
                   )
                 })}

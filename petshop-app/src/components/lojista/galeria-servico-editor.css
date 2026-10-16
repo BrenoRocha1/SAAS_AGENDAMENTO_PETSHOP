@@ -1,0 +1,35 @@
+/* "Fotos de referência" no cadastro do serviço (GaleriaServicoEditor). */
+.gse { display: flex; flex-direction: column; gap: 10px; padding-top: var(--space-4); border-top: 1px solid var(--gray-800); }
+.gse-cabeca { display: flex; align-items: center; gap: 8px; }
+.gse-titulo { font-weight: 600; color: var(--gray-100); }
+.gse-opcional { padding: 2px 8px; border-radius: 999px; background: var(--gray-850); font-size: 0.6875rem; font-weight: 700; color: var(--gray-400); }
+.gse-conta { margin-left: auto; font-size: 0.75rem; font-weight: 600; color: var(--gray-500); }
+.gse-sub { margin: 0; font-size: 0.8125rem; line-height: 1.5; color: var(--gray-400); }
+
+.gse-lista { display: flex; flex-direction: column; gap: 10px; }
+.gse-item { display: flex; gap: 12px; padding: 10px; border: 1px solid var(--gray-800); border-radius: 12px; background: var(--gray-900); }
+.gse-item.is-nova { border-style: dashed; border-color: var(--primary-400); }
+.gse-foto { position: relative; width: 84px; height: 84px; flex-shrink: 0; overflow: hidden; border-radius: 10px; background: var(--gray-850); }
+.gse-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gse-pos, .gse-selo {
+  position: absolute; left: 6px; top: 6px; padding: 1px 7px; border-radius: 999px;
+  background: rgba(17, 24, 39, 0.72); font-size: 0.6875rem; font-weight: 700; color: #fff;
+}
+.gse-selo { background: var(--primary-600); }
+.gse-campos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.gse-campos .form-input { height: 36px; font-size: 0.875rem; }
+.gse-campos .gse-desc { height: auto; min-height: 52px; padding-top: 8px; resize: vertical; line-height: 1.4; }
+.gse-acoes { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.gse-espaco { flex: 1; }
+.gse-remover { color: var(--danger-500, #dc2626); }
+.gse-confirma { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8125rem; font-weight: 600; color: var(--gray-300); }
+.gse-dica { display: inline-flex; align-items: center; gap: 5px; font-size: 0.75rem; color: var(--gray-500); }
+
+.gse-rodape { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.gse-adicionar { cursor: pointer; }
+.gse-adicionar.is-desativado { opacity: 0.6; pointer-events: none; }
+
+@media (max-width: 480px) {
+  .gse-item { flex-direction: column; }
+  .gse-foto { width: 100%; height: 160px; }
+}

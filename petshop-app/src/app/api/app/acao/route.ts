@@ -3,6 +3,7 @@ import { comSessaoDoApp, conferirSessaoDoApp } from '@/lib/supabase/sessao-do-ap
 import * as acoes from '@/lib/actions'
 import * as acoesAdicionais from '@/lib/actions-adicionais'
 import * as acoesBloqueios from '@/lib/actions-bloqueios'
+import * as acoesGaleria from '@/lib/actions-galeria'
 import * as acoesPagamento from '@/lib/actions-pagamento'
 import * as acoesPlanos from '@/lib/actions-planos'
 import * as acoesPromocao from '@/lib/actions-promocao'
@@ -84,6 +85,10 @@ const ACOES: Record<string, Acao> = {
   removerVariacaoServicoAction: acoes.removerVariacaoServicoAction,
   // Promoção do serviço (migration 096)
   salvarPromocaoServicoAction: acoesPromocao.salvarPromocaoServicoAction,
+  adicionarFotoServicoAction: acoesGaleria.adicionarFotoServicoAction,
+  editarFotoServicoAction: acoesGaleria.editarFotoServicoAction,
+  reordenarFotosServicoAction: acoesGaleria.reordenarFotosServicoAction,
+  removerFotoServicoAction: acoesGaleria.removerFotoServicoAction,
   // Produtos
   criarProdutoAction: acoes.criarProdutoAction,
   editarProdutoAction: acoes.editarProdutoAction,

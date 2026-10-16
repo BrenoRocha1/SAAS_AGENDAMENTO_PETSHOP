@@ -16,6 +16,7 @@ import Ilustracao from '@/components/Ilustracao'
 import PromocaoServicoModal, { FORM_PROMOCAO_VAZIO, PromocaoServicoCampos, agoraBrasilPromocao, dadosDoFormPromocao, formDaPromocao, type FormPromocao } from '@/components/lojista/PromocaoServico'
 import { ROTULO_STATUS_PROMOCAO, periodoPromoServico, precoPromocionalServico, seloDesconto, statusPromocaoServico, type StatusPromocao } from '@/lib/promocao'
 import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
+import GaleriaServicoEditor, { enviarFotosPendentes, problemaDasPendentes, type FotoPendente } from '@/components/lojista/GaleriaServicoEditor'
 
 interface Servico {
   id_servico: string
@@ -74,6 +75,8 @@ export default function ServicosList({ servicos: inicial }: Props) {
   const [showModal, setShowModal] = useState(false)
   const [editando, setEditando] = useState<Servico | null>(null)
   const [draftVariacoes, setDraftVariacoes] = useState<VariacaoDraft[]>([])
+  // Fotos de referência escolhidas e ainda não enviadas (migration 101).
+  const [fotosPendentes, setFotosPendentes] = useState<FotoPendente[]>([])
   const [error, setError] = useState<string | null>(null)
   const [excluirErro, setExcluirErro] = useState<string | null>(null)
   const [confirmarExclusao, setConfirmarExclusao] = useState<Servico | null>(null)
@@ -135,9 +138,15 @@ export default function ServicosList({ servicos: inicial }: Props) {
     })
   }
 
+  function limparFotosPendentes() {
+    fotosPendentes.forEach(p => URL.revokeObjectURL(p.preview))
+    setFotosPendentes([])
+  }
+
   function abrirNovo() {
     setEditando(null)
     setDraftVariacoes([])
+    limparFotosPendentes()
     setError(null)
     setPrecoForm('')
     setNomeForm('')
@@ -148,6 +157,7 @@ export default function ServicosList({ servicos: inicial }: Props) {
 
   function abrirEditar(s: Servico) {
     setEditando(s)
+    limparFotosPendentes()
     setError(null)
     setPrecoForm(String(s.preco))
     setNomeForm(s.nome)
@@ -160,6 +170,11 @@ export default function ServicosList({ servicos: inicial }: Props) {
     e.preventDefault()
     setError(null)
     const form = e.currentTarget
+    const problemaFotos = problemaDasPendentes(fotosPendentes)
+    if (problemaFotos) {
+      setError(problemaFotos)
+      return
+    }
     // Ao criar um serviço novo, as variações ainda não salvas vão junto
     // no mesmo submit (ver criarServicoAction) — não existe id_servico
     // antes disso pra salvar elas separadamente.
@@ -176,12 +191,32 @@ export default function ServicosList({ servicos: inicial }: Props) {
       if (result?.error) {
         setError(result.error)
         botao.erro()
-      } else {
-        await botao.sucesso()
-        setShowModal(false)
-        setDraftVariacoes([])
-        await recarregar()
+        return
       }
+      // Fotos de referência novas: sobem depois do serviço salvo (o serviço
+      // novo só tem id agora).
+      const idServico = editando?.id_servico ?? (result as { id_servico?: string } | undefined)?.id_servico
+      if (idServico && fotosPendentes.length > 0) {
+        const envio = await enviarFotosPendentes(idServico, fotosPendentes)
+        if (envio.erro) {
+          // O serviço já está salvo: a tela passa a editar ele (salvar de
+          // novo não cria outro) e ficam só as fotos que não subiram.
+          setFotosPendentes(fotosPendentes.slice(envio.enviadas))
+          setError(`Serviço salvo, mas uma foto não foi enviada — ${envio.erro}`)
+          botao.erro()
+          if (!editando) {
+            const { data: novo } = await supabase.from('servico').select('*').eq('id_servico', idServico).maybeSingle()
+            if (novo) setEditando(novo as Servico)
+          }
+          await recarregar()
+          return
+        }
+        setFotosPendentes([])
+      }
+      await botao.sucesso()
+      setShowModal(false)
+      setDraftVariacoes([])
+      await recarregar()
     })
   }
 
@@ -449,6 +484,15 @@ export default function ServicosList({ servicos: inicial }: Props) {
                   idServico={editando?.id_servico ?? null}
                   draft={draftVariacoes}
                   onDraftChange={setDraftVariacoes}
+                />
+
+                <GaleriaServicoEditor
+                  key={editando?.id_servico ?? 'novo'}
+                  idServico={editando?.id_servico ?? null}
+                  nomeServico={nomeForm}
+                  pendentes={fotosPendentes}
+                  onPendentesChange={setFotosPendentes}
+                  desativado={isPending}
                 />
 
                 <PromocaoServicoCampos

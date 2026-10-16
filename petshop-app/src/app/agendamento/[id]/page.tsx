@@ -1,3 +1,4 @@
+import { COLUNAS_FOTO_SERVICO, agruparFotosPorServico } from '@/lib/galeria'
 import { createClient } from '@/lib/supabase/server'
 import { acessoDaLoja } from '@/lib/acesso-loja'
 import { COLUNAS_PROMOCAO_SERVICO, precoComDesconto, precoPromocionalServico, promoServicoVigente, promoVigente, seloDesconto, type Promocao, type PromocaoServico } from '@/lib/promocao'
@@ -197,14 +198,17 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
   // padrão (dinheiro e cartões); o agendamento em si avisa da migration.
   // Dias fechados (migration 066) — sem ela, vem vazio e o calendário
   // segue só com os dias da semana.
-  const [{ data: taxidogRaw }, { data: estimadoRow }, { data: enderecoRow }, { data: formasRaw }, { data: bloqueiosRaw }] = await Promise.all([
+  const [{ data: taxidogRaw }, { data: estimadoRow }, { data: enderecoRow }, { data: formasRaw }, { data: bloqueiosRaw }, { data: fotosRaw }] = await Promise.all([
     supabase.rpc('fn_taxidog_publico', { p_id_lojista: lojista.id_lojista }),
     supabase.from('lojista').select('precos_estimados').eq('id_lojista', lojista.id_lojista).maybeSingle(),
     supabase.from('lojista').select('numero, complemento, bairro').eq('id_lojista', lojista.id_lojista).maybeSingle(),
     supabase.rpc('fn_formas_pagamento_loja', { p_id_lojista: lojista.id_lojista }),
     supabase.rpc('fn_bloqueios_loja', { p_id_lojista: lojista.id_lojista, p_de: hojeBrasilISO(), p_ate: `${Number(hojeBrasilISO().slice(0, 4)) + 1}-12-31` }),
+    // Fotos de referência dos serviços (migration 101) — sem ela, vem vazio.
+    supabase.from('servico_foto').select(COLUNAS_FOTO_SERVICO).eq('id_lojista', lojista.id_lojista).order('ordem'),
   ])
   const bloqueios = normalizarBloqueios(bloqueiosRaw)
+  const fotosServicos = agruparFotosPorServico(fotosRaw)
   const taxidogDisponivel = !!(taxidogRaw as { disponivel: boolean }[] | null)?.[0]?.disponivel
   const precosEstimados = !!estimadoRow?.precos_estimados
 
@@ -301,6 +305,7 @@ export default async function AgendamentoOnlinePage({ params, searchParams }: Pr
           taxidogDisponivel={taxidogDisponivel}
           precosEstimados={precosEstimados}
           formasPagamento={normalizarFormasLoja(formasRaw)}
+          fotosServicos={fotosServicos}
         />
       </div>
     </div>

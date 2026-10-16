@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { acessoDaLoja } from '@/lib/acesso-loja'
 import { SLUGS_RESERVADOS } from '@/lib/validations'
+import { COLUNAS_FOTO_SERVICO, agruparFotosPorServico } from '@/lib/galeria'
+import GaleriaServico from '@/components/servicos/GaleriaServico'
 import type { Metadata } from 'next'
 import { diaSemanaBrasil, agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
 import { descreverBloqueio, fechadoODiaTodo, normalizarBloqueios, somarDiasISO } from '@/lib/bloqueios'
@@ -129,6 +131,7 @@ export default async function VitrineLojaPage({ params }: Props) {
     { data: resumoRaw },
     { data: avaliacoesRaw },
     { data: bloqueiosRaw },
+    { data: fotosRaw },
   ] = await Promise.all([
     supabase
       .from('servico')
@@ -156,7 +159,10 @@ export default async function VitrineLojaPage({ params }: Props) {
     supabase.rpc('fn_avaliacoes_publicas', { p_id_lojista: lj.id_lojista, p_limit: 6 }),
     // Dias fechados dos próximos 60 dias (migration 066) — sem ela, vem vazio.
     supabase.rpc('fn_bloqueios_loja', { p_id_lojista: lj.id_lojista, p_de: hojeBrasilISO(), p_ate: somarDiasISO(hojeBrasilISO(), 60) }),
+    // Fotos de referência dos serviços (migration 101) — sem ela, vem vazio.
+    supabase.from('servico_foto').select(COLUNAS_FOTO_SERVICO).eq('id_lojista', lj.id_lojista).order('ordem'),
   ])
+  const fotosPorServico = agruparFotosPorServico(fotosRaw)
 
   const servicos = (servicosRaw ?? []) as {
     id_servico: string; nome: string; descricao: string | null
@@ -293,6 +299,7 @@ export default async function VitrineLojaPage({ params }: Props) {
                           ? `${Math.floor(s.duracao / 60)}h${s.duracao % 60 > 0 ? ` ${s.duracao % 60}min` : ''}`
                           : `${s.duracao} min`}
                       </div>
+                      <GaleriaServico fotos={fotosPorServico[s.id_servico]} nomeServico={s.nome} />
                     </div>
                   ))}
                 </div>

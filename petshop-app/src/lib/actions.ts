@@ -981,7 +981,9 @@ export async function criarServicoAction(formData: FormData) {
   }
 
   revalidatePath('/lojista/servicos')
-  return { success: true }
+  // O id vai junto: a galeria de fotos (migration 101) do serviço novo é
+  // enviada logo depois, já com ele.
+  return { success: true, id_servico: novoServico.id_servico as string }
 }
 
 export async function editarServicoAction(id_servico: string, formData: FormData) {
