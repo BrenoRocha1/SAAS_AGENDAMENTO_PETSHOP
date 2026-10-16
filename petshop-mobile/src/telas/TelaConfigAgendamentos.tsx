@@ -6,7 +6,7 @@ import { Aviso } from '@/components/Aviso'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { CartaoConfig, CartaoInterruptor } from '@/components/CartaoConfig'
 import { DetailHeader } from '@/components/DetailHeader'
-import { IconCalendar, IconCheck, IconClock, IconCopy, IconKanban, IconLink, IconMoney, IconUsers } from '@/components/IconesDoSite'
+import { IconCalendar, IconCheck, IconClock, IconCopy, IconKanban, IconLink, IconLock, IconMoney, IconUsers } from '@/components/IconesDoSite'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { Seletor } from '@/components/Seletor'
 import { SemPermissao } from '@/components/SemPermissao'
@@ -25,8 +25,9 @@ interface Janela { minValor: number; minUnidade: Unidade; maxValor: number; maxU
 const UNIDADES: { valor: Unidade; rotulo: string }[] = [{ valor: 'horas', rotulo: 'horas' }, { valor: 'dias', rotulo: 'dias' }]
 
 // Configurações → Configurações de Agendamentos, igual à página do site:
-// Kanban, agendamentos simultâneos, agendamento online (com o link e a
-// antecedência) e o aviso de preço estimado. Os liga/desliga gravam pelas
+// Kanban, agendamentos simultâneos, bloqueio do cancelamento depois de
+// aceito, agendamento online (com o link e a antecedência) e o aviso de
+// preço estimado. Os liga/desliga gravam pelas
 // actions do painel; sem o site configurado no app, só o dono da conta
 // consegue mudar (RLS).
 export function TelaConfigAgendamentos() {
@@ -45,18 +46,20 @@ export function TelaConfigAgendamentos() {
   const [janela, setJanela] = useState<Janela | undefined>(undefined)
   const [estimado, setEstimado] = useState<boolean | undefined>(undefined)
   const [simultaneos, setSimultaneos] = useState<number | undefined>(undefined)
+  const [semCancelar, setSemCancelar] = useState<boolean | undefined>(undefined)
 
   const carregar = useCallback(async () => {
     if (!idLojista || !pode) return
     // Consultas separadas e tolerantes, como no painel web: uma coluna que
     // ainda não existe não derruba o resto da tela.
     const loja = (colunas: string) => supabase.from('lojista').select(colunas).eq('id_lojista', idLojista).maybeSingle()
-    const [base, slugRow, janelaRow, estimadoRow, simultaneosRow] = await Promise.all([
+    const [base, slugRow, janelaRow, estimadoRow, simultaneosRow, cancelamentoRow] = await Promise.all([
       loja('kanban_ativo, aceita_agendamento_online'),
       loja('slug'),
       loja('agendamento_min_valor, agendamento_min_unidade, agendamento_max_valor, agendamento_max_unidade'),
       loja('precos_estimados'),
       loja('agendamentos_simultaneos'),
+      loja('bloquear_cancelamento_aceito'),
     ])
     const b = base.data as unknown as { kanban_ativo: boolean; aceita_agendamento_online: boolean } | null
     setErroCarga(!!base.error || !b)
@@ -67,6 +70,7 @@ export function TelaConfigAgendamentos() {
     setJanela(j ? { minValor: j.agendamento_min_valor, minUnidade: j.agendamento_min_unidade, maxValor: j.agendamento_max_valor, maxUnidade: j.agendamento_max_unidade } : undefined)
     setEstimado(estimadoRow.error ? undefined : !!(estimadoRow.data as unknown as { precos_estimados: boolean | null } | null)?.precos_estimados)
     setSimultaneos(simultaneosRow.error ? undefined : Number((simultaneosRow.data as unknown as { agendamentos_simultaneos: number | null } | null)?.agendamentos_simultaneos ?? 1))
+    setSemCancelar(cancelamentoRow.error ? undefined : !!(cancelamentoRow.data as unknown as { bloquear_cancelamento_aceito: boolean | null } | null)?.bloquear_cancelamento_aceito)
     setCarregando(false)
   }, [idLojista, pode])
 
@@ -122,6 +126,20 @@ export function TelaConfigAgendamentos() {
             <Aviso tipo="alerta" texto="Ainda não dá pra escolher quantos agendamentos a loja aceita ao mesmo tempo — execute a migration 076_agendamentos_simultaneos.sql." />
           ) : (
             <Simultaneos atual={simultaneos} />
+          )}
+
+          {semCancelar === undefined ? (
+            <Aviso tipo="alerta" texto="Ainda não dá pra bloquear o cancelamento depois de aceito — execute a migration 100_bloquear_cancelamento_aceito.sql." />
+          ) : (
+            <CartaoInterruptor
+              icone={IconLock}
+              titulo="Bloquear cancelamento após confirmação"
+              descricao="Quando ativado, o cliente não poderá cancelar o agendamento pelo sistema depois que a loja o aceitar. Enquanto estiver pendente, ele ainda pode cancelar. Você e a sua equipe continuam podendo cancelar normalmente."
+              descricaoDesativado="Desativado, o cliente pode cancelar agendamentos pendentes ou aceitos até o horário marcado."
+              valor={semCancelar}
+              desativado={!podeGravar}
+              onMudar={v => alternar('alternarBloqueioCancelamentoAction', 'bloquear_cancelamento_aceito', v, setSemCancelar)}
+            />
           )}
 
           <CartaoInterruptor

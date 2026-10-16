@@ -75,6 +75,8 @@ interface Props {
   pagamentos: Record<string, PagamentoCliente>
   // Agendamentos cobertos pelo saldo do plano (migration 075): id → plano.
   noPlano?: Record<string, string>
+  // Lojas que não deixam o cliente cancelar depois de aceitar (migration 100).
+  lojasSemCancelarAceito?: string[]
 }
 
 // Um card = um agendamento feito de uma vez. Um carrinho com vários
@@ -138,7 +140,7 @@ function whatsDaLoja(v: Visita): string | null {
   return telefone ? `https://wa.me/55${telefone}` : null
 }
 
-export default function AgendamentosClienteList({ agendamentos, avaliacoes, produtosComprados, taxidog, pagamentos, noPlano = {} }: Props) {
+export default function AgendamentosClienteList({ agendamentos, avaliacoes, produtosComprados, taxidog, pagamentos, noPlano = {}, lojasSemCancelarAceito = [] }: Props) {
   const [cancelId, setCancelId] = useState<string | null>(null)
   const [motivo, setMotivo] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -227,7 +229,9 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
           // a mesma regra vale no banco (fn_cancelar_agendamento, migration 063).
           const horarioAindaVem = ag.dt_agendamento > hojeBrasilISO()
             || (ag.dt_agendamento === hojeBrasilISO() && ag.hr_agendamento.slice(0, 5) > agoraBrasilHHMM())
-          const podeCanc = ['Pendente', 'Confirmado'].includes(ag.status) && horarioAindaVem
+          // A loja pode não aceitar cancelamento depois de aceitar (migration 100).
+          const aceitoSemCancelar = ag.status === 'Confirmado' && lojasSemCancelarAceito.includes(ag.id_lojista)
+          const podeCanc = ['Pendente', 'Confirmado'].includes(ag.status) && horarioAindaVem && !aceitoSemCancelar
           const podeAlterar = ag.status === 'Pendente' && horarioAindaVem
           const cancelando = cancelId === ag.id_agendamento
           const avaliacao = avaliacoes[ag.id_agendamento]
@@ -286,7 +290,11 @@ export default function AgendamentosClienteList({ agendamentos, avaliacoes, prod
                 </div>
               )}
               {ag.status === 'Confirmado' && horarioAindaVem && !cancelando && (
-                <span className="text-xs text-muted">A loja já aceitou — para mudar a data, o serviço ou o pet, fale com a loja.</span>
+                <span className="text-xs text-muted">
+                  {aceitoSemCancelar
+                    ? 'Este agendamento já foi confirmado pela loja e não pode mais ser cancelado por aqui. Para cancelar ou mudar alguma coisa, fale com a loja.'
+                    : 'A loja já aceitou — para mudar a data, o serviço ou o pet, fale com a loja.'}
+                </span>
               )}
 
               {podeCanc && !cancelando && (

@@ -2830,6 +2830,39 @@ export async function alternarAgendamentoOnlineAction(ativo: boolean) {
   return { success: true }
 }
 
+// Bloquear o cancelamento pelo cliente depois que a loja aceita (migration
+// 100). Quem pode mudar: o dono ou alguém da equipe com acesso total — a
+// loja vem do contexto do servidor, nunca do navegador. A regra em si é
+// conferida no banco (fn_cancelar_agendamento).
+export async function alternarBloqueioCancelamentoAction(ativo: boolean) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
+    return { error: 'Acesso não autorizado' }
+  }
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+
+  const { error } = await db
+    .from('lojista')
+    .update({ bloquear_cancelamento_aceito: ativo === true })
+    .eq('id_lojista', contexto.idLojista)
+
+  if (error) {
+    if (error.code === '42703' || error.message?.includes('bloquear_cancelamento_aceito')) {
+      return { error: 'Execute a migration 100_bloquear_cancelamento_aceito.sql para usar esta configuração.' }
+    }
+    return { error: 'Erro ao salvar a configuração de cancelamento.' }
+  }
+
+  revalidatePath('/lojista/configuracoes/agendamentos')
+  revalidatePath('/cliente/agendamentos')
+  return { success: true }
+}
+
 // Som de novos agendamentos (migration 036) — ativo + qual dos 5 sons,
 // salvos juntos num "Salvar alterações" só (diferente do toggle solo do
 // Kanban/Agendamento Online, que salva na hora). revalidatePath('/lojista',

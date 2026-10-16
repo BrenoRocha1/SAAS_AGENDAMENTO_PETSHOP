@@ -3,13 +3,13 @@ import { obterUsuario } from '@/lib/supabase/usuario'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { alternarKanbanAction, alternarAgendamentoOnlineAction } from '@/lib/actions'
+import { alternarKanbanAction, alternarAgendamentoOnlineAction, alternarBloqueioCancelamentoAction } from '@/lib/actions'
 import { alternarPrecosEstimadosAction } from '@/lib/actions-taxidog'
 import ConfigToggleCard from '@/components/lojista/ConfigToggleCard'
 import LinkAgendamentoOnline from '@/components/lojista/LinkAgendamentoOnline'
 import JanelaAgendamentoForm from '@/components/lojista/JanelaAgendamentoForm'
 import SimultaneosForm from '@/components/lojista/SimultaneosForm'
-import { IconAlert, IconCalendar, IconChevronLeft, IconKanban, IconMoney } from '@/components/icons'
+import { IconAlert, IconCalendar, IconChevronLeft, IconKanban, IconLock, IconMoney } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'Configurações de Agendamentos — Lojista' }
 
@@ -56,6 +56,13 @@ export default async function ConfiguracoesAgendamentosPage() {
     .eq('id_lojista', lojistaId)
     .maybeSingle()
 
+  // Bloquear cancelamento depois de aceito (migration 100) — tolerante como as de cima.
+  const { data: cancelamentoRow, error: cancelamentoError } = await supabase
+    .from('lojista')
+    .select('bloquear_cancelamento_aceito')
+    .eq('id_lojista', lojistaId)
+    .maybeSingle()
+
   // Agendamentos simultâneos (migration 076) — tolerante como as de cima.
   const { data: simultaneosRow, error: simultaneosError } = await supabase
     .from('lojista')
@@ -71,7 +78,7 @@ export default async function ConfiguracoesAgendamentosPage() {
 
       <div className="page-header">
         <h1 className="page-title">Configurações de Agendamentos</h1>
-        <p className="page-subtitle">Controle o Kanban, quantos agendamentos a loja aceita ao mesmo tempo e o agendamento feito pelos próprios clientes.</p>
+        <p className="page-subtitle">Controle o Kanban, quantos agendamentos a loja aceita ao mesmo tempo, o cancelamento pelos clientes e o agendamento feito por eles.</p>
       </div>
 
       {error || !lojista ? (
@@ -119,6 +126,27 @@ export default async function ConfiguracoesAgendamentosPage() {
               ativoInicial={lojista.aceita_agendamento_online}
               action={alternarAgendamentoOnlineAction}
             />
+          </div>
+
+          <div id="cancelamento">
+            {cancelamentoError ? (
+              <div className="alert alert-warning">
+                <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+                <span>
+                  Ainda não dá pra bloquear o cancelamento depois de aceito — execute a migration 100_bloquear_cancelamento_aceito.sql.
+                  {process.env.NODE_ENV !== 'production' && ` [DEV: ${cancelamentoError.message}]`}
+                </span>
+              </div>
+            ) : (
+              <ConfigToggleCard
+                icone={<IconLock style={{ width: 17, height: 17 }} />}
+                titulo="Bloquear cancelamento após confirmação"
+                descricao="Quando ativado, o cliente não poderá cancelar o agendamento pelo sistema depois que a loja o aceitar. Enquanto estiver pendente, ele ainda pode cancelar. Você e a sua equipe continuam podendo cancelar normalmente."
+                descricaoQuandoDesativado="Desativado, o cliente pode cancelar agendamentos pendentes ou aceitos até o horário marcado."
+                ativoInicial={!!cancelamentoRow?.bloquear_cancelamento_aceito}
+                action={alternarBloqueioCancelamentoAction}
+              />
+            )}
           </div>
 
           {lojista.aceita_agendamento_online && (

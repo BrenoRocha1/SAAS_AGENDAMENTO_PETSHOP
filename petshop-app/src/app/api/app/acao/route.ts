@@ -111,6 +111,7 @@ const ACOES: Record<string, Acao> = {
   removerLogoLojistaAction: acoes.removerLogoLojistaAction,
   alternarKanbanAction: acoes.alternarKanbanAction,
   alternarAgendamentoOnlineAction: acoes.alternarAgendamentoOnlineAction,
+  alternarBloqueioCancelamentoAction: acoes.alternarBloqueioCancelamentoAction,
   atualizarSlugLojistaAction: acoes.atualizarSlugLojistaAction,
   atualizarJanelaAgendamentoAction: acoes.atualizarJanelaAgendamentoAction,
   atualizarSomNotificacaoAction: acoes.atualizarSomNotificacaoAction,

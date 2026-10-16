@@ -48,6 +48,8 @@ export interface DadosAgendamentosCliente {
   avaliacoes: Record<string, AvaliacaoExistente>
   // id do agendamento → nome do plano que cobre o serviço (migration 075).
   noPlano: Record<string, string>
+  // Lojas que não deixam o cliente cancelar depois de aceitar (migration 100).
+  lojasSemCancelarAceito: string[]
 }
 
 const ORDEM: StatusAgendamento[] = ['Pendente', 'Confirmado', 'Em andamento', 'Concluído']
@@ -189,5 +191,15 @@ export async function carregarAgendamentosDoCliente(idCliente: string): Promise<
     }
   })
 
-  return { dados: { visitas, avaliacoes, noPlano } }
+  // Lojas que não aceitam cancelamento pelo cliente depois de aceitar
+  // (migration 100). Consulta à parte e tolerante: sem a coluna, ninguém
+  // bloqueia. A regra vale no banco de qualquer jeito (fn_cancelar_agendamento);
+  // aqui é só para a tela explicar.
+  const idsLojas = [...new Set(agendamentos.map(a => a.id_lojista))]
+  const bloqueiam = idsLojas.length
+    ? await supabase.from('lojista').select('id_lojista').in('id_lojista', idsLojas).eq('bloquear_cancelamento_aceito', true)
+    : { data: [] }
+  const lojasSemCancelarAceito = ((bloqueiam.data ?? []) as { id_lojista: string }[]).map(l => l.id_lojista)
+
+  return { dados: { visitas, avaliacoes, noPlano, lojasSemCancelarAceito } }
 }

@@ -123,7 +123,9 @@ export default function AgendamentosClienteScreen() {
     <View style={styles.detalhes}>
       {v.itens.map(ag => {
         const aindaVem = horarioAindaVem(ag)
-        const podeCancelar = (ag.status === 'Pendente' || ag.status === 'Confirmado') && aindaVem
+        // A loja pode não aceitar cancelamento depois de aceitar (migration 100).
+        const aceitoSemCancelar = ag.status === 'Confirmado' && !!dados?.lojasSemCancelarAceito.includes(ag.id_lojista)
+        const podeCancelar = (ag.status === 'Pendente' || ag.status === 'Confirmado') && aindaVem && !aceitoSemCancelar
         const podeAlterar = ag.status === 'Pendente' && aindaVem
         const avaliacao = dados?.avaliacoes[ag.id_agendamento]
         const plano = dados?.noPlano[ag.id_agendamento]
@@ -181,7 +183,11 @@ export default function AgendamentosClienteScreen() {
               </View>
             )}
             {ag.status === 'Confirmado' && aindaVem && (
-              <Text style={styles.texto}>A loja já aceitou — para mudar a data, o serviço ou o pet, fale com a loja.</Text>
+              <Text style={styles.texto}>
+                {aceitoSemCancelar
+                  ? 'Este agendamento já foi confirmado pela loja e não pode mais ser cancelado por aqui. Para cancelar ou mudar alguma coisa, fale com a loja.'
+                  : 'A loja já aceitou — para mudar a data, o serviço ou o pet, fale com a loja.'}
+              </Text>
             )}
             {podeCancelar && (
               <Botao
