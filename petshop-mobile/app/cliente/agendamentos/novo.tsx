@@ -1,3 +1,5 @@
+import { BotaoGaleriaServico } from '@/components/GaleriaServico'
+import { COLUNAS_FOTO_SERVICO, agruparFotosPorServico, type FotoServico } from '@/lib/galeria'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native'
@@ -129,6 +131,8 @@ export default function NovoAgendamentoClienteScreen() {
 
   // Dados da loja escolhida.
   const [servicos, setServicos] = useState<Servico[] | null>(null)
+  // Fotos de referência de cada serviço (migration 101) — sem ela, vazio.
+  const [fotosServicos, setFotosServicos] = useState<Record<string, FotoServico[]>>({})
   const [produtos, setProdutos] = useState<Produto[]>([])
   // Serviços adicionais que a loja liberou para o agendamento (migration
   // 095) e os que o cliente marcou, por serviço do pedido.
@@ -178,6 +182,8 @@ export default function NovoAgendamentoClienteScreen() {
     let cancelado = false
     const hojeISO = format(agoraBrasil(), 'yyyy-MM-dd')
     carregarAdicionaisOnline(lojaId).then(lista => { if (!cancelado) setAdicionaisLoja(lista) })
+    supabase.from('servico_foto').select(COLUNAS_FOTO_SERVICO).eq('id_lojista', lojaId).order('ordem')
+      .then(({ data }) => { if (!cancelado) setFotosServicos(agruparFotosPorServico(data)) })
     Promise.all([
       supabase.from('servico').select('id_servico, nome, descricao, preco, duracao').eq('id_lojista', lojaId).eq('status', 'Ativo').order('nome'),
       // Produtos liberados pra venda no agendamento online (migration 039), com estoque.
@@ -665,7 +671,7 @@ export default function NovoAgendamentoClienteScreen() {
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: marcado }}
                       accessibilityLabel={s.nome}
-                      style={[styles.servico, marcado && styles.servicoMarcado]}
+                      style={[styles.servico, marcado && styles.servicoMarcado, !!fotosServicos[s.id_servico]?.length && styles.servicoComGaleria]}
                     >
                       <View style={[styles.check, marcado && styles.checkMarcado]}>{marcado && <IconCheck size={14} color={colors.white} />}</View>
                       {emPromo && <View style={styles.selo}><Text style={styles.seloTexto}>-{seloDesconto(cheioDe(s), precoDe(s))}%</Text></View>}
@@ -676,6 +682,10 @@ export default function NovoAgendamentoClienteScreen() {
                         {formatarMoeda(precoDe(s))}
                       </Text>
                     </Pressable>
+                    {/* Fotos de referência: abrir não marca o serviço. */}
+                    {fotosServicos[s.id_servico]?.length ? (
+                      <View style={styles.servicoGaleria}><BotaoGaleriaServico fotos={fotosServicos[s.id_servico]} nomeServico={s.nome} /></View>
+                    ) : null}
                   </View>
                 )
               })}
@@ -984,6 +994,9 @@ const styles = StyleSheet.create({
   // Serviços em grade, dois por linha.
   grade: { flexDirection: 'row', flexWrap: 'wrap', margin: -5 },
   gradeCaixa: { width: '50%', padding: 5 },
+  // No canto de baixo, à direita (como .ag2-servico-galeria do site).
+  servicoGaleria: { position: 'absolute', right: 15, bottom: 15 },
+  servicoComGaleria: { paddingBottom: 44 },
   servico: { flex: 1, minHeight: 118, padding: 14, gap: 2, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.borderStrong, borderRadius: 14 },
   servicoMarcado: { borderColor: colors.primary600, backgroundColor: 'rgba(79,70,229,0.08)' },
   check: { position: 'absolute', top: 12, right: 12, width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.borderStrong },

@@ -16,6 +16,7 @@ import { IconPlus, IconSliders, IconTrash } from '@/components/IconesDoSite'
 import { Seletor } from '@/components/Seletor'
 import { Interruptor } from '@/components/Interruptor'
 import { ServicosAdicionais } from '@/components/ServicosAdicionais'
+import { GaleriaServicoEditor, enviarFotosPendentes, problemaDasPendentes, type FotoPendente } from '@/components/GaleriaServicoEditor'
 import { BotaoPromocao, FORM_PROMOCAO_VAZIO, FolhaPromocaoServico, PromocaoServicoCampos, agoraBrasilPromocao, dadosDoFormPromocao, formDaPromocao, problemaDoFormPromocao, type FormPromocao } from '@/components/PromocaoServico'
 import { Text } from '@/components/Texto'
 import { useAuth } from '@/contexts/AuthContext'
@@ -76,6 +77,8 @@ export default function ServicosScreen() {
   const [descricao, setDescricao] = useState('')
   const [preco, setPreco] = useState('')
   const [duracao, setDuracao] = useState('')
+  // Fotos de referência escolhidas e ainda não enviadas (migration 101).
+  const [fotosPendentes, setFotosPendentes] = useState<FotoPendente[]>([])
   const [erroPainel, setErroPainel] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
   // Serviço esperando o "sim" da janela de exclusão.
@@ -143,6 +146,7 @@ export default function ServicosScreen() {
 
   function abrir(s: Servico | null) {
     setEditando(s)
+    setFotosPendentes([])
     setNome(s?.nome ?? '')
     setDescricao(s?.descricao ?? '')
     setPreco(s ? numeroParaCampo(s.preco) : '')
@@ -173,6 +177,8 @@ export default function ServicosScreen() {
       const problema = problemaDoFormPromocao(promoForm, valor)
       if (problema) return setErroPainel(problema)
     }
+    const problemaFotos = problemaDasPendentes(fotosPendentes)
+    if (problemaFotos) return setErroPainel(problemaFotos)
     setErroPainel(null)
     setSalvando(true)
     const campos = form({
@@ -189,9 +195,32 @@ export default function ServicosScreen() {
     })
     const r = editando
       ? await chamarAcao('editarServicoAction', editando.id_servico, campos)
-      : await chamarAcao('criarServicoAction', campos)
+      : await chamarAcao<{ id_servico: string }>('criarServicoAction', campos)
+    if (r.error) {
+      setSalvando(false)
+      return setErroPainel(r.error)
+    }
+    // Fotos de referência novas (migration 101): sobem depois do serviço
+    // salvo — o serviço novo só tem id agora.
+    const idServico = editando?.id_servico ?? (r as { id_servico?: string }).id_servico
+    if (idServico && fotosPendentes.length > 0) {
+      const envio = await enviarFotosPendentes(idServico, fotosPendentes)
+      if (envio.erro) {
+        // O serviço já está salvo: a folha passa a editar ele (salvar de
+        // novo não cria outro) e ficam só as fotos que não subiram.
+        setFotosPendentes(fotosPendentes.slice(envio.enviadas))
+        setErroPainel(`Serviço salvo, mas uma foto não foi enviada — ${envio.erro}`)
+        if (!editando) {
+          const { data: novo } = await supabase.from('servico').select(COLUNAS_SERVICO).eq('id_servico', idServico).maybeSingle()
+          if (novo) setEditando({ ...(novo as unknown as Servico), preco: Number((novo as { preco: number }).preco) })
+        }
+        setSalvando(false)
+        carregar()
+        return
+      }
+      setFotosPendentes([])
+    }
     setSalvando(false)
-    if (r.error) return setErroPainel(r.error)
     setPainel(false)
     carregar()
   }
@@ -402,6 +431,16 @@ export default function ServicosScreen() {
             </View>
           )}
         </View>
+
+        {/* Fotos de referência (migration 101): modelos do serviço. */}
+        <GaleriaServicoEditor
+          key={editando?.id_servico ?? 'novo'}
+          idServico={editando?.id_servico ?? null}
+          nomeServico={nome}
+          pendentes={fotosPendentes}
+          onPendentesChange={setFotosPendentes}
+          desativado={salvando}
+        />
 
         {/* Promoção (migration 096): preço promocional, período e onde vale. */}
         <PromocaoServicoCampos
