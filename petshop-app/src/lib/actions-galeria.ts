@@ -172,7 +172,12 @@ export async function reordenarFotosServicoAction(idServico: string, ids: string
   }
   const ctx = await contextoDaGaleria()
   if ('error' in ctx) return ctx
-  const { db, contexto } = ctx
+  const { supabase, db, contexto } = ctx
+
+  // O serviço precisa ser da própria loja (client normal → RLS).
+  const { data: servico } = await supabase.from('servico').select('id_servico')
+    .eq('id_servico', idServico).eq('id_lojista', contexto.idLojista).maybeSingle()
+  if (!servico) return { error: 'Serviço não encontrado.' }
 
   const { data: atuais, error } = await db.from('servico_foto').select('id_foto')
     .eq('id_servico', idServico).eq('id_lojista', contexto.idLojista)
