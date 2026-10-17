@@ -16,19 +16,41 @@ import {
 } from '@/lib/planos'
 import { formatarReais } from '@/lib/taxidog'
 import { Folha, LinhaSwitch, Opcao, Segmentos } from '@/components/app/PecasApp'
-import { IconAlert, IconCheck, IconMoney, IconRepeat } from '@/components/icons'
+import { IconAlert, IconCheck, IconMoney, IconSearch } from '@/components/icons'
 import CobrancaPagamento from './CobrancaPagamento'
 import BeneficiosBarra from './BeneficiosBarra'
 import Ilustracao from '@/components/Ilustracao'
+import './planos-tela.css'
 
 // ── Assinaturas da loja ──
-export function AssinaturasLista({ assinaturas }: { assinaturas: Assinatura[] }) {
+type FiltroAssinatura = 'ativa' | 'pendencia' | 'cancelada' | 'todas'
+const FILTROS_ASSINATURA: [FiltroAssinatura, string][] = [
+  ['ativa', 'Ativas'],
+  ['pendencia', 'Com cobrança vencida'],
+  ['cancelada', 'Canceladas'],
+  ['todas', 'Todas'],
+]
+
+const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+function passaNoFiltro(a: Assinatura, f: FiltroAssinatura): boolean {
+  if (f === 'todas') return true
+  if (f === 'pendencia') return a.status === 'ativa' && a.cobrancas_vencidas > 0
+  return a.status === f
+}
+
+export function AssinaturasLista({ assinaturas, buscaInicial = '', hojeISO }: { assinaturas: Assinatura[]; buscaInicial?: string; hojeISO: string }) {
   const router = useRouter()
-  const [filtro, setFiltro] = useState<'ativa' | 'cancelada' | 'todas'>('ativa')
-  const lista = assinaturas.filter(a => filtro === 'todas' || a.status === filtro)
-  // Celular (igual ao app): todas as assinaturas numa lista, e cancelar daqui.
+  const [filtro, setFiltro] = useState<FiltroAssinatura>(buscaInicial ? 'todas' : 'ativa')
+  const [busca, setBusca] = useState(buscaInicial)
   const [cancelando, setCancelando] = useState<Assinatura | null>(null)
   const [info, setInfo] = useState<string | null>(null)
+
+  const termo = semAcento(busca.trim())
+  const daBusca = termo
+    ? assinaturas.filter(a => semAcento([a.cliente, a.pet, a.plano].filter(Boolean).join(' ')).includes(termo))
+    : assinaturas
+  const lista = daBusca.filter(a => passaNoFiltro(a, filtro))
 
   function cancelada(r: ResumoCancelamento | null) {
     const partes = [
@@ -40,60 +62,127 @@ export function AssinaturasLista({ assinaturas }: { assinaturas: Assinatura[] })
     router.refresh()
   }
 
+  const statusSelo = (a: Assinatura) => a.status === 'cancelada'
+    ? <span className="badge badge-inativo">Cancelada</span>
+    : <span className="badge badge-concluido">Ativa</span>
+
+  // Próxima renovação: a próxima cobrança gerada; cancelada não renova.
+  const proxima = (a: Assinatura) => a.status === 'cancelada'
+    ? `Cancelada em ${dataBR(a.cancelada_em)}`
+    : a.proxima_cobranca ? dataBR(a.proxima_cobranca)
+    : a.data_inicio > hojeISO ? `Começa em ${dataBR(a.data_inicio)}` : '—'
+
+  const pendencia = (a: Assinatura) => a.status === 'ativa' && a.cobrancas_vencidas > 0
+    ? <span className="pl-pendencia">{a.cobrancas_vencidas} {a.cobrancas_vencidas === 1 ? 'cobrança vencida' : 'cobranças vencidas'}</span>
+    : null
+
   return (
     <>
-      {/* Celular: a mesma aba "Assinaturas" do app. */}
-      <div className="so-celular">
-        <div className="tela-app-pilha">
-          {info && (
-            <div className="alert alert-success">
-              <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{info}</span>
-            </div>
-          )}
-          {assinaturas.length === 0 ? (
-            <div className="dash-app-vazio">
-              <Ilustracao nome="planos" altura={110} style={{ marginBottom: 0 }} />
-              <strong>Nenhuma assinatura</strong>
-              <span>Vincule um plano a um pet na ficha do pet.</span>
-            </div>
-          ) : (
-            assinaturas.map(a => (
-              <div key={a.id_assinatura} className="cartao-app">
-                <span className={`titulo-app ${a.status === 'cancelada' ? 'is-apagado' : ''}`}>
-                  {a.pet ?? 'Pet excluído'} — {a.plano}
-                </span>
-                <span className="sub-app">
-                  {a.cliente ?? 'Cliente excluído'} · {formatarReais(a.valor)}{sufixoPeriodo(a.periodicidade, a.intervalo_dias)}
-                </span>
-                {a.status === 'cancelada' ? (
-                  <span className="sub-app">
-                    Cancelada{a.cancelada_em ? ` em ${dataBR(a.cancelada_em)}` : ''}{a.motivo_cancelamento ? ` — ${a.motivo_cancelamento}` : ''}
-                  </span>
-                ) : (
-                  <>
-                    {a.periodo_atual && (
-                      <span className="sub-app">
-                        Período até {dataBR(a.periodo_atual.fim)}: {a.periodo_atual.beneficios.map(b => `${b.servico} ${b.usados}/${b.quantidade}`).join(' · ')}
-                      </span>
-                    )}
-                    <span className={`sub-app ${a.cobrancas_vencidas > 0 ? 'is-perigo' : ''}`}>
-                      {a.cobrancas_vencidas > 0
-                        ? `${a.cobrancas_vencidas} ${a.cobrancas_vencidas === 1 ? 'cobrança vencida' : 'cobranças vencidas'}`
-                        : a.cobrancas_em_aberto > 0
-                          ? `${a.cobrancas_em_aberto} ${a.cobrancas_em_aberto === 1 ? 'cobrança em aberto' : 'cobranças em aberto'}`
-                          : 'Cobranças em dia'}
-                      {a.proxima_cobranca ? ` · próxima em ${dataBR(a.proxima_cobranca)}` : ''}
-                    </span>
-                    <button type="button" className="botao-app is-perigo is-compacto" onClick={() => setCancelando(a)}>
-                      Cancelar assinatura
-                    </button>
-                  </>
-                )}
-              </div>
-            ))
-          )}
+      {info && (
+        <div className="alert alert-success" style={{ marginBottom: 'var(--space-4)' }}>
+          <IconCheck style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} /><span>{info}</span>
+        </div>
+      )}
+
+      <div className="pl-filtros">
+        <div className="pl-busca">
+          <IconSearch style={{ width: 16, height: 16 }} />
+          <input className="form-input" type="search" placeholder="Buscar por cliente, pet ou plano" value={busca} onChange={e => setBusca(e.target.value)} aria-label="Buscar assinaturas" />
+        </div>
+        <div className="pl-segmentos" role="tablist" aria-label="Status">
+          {FILTROS_ASSINATURA.map(([v, l]) => (
+            <button key={v} type="button" role="tab" aria-selected={filtro === v} className={filtro === v ? 'is-ativo' : ''} onClick={() => setFiltro(v)}>
+              {l}<span>{daBusca.filter(a => passaNoFiltro(a, v)).length}</span>
+            </button>
+          ))}
         </div>
       </div>
+
+      {lista.length === 0 ? (
+        <div className="empty-state card">
+          <Ilustracao nome="planos" altura={110} />
+          <div className="empty-state-title">
+            {assinaturas.length === 0 ? 'Nenhuma assinatura ainda' : 'Nenhuma assinatura encontrada'}
+          </div>
+          <p>
+            {assinaturas.length === 0
+              ? <>Na aba <Link href="/lojista/planos">Planos</Link>, use “Atribuir plano” para vincular um plano a um pet.</>
+              : 'Mude a busca ou o filtro de status.'}
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Computador: tabela. */}
+          <div className="so-desktop">
+          <div className="table-container">
+            <table className="table pl-tabela">
+              <thead>
+                <tr>
+                  <th>Cliente e pet</th>
+                  <th>Plano</th>
+                  <th>Valor</th>
+                  <th>Status</th>
+                  <th>Início</th>
+                  <th>Próxima renovação</th>
+                  <th aria-label="Ações" />
+                </tr>
+              </thead>
+              <tbody>
+                {lista.map(a => (
+                  <tr key={a.id_assinatura}>
+                    <td>
+                      <div className="pl-tabela-quem">
+                        <strong>{a.pet ?? 'Pet removido'}</strong>
+                        <span>{a.cliente ?? 'Cliente removido'}</span>
+                      </div>
+                    </td>
+                    <td>{a.plano}</td>
+                    <td className="pl-num">{formatarReais(a.valor)}{sufixoPeriodo(a.periodicidade, a.intervalo_dias)}</td>
+                    <td>{statusSelo(a)}{pendencia(a)}</td>
+                    <td className="pl-num">{dataBR(a.data_inicio)}</td>
+                    <td className="pl-num">{proxima(a)}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      {a.id_cliente && (
+                        <Link href={`/lojista/clientes/${a.id_cliente}`} className="btn btn-ghost btn-sm">Detalhes</Link>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          </div>
+
+          {/* Celular: cards compactos. */}
+          <div className="so-celular">
+          <div className="pl-lista-cel">
+            {lista.map(a => (
+              <div key={a.id_assinatura} className="pl-assin-cel">
+                <div className="pl-assin-cel-topo">
+                  <div className="pl-tabela-quem">
+                    <strong>{a.pet ?? 'Pet removido'} · {a.plano}</strong>
+                    <span>{a.cliente ?? 'Cliente removido'}</span>
+                  </div>
+                  {statusSelo(a)}
+                </div>
+                <div className="pl-assin-cel-linha"><span>Valor</span><strong>{formatarReais(a.valor)}{sufixoPeriodo(a.periodicidade, a.intervalo_dias)}</strong></div>
+                <div className="pl-assin-cel-linha"><span>Início</span><strong>{dataBR(a.data_inicio)}</strong></div>
+                <div className="pl-assin-cel-linha"><span>{a.status === 'cancelada' ? 'Situação' : 'Próxima renovação'}</span><strong>{proxima(a)}</strong></div>
+                {pendencia(a)}
+                {a.status === 'ativa' && a.periodo_atual && <BeneficiosBarra beneficios={a.periodo_atual.beneficios} />}
+                <div className="pl-assin-cel-acoes">
+                  {a.id_cliente && <Link href={`/lojista/clientes/${a.id_cliente}`} className="btn btn-secondary btn-sm">Detalhes</Link>}
+                  {a.status === 'ativa' && (
+                    <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--danger-500)' }} onClick={() => setCancelando(a)}>Cancelar</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          </div>
+        </>
+      )}
+
       {cancelando && (
         <CancelarAssinaturaFolha
           key={cancelando.id_assinatura}
@@ -102,58 +191,6 @@ export function AssinaturasLista({ assinaturas }: { assinaturas: Assinatura[] })
           onCancelada={cancelada}
         />
       )}
-
-      <div className="so-desktop">
-      <div className="planos-filtros">
-        {([['ativa', 'Ativas'], ['cancelada', 'Canceladas'], ['todas', 'Todas']] as const).map(([v, l]) => (
-          <button key={v} type="button" className={`btn btn-sm ${filtro === v ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFiltro(v)}>
-            {l} ({assinaturas.filter(a => v === 'todas' || a.status === v).length})
-          </button>
-        ))}
-      </div>
-      {lista.length === 0 ? (
-        <div className="empty-state card">
-          <IconRepeat style={{ width: 32, height: 32, color: 'var(--gray-500)', margin: '0 auto var(--space-4)' }} />
-          <div className="empty-state-title">Nenhuma assinatura {filtro === 'cancelada' ? 'cancelada' : filtro === 'ativa' ? 'ativa' : ''}</div>
-          <p>Para vincular um plano, abra o cliente em Clientes e use &quot;Assinar plano&quot;.</p>
-        </div>
-      ) : (
-        <div className="planos-assinaturas">
-          {lista.map(a => (
-            <div key={a.id_assinatura} className="card plano-assinatura">
-              <div className="flex items-center justify-between gap-2" style={{ flexWrap: 'wrap' }}>
-                <div style={{ minWidth: 0 }}>
-                  <div className="font-semibold">{a.pet ?? 'Pet removido'} · {a.plano}</div>
-                  <div className="text-xs text-muted">
-                    {a.id_cliente ? <Link href={`/lojista/clientes/${a.id_cliente}`}>{a.cliente}</Link> : 'Cliente removido'}
-                    {' · '}{formatarReais(a.valor)}{sufixoPeriodo(a.periodicidade, a.intervalo_dias)}
-                  </div>
-                </div>
-                <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
-                  {a.status === 'cancelada'
-                    ? <span className="badge badge-inativo">Cancelada</span>
-                    : <span className="badge badge-concluido">Ativa</span>}
-                  {a.cobrancas_vencidas > 0 && <span className="badge badge-cancelado">{a.cobrancas_vencidas} vencida{a.cobrancas_vencidas > 1 ? 's' : ''}</span>}
-                </div>
-              </div>
-              {a.periodo_atual ? (
-                <>
-                  <div className="text-xs text-muted">
-                    Período {a.periodo_atual.numero}: {dataBR(a.periodo_atual.inicio)} a {dataBR(a.periodo_atual.fim)}
-                    {a.proxima_cobranca && <> · próxima cobrança {dataBR(a.proxima_cobranca)}</>}
-                  </div>
-                  <BeneficiosBarra beneficios={a.periodo_atual.beneficios} />
-                </>
-              ) : (
-                <div className="text-xs text-muted">
-                  {a.status === 'ativa' ? `Começa em ${dataBR(a.data_inicio)}` : `Cancelada em ${dataBR(a.cancelada_em)}`}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-      </div>
     </>
   )
 }

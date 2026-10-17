@@ -241,8 +241,71 @@ export interface RelatorioPlanos {
 }
 
 // Mensagem do banco sem o prefixo técnico.
+// ── Atribuir plano pela tela de Planos ──
+
+// Cliente achado na busca e os pets dele, com os planos que cada um já tem.
+export interface ClienteParaPlano { id_cliente: string; nome: string; telefone: string | null }
+export interface PetParaPlano {
+  id_pet: string
+  nome: string
+  raca: string | null
+  especie: string | null
+  foto_url: string | null
+  // id dos planos que o pet já tem ativos (o mesmo plano não pode repetir).
+  planos_ativos: string[]
+}
+
+// Início do período n (0 = o primeiro): a mesma conta de
+// fn_plano_inicio_periodo no banco. Mês somado como no Postgres — 31/01
+// + 1 mês = 28/02 (ou 29/02).
+export function inicioPeriodoPlano(inicioISO: string, periodicidade: string, intervaloDias: number | null, n: number): string {
+  const [a, m, d] = inicioISO.slice(0, 10).split('-').map(Number)
+  const somarMeses = (meses: number) => {
+    const total = (m - 1) + meses
+    const ano = a + Math.floor(total / 12)
+    const mes = ((total % 12) + 12) % 12
+    const ultimo = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate()
+    return new Date(Date.UTC(ano, mes, Math.min(d, ultimo)))
+  }
+  const somarDias = (dias: number) => new Date(Date.UTC(a, m - 1, d + dias))
+  const data = periodicidade === 'mensal' ? somarMeses(n)
+    : periodicidade === 'trimestral' ? somarMeses(3 * n)
+    : periodicidade === 'semestral' ? somarMeses(6 * n)
+    : periodicidade === 'anual' ? somarMeses(12 * n)
+    : periodicidade === 'quinzenal' ? somarDias(15 * n)
+    : somarDias((intervaloDias || 30) * n)
+  return data.toISOString().slice(0, 10)
+}
+
+function diaAnterior(iso: string): string {
+  const [a, m, d] = iso.split('-').map(Number)
+  return new Date(Date.UTC(a, m - 1, d - 1)).toISOString().slice(0, 10)
+}
+
+// O que acontece ao confirmar uma assinatura, pelas regras de
+// fn_gerar_periodos_assinatura: o 1º período começa no início; uma cobrança
+// pendente nasce no início de cada período; com início no passado, os
+// períodos até hoje (e as cobranças deles) já são criados na hora.
+export function previaAssinatura(inicioISO: string, periodicidade: string, intervaloDias: number | null, hojeISO: string) {
+  const periodo = (n: number) => ({
+    inicio: inicioPeriodoPlano(inicioISO, periodicidade, intervaloDias, n),
+    fim: diaAnterior(inicioPeriodoPlano(inicioISO, periodicidade, intervaloDias, n + 1)),
+  })
+  let n = 0
+  while (periodo(n).fim < hojeISO && n < 240) n++
+  return {
+    primeiro: periodo(0),
+    atual: periodo(n),
+    // Cobranças criadas na hora (todas pendentes).
+    cobrancasCriadas: n + 1,
+    proximaCobranca: periodo(n + 1).inicio,
+  }
+}
+
 export function mensagemErroPlano(msg: string | undefined, padrao: string): string {
   if (!msg) return padrao
+  // Duas confirmações ao mesmo tempo: o índice único (migration 103) segura a segunda.
+  if (/uq_assinatura_ativa_pet_plano|duplicate key/i.test(msg)) return 'Este pet já tem este plano ativo.'
   if (/fn_\w+|does not exist|schema cache/i.test(msg)) return 'Para usar planos, execute a migration 060_planos_assinaturas.sql.'
   return msg
 }
