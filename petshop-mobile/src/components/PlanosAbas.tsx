@@ -287,6 +287,8 @@ function iconeDoEvento(tipo: string, tom: TomHistorico): string {
 function EventoHistorico({ item, hoje, mostrarDia = false, primeiro }: { item: ItemHistoricoPlano; hoje: string; mostrarDia?: boolean; primeiro: boolean }) {
   const ev = descreverEvento(item.tipo, item.descricao)
   const quem = [item.pet, item.cliente].filter(Boolean).join(' · ')
+  // Plano apagado de vez: o nome ainda está na frase gravada ("Plano "X" …").
+  const plano = item.plano ?? item.descricao.match(/"([^"]+)"/)?.[1] ?? null
   return (
     <View style={[s.evento, !primeiro && s.linhaBordaTopo]}>
       <View style={[s.eventoIcone, { backgroundColor: COR_TOM[ev.tom].fundo }]}>
@@ -297,10 +299,10 @@ function EventoHistorico({ item, hoje, mostrarDia = false, primeiro }: { item: I
           <Text style={s.eventoTitulo}>{ev.titulo}</Text>
           <Text style={s.mini}>{mostrarDia ? `${rotuloDia(item.em, hoje)}, ` : ''}{horaBR(item.em)}</Text>
         </View>
-        {(quem || item.plano) ? (
+        {(quem || plano) ? (
           <View style={s.eventoQuem}>
             {quem ? <Text style={s.eventoQuemTexto}>{quem}</Text> : null}
-            {item.plano ? <View style={s.eventoPlano}><Text style={s.eventoPlanoTexto}>{item.plano}</Text></View> : null}
+            {plano ? <View style={s.eventoPlano}><Text style={s.eventoPlanoTexto}>{plano}</Text></View> : null}
           </View>
         ) : null}
         {ev.detalhe ? <Text style={s.eventoDetalhe}>{ev.detalhe}</Text> : null}

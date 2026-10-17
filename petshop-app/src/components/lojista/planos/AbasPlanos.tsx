@@ -346,6 +346,8 @@ function iconeDoEvento(tipo: string, tom: TomHistorico) {
 function EventoHistorico({ item, hojeISO, mostrarDia = false }: { item: ItemHistoricoPlano; hojeISO: string; mostrarDia?: boolean }) {
   const ev = descreverEvento(item.tipo, item.descricao)
   const quem = [item.pet, item.cliente].filter(Boolean).join(' · ')
+  // Plano apagado de vez: o nome ainda está na frase gravada ("Plano "X" …").
+  const plano = item.plano ?? item.descricao.match(/"([^"]+)"/)?.[1] ?? null
   return (
     <li className="pl-evento">
       <span className={`pl-evento-icone is-${ev.tom}`} aria-hidden="true">{iconeDoEvento(item.tipo, ev.tom)}</span>
@@ -354,10 +356,10 @@ function EventoHistorico({ item, hojeISO, mostrarDia = false }: { item: ItemHist
           <strong>{ev.titulo}</strong>
           <span>{mostrarDia ? `${rotuloDia(item.em, hojeISO)}, ` : ''}{horaBR(item.em)}</span>
         </div>
-        {(quem || item.plano) && (
+        {(quem || plano) && (
           <div className="pl-evento-quem">
             {quem && <span>{quem}</span>}
-            {item.plano && <span className="pl-evento-plano">{item.plano}</span>}
+            {plano && <span className="pl-evento-plano">{plano}</span>}
           </div>
         )}
         {ev.detalhe && <p>{ev.detalhe}</p>}
