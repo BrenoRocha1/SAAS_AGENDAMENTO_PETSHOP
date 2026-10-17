@@ -4,10 +4,10 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { FormaPagamento } from '@/lib/pagamento'
-import { alterarStatusPlanoAction, salvarPlanoAction } from '@/lib/actions-planos'
+import { alterarStatusPlanoAction, excluirPlanoAction, salvarPlanoAction } from '@/lib/actions-planos'
 import { PERIODICIDADES, rotuloPeriodicidade, sufixoPeriodo, type Periodicidade, type Plano } from '@/lib/planos'
 import { formatarReais } from '@/lib/taxidog'
-import { IconAlert, IconClose, IconMinus, IconPencil, IconPlus, IconUsers } from '@/components/icons'
+import { IconAlert, IconClose, IconMinus, IconPencil, IconPlus, IconTrash, IconUsers } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
 import AtribuirPlanoModal from './AtribuirPlanoModal'
 import './planos-tela.css'
@@ -166,6 +166,18 @@ function PlanoForm({ plano, servicos, onFechar, onSalvo }: {
   )
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  // Excluir (migration 104): pede confirmação antes.
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
+
+  function excluir() {
+    if (!plano) return
+    setErro(null)
+    startTransition(async () => {
+      const r = await excluirPlanoAction(plano.id_plano)
+      if (r.error) { setErro(r.error); setConfirmandoExclusao(false) }
+      else onSalvo()
+    })
+  }
 
   // Serviço desativado só aparece se já estiver no plano.
   const opcoes = servicos.filter(s => s.ativo || itens[s.id_servico] != null)
@@ -323,12 +335,43 @@ function PlanoForm({ plano, servicos, onFechar, onSalvo }: {
               </p>
             )}
           </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-ghost so-desktop" onClick={onFechar} disabled={isPending}>Cancelar</button>
-            <button type="submit" className="btn btn-primary" disabled={isPending || Object.keys(itens).length === 0}>
-              {isPending ? 'Salvando...' : 'Salvar plano'}
-            </button>
-          </div>
+          {confirmandoExclusao && plano ? (
+            <div className="pl-excluir">
+              {plano.assinaturas_ativas > 0 ? (
+                <>
+                  <strong>Este plano tem {plano.assinaturas_ativas} {plano.assinaturas_ativas === 1 ? 'assinatura ativa' : 'assinaturas ativas'}.</strong>
+                  <p>Para excluir, cancele {plano.assinaturas_ativas === 1 ? 'a assinatura' : 'as assinaturas'} na aba Assinaturas antes. Se só não quer vender mais, desative o plano — quem já assinou continua.</p>
+                  <div className="pl-excluir-botoes">
+                    <button type="button" className="btn btn-secondary" onClick={() => setConfirmandoExclusao(false)}>Voltar</button>
+                    <Link href={`/lojista/planos?aba=assinaturas&busca=${encodeURIComponent(plano.nome)}`} className="btn btn-primary" onClick={onFechar}>Ver assinaturas</Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <strong>Excluir o plano “{plano.nome}”?</strong>
+                  <p>Ele sai da lista e não pode mais ser atribuído. Se já foi assinado antes, as assinaturas antigas e as cobranças continuam no histórico. Não dá para desfazer.</p>
+                  <div className="pl-excluir-botoes">
+                    <button type="button" className="btn btn-secondary" onClick={() => setConfirmandoExclusao(false)} disabled={isPending}>Voltar</button>
+                    <button type="button" className="btn btn-danger" onClick={excluir} disabled={isPending}>
+                      <IconTrash style={{ width: 14, height: 14 }} /> {isPending ? 'Excluindo…' : 'Excluir plano'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="modal-footer">
+              {plano && (
+                <button type="button" className="btn btn-ghost pl-excluir-link" onClick={() => setConfirmandoExclusao(true)} disabled={isPending}>
+                  <IconTrash style={{ width: 14, height: 14 }} /> Excluir plano
+                </button>
+              )}
+              <button type="button" className="btn btn-ghost so-desktop" onClick={onFechar} disabled={isPending}>Cancelar</button>
+              <button type="submit" className="btn btn-primary" disabled={isPending || Object.keys(itens).length === 0}>
+                {isPending ? 'Salvando...' : 'Salvar plano'}
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>

@@ -4106,9 +4106,10 @@ a.tela-app-novo, a.tela-app-novo:hover { color: #fff; text-decoration: none; }
 /* ============================================================
    PLANOS RECORRENTES (migration 060)
    ============================================================ */
-.planos-abas { display: flex; gap: var(--space-1); padding: 3px; margin-bottom: var(--space-5); border: 1px solid var(--gray-700); border-radius: var(--radius-md); background: var(--gray-900); width: fit-content; max-width: 100%; overflow-x: auto; }
-.planos-abas a { padding: 6px 14px; border-radius: var(--radius-sm); font-size: 0.875rem; font-weight: 600; color: var(--gray-400); white-space: nowrap; text-decoration: none; }
-.planos-abas a.is-ativa { background: var(--primary-soft-bg); color: var(--primary-300); }
+.planos-abas { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: var(--space-5); }
+.planos-abas a { display: inline-flex; align-items: center; min-height: 38px; padding: 0 16px; border-radius: 10px; font-size: 0.875rem; font-weight: 600; color: var(--gray-400); white-space: nowrap; text-decoration: none; transition: background 0.15s ease, color 0.15s ease; }
+.planos-abas a:hover { background: var(--gray-850); color: var(--gray-200); }
+.planos-abas a.is-ativa { background: var(--primary-600); color: #fff; }
 .planos-filtros { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-4); }
 
 .planos-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-4); }
@@ -4431,13 +4432,10 @@ a.linha-app, a.linha-app:hover { color: inherit; text-decoration: none; }
      o que precisa, divide a sobra e desce de linha quando não cabe. */
   .dash-detail-actions > .btn { flex: 1 1 auto !important; }
 
-  /* Planos: as abas viram os Segmentos do app. */
-  .planos-abas { flex-wrap: wrap; gap: var(--space-2); width: auto; padding: 0; margin-bottom: var(--space-4); border-radius: 0; background: none; overflow: visible; }
-  .planos-abas a {
-    display: inline-flex; align-items: center; min-height: 38px; padding: 0 var(--space-3);
-    border: 1px solid var(--gray-800); border-radius: 999px; background: var(--gray-900); font-size: 0.8125rem; color: var(--gray-300);
-  }
-  .planos-abas a.is-ativa { border-color: var(--primary-600); background: var(--primary-600); color: #fff; box-shadow: none; }
+  /* Planos: as 4 abas numa linha só, divididas por igual (o Segmentos do app). */
+  .planos-abas { display: flex; flex-wrap: nowrap; gap: 2px; width: 100%; margin-bottom: var(--space-4); }
+  .planos-abas a { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 10px; border-radius: 9px; font-size: 0.8125rem; color: var(--gray-400); }
+  .planos-abas a.is-ativa { background: var(--primary-600); color: #fff; box-shadow: none; }
 
   /* Equipe: a janela de convidar/editar vira o painel que sobe de baixo. */
   .modal-overlay:has(> .folha-equipe) { align-items: flex-end !important; padding: 0 !important; background: rgba(17,24,39,0.45) !important; backdrop-filter: none !important; }

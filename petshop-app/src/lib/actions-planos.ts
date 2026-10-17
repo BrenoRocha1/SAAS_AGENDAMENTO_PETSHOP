@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import { ehFormaPagamento, type FormaPagamento } from '@/lib/pagamento'
-import { mensagemErroPlano, type BeneficioDoAgendamento, type ClienteParaPlano, type Periodicidade, type PetParaPlano } from '@/lib/planos'
+import { mensagemErroPlano, type Assinatura, type BeneficioDoAgendamento, type ClienteParaPlano, type Periodicidade, type PetParaPlano } from '@/lib/planos'
 
 type Resultado = { error?: string; success?: boolean }
 
@@ -255,4 +255,32 @@ export async function estornarBeneficioAction(idAgendamento: string): Promise<Re
   if (error) return { error: mensagemErroPlano(error.message, 'Não foi possível desfazer o uso.') }
   revalidarAgenda()
   return { success: true }
+}
+
+// Excluir (migration 104): com assinatura ativa o banco recusa; nunca
+// assinado some de vez; só com assinaturas canceladas sai da lista e o
+// histórico fica.
+export async function excluirPlanoAction(idPlano: string): Promise<Resultado & { modo?: 'apagado' | 'arquivado' }> {
+  if (!UUID_RE.test(idPlano)) return { error: 'Plano inválido.' }
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('fn_excluir_plano', { p_id_plano: idPlano })
+  if (error) {
+    if (error.code === 'PGRST202' || /Could not find the function/i.test(error.message)) {
+      return { error: 'Para excluir planos, execute a migration 104_excluir_plano.sql.' }
+    }
+    return { error: mensagemErroPlano(error.message, 'Não foi possível excluir o plano.') }
+  }
+  revalidarPlanos()
+  return { success: true, modo: data === 'apagado' ? 'apagado' : 'arquivado' }
+}
+
+// Detalhes de uma assinatura (cobranças, usos, histórico) para o painel da
+// tela de Planos — a mesma função da ficha do cliente.
+export async function detalheAssinaturaAction(idCliente: string, idAssinatura: string): Promise<{ error?: string; assinatura?: Assinatura }> {
+  if (!UUID_RE.test(idCliente) || !UUID_RE.test(idAssinatura)) return { error: 'Assinatura inválida.' }
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('fn_assinaturas_da_loja', { p_id_cliente: idCliente, p_detalhes: true })
+  if (error) return { error: mensagemErroPlano(error.message, 'Não foi possível abrir a assinatura.') }
+  const assinatura = ((data ?? []) as Assinatura[]).find(a => a.id_assinatura === idAssinatura)
+  return assinatura ? { assinatura } : { error: 'Assinatura não encontrada.' }
 }

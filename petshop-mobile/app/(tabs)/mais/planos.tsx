@@ -12,10 +12,12 @@ import { Botao } from '@/components/Botao'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { Campo } from '@/components/Campo'
 import { AtribuirPlano } from '@/components/AtribuirPlano'
-import { IconPencil, IconPlus } from '@/components/IconesDoSite'
+import { BarraAbas, DetalheAssinatura, HistoricoPlanos, LinhaAssinatura, ResumoAssinaturas, filtrarPorBusca, passaFiltro, type FiltroAssinatura } from '@/components/PlanosAbas'
+import { depoisDeFechar } from '@/components/Folha'
+import { IconPencil } from '@/components/IconesDoSite'
 import { Folha } from '@/components/Folha'
 import { LinhaSwitch } from '@/components/LinhaSwitch'
-import { Opcao, Segmentos } from '@/components/Opcao'
+import { Opcao } from '@/components/Opcao'
 import { Seletor } from '@/components/Seletor'
 import { Interruptor } from '@/components/Interruptor'
 import { Text } from '@/components/Texto'
@@ -34,6 +36,8 @@ import {
   type Assinatura,
   type CobrancaDaLoja,
   type Periodicidade,
+  type CobrancaPlano,
+  type ItemHistoricoPlano,
   type Plano,
   type ResumoCancelamento,
   type StatusCobrancaExibido,
@@ -42,30 +46,7 @@ import { colors, radius, spacing, typography } from '@/theme/theme'
 
 type Aba = 'planos' | 'assinaturas' | 'cobrancas' | 'historico'
 
-// fn_historico_planos: planos, assinaturas, renovações, cobranças e usos.
-interface ItemHistorico {
-  tipo: string
-  descricao: string
-  em: string
-  pet?: string | null
-  cliente?: string | null
-}
-
-function dataHora(iso: string): string {
-  const d = new Date(iso)
-  const dois = (n: number) => String(n).padStart(2, '0')
-  return Number.isNaN(d.getTime()) ? '' : `${dois(d.getDate())}/${dois(d.getMonth() + 1)}/${d.getFullYear()}, ${dois(d.getHours())}:${dois(d.getMinutes())}`
-}
 type FiltroCobranca = 'pendentes' | 'vencidas' | 'pagas' | 'todas'
-type FiltroAssinatura = 'ativa' | 'pendencia' | 'cancelada' | 'todas'
-
-const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-function passaNoFiltro(a: Assinatura, f: FiltroAssinatura): boolean {
-  if (f === 'todas') return true
-  if (f === 'pendencia') return a.status === 'ativa' && a.cobrancas_vencidas > 0
-  return a.status === f
-}
-
 interface ServicoLoja { id_servico: string; nome: string; preco: number; status: string }
 
 const COR_COBRANCA: Record<StatusCobrancaExibido, { fundo: string; texto: string }> = {
@@ -93,7 +74,7 @@ export default function PlanosScreen() {
   const [planos, setPlanos] = useState<Plano[]>([])
   const [servicos, setServicos] = useState<ServicoLoja[]>([])
   const [assinaturas, setAssinaturas] = useState<Assinatura[]>([])
-  const [historico, setHistorico] = useState<ItemHistorico[]>([])
+  const [historico, setHistorico] = useState<ItemHistoricoPlano[]>([])
   const [cobrancas, setCobrancas] = useState<CobrancaDaLoja[]>([])
   const [formas, setFormas] = useState<FormaPagamento[]>([])
   const [loading, setLoading] = useState(true)
@@ -108,6 +89,10 @@ export default function PlanosScreen() {
 
   // Painéis (um por vez).
   const [painel, setPainel] = useState<'plano' | 'cancelar' | 'cobranca' | null>(null)
+  // Painel de uma assinatura (aba Assinaturas).
+  const [detalhe, setDetalhe] = useState<Assinatura | null>(null)
+  // Excluir plano (migration 104): pede confirmação antes.
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
   const [erroPainel, setErroPainel] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
   // Plano
@@ -131,18 +116,17 @@ export default function PlanosScreen() {
     if (!idLojista || !pode) return
     setLoading(true)
     // A lista de planos sempre; o resto, só o da aba aberta.
-    const [planosRes, extra] = await Promise.all([
+    const [planosRes, formasRes, extra] = await Promise.all([
       supabase.rpc('fn_planos_da_loja'),
+      // As formas aceitas valem em todas as abas (atribuir plano, registrar pagamento).
+      supabase.rpc('fn_formas_pagamento_loja', { p_id_lojista: idLojista }),
       aba === 'planos'
         ? supabase.from('servico').select('id_servico, nome, preco, status').eq('id_lojista', idLojista).is('excluido_em', null).order('nome')
         : aba === 'assinaturas'
           ? supabase.rpc('fn_assinaturas_da_loja', { p_id_cliente: null, p_detalhes: false })
           : aba === 'historico'
             ? supabase.rpc('fn_historico_planos', { p_limite: 150 })
-            : Promise.all([
-              supabase.rpc('fn_cobrancas_planos', { p_filtro: filtro, p_data_ini: null, p_data_fim: null }),
-              supabase.rpc('fn_formas_pagamento_loja', { p_id_lojista: idLojista }),
-            ]),
+            : supabase.rpc('fn_cobrancas_planos', { p_filtro: filtro, p_data_ini: null, p_data_fim: null }),
     ])
     setLoading(false)
     if (planosRes.error) {
@@ -151,14 +135,13 @@ export default function PlanosScreen() {
     }
     setErro(null)
     setPlanos(((planosRes.data ?? []) as Plano[]).map(p => ({ ...p, valor: Number(p.valor) })))
-    if (Array.isArray(extra)) {
-      const [cob, formasLoja] = extra
-      setCobrancas(((cob.data ?? []) as CobrancaDaLoja[]).map(c => ({ ...c, valor: Number(c.valor) })))
-      setFormas(formasAtivas(normalizarFormasLoja(formasLoja.data)))
+    setFormas(formasAtivas(normalizarFormasLoja(formasRes.data)))
+    if (aba === 'cobrancas') {
+      setCobrancas(((extra.data ?? []) as CobrancaDaLoja[]).map(c => ({ ...c, valor: Number(c.valor) })))
     } else if (aba === 'planos') {
       setServicos(((extra.data ?? []) as ServicoLoja[]).map(s => ({ ...s, preco: Number(s.preco) })))
     } else if (aba === 'historico') {
-      setHistorico((extra.data ?? []) as ItemHistorico[])
+      setHistorico((extra.data ?? []) as ItemHistoricoPlano[])
     } else {
       setAssinaturas(((extra.data ?? []) as Assinatura[]).map(a => ({ ...a, valor: Number(a.valor) })))
     }
@@ -177,6 +160,7 @@ export default function PlanosScreen() {
 
   // ── Plano ──
   function abrirPlano(p: Plano | null) {
+    setConfirmandoExclusao(false)
     setEditando(p)
     setNome(p?.nome ?? '')
     setDescricao(p?.descricao ?? '')
@@ -233,6 +217,49 @@ export default function PlanosScreen() {
   }
 
   // ── Assinatura ──
+  async function excluirPlano() {
+    if (!editando) return
+    setSalvando(true)
+    setErroPainel(null)
+    const { data, error } = await supabase.rpc('fn_excluir_plano', { p_id_plano: editando.id_plano })
+    setSalvando(false)
+    if (error) {
+      setConfirmandoExclusao(false)
+      return setErroPainel(faltaMigration(error) ? 'Para excluir planos, a loja precisa rodar a migration 104_excluir_plano.sql.' : mensagemDoBanco(error, 'Não foi possível excluir o plano.'))
+    }
+    setPainel(null)
+    setConfirmandoExclusao(false)
+    setInfo(data === 'apagado' ? `Plano “${editando.nome}” excluído.` : `Plano “${editando.nome}” excluído. As assinaturas antigas e as cobranças dele continuam no histórico.`)
+    carregar()
+  }
+
+  // Do painel da assinatura: registrar pagamento abre o painel de cobrança.
+  function pagarDoDetalhe(a: Assinatura, c: CobrancaPlano) {
+    setDetalhe(null)
+    depoisDeFechar(() => abrirCobranca({
+      id_cobranca: c.id_cobranca,
+      id_assinatura: a.id_assinatura,
+      plano: a.plano,
+      id_cliente: a.id_cliente,
+      cliente: a.cliente,
+      pet: a.pet,
+      numero: c.numero,
+      valor: Number(c.valor),
+      vencimento: c.vencimento,
+      forma_pagamento: c.forma_pagamento,
+      status: c.status,
+      pago_em: c.pago_em,
+      periodo_inicio: c.periodo_inicio,
+      periodo_fim: c.periodo_fim,
+      assinatura_status: a.status,
+    }))
+  }
+
+  function cancelarDoDetalhe(a: Assinatura) {
+    setDetalhe(null)
+    depoisDeFechar(() => abrirCancelamento(a))
+  }
+
   function abrirCancelamento(a: Assinatura) {
     setCancelando(a)
     setMotivo('')
@@ -292,7 +319,7 @@ export default function PlanosScreen() {
     <ScreenContainer refreshing={loading} onRefresh={carregar}>
       <DetailHeader title="Planos" />
 
-      <Segmentos
+      <BarraAbas
         valor={aba}
         onChange={setAba}
         opcoes={[
@@ -359,7 +386,7 @@ export default function PlanosScreen() {
                         <BotaoPequeno normal rotulo="Editar" icone={IconPencil} onPress={() => abrirPlano(p)} />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <BotaoPequeno normal variante="primario" rotulo="Atribuir plano" icone={IconPlus} desativado={!p.ativo} onPress={() => setAtribuindo(p)} />
+                        <BotaoPequeno normal variante="primario" rotulo="Atribuir plano" desativado={!p.ativo} onPress={() => setAtribuindo(p)} />
                       </View>
                     </View>
                   </View>
@@ -369,93 +396,39 @@ export default function PlanosScreen() {
           </>
         )}
 
-        {/* ── Histórico ── */}
-        {aba === 'historico' && erro !== MSG_SEM_PLANOS && (
-          !loading && historico.length === 0 ? (
-            <EmptyState icon="time-outline" title="Nada registrado ainda" />
-          ) : (
-            <Card style={styles.historico}>
-              {historico.map((h, i) => (
-                <View key={`${h.em}-${i}`} style={[styles.historicoItem, i === historico.length - 1 && styles.historicoUltimo]}>
-                  <Text style={styles.historicoData}>{dataHora(h.em)}</Text>
-                  <Text style={styles.historicoTexto}>
-                    {h.pet ? <Text style={{ fontWeight: '700' }}>{h.pet}{h.cliente ? ` (${h.cliente})` : ''}: </Text> : null}
-                    {h.descricao}
-                  </Text>
-                </View>
-              ))}
-            </Card>
-          )
-        )}
+        {/* ── Histórico ── (o mesmo do site: por dia, com título e filtro) */}
+        {aba === 'historico' && erro !== MSG_SEM_PLANOS && <HistoricoPlanos itens={historico} hoje={hoje} carregando={loading} />}
 
-        {/* ── Assinaturas ── (o mesmo do site: busca, status e cards compactos) */}
+        {/* ── Assinaturas ── (o mesmo do site: resumo, busca, status e lista) */}
         {aba === 'assinaturas' && erro !== MSG_SEM_PLANOS && (() => {
-          const termo = semAcento(buscaAssinatura.trim())
-          const daBusca = termo ? assinaturas.filter(a => semAcento([a.cliente, a.pet, a.plano].filter(Boolean).join(' ')).includes(termo)) : assinaturas
-          const lista = daBusca.filter(a => passaNoFiltro(a, filtroAssinatura))
-          const conta = (f: FiltroAssinatura) => daBusca.filter(a => passaNoFiltro(a, f)).length
+          const daBusca = filtrarPorBusca(assinaturas, buscaAssinatura)
+          const lista = daBusca.filter(a => passaFiltro(a, filtroAssinatura))
+          if (!loading && assinaturas.length === 0) {
+            return <EmptyState icon="people-outline" ilustracao="planos" title="Nenhuma assinatura ainda" subtitle="Na aba Planos, toque em “Atribuir plano” para vincular um plano a um pet." />
+          }
           return (
             <>
+              <ResumoAssinaturas assinaturas={assinaturas} filtro={filtroAssinatura} onFiltro={setFiltroAssinatura} />
               <Campo rotulo="Buscar" value={buscaAssinatura} onChangeText={setBuscaAssinatura} placeholder="Cliente, pet ou plano" />
-              <Segmentos
+              <BarraAbas
+                suave
                 valor={filtroAssinatura}
                 onChange={setFiltroAssinatura}
                 opcoes={[
-                  { valor: 'ativa', rotulo: `Ativas ${conta('ativa')}` },
-                  { valor: 'pendencia', rotulo: `Vencidas ${conta('pendencia')}` },
-                  { valor: 'cancelada', rotulo: `Canceladas ${conta('cancelada')}` },
-                  { valor: 'todas', rotulo: `Todas ${conta('todas')}` },
+                  { valor: 'ativa', rotulo: 'Ativas' },
+                  { valor: 'vencida', rotulo: 'Vencidas' },
+                  { valor: 'cancelada', rotulo: 'Canceladas' },
+                  { valor: 'todas', rotulo: 'Todas' },
                 ]}
               />
-              {!loading && lista.length === 0 ? (
-                <EmptyState
-                  icon="people-outline"
-                  ilustracao="planos"
-                  title={assinaturas.length === 0 ? 'Nenhuma assinatura ainda' : 'Nenhuma assinatura encontrada'}
-                  subtitle={assinaturas.length === 0 ? 'Na aba Planos, use “Atribuir plano” para vincular um plano a um pet.' : 'Mude a busca ou o filtro de status.'}
-                />
+              {lista.length === 0 ? (
+                <Text style={[styles.sub, { textAlign: 'center', paddingVertical: 24 }]}>Nenhuma assinatura com esse filtro.</Text>
               ) : (
-                lista.map(a => (
-                  <View key={a.id_assinatura} style={styles.assinCard}>
-                    <View style={styles.planoTopo}>
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={[styles.titulo, a.status === 'cancelada' && styles.apagado]}>{a.pet ?? 'Pet removido'} · {a.plano}</Text>
-                        <Text style={styles.sub}>{a.cliente ?? 'Cliente removido'}</Text>
-                      </View>
-                      <View style={[styles.selo, { backgroundColor: a.status === 'cancelada' ? colors.surfaceMuted : colors.successBg }]}>
-                        <Text style={[styles.seloTexto, { color: a.status === 'cancelada' ? colors.textMuted : colors.successFg }]}>{a.status === 'cancelada' ? 'CANCELADA' : 'ATIVA'}</Text>
-                      </View>
-                    </View>
-                    <LinhaAssin rotulo="Valor" valor={`${formatarMoeda(a.valor)}${sufixoPeriodo(a.periodicidade, a.intervalo_dias)}`} />
-                    <LinhaAssin rotulo="Início" valor={dataBR(a.data_inicio)} />
-                    <LinhaAssin
-                      rotulo={a.status === 'cancelada' ? 'Situação' : 'Próxima renovação'}
-                      valor={a.status === 'cancelada'
-                        ? `Cancelada${a.cancelada_em ? ` em ${dataBR(a.cancelada_em.slice(0, 10))}` : ''}`
-                        : a.proxima_cobranca ? dataBR(a.proxima_cobranca) : a.data_inicio > hoje ? `Começa em ${dataBR(a.data_inicio)}` : '—'}
-                    />
-                    {a.status === 'ativa' && a.cobrancas_vencidas > 0 && (
-                      <Text style={styles.pendencia}>{a.cobrancas_vencidas} {a.cobrancas_vencidas === 1 ? 'cobrança vencida' : 'cobranças vencidas'}</Text>
-                    )}
-                    {a.status === 'ativa' && a.periodo_atual && (
-                      <Text style={styles.sub}>
-                        Período até {dataBR(a.periodo_atual.fim)}: {a.periodo_atual.beneficios.map(b => `${b.servico} ${b.usados}/${b.quantidade}`).join(' · ')}
-                      </Text>
-                    )}
-                    <View style={styles.planoAcoes}>
-                      {a.id_cliente && (
-                        <View style={{ flex: 1 }}>
-                          <BotaoPequeno normal rotulo="Detalhes" onPress={() => router.push(`/clientes/${a.id_cliente}`)} />
-                        </View>
-                      )}
-                      {a.status === 'ativa' && (
-                        <View style={{ flex: 1 }}>
-                          <BotaoPequeno normal variante="perigo" rotulo="Cancelar" onPress={() => abrirCancelamento(a)} />
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                ))
+                <View style={styles.lista}>
+                  {lista.map((a, i) => (
+                    <LinhaAssinatura key={a.id_assinatura} a={a} hoje={hoje} ultima={i === lista.length - 1} onPress={() => setDetalhe(a)} />
+                  ))}
+                </View>
               )}
             </>
           )
@@ -464,7 +437,8 @@ export default function PlanosScreen() {
         {/* ── Cobranças ── */}
         {aba === 'cobrancas' && erro !== MSG_SEM_PLANOS && (
           <>
-            <Segmentos
+            <BarraAbas
+              suave
               valor={filtro}
               onChange={setFiltro}
               opcoes={[
@@ -553,16 +527,38 @@ export default function PlanosScreen() {
           </Text>
         )}
 
-        {/* `.modal-footer` no celular: só o "Salvar plano" (o "Cancelar" é da tela grande). */}
-        <View style={styles.rodape}>
-          <BotaoPequeno
-            normal
-            variante="primario"
-            rotulo={salvando ? 'Salvando...' : 'Salvar plano'}
-            desativado={salvando || Object.keys(incluidos).length === 0}
-            onPress={salvarPlano}
-          />
-        </View>
+        {confirmandoExclusao && editando ? (
+          <View style={styles.excluir}>
+            {editando.assinaturas_ativas > 0 ? (
+              <>
+                <Text style={styles.excluirTitulo}>Este plano tem {editando.assinaturas_ativas} {editando.assinaturas_ativas === 1 ? 'assinatura ativa' : 'assinaturas ativas'}.</Text>
+                <Text style={styles.excluirTexto}>Para excluir, cancele {editando.assinaturas_ativas === 1 ? 'a assinatura' : 'as assinaturas'} na aba Assinaturas antes. Se só não quer vender mais, desative o plano — quem já assinou continua.</Text>
+                <Botao rotulo="Ver assinaturas" onPress={() => { setPainel(null); setBuscaAssinatura(editando.nome); setFiltroAssinatura('ativa'); setAba('assinaturas') }} />
+                <Botao rotulo="Voltar" variante="secundario" onPress={() => setConfirmandoExclusao(false)} />
+              </>
+            ) : (
+              <>
+                <Text style={styles.excluirTitulo}>Excluir o plano “{editando.nome}”?</Text>
+                <Text style={styles.excluirTexto}>Ele sai da lista e não pode mais ser atribuído. Se já foi assinado antes, as assinaturas antigas e as cobranças continuam no histórico. Não dá para desfazer.</Text>
+                <Botao rotulo="Excluir plano" variante="perigo" onPress={excluirPlano} carregando={salvando} />
+                <Botao rotulo="Voltar" variante="secundario" onPress={() => setConfirmandoExclusao(false)} desativado={salvando} />
+              </>
+            )}
+          </View>
+        ) : (
+          <View style={styles.rodape}>
+            <BotaoPequeno
+              normal
+              variante="primario"
+              rotulo={salvando ? 'Salvando...' : 'Salvar plano'}
+              desativado={salvando || Object.keys(incluidos).length === 0}
+              onPress={salvarPlano}
+            />
+            {editando && (
+              <BotaoPequeno normal variante="perigo" rotulo="Excluir plano" onPress={() => setConfirmandoExclusao(true)} desativado={salvando} />
+            )}
+          </View>
+        )}
       </Folha>
 
       {/* Cancelar assinatura */}
@@ -624,6 +620,17 @@ export default function PlanosScreen() {
           </>
         )}
       </Folha>
+      {detalhe && (
+        <DetalheAssinatura
+          key={detalhe.id_assinatura}
+          resumo={detalhe}
+          hoje={hoje}
+          onFechar={() => setDetalhe(null)}
+          onRegistrarPagamento={pagarDoDetalhe}
+          onCancelar={cancelarDoDetalhe}
+        />
+      )}
+
       {atribuindo && idLojista && (
         <AtribuirPlano
           key={atribuindo.id_plano}
@@ -639,17 +646,12 @@ export default function PlanosScreen() {
   )
 }
 
-function LinhaAssin({ rotulo, valor }: { rotulo: string; valor: string }) {
-  return (
-    <View style={styles.assinLinha}>
-      <Text style={styles.sub}>{rotulo}</Text>
-      <Text style={styles.assinValor}>{valor}</Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
   corpo: { marginTop: spacing.lg, gap: spacing.md },
+  lista: { borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: colors.surface, overflow: 'hidden' },
+  excluir: { gap: 10, padding: 14, borderRadius: 12, backgroundColor: colors.dangerBg },
+  excluirTitulo: { fontSize: 15, lineHeight: 20, fontWeight: '700', color: colors.text },
+  excluirTexto: { fontSize: 14, lineHeight: 20, color: colors.textDim },
   // Cards dos planos e das assinaturas — `.pl-card` / `.pl-assin-cel` do site em 375.
   planoCard: { gap: 12, padding: 16, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: colors.surface },
   planoCardInativo: { backgroundColor: colors.bg },
