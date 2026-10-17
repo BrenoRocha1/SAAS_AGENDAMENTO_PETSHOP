@@ -2467,10 +2467,12 @@ a.dash-app-linha { text-decoration: none; }
 }
 .tela-app-novo:active { opacity: 0.8; }
 .tela-app-dia {
-  display: flex; align-items: center; padding: var(--space-2) var(--space-1); margin-bottom: var(--space-4);
+  display: flex; align-items: center; gap: var(--space-2); padding: 6px; margin-bottom: var(--space-4);
   background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px;
 }
-.tela-app-dia > button { width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; border: 0; background: none; color: var(--gray-100); cursor: pointer; }
+/* Setas: botões redondos roxo-claro (sem cinza nos controles). */
+.tela-app-dia > button { width: 40px; height: 40px; flex-shrink: 0; display: grid; place-items: center; border: 0; border-radius: 12px; background: var(--primary-soft-bg, #eef2ff); color: var(--primary-600); cursor: pointer; }
+.tela-app-dia > button:active { opacity: 0.8; }
 .tela-app-dia > div { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .tela-app-dia strong { display: inline-block; font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
 .tela-app-dia strong::first-letter { text-transform: uppercase; }

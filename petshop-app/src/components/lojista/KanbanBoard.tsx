@@ -357,7 +357,7 @@ export default function KanbanBoard({ lojistaId, selectedDate, hojeISO, itensIni
           <FaixaDoDia data={selectedDate} hojeISO={hojeISO} onIr={irParaDia} curta />
           <button type="button" className="gestor-novo" onClick={() => setNovoAberto(true)} aria-label="Novo agendamento">
             <IconPlus />
-            Novo
+            <span className="sr-only">Novo agendamento</span>
           </button>
         </div>
 

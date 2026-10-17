@@ -65,8 +65,7 @@ export function NovoDoQuadro({ onPress }: { onPress: () => void }) {
       accessibilityLabel="Novo agendamento"
       style={({ pressed }) => [styles.novo, pressed && styles.novoPressionado]}
     >
-      <IconPlus size={20} color={colors.white} />
-      <Text style={styles.novoTexto}>Novo</Text>
+      <IconPlus size={24} color={colors.white} />
     </Pressable>
   )
 }
@@ -257,9 +256,9 @@ const styles = StyleSheet.create({
   visaoTextoAtivo: { color: colors.primary300 },
 
   // `.gestor-novo`
-  novo: { width: 60, alignItems: 'center', justifyContent: 'center', gap: 2, borderRadius: 14, backgroundColor: colors.primary600 },
+  // Só o "+", da altura do dia (o nome fica no accessibilityLabel).
+  novo: { width: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.primary600 },
   novoPressionado: { opacity: 0.85 },
-  novoTexto: { fontSize: 11, lineHeight: 17.6, fontWeight: '600', color: colors.white },
 
   // `.filtro-chip`
   filtro: { flex: 1, height: 42, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface },

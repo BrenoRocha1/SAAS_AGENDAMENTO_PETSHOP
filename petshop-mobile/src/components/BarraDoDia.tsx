@@ -24,7 +24,7 @@ export function BarraDoDia({ data, hoje, onMudar, semSetas, curta, style }: {
     <View style={[styles.barra, style]}>
       {!semSetas && (
         <Pressable onPress={() => onMudar(somarDiasISO(data, -1))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Dia anterior" style={styles.seta}>
-          <IconeApp name="chevron-back" size={20} color={colors.text} />
+          <IconeApp name="chevron-back" size={20} color={colors.primary600} />
         </Pressable>
       )}
       <View style={styles.meio}>
@@ -39,7 +39,7 @@ export function BarraDoDia({ data, hoje, onMudar, semSetas, curta, style }: {
       </View>
       {!semSetas && (
         <Pressable onPress={() => onMudar(somarDiasISO(data, 1))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Próximo dia" style={styles.seta}>
-          <IconeApp name="chevron-forward" size={20} color={colors.text} />
+          <IconeApp name="chevron-forward" size={20} color={colors.primary600} />
         </Pressable>
       )}
     </View>
@@ -54,10 +54,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.lg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
+    gap: spacing.sm,
+    padding: 6,
   },
-  seta: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  // Setas: botões redondos roxo-claro (`.tela-app-dia > button` do site).
+  seta: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary50 },
   meio: { flex: 1, alignItems: 'center', gap: 2 },
   dia: { ...typography.heading.sm, lineHeight: 24, color: colors.text },
   // 0.78rem no site (12,48 de letra, 1,6 de entrelinha).
