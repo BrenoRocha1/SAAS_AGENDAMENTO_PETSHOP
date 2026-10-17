@@ -116,6 +116,16 @@ export default async function AgendamentosPage() {
     noPlano[l.id_agendamento] = l.plano
   }
 
+  // Lojas que não aceitam cancelamento pelo cliente depois de aceitar
+  // (migration 100). Consulta à parte e tolerante: sem a coluna, ninguém
+  // bloqueia (o comportamento de antes). A regra vale no banco de qualquer
+  // jeito (fn_cancelar_agendamento); aqui é só para a tela explicar.
+  const idsLojas = [...new Set(((agendamentos ?? []) as Array<{ id_lojista: string }>).map(a => a.id_lojista))]
+  const { data: bloqueiamRaw } = idsLojas.length
+    ? await supabase.from('lojista').select('id_lojista').in('id_lojista', idsLojas).eq('bloquear_cancelamento_aceito', true)
+    : { data: [] }
+  const lojasSemCancelarAceito = ((bloqueiamRaw ?? []) as Array<{ id_lojista: string }>).map(l => l.id_lojista)
+
   const pagamentos: Record<string, PagamentoCliente> = {}
   for (const l of linhasPagamento) {
     pagamentos[l.id_agendamento] = {
@@ -139,6 +149,7 @@ export default async function AgendamentosPage() {
         taxidog={taxidog}
         pagamentos={pagamentos}
         noPlano={noPlano}
+        lojasSemCancelarAceito={lojasSemCancelarAceito}
       />
     </>
   )

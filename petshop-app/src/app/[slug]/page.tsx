@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { acessoDaLoja } from '@/lib/acesso-loja'
+import { SLUGS_RESERVADOS } from '@/lib/validations'
 import type { Metadata } from 'next'
 import { diaSemanaBrasil, agoraBrasilHHMM, hojeBrasilISO } from '@/lib/agenda'
 import { descreverBloqueio, fechadoODiaTodo, normalizarBloqueios, somarDiasISO } from '@/lib/bloqueios'
@@ -21,11 +22,7 @@ import {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // Rotas estáticas do app — não deve cair aqui
-const STATIC_ROUTES = new Set([
-  'login', 'cadastro', 'completar-cadastro', 'esqueci-senha',
-  'redefinir-senha', 'cliente', 'lojista', 'admin', 'agendamento',
-  'api', 'auth', 'funcionario', '_next', 'favicon.ico',
-])
+const STATIC_ROUTES = new Set([...SLUGS_RESERVADOS, '_next', 'favicon.ico'])
 
 interface Props {
   params: Promise<{ slug: string }>

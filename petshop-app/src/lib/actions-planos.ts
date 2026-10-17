@@ -6,8 +6,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { obterContextoLojista } from '@/lib/lojista-context'
 import { ehFormaPagamento, type FormaPagamento } from '@/lib/pagamento'
-import { mensagemErroPlano, type BeneficioDoAgendamento, type Periodicidade } from '@/lib/planos'
+import { mensagemErroPlano, type Assinatura, type BeneficioDoAgendamento, type ClienteParaPlano, type Periodicidade, type PetParaPlano } from '@/lib/planos'
 
 type Resultado = { error?: string; success?: boolean }
 
@@ -78,13 +79,13 @@ export async function assinarPlanoAction(
   idPet: string,
   dataInicio: string,
   forma: FormaPagamento | null,
-): Promise<Resultado> {
+): Promise<Resultado & { id_assinatura?: string }> {
   if (!UUID_RE.test(idPlano)) return { error: 'Escolha o plano.' }
   if (!UUID_RE.test(idPet)) return { error: 'Escolha o pet.' }
   if (!DATA_RE.test(dataInicio)) return { error: 'Escolha a data de início.' }
   if (forma !== null && !ehFormaPagamento(forma)) return { error: 'Forma de pagamento inválida.' }
   const supabase = await createClient()
-  const { error } = await supabase.rpc('fn_assinar_plano', {
+  const { data, error } = await supabase.rpc('fn_assinar_plano', {
     p_id_plano: idPlano,
     p_id_pet: idPet,
     p_data_inicio: dataInicio,
@@ -92,7 +93,83 @@ export async function assinarPlanoAction(
   })
   if (error) return { error: mensagemErroPlano(error.message, 'Não foi possível vincular o plano.') }
   revalidarPlanos()
-  return { success: true }
+  return { success: true, id_assinatura: (data as string | null) ?? undefined }
+}
+
+// ── Atribuir plano pela tela de Planos ──
+// Só leitura: quem assina continua sendo fn_assinar_plano (acima), que
+// confere tudo de novo no banco (loja, plano ativo, pet do cliente da loja,
+// plano repetido). A loja vem do contexto do servidor, nunca do navegador.
+
+async function contextoDosPlanos() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { supabase, idLojista: null, erro: 'Não autenticado' }
+  const contexto = await obterContextoLojista(supabase, user.id, user.user_metadata?.role)
+  // Planos são financeiros: dono ou administrador (o mesmo da página).
+  if (!contexto || (contexto.role === 'funcionario' && !contexto.acessoTotal)) {
+    return { supabase, idLojista: null, erro: 'Apenas o responsável pela loja ou um administrador pode vincular planos' }
+  }
+  return { supabase, idLojista: contexto.idLojista, erro: null }
+}
+
+// Clientes da loja por nome ou telefone (os mesmos identificadores da
+// busca do caixa). Sem termo, os primeiros em ordem alfabética.
+export async function buscarClientesPlanoAction(busca: string): Promise<{ error?: string; clientes?: ClienteParaPlano[] }> {
+  const { supabase, idLojista, erro } = await contextoDosPlanos()
+  if (!idLojista) return { error: erro ?? 'Acesso não autorizado' }
+
+  // Fora do que o filtro do PostgREST entende como sintaxe.
+  const termo = (busca ?? '').replace(/[%,()*\\]/g, ' ').trim().slice(0, 60)
+  const digitos = termo.replace(/\D/g, '')
+  let consulta = supabase
+    .from('cliente_lojista')
+    .select('cliente:id_cliente!inner ( id_cliente, nome, telefone )')
+    .eq('id_lojista', idLojista)
+  if (termo) {
+    const filtros = [`nome.ilike.%${termo}%`]
+    if (digitos.length >= 3) filtros.push(`telefone.ilike.%${digitos}%`)
+    consulta = consulta.or(filtros.join(','), { referencedTable: 'cliente' })
+  }
+  const { data, error } = await consulta.limit(termo ? 40 : 200)
+  if (error) return { error: 'Não foi possível buscar os clientes agora. Tente de novo.' }
+
+  const clientes = ((data ?? []) as unknown as { cliente: ClienteParaPlano | null }[])
+    .map(l => l.cliente)
+    .filter((c): c is ClienteParaPlano => !!c)
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+    .slice(0, 20)
+  return { clientes }
+}
+
+// Pets ativos de um cliente da loja, com os planos que cada um já tem.
+export async function petsDoClientePlanoAction(idCliente: string): Promise<{ error?: string; pets?: PetParaPlano[] }> {
+  if (!UUID_RE.test(idCliente)) return { error: 'Cliente inválido.' }
+  const { supabase, idLojista, erro } = await contextoDosPlanos()
+  if (!idLojista) return { error: erro ?? 'Acesso não autorizado' }
+
+  // O cliente precisa ser da loja — senão nem os pets aparecem.
+  const { data: vinculo } = await supabase
+    .from('cliente_lojista')
+    .select('id_cliente')
+    .eq('id_lojista', idLojista)
+    .eq('id_cliente', idCliente)
+    .maybeSingle()
+  if (!vinculo) return { error: 'Cliente não encontrado entre os clientes da loja.' }
+
+  const [{ data: pets, error }, { data: assinaturas }] = await Promise.all([
+    supabase.from('pet').select('id_pet, nome, raca, especie, foto_url').eq('id_cliente', idCliente).eq('ativo', true).order('nome'),
+    supabase.from('assinatura').select('id_pet, id_plano').eq('id_lojista', idLojista).eq('id_cliente', idCliente).eq('status', 'ativa'),
+  ])
+  if (error) return { error: 'Não foi possível carregar os pets agora. Tente de novo.' }
+
+  const porPet = new Map<string, string[]>()
+  for (const a of (assinaturas ?? []) as { id_pet: string; id_plano: string }[]) {
+    porPet.set(a.id_pet, [...(porPet.get(a.id_pet) ?? []), a.id_plano])
+  }
+  return {
+    pets: ((pets ?? []) as Omit<PetParaPlano, 'planos_ativos'>[]).map(p => ({ ...p, planos_ativos: porPet.get(p.id_pet) ?? [] })),
+  }
 }
 
 export interface ResumoCancelamento {
@@ -178,4 +255,32 @@ export async function estornarBeneficioAction(idAgendamento: string): Promise<Re
   if (error) return { error: mensagemErroPlano(error.message, 'Não foi possível desfazer o uso.') }
   revalidarAgenda()
   return { success: true }
+}
+
+// Excluir (migration 104): com assinatura ativa o banco recusa; nunca
+// assinado some de vez; só com assinaturas canceladas sai da lista e o
+// histórico fica.
+export async function excluirPlanoAction(idPlano: string): Promise<Resultado & { modo?: 'apagado' | 'arquivado' }> {
+  if (!UUID_RE.test(idPlano)) return { error: 'Plano inválido.' }
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('fn_excluir_plano', { p_id_plano: idPlano })
+  if (error) {
+    if (error.code === 'PGRST202' || /Could not find the function/i.test(error.message)) {
+      return { error: 'Para excluir planos, execute a migration 104_excluir_plano.sql.' }
+    }
+    return { error: mensagemErroPlano(error.message, 'Não foi possível excluir o plano.') }
+  }
+  revalidarPlanos()
+  return { success: true, modo: data === 'apagado' ? 'apagado' : 'arquivado' }
+}
+
+// Detalhes de uma assinatura (cobranças, usos, histórico) para o painel da
+// tela de Planos — a mesma função da ficha do cliente.
+export async function detalheAssinaturaAction(idCliente: string, idAssinatura: string): Promise<{ error?: string; assinatura?: Assinatura }> {
+  if (!UUID_RE.test(idCliente) || !UUID_RE.test(idAssinatura)) return { error: 'Assinatura inválida.' }
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('fn_assinaturas_da_loja', { p_id_cliente: idCliente, p_detalhes: true })
+  if (error) return { error: mensagemErroPlano(error.message, 'Não foi possível abrir a assinatura.') }
+  const assinatura = ((data ?? []) as Assinatura[]).find(a => a.id_assinatura === idAssinatura)
+  return assinatura ? { assinatura } : { error: 'Assinatura não encontrada.' }
 }

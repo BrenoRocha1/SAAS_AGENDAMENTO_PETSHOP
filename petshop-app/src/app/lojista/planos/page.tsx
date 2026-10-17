@@ -5,9 +5,10 @@ import { obterUsuario } from '@/lib/supabase/usuario'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import { hojeBrasilISO } from '@/lib/agenda'
 import { formasAtivas, normalizarFormasLoja } from '@/lib/pagamento'
-import type { Assinatura, CobrancaDaLoja, HistoricoPlano, Plano } from '@/lib/planos'
+import type { Assinatura, CobrancaDaLoja, ItemHistoricoPlano, Plano } from '@/lib/planos'
 import PlanosLista, { type ServicoOpcao } from '@/components/lojista/planos/PlanosLista'
-import { AssinaturasLista, CobrancasLista, HistoricoPlanosLista } from '@/components/lojista/planos/PlanosListas'
+import { CobrancasLista } from '@/components/lojista/planos/PlanosListas'
+import { AssinaturasLista, HistoricoPlanosLista } from '@/components/lojista/planos/AbasPlanos'
 import { IconAlert } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
 
@@ -22,7 +23,7 @@ const ABAS = [
 type Aba = typeof ABAS[number][0]
 const FILTROS = ['pendentes', 'vencidas', 'pagas', 'canceladas', 'todas']
 
-export default async function PlanosPage({ searchParams }: { searchParams: Promise<{ aba?: string; filtro?: string }> }) {
+export default async function PlanosPage({ searchParams }: { searchParams: Promise<{ aba?: string; filtro?: string; busca?: string }> }) {
   const params = await searchParams
   const supabase = await createClient()
   const user = await obterUsuario()
@@ -47,10 +48,16 @@ export default async function PlanosPage({ searchParams }: { searchParams: Promi
   // .then() é o que dispara a consulta — o builder do Supabase só envia
   // quando alguém espera por ele.
   const pServicos = aba === 'planos'
-    ? supabase.from('servico').select('id_servico, nome, preco, status').eq('id_lojista', contexto.idLojista).is('excluido_em', null).order('nome').then(r => r)
+    ? Promise.all([
+        supabase.from('servico').select('id_servico, nome, preco, status').eq('id_lojista', contexto.idLojista).is('excluido_em', null).order('nome'),
+        supabase.rpc('fn_formas_pagamento_loja', { p_id_lojista: contexto.idLojista }),
+      ])
     : null
   const pAssinaturas = aba === 'assinaturas'
-    ? supabase.rpc('fn_assinaturas_da_loja', { p_id_cliente: null, p_detalhes: false }).then(r => r)
+    ? Promise.all([
+        supabase.rpc('fn_assinaturas_da_loja', { p_id_cliente: null, p_detalhes: false }),
+        supabase.rpc('fn_formas_pagamento_loja', { p_id_lojista: contexto.idLojista }),
+      ])
     : null
   const pCobrancas = aba === 'cobrancas'
     ? Promise.all([
@@ -69,13 +76,20 @@ export default async function PlanosPage({ searchParams }: { searchParams: Promi
   let conteudo: React.ReactNode = null
   if (!faltaMigration) {
     if (aba === 'planos') {
-      const { data: servicosRaw } = await pServicos!
+      const [{ data: servicosRaw }, { data: formasRaw }] = await pServicos!
       const servicos: ServicoOpcao[] = ((servicosRaw ?? []) as { id_servico: string; nome: string; preco: number; status: string }[])
         .map(s => ({ id_servico: s.id_servico, nome: s.nome, preco: Number(s.preco), ativo: s.status === 'Ativo' }))
-      conteudo = <PlanosLista planos={planos} servicos={servicos} />
+      conteudo = <PlanosLista planos={planos} servicos={servicos} hojeISO={hojeISO} formasAceitas={formasAtivas(normalizarFormasLoja(formasRaw))} />
     } else if (aba === 'assinaturas') {
-      const { data } = await pAssinaturas!
-      conteudo = <AssinaturasLista assinaturas={(data ?? []) as Assinatura[]} />
+      const [{ data }, { data: formasRaw }] = await pAssinaturas!
+      conteudo = (
+        <AssinaturasLista
+          assinaturas={(data ?? []) as Assinatura[]}
+          buscaInicial={(params.busca ?? '').slice(0, 60)}
+          hojeISO={hojeISO}
+          formasAceitas={formasAtivas(normalizarFormasLoja(formasRaw))}
+        />
+      )
     } else if (aba === 'cobrancas') {
       const [{ data }, { data: formasRaw }] = await pCobrancas!
       conteudo = (
@@ -88,7 +102,7 @@ export default async function PlanosPage({ searchParams }: { searchParams: Promi
       )
     } else {
       const { data } = await pHistorico!
-      conteudo = <HistoricoPlanosLista itens={(data ?? []) as HistoricoPlano[]} />
+      conteudo = <HistoricoPlanosLista itens={(data ?? []) as ItemHistoricoPlano[]} hojeISO={hojeISO} />
     }
   }
 

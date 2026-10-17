@@ -1,18 +1,28 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { alterarStatusPlanoAction, salvarPlanoAction } from '@/lib/actions-planos'
+import type { FormaPagamento } from '@/lib/pagamento'
+import { alterarStatusPlanoAction, excluirPlanoAction, salvarPlanoAction } from '@/lib/actions-planos'
 import { PERIODICIDADES, rotuloPeriodicidade, sufixoPeriodo, type Periodicidade, type Plano } from '@/lib/planos'
 import { formatarReais } from '@/lib/taxidog'
-import { IconAlert, IconClose, IconInfo, IconMinus, IconPencil, IconPlus } from '@/components/icons'
+import { IconAlert, IconClose, IconMinus, IconPencil, IconPlus, IconTrash, IconUsers } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
+import AtribuirPlanoModal from './AtribuirPlanoModal'
+import './planos-tela.css'
 
 export interface ServicoOpcao { id_servico: string; nome: string; preco: number; ativo: boolean }
 
-export default function PlanosLista({ planos, servicos }: { planos: Plano[]; servicos: ServicoOpcao[] }) {
+export default function PlanosLista({ planos, servicos, hojeISO, formasAceitas }: {
+  planos: Plano[]
+  servicos: ServicoOpcao[]
+  hojeISO: string
+  formasAceitas: FormaPagamento[]
+}) {
   const router = useRouter()
   const [editando, setEditando] = useState<Plano | 'novo' | null>(null)
+  const [atribuindo, setAtribuindo] = useState<Plano | null>(null)
   const [alternando, setAlternando] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [, startTransition] = useTransition()
@@ -28,12 +38,13 @@ export default function PlanosLista({ planos, servicos }: { planos: Plano[]; ser
     })
   }
 
+  // Ativos primeiro; dentro de cada grupo, a ordem que veio do banco.
+  const ordenados = [...planos].sort((a, b) => Number(b.ativo) - Number(a.ativo))
+
   return (
     <>
-      <div className="flex items-center justify-between gap-3 so-desktop" style={{ marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
-        <p className="text-sm text-muted" style={{ margin: 0 }}>
-          Monte o plano com os serviços que você já cadastrou e quantas vezes cada um pode ser usado por período.
-        </p>
+      <div className="pl-topo">
+        <p>Monte o plano com os serviços que você já cadastrou e quantas vezes cada um pode ser usado por período. Depois, atribua a um pet aqui mesmo.</p>
         <button type="button" className="btn btn-primary" onClick={() => setEditando('novo')}>
           <IconPlus style={{ width: 16, height: 16 }} /> Novo plano
         </button>
@@ -45,28 +56,20 @@ export default function PlanosLista({ planos, servicos }: { planos: Plano[]; ser
         </div>
       )}
 
-      {/* Celular: a mesma aba "Planos" do app. */}
-      <div className="so-celular">
-        <div className="tela-app-pilha">
-          <button type="button" className="dash-app-botao" onClick={() => setEditando('novo')}>
-            <IconPlus style={{ width: 18, height: 18 }} /> Novo plano
-          </button>
-          {planos.length === 0 ? (
-            <div className="dash-app-vazio">
-              <Ilustracao nome="planos" altura={110} style={{ marginBottom: 0 }} />
-              <strong>Nenhum plano cadastrado</strong>
-              <span>Um plano junta serviços por um valor fixo no período — ex.: 4 banhos por mês.</span>
-            </div>
-          ) : (
-            planos.map(p => (
-              <div key={p.id_plano} className="cartao-app">
-                <div className="linha-app">
-                  <button type="button" className="cresce-app" onClick={() => setEditando(p)} aria-label={`Editar plano ${p.nome}`}>
-                    <span className={`titulo-app ${p.ativo ? '' : 'is-apagado'}`}>{p.nome}</span>
-                    <span className="sub-app">
-                      {formatarReais(p.valor)}{sufixoPeriodo(p.periodicidade, p.intervalo_dias)}{p.ativo ? '' : ' · Desativado'}
-                    </span>
-                  </button>
+      {planos.length === 0 ? (
+        <div className="empty-state card">
+          <Ilustracao nome="planos" />
+          <div className="empty-state-title">Nenhum plano ainda</div>
+          <p>Um plano junta serviços por um valor fixo no período — ex.: 4 banhos por mês. Crie o primeiro: escolha os serviços, a quantidade, o valor e o período.</p>
+        </div>
+      ) : (
+        <div className="pl-grade">
+          {ordenados.map(p => (
+            <article key={p.id_plano} className={`pl-card ${p.ativo ? '' : 'is-inativo'}`}>
+              <div className="pl-card-topo">
+                <h3 className="pl-card-nome">{p.nome}</h3>
+                <label className="pl-status">
+                  <span className={`pl-selo ${p.ativo ? 'is-ativo' : 'is-inativo'}`}>{p.ativo ? 'Ativo' : 'Inativo'}</span>
                   <button
                     type="button"
                     className={`switch ${p.ativo ? 'switch-on' : ''}`}
@@ -74,73 +77,53 @@ export default function PlanosLista({ planos, servicos }: { planos: Plano[]; ser
                     disabled={alternando === p.id_plano}
                     role="switch"
                     aria-checked={p.ativo}
-                    aria-label={`${p.nome} ativo`}
+                    aria-label={p.ativo ? `Desativar o plano ${p.nome}` : `Ativar o plano ${p.nome}`}
+                    title={p.ativo ? 'Desativar plano' : 'Ativar plano'}
                   >
                     <span className="switch-thumb" />
                   </button>
-                </div>
-                <span className="sub-app">{p.servicos.map(s => `${s.quantidade}× ${s.servico}`).join(' · ')}</span>
-                <span className="sub-app">
-                  {p.assinaturas_ativas} {p.assinaturas_ativas === 1 ? 'assinatura ativa' : 'assinaturas ativas'} · tocar no nome para editar
-                </span>
+                </label>
               </div>
-            ))
-          )}
-          <div className="alert alert-info">
-            <IconInfo style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-            <span>Para vincular um plano a um pet, abra a ficha do pet e toque em Assinar plano.</span>
-          </div>
-        </div>
-      </div>
 
-      <div className="so-desktop">
-      {planos.length === 0 ? (
-        <div className="empty-state card">
-          <Ilustracao nome="planos" />
-          <div className="empty-state-title">Nenhum plano ainda</div>
-          <p>Crie o primeiro: escolha os serviços, a quantidade, o valor e o período.</p>
-        </div>
-      ) : (
-        <div className="planos-grade">
-          {planos.map(p => (
-            <div key={p.id_plano} className={`card plano-card ${p.ativo ? '' : 'is-inativo'}`}>
-              <div className="flex items-center justify-between gap-2">
-                <div className="plano-card-nome">{p.nome}</div>
-                <button
-                  type="button"
-                  className={`switch ${p.ativo ? 'switch-on' : ''}`}
-                  onClick={() => alternar(p)}
-                  disabled={alternando === p.id_plano}
-                  role="switch"
-                  aria-checked={p.ativo}
-                  title={p.ativo ? 'Desativar plano' : 'Ativar plano'}
-                >
-                  <span className="switch-thumb" />
-                </button>
+              <div className="pl-card-preco">
+                {formatarReais(p.valor)}<span>{sufixoPeriodo(p.periodicidade, p.intervalo_dias) || ` · ${rotuloPeriodicidade(p.periodicidade, p.intervalo_dias)}`}</span>
               </div>
-              <div className="plano-card-valor">
-                {formatarReais(p.valor)}<span>{sufixoPeriodo(p.periodicidade, p.intervalo_dias)}</span>
+              {p.descricao && <p className="pl-card-desc">{p.descricao}</p>}
+
+              <div className="pl-card-inclui">
+                <span className="pl-rotulo">Inclui por período</span>
+                <ul className="pl-chips">
+                  {p.servicos.map(s => <li key={s.id_servico}><strong>{s.quantidade}×</strong> {s.servico}</li>)}
+                </ul>
               </div>
-              <div className="text-xs text-muted">{rotuloPeriodicidade(p.periodicidade, p.intervalo_dias)}{p.ativo ? '' : ' · desativado'}</div>
-              {p.descricao && <p className="text-sm text-muted" style={{ margin: 0 }}>{p.descricao}</p>}
-              <ul className="plano-card-servicos">
-                {p.servicos.map(s => (
-                  <li key={s.id_servico}><span>{s.servico}</span><strong>{s.quantidade}×</strong></li>
-                ))}
-              </ul>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted">
-                  {p.assinaturas_ativas} assinatura{p.assinaturas_ativas !== 1 ? 's' : ''} ativa{p.assinaturas_ativas !== 1 ? 's' : ''}
-                </span>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditando(p)}>
-                  <IconPencil style={{ width: 14, height: 14 }} /> Editar
-                </button>
+
+              <div className="pl-card-rodape">
+                {p.assinaturas_ativas > 0 ? (
+                  <Link href={`/lojista/planos?aba=assinaturas&busca=${encodeURIComponent(p.nome)}`} className="pl-assinantes">
+                    <IconUsers /> {p.assinaturas_ativas} {p.assinaturas_ativas === 1 ? 'assinatura ativa' : 'assinaturas ativas'}
+                  </Link>
+                ) : (
+                  <span className="pl-assinantes"><IconUsers /> Nenhuma assinatura ativa</span>
+                )}
+                <div className="pl-acoes">
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditando(p)} aria-label={`Editar o plano ${p.nome}`}>
+                    <IconPencil style={{ width: 14, height: 14 }} /> Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setAtribuindo(p)}
+                    disabled={!p.ativo}
+                    title={p.ativo ? undefined : 'Ative o plano para atribuir'}
+                  >
+                    <IconPlus style={{ width: 14, height: 14 }} /> Atribuir plano
+                  </button>
+                </div>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       )}
-      </div>
 
       {editando && (
         <PlanoForm
@@ -149,6 +132,17 @@ export default function PlanosLista({ planos, servicos }: { planos: Plano[]; ser
           servicos={servicos}
           onFechar={() => setEditando(null)}
           onSalvo={() => { setEditando(null); router.refresh() }}
+        />
+      )}
+
+      {atribuindo && (
+        <AtribuirPlanoModal
+          key={atribuindo.id_plano}
+          plano={atribuindo}
+          hojeISO={hojeISO}
+          formasAceitas={formasAceitas}
+          onFechar={() => setAtribuindo(null)}
+          onConcluido={() => router.refresh()}
         />
       )}
     </>
@@ -172,6 +166,18 @@ function PlanoForm({ plano, servicos, onFechar, onSalvo }: {
   )
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  // Excluir (migration 104): pede confirmação antes.
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
+
+  function excluir() {
+    if (!plano) return
+    setErro(null)
+    startTransition(async () => {
+      const r = await excluirPlanoAction(plano.id_plano)
+      if (r.error) { setErro(r.error); setConfirmandoExclusao(false) }
+      else onSalvo()
+    })
+  }
 
   // Serviço desativado só aparece se já estiver no plano.
   const opcoes = servicos.filter(s => s.ativo || itens[s.id_servico] != null)
@@ -329,12 +335,43 @@ function PlanoForm({ plano, servicos, onFechar, onSalvo }: {
               </p>
             )}
           </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-ghost so-desktop" onClick={onFechar} disabled={isPending}>Cancelar</button>
-            <button type="submit" className="btn btn-primary" disabled={isPending || Object.keys(itens).length === 0}>
-              {isPending ? 'Salvando...' : 'Salvar plano'}
-            </button>
-          </div>
+          {confirmandoExclusao && plano ? (
+            <div className="pl-excluir">
+              {plano.assinaturas_ativas > 0 ? (
+                <>
+                  <strong>Este plano tem {plano.assinaturas_ativas} {plano.assinaturas_ativas === 1 ? 'assinatura ativa' : 'assinaturas ativas'}.</strong>
+                  <p>Para excluir, cancele {plano.assinaturas_ativas === 1 ? 'a assinatura' : 'as assinaturas'} na aba Assinaturas antes. Se só não quer vender mais, desative o plano — quem já assinou continua.</p>
+                  <div className="pl-excluir-botoes">
+                    <button type="button" className="btn btn-secondary" onClick={() => setConfirmandoExclusao(false)}>Voltar</button>
+                    <Link href={`/lojista/planos?aba=assinaturas&busca=${encodeURIComponent(plano.nome)}`} className="btn btn-primary" onClick={onFechar}>Ver assinaturas</Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <strong>Excluir o plano “{plano.nome}”?</strong>
+                  <p>Ele sai da lista e não pode mais ser atribuído. Se já foi assinado antes, as assinaturas antigas e as cobranças continuam no histórico. Não dá para desfazer.</p>
+                  <div className="pl-excluir-botoes">
+                    <button type="button" className="btn btn-secondary" onClick={() => setConfirmandoExclusao(false)} disabled={isPending}>Voltar</button>
+                    <button type="button" className="btn btn-danger" onClick={excluir} disabled={isPending}>
+                      <IconTrash style={{ width: 14, height: 14 }} /> {isPending ? 'Excluindo…' : 'Excluir plano'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="modal-footer">
+              {plano && (
+                <button type="button" className="btn btn-ghost pl-excluir-link" onClick={() => setConfirmandoExclusao(true)} disabled={isPending}>
+                  <IconTrash style={{ width: 14, height: 14 }} /> Excluir plano
+                </button>
+              )}
+              <button type="button" className="btn btn-ghost so-desktop" onClick={onFechar} disabled={isPending}>Cancelar</button>
+              <button type="submit" className="btn btn-primary" disabled={isPending || Object.keys(itens).length === 0}>
+                {isPending ? 'Salvando...' : 'Salvar plano'}
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>

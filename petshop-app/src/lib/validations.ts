@@ -105,12 +105,21 @@ export const cadastroLojistSchema = z.object({
 // Link personalizado de agendamento (/agendamento/[slug]) — só letras
 // minúsculas, números e hífen simples entre eles, sem espaço/acento.
 // Unicidade é garantida por UNIQUE no banco (migration 024), não aqui.
+// Endereços que são páginas do próprio sistema: nenhuma loja pode usá-los
+// como link (/[slug] nunca chegaria nela). Usado também em app/[slug].
+export const SLUGS_RESERVADOS = [
+  'login', 'cadastro', 'completar-cadastro', 'esqueci-senha', 'redefinir-senha',
+  'cliente', 'lojista', 'admin', 'agendamento', 'acompanhar', 'api', 'auth',
+  'funcionario', 'termos', 'privacidade',
+]
+
 export const slugLojistaSchema = z.object({
   slug: z
     .string()
     .min(3, 'O link precisa ter no mínimo 3 caracteres')
     .max(60, 'O link pode ter no máximo 60 caracteres')
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Use só letras minúsculas, números e hífen — sem espaços, acentos ou símbolos'),
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Use só letras minúsculas, números e hífen — sem espaços, acentos ou símbolos')
+    .refine(s => !SLUGS_RESERVADOS.includes(s), 'Esse link é usado pelo próprio sistema. Escolha outro.'),
 })
 
 // Antecedência mínima/máxima do agendamento online (migration 025) —
