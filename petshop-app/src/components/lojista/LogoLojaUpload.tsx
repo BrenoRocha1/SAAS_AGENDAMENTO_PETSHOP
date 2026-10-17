@@ -4,15 +4,18 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { atualizarLogoLojistaAction, removerLogoLojistaAction } from '@/lib/actions'
 import { otimizarImagemParaUpload } from '@/lib/imagem'
 import { IconAlert, IconCheck, IconClose, IconImage, IconPencil, IconPlus, IconTrash } from '@/components/icons'
+import './perfil-loja.css'
 
 interface Props {
   logoUrlInicial: string | null
+  // Sem logo, mostra a inicial da loja (como na tela de Configurações).
+  nomeLoja: string
 }
 
 const TAMANHO_MAXIMO = 5 * 1024 * 1024 // 5 MB — mesmo limite validado no servidor (migration 021)
 const TIPOS_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
 
-export default function LogoLojaUpload({ logoUrlInicial }: Props) {
+export default function LogoLojaUpload({ logoUrlInicial, nomeLoja }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [logoUrl, setLogoUrl] = useState(logoUrlInicial)
 
@@ -107,10 +110,14 @@ export default function LogoLojaUpload({ logoUrlInicial }: Props) {
   const isPendingQualquer = isPending || isPendingRemover || processando
 
   return (
-    <div className="card" style={{ maxWidth: 700 }}>
-      <h4 style={{ marginBottom: 'var(--space-4)', color: 'var(--gray-300)', fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        Identidade Visual
-      </h4>
+    <section className="pf-secao" aria-labelledby="pf-logo-titulo">
+      <div className="pf-secao-topo">
+        <span className="pf-secao-icone" aria-hidden="true"><IconImage /></span>
+        <div>
+          <strong id="pf-logo-titulo">Logo da loja</strong>
+          <span>Aparece na sua página e para os clientes ao agendar.</span>
+        </div>
+      </div>
 
       {erro && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
@@ -125,39 +132,20 @@ export default function LogoLojaUpload({ logoUrlInicial }: Props) {
         </div>
       )}
 
-      <div className="flex items-center gap-4" style={{ flexWrap: 'wrap' }}>
-        <div
-          style={{
-            width: 96,
-            height: 96,
-            borderRadius: 'var(--radius-lg)',
-            border: '1px solid var(--gray-800)',
-            background: 'var(--gray-850)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            flexShrink: 0,
-          }}
-        >
+      <div className="pf-logo">
+        <div className="pf-logo-img">
           {pendente ? (
             // eslint-disable-next-line @next/next/no-img-element -- preview local (blob:), não é um asset servido pelo Next
-            <img src={pendente.preview} alt="Prévia da nova imagem" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={pendente.preview} alt="Prévia da nova imagem" />
           ) : logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- URL pública dinâmica do Storage, fora dos domínios de imagem do Next
-            <img src={logoUrl} alt="Imagem da loja" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={logoUrl} alt="Imagem da loja" />
           ) : (
-            <IconImage style={{ width: 28, height: 28, color: 'var(--gray-600)' }} />
+            <span aria-hidden="true">{nomeLoja.trim()[0]?.toUpperCase()}</span>
           )}
         </div>
 
-        <div style={{ flex: 1, minWidth: 200 }}>
-          {!logoUrl && !pendente && (
-            <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-3)' }}>
-              Adicione uma imagem para representar sua loja.
-            </p>
-          )}
-
+        <div className="pf-logo-acoes">
           <input
             ref={inputRef}
             type="file"
@@ -168,7 +156,7 @@ export default function LogoLojaUpload({ logoUrlInicial }: Props) {
           />
 
           {pendente ? (
-            <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <div className="pf-logo-botoes">
               <button
                 type="button"
                 className={`btn btn-primary btn-sm ${isPending ? 'btn-loading' : ''}`}
@@ -177,12 +165,12 @@ export default function LogoLojaUpload({ logoUrlInicial }: Props) {
               >
                 {isPending ? 'Enviando...' : 'Salvar imagem'}
               </button>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={cancelarSelecao} disabled={isPendingQualquer}>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={cancelarSelecao} disabled={isPendingQualquer}>
                 Cancelar
               </button>
             </div>
           ) : (
-            <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <div className="pf-logo-botoes">
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
@@ -190,26 +178,25 @@ export default function LogoLojaUpload({ logoUrlInicial }: Props) {
                 disabled={isPendingQualquer}
               >
                 {logoUrl
-                  ? <><IconPencil style={{ width: 14, height: 14 }} /> Alterar imagem</>
+                  ? <><IconPencil style={{ width: 14, height: 14 }} /> Trocar imagem</>
                   : <><IconPlus style={{ width: 14, height: 14 }} /> Adicionar imagem</>}
               </button>
               {logoUrl && (
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm"
+                  className="pf-remover"
                   onClick={() => setConfirmandoRemocao(true)}
                   disabled={isPendingQualquer}
+                  title="Remover imagem"
+                  aria-label="Remover imagem"
                 >
-                  <IconTrash style={{ width: 14, height: 14 }} /> Remover imagem
+                  <IconTrash />
                 </button>
               )}
             </div>
           )}
 
-          {processando && <p className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>Processando imagem...</p>}
-          <p className="text-xs text-muted" style={{ marginTop: 'var(--space-2)' }}>
-            JPG, PNG ou WEBP · até 5 MB
-          </p>
+          <p className="pf-logo-dica">{processando ? 'Processando imagem...' : 'JPG, PNG ou WEBP · até 5 MB'}</p>
         </div>
       </div>
 
@@ -252,6 +239,6 @@ export default function LogoLojaUpload({ logoUrlInicial }: Props) {
           </div>
         </div>
       )}
-    </div>
+    </section>
   )
 }

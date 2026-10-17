@@ -2,7 +2,9 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { atualizarPerfilLojistaAction } from '@/lib/actions'
-import { IconAlert, IconCheck } from '@/components/icons'
+import { IconAlert, IconCheck, IconMapPin, IconStore } from '@/components/icons'
+import { mascaraTelefoneLoja } from '@/lib/cadastro-loja'
+import './perfil-loja.css'
 import BotaoConfirmar, { useEstadoBotao } from '@/components/ui/botao-confirmar'
 import Ilustracao from '@/components/Ilustracao'
 
@@ -51,6 +53,7 @@ export default function PerfilLojistaForm({ lojista }: Props) {
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [erroCep, setErroCep] = useState<string | null>(null)
   const numeroRef = useRef<HTMLInputElement>(null)
+  const [telefone, setTelefone] = useState(mascaraTelefoneLoja(lojista?.telefone ?? ''))
 
   function mudar(campo: keyof typeof endereco, valor: string) {
     setEndereco(prev => ({ ...prev, [campo]: valor }))
@@ -121,7 +124,7 @@ export default function PerfilLojistaForm({ lojista }: Props) {
   }
 
   return (
-    <div className="card" style={{ maxWidth: 700 }}>
+    <form onSubmit={handleSubmit} className="pf">
       {error && (
         <div className="alert alert-error" style={{ marginBottom: 'var(--space-5)' }}>
           <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
@@ -135,12 +138,15 @@ export default function PerfilLojistaForm({ lojista }: Props) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
         {/* Identificação */}
-        <div className="form-secao" style={{ marginBottom: 'var(--space-6)' }}>
-          <h4 style={{ marginBottom: 'var(--space-4)', color: 'var(--gray-300)', fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Identificação
-          </h4>
+        <section className="pf-secao" aria-labelledby="pf-id-titulo">
+          <div className="pf-secao-topo">
+            <span className="pf-secao-icone" aria-hidden="true"><IconStore /></span>
+            <div>
+              <strong id="pf-id-titulo">Identificação</strong>
+              <span>O nome, o contato e a apresentação da loja.</span>
+            </div>
+          </div>
           <div className="form-grid-2">
             <div className="form-group">
               <label htmlFor="nome_loja" className="form-label form-label-required">Nome da Loja</label>
@@ -161,7 +167,9 @@ export default function PerfilLojistaForm({ lojista }: Props) {
                 name="telefone"
                 type="tel"
                 className="form-input"
-                defaultValue={lojista.telefone}
+                value={telefone}
+                onChange={e => setTelefone(mascaraTelefoneLoja(e.target.value))}
+                inputMode="tel"
                 placeholder="(11) 99999-9999"
                 required
               />
@@ -179,16 +187,20 @@ export default function PerfilLojistaForm({ lojista }: Props) {
               maxLength={500}
               placeholder="Fale sobre seu petshop, especialidades, diferenciais..."
             />
-            <span className="form-hint">Máximo 500 caracteres</span>
+            <span className="form-hint">Até 500 caracteres. Aparece na página da loja.</span>
           </div>
-        </div>
+        </section>
 
         {/* Endereço */}
-        <div className="form-secao" style={{ borderTop: '1px solid var(--gray-800)', paddingTop: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
-          <h4 style={{ marginBottom: 'var(--space-4)', color: 'var(--gray-300)', fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Endereço
-          </h4>
-          <div className="form-group" style={{ maxWidth: 220 }}>
+        <section className="pf-secao" aria-labelledby="pf-end-titulo">
+          <div className="pf-secao-topo">
+            <span className="pf-secao-icone" aria-hidden="true"><IconMapPin /></span>
+            <div>
+              <strong id="pf-end-titulo">Endereço</strong>
+              <span>Onde fica a loja. O TaxiDog usa para calcular as corridas.</span>
+            </div>
+          </div>
+          <div className="form-group pf-cep">
             <label htmlFor="cep" className="form-label">CEP</label>
             <input
               id="cep"
@@ -205,7 +217,7 @@ export default function PerfilLojistaForm({ lojista }: Props) {
             {erroCep && <span className="form-error">{erroCep}</span>}
             {!buscandoCep && !erroCep && <span className="form-hint">Preenche a rua, o bairro e a cidade</span>}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 130px', gap: 'var(--space-4)' }}>
+          <div className="pf-grade-rua">
             <div className="form-group">
               <label htmlFor="endereco" className="form-label">Rua</label>
               <input
@@ -266,7 +278,7 @@ export default function PerfilLojistaForm({ lojista }: Props) {
               />
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 110px', gap: 'var(--space-4)' }}>
+          <div className="pf-grade-cidade">
             <div className="form-group">
               <label htmlFor="cidade" className="form-label">Cidade</label>
               <input
@@ -294,12 +306,11 @@ export default function PerfilLojistaForm({ lojista }: Props) {
               />
             </div>
           </div>
-        </div>
+        </section>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div className="pf-rodape">
           <BotaoConfirmar estado={botao.estadoCom(isPending)} id="btn-salvar-perfil" rotuloPendente="Salvando…">Salvar alterações</BotaoConfirmar>
         </div>
-      </form>
-    </div>
+    </form>
   )
 }

@@ -1,0 +1,36 @@
+/* Dados da loja: o jeito das Configurações — cada bloco num cartão branco
+   com ícone em índigo, título e uma frase do que é. O app tem a mesma tela
+   (mais/perfil-loja.tsx). */
+.pf { display: flex; flex-direction: column; gap: var(--space-5); max-width: 760px; }
+.pf-secao { display: flex; flex-direction: column; gap: var(--space-4); background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 16px; padding: var(--space-5); }
+.pf-secao-topo { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-1); }
+.pf-secao-icone { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border-radius: 10px; background: var(--primary-soft-bg, #eef2ff); color: var(--primary-600); }
+.pf-secao-icone svg { width: 18px; height: 18px; }
+.pf-secao-topo div > strong { display: block; font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
+.pf-secao-topo div > span { display: block; font-size: 0.8125rem; line-height: 1.4; color: var(--gray-400); }
+
+/* Logo */
+.pf-logo { display: flex; align-items: center; gap: var(--space-4); }
+.pf-logo-img { width: 80px; height: 80px; flex-shrink: 0; display: grid; place-items: center; overflow: hidden; border-radius: 18px; background: var(--primary-soft-bg, #eef2ff); color: var(--primary-600); font-family: var(--font-heading); font-size: 2rem; font-weight: 800; }
+.pf-logo-img img { width: 100%; height: 100%; object-fit: cover; }
+.pf-logo-acoes { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.pf-logo-botoes { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.pf-logo-dica { margin: 0; font-size: 0.75rem; color: var(--gray-500); }
+.pf-remover { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--gray-500); cursor: pointer; transition: all 0.15s ease; }
+.pf-remover:hover:not(:disabled) { background: rgba(239, 68, 68, 0.08); color: var(--danger-500, #ef4444); }
+.pf-remover svg { width: 16px; height: 16px; }
+
+.pf-grade-rua { display: grid; grid-template-columns: minmax(0, 1fr) 130px; gap: var(--space-4); }
+.pf-grade-cidade { display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: var(--space-4); }
+.pf-cep { max-width: 220px; }
+.pf-rodape { display: flex; justify-content: flex-end; }
+
+@media (max-width: 768px) {
+  .pf { gap: var(--space-4); }
+  .pf-secao { padding: var(--space-4); border-radius: 14px; }
+  .pf-logo-img { width: 64px; height: 64px; border-radius: 16px; font-size: 1.5rem; }
+  .pf-grade-rua { grid-template-columns: minmax(0, 1fr) 96px; gap: var(--space-3); }
+  .pf-grade-cidade { grid-template-columns: minmax(0, 1fr) 72px; gap: var(--space-3); }
+  .pf-cep { max-width: none; }
+  .pf-rodape > * { width: 100%; }
+}
