@@ -3098,7 +3098,9 @@ export async function cadastrarClienteLojistaAction(formData: FormData) {
   revalidatePath('/lojista/clientes')
   revalidatePath('/lojista/dashboard')
   revalidatePath('/lojista/agendamentos')
-  return { success: true }
+  revalidatePath('/lojista/kanban')
+  // O id volta para o "Novo agendamento" já escolher o cliente recém-criado.
+  return { success: true, id_cliente: authData.user.id }
 }
 
 // Edita nome/telefone de um cliente já vinculado a este lojista (migration

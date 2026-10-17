@@ -421,3 +421,6 @@ button.na-item:disabled { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   .na-sucesso-icone { animation: none; }
 }
+
+/* "Novo cliente" no fim da lista de clientes (NovoAgendamentoModal). */
+.na-novo-cliente-botao { width: 100%; margin-top: var(--space-3); justify-content: center; }

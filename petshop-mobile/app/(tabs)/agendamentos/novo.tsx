@@ -5,6 +5,7 @@ import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
 import { Aviso } from '@/components/Aviso'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
+import { FolhaCliente } from '@/components/FolhaCliente'
 import { Campo } from '@/components/Campo'
 import { FormasDePagamento, Segmentos } from '@/components/EscolhaPagamento'
 import { EtapaTransporte } from '@/components/EtapaTransporte'
@@ -72,6 +73,8 @@ export default function NovoAgendamentoScreen() {
   const clienteFixo = params.cliente ?? ''
 
   const [clientes, setClientes] = useState<ClienteOpcao[] | null>(null)
+  // Cadastro rápido de cliente sem sair do agendamento (FolhaCliente).
+  const [novoCliente, setNovoCliente] = useState(false)
   const [petsPorCliente, setPetsPorCliente] = useState<Record<string, number>>({})
   const [servicos, setServicos] = useState<ServicoOpcao[]>([])
   const [formas, setFormas] = useState<FormaPagamento[]>([])
@@ -494,7 +497,12 @@ export default function NovoAgendamentoScreen() {
               {etapa === 'cliente' && (clientes === null ? (
                 <ActivityIndicator color={colors.primary600} />
               ) : clientes.length === 0 ? (
-                <Aviso tipo="alerta" texto="Você ainda não tem nenhum cliente cadastrado. Cadastre um em Clientes → Novo Cliente antes de criar o agendamento." />
+                <View style={styles.lista}>
+                  <Text style={styles.msg}>A loja ainda não tem clientes — cadastre o primeiro aqui mesmo.</Text>
+                  {comSite && (
+                    <Linha novo avatarGrande avatar={<IconPlus size={22} color={colors.primary600} />} titulo="Novo cliente" desativado={enviando} onPress={() => setNovoCliente(true)} />
+                  )}
+                </View>
               ) : (
                 <>
                   <View style={styles.busca}>
@@ -526,6 +534,11 @@ export default function NovoAgendamentoScreen() {
                     })}
                   </View>
                   {filtrados.length === 0 && <Text style={styles.msg}>Nenhum cliente encontrado para "{busca}".</Text>}
+                  {comSite && (
+                    <View style={styles.lista}>
+                      <Linha novo avatarGrande avatar={<IconPlus size={22} color={colors.primary600} />} titulo="Novo cliente" desativado={enviando} onPress={() => setNovoCliente(true)} />
+                    </View>
+                  )}
                 </>
               ))}
 
@@ -812,6 +825,19 @@ export default function NovoAgendamentoScreen() {
           ))}
         </View>
       </Folha>
+
+      {/* Cliente novo sem sair do agendamento: ao salvar, já fica escolhido. */}
+      <FolhaCliente
+        visivel={novoCliente}
+        onFechar={() => setNovoCliente(false)}
+        onSalvo={() => setNovoCliente(false)}
+        onCriado={c => {
+          setNovoCliente(false)
+          setClientes(lista => [...(lista ?? []), c].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))
+          setPetsPorCliente(m => ({ ...m, [c.id_cliente]: 0 }))
+          escolherCliente(c.id_cliente)
+        }}
+      />
     </ScreenContainer>
   )
 }

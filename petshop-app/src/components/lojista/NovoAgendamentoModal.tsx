@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore, useTransition, type ComponentType, type SVGProps } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { atribuirFuncionarioAction, criarAgendamentoLojistaAction, criarPetLojistaAction } from '@/lib/actions'
+import { atribuirFuncionarioAction, cadastrarClienteLojistaAction, criarAgendamentoLojistaAction, criarPetLojistaAction } from '@/lib/actions'
+import { mascaraTelefoneLoja, soDigitos } from '@/lib/cadastro-loja'
+import { mascaraCpfCliente } from '@/lib/cadastro-cliente-etapas'
 import { cotarTaxiDogLojaAction } from '@/lib/actions-taxidog'
 import { formatarTelefone, iniciais } from '@/lib/format'
 import { ROTULO_MODALIDADE, formatarReais } from '@/lib/taxidog'
@@ -139,16 +141,27 @@ function ItemDoResumo({ icone: Icone, texto, detalhe, vazio, valor, onClick, des
   )
 }
 
-export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes, servicos, funcionarios, clienteIdFixo, funcionarioIdPadrao, podeAtribuirProfissional = true, onClose, onCreated }: Props) {
+export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes: clientesIniciais, servicos, funcionarios, clienteIdFixo, funcionarioIdPadrao, podeAtribuirProfissional = true, onClose, onCreated }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [isPending, startTransition] = useTransition()
   const [isPendingPet, startPetTransition] = useTransition()
+  const [isPendingCliente, startClienteTransition] = useTransition()
+
+  // Clientes cadastrados aqui mesmo, no meio do fluxo — somados aos da página.
+  const [clientesNovos, setClientesNovos] = useState<ClienteComPets[]>([])
+  const clientes = useMemo(() => [...clientesIniciais, ...clientesNovos], [clientesIniciais, clientesNovos])
+  const [showNovoCliente, setShowNovoCliente] = useState(clientesIniciais.length === 0)
+  const [cliErro, setCliErro] = useState<string | null>(null)
+  const [cliNome, setCliNome] = useState('')
+  const [cliTelefone, setCliTelefone] = useState('')
+  const [cliCpf, setCliCpf] = useState('')
+  const [cliEmail, setCliEmail] = useState('')
 
   const [buscaCliente, setBuscaCliente] = useState('')
   const [clienteId, setClienteId] = useState(clienteIdFixo ?? '')
   // Cliente com um pet só: o pet já sai escolhido (aqui e em escolherCliente).
   const [petId, setPetId] = useState(() => {
-    const pets = clientes.find(c => c.id_cliente === clienteIdFixo)?.pets ?? []
+    const pets = clientesIniciais.find(c => c.id_cliente === clienteIdFixo)?.pets ?? []
     return pets.length === 1 ? pets[0].id_pet : ''
   })
   const [etapaEscolhida, setEtapa] = useState<Etapa>(!clienteIdFixo ? 'cliente' : petId ? 'servico' : 'pet')
@@ -311,6 +324,38 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
       setPetRaca('')
       setPetSexo('Macho')
       setPetDtNasc('')
+    })
+  }
+
+  // Cadastro rápido de cliente (o mesmo de Clientes → Novo cliente): a loja
+  // informa os dados e o cliente recebe um convite por e-mail. Ao salvar,
+  // ele já fica escolhido e o fluxo segue para o pet.
+  function handleCriarCliente() {
+    if (cliNome.trim().length < 2) return setCliErro('Informe o nome do cliente.')
+    const tel = soDigitos(cliTelefone)
+    if (tel.length < 10) return setCliErro('Informe o telefone com DDD.')
+    if (soDigitos(cliCpf).length !== 11) return setCliErro('Informe o CPF com 11 dígitos.')
+    if (!/^\S+@\S+\.\S+$/.test(cliEmail.trim())) return setCliErro('Informe um e-mail válido — o cliente recebe o acesso por ele.')
+    setCliErro(null)
+    const formData = new FormData()
+    formData.set('nome', cliNome.trim())
+    formData.set('telefone', tel)
+    formData.set('cpf', soDigitos(cliCpf))
+    formData.set('email', cliEmail.trim().toLowerCase())
+    startClienteTransition(async () => {
+      const result = await cadastrarClienteLojistaAction(formData)
+      if (result?.error || !result?.id_cliente) {
+        setCliErro(result?.error ?? 'Não foi possível cadastrar o cliente.')
+        return
+      }
+      const novo: ClienteComPets = { id_cliente: result.id_cliente, nome: cliNome.trim(), telefone: tel, pets: [] }
+      setClientesNovos(prev => [...prev, novo])
+      setShowNovoCliente(false)
+      setCliNome(''); setCliTelefone(''); setCliCpf(''); setCliEmail('')
+      setClienteId(novo.id_cliente)
+      setPetId('')
+      setTransporte(TRANSPORTE_INICIAL)
+      setEtapa('pet')
     })
   }
 
@@ -613,13 +658,48 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
 
               <div className="na-conteudo">
                 {/* Cliente */}
-                {etapa === 'cliente' && (clientes.length === 0 ? (
-                  <div className="alert alert-warning">
-                    <IconAlert style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
-                    <span>
-                      Você ainda não tem nenhum cliente cadastrado. Cadastre um em{' '}
-                      <strong>Clientes → Novo Cliente</strong> antes de criar o agendamento.
-                    </span>
+                {etapa === 'cliente' && (showNovoCliente ? (
+                  <div className="na-novo-pet">
+                    <h4>
+                      <IconPlus />
+                      Novo cliente
+                    </h4>
+                    {clientes.length === 0 && <p className="tdc-nota">A loja ainda não tem clientes — cadastre o primeiro aqui mesmo.</p>}
+                    {cliErro && (
+                      <div className="na-erro" role="alert">
+                        <IconAlert />
+                        <span>{cliErro}</span>
+                      </div>
+                    )}
+                    <div className="form-group">
+                      <label className="form-label form-label-required" htmlFor="na-cli-nome">Nome</label>
+                      <input id="na-cli-nome" type="text" className="form-input" value={cliNome} onChange={e => setCliNome(e.target.value)} placeholder="Nome do cliente" maxLength={120} autoFocus={!celular} disabled={isPendingCliente} />
+                    </div>
+                    <div className="na-dois">
+                      <div className="form-group">
+                        <label className="form-label form-label-required" htmlFor="na-cli-tel">Telefone / WhatsApp</label>
+                        <input id="na-cli-tel" type="tel" inputMode="tel" className="form-input" value={cliTelefone} onChange={e => setCliTelefone(mascaraTelefoneLoja(e.target.value))} placeholder="(11) 98765-4321" disabled={isPendingCliente} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label form-label-required" htmlFor="na-cli-cpf">CPF</label>
+                        <input id="na-cli-cpf" type="text" inputMode="numeric" className="form-input" value={cliCpf} onChange={e => setCliCpf(mascaraCpfCliente(e.target.value))} placeholder="000.000.000-00" disabled={isPendingCliente} />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label form-label-required" htmlFor="na-cli-email">E-mail</label>
+                      <input id="na-cli-email" type="email" className="form-input" value={cliEmail} onChange={e => setCliEmail(e.target.value)} placeholder="cliente@email.com" disabled={isPendingCliente} />
+                      <span className="text-xs text-muted">O cliente recebe por e-mail o acesso para acompanhar os agendamentos.</span>
+                    </div>
+                    <div className="na-acoes">
+                      {clientes.length > 0 && (
+                        <button type="button" className="btn btn-secondary" onClick={() => { setShowNovoCliente(false); setCliErro(null) }} disabled={isPendingCliente}>
+                          Cancelar
+                        </button>
+                      )}
+                      <button type="button" className={`btn btn-primary ${isPendingCliente ? 'btn-loading' : ''}`} onClick={handleCriarCliente} disabled={isPendingCliente}>
+                        {isPendingCliente ? 'Cadastrando...' : 'Salvar cliente'}
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <>
@@ -663,6 +743,9 @@ export default function NovoAgendamentoModal({ lojistaId, defaultDate, clientes,
                     {clientesFiltrados.length === 0 && (
                       <p className="na-msg">Nenhum cliente encontrado para &quot;{buscaCliente}&quot;.</p>
                     )}
+                    <button type="button" className="btn btn-secondary na-novo-cliente-botao" onClick={() => { setShowNovoCliente(true); setCliNome(buscaCliente.trim() && !/\d/.test(buscaCliente) ? buscaCliente.trim() : '') }} disabled={isPending}>
+                      <IconPlus style={{ width: 15, height: 15 }} /> Novo cliente
+                    </button>
                   </>
                 ))}
 

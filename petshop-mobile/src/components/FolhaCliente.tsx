@@ -15,12 +15,15 @@ interface Props {
   onFechar: () => void
   // Chamado depois de gravar (na edição, com o que mudou).
   onSalvo: (dados?: { nome: string; telefone: string }) => void
+  // Cadastro de dentro de outro fluxo (o novo agendamento): em vez da tela
+  // "Convite enviado", devolve o cliente criado para já ser escolhido.
+  onCriado?: (c: { id_cliente: string; nome: string; telefone: string }) => void
 }
 
 // A janela "Novo Cliente / Editar …" do site (ClienteFormModal). Cliente
 // novo entra por convite: recebe um e-mail e define a própria senha — a
 // loja nunca informa senha de ninguém (cadastrarClienteLojistaAction).
-export function FolhaCliente({ visivel, cliente, onFechar, onSalvo }: Props) {
+export function FolhaCliente({ visivel, cliente, onFechar, onSalvo, onCriado }: Props) {
   const [nome, setNome] = useState('')
   const [cpf, setCpf] = useState('')
   const [telefone, setTelefone] = useState('')
@@ -50,10 +53,11 @@ export function FolhaCliente({ visivel, cliente, onFechar, onSalvo }: Props) {
     setSalvando(true)
     const r = cliente
       ? await chamarAcao('editarClienteLojistaAction', cliente.id_cliente, form({ nome: nome.trim(), telefone: tel }))
-      : await chamarAcao('cadastrarClienteLojistaAction', form({ nome: nome.trim(), cpf: soDigitos(cpf), email: email.trim().toLowerCase(), telefone: tel }))
+      : await chamarAcao<{ id_cliente: string }>('cadastrarClienteLojistaAction', form({ nome: nome.trim(), cpf: soDigitos(cpf), email: email.trim().toLowerCase(), telefone: tel }))
     setSalvando(false)
     if (r.error) return setErro(r.error)
     if (cliente) onSalvo({ nome: nome.trim(), telefone: tel })
+    else if (onCriado && 'id_cliente' in r && r.id_cliente) onCriado({ id_cliente: r.id_cliente as string, nome: nome.trim(), telefone: tel })
     else setConvidado(true)
   }
 
