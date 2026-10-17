@@ -8,9 +8,9 @@ import FormasPagamentoForm from '@/components/lojista/FormasPagamentoForm'
 import { IconAlert, IconChevronLeft } from '@/components/icons'
 import Ilustracao from '@/components/Ilustracao'
 
-export const metadata: Metadata = { title: 'Formas de pagamentos aceitas — Configurações' }
+export const metadata: Metadata = { title: 'Formas de pagamento — Configurações' }
 
-// Configurações → Loja → "Formas de pagamentos aceitas" (migration 057).
+// Configurações → Loja → "Formas de pagamento" (migration 057).
 export default async function FormasPagamentoPage() {
   const supabase = await createClient()
   const user = await obterUsuario()
@@ -42,7 +42,7 @@ export default async function FormasPagamentoPage() {
     <>
       {voltar}
       <div className="page-header">
-        <h1 className="page-title">Formas de pagamentos aceitas</h1>
+        <h1 className="page-title">Formas de pagamento</h1>
         <p className="page-subtitle">Só as formas ativadas aparecem para o cliente e no agendamento feito pela loja.</p>
       </div>
 

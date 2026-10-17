@@ -1,0 +1,63 @@
+/* Configurações (índice): a loja no topo e, em grupos, cada configuração
+   com o resumo do que está valendo. Celular: uma coluna; computador: duas. */
+.cfg { display: flex; flex-direction: column; gap: var(--space-6); max-width: 1040px; }
+
+.cfg-loja {
+  display: flex; align-items: center; gap: var(--space-4); padding: var(--space-4) var(--space-5);
+  background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 16px;
+}
+.cfg-loja-logo { width: 56px; height: 56px; flex-shrink: 0; border-radius: 14px; object-fit: cover; background: var(--gray-850); }
+.cfg-loja-logo.is-inicial { display: grid; place-items: center; background: var(--primary-soft-bg, #eef2ff); color: var(--primary-600); font-family: var(--font-heading); font-size: 1.5rem; font-weight: 800; }
+.cfg-loja-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cfg-loja-textos strong { font-family: var(--font-heading); font-size: 1.125rem; font-weight: 700; color: var(--gray-100); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cfg-loja-textos span { font-size: 0.875rem; color: var(--gray-400); }
+.cfg-loja-acoes { display: flex; gap: var(--space-2); flex-shrink: 0; }
+
+.cfg-grupos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6) var(--space-5); align-items: start; }
+.cfg-grupo { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.cfg-grupo-titulo { margin: 0 0 0 4px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray-500); }
+
+.cfg-lista { margin: 0; padding: 0; list-style: none; background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px; overflow: hidden; }
+.cfg-lista li + li .cfg-item::before {
+  content: ''; position: absolute; top: 0; left: 64px; right: 0; border-top: 1px solid var(--gray-800);
+}
+.cfg-item { position: relative; display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: 10px 16px; color: inherit; text-decoration: none; transition: background 0.15s ease; }
+.cfg-item:hover { background: var(--gray-950); }
+.cfg-item-icone { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border-radius: 10px; background: var(--primary-soft-bg, #eef2ff); color: var(--primary-600); }
+.cfg-item-icone svg { width: 18px; height: 18px; }
+.cfg-item-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.cfg-item-titulo { font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
+.cfg-item-resumo { font-size: 0.8125rem; line-height: 1.4; color: var(--gray-400); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.cfg-selo { flex-shrink: 0; padding: 3px 10px; border-radius: 999px; background: var(--gray-850); font-size: 0.75rem; font-weight: 700; color: var(--gray-500); }
+.cfg-selo.is-ligado { background: var(--success-bg, #ecfdf5); color: var(--success-600, #059669); }
+.cfg-item-seta { width: 16px; height: 16px; flex-shrink: 0; color: var(--gray-500); }
+
+@media (max-width: 900px) {
+  .cfg-grupos { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 768px) {
+  .cfg { gap: var(--space-5); }
+  .cfg-loja { flex-wrap: wrap; padding: var(--space-4); }
+  .cfg-loja-logo { width: 48px; height: 48px; }
+  .cfg-loja-acoes { width: 100%; }
+  .cfg-loja-acoes > * { flex: 1; }
+  .cfg-item { min-height: 60px; padding: 10px 14px; }
+  .cfg-lista li + li .cfg-item::before { left: 62px; }
+}
+
+/* ── Telas de cada configuração (os cartões de liga/desliga e afins) ── */
+.cfg-area .card { border-radius: 14px; border-color: var(--gray-800); box-shadow: none; }
+.cfg-area .card .dash-icon-btn { width: 36px; height: 36px; border: 0; border-radius: 10px; background: var(--primary-soft-bg, #eef2ff); color: var(--primary-600); }
+.cfg-area .card .dash-icon-btn:hover { color: var(--primary-600); }
+.cfg-area .card .dash-icon-btn svg { width: 18px; height: 18px; }
+.cfg-area .card .font-semibold { font-size: 0.9375rem; line-height: 1.35; }
+.cfg-area .card .text-sm.text-muted { font-size: 0.8125rem; line-height: 1.5; color: var(--gray-400); margin-top: 2px; }
+.cfg-area .page-header { margin-bottom: var(--space-5); }
+
+@media (max-width: 768px) {
+  /* Ícone no alto do texto, e o texto ocupa a largura toda. */
+  .cfg-area .card .flex.items-center:has(> .dash-icon-btn) { align-items: flex-start; }
+  .cfg-area .card .flex.items-center.justify-between { align-items: flex-start; }
+  .cfg-area .card .flex.items-center.justify-between > .switch { margin-top: 6px; }
+  .cfg-area .card { padding: var(--space-4); }
+}

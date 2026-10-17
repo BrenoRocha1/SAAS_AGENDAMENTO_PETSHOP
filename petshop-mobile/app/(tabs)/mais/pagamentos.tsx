@@ -59,7 +59,7 @@ export default function PagamentosScreen() {
   if (!pode) {
     return (
       <ScreenContainer scroll={false}>
-        <DetailHeader title="Formas de pagamentos aceitas" />
+        <DetailHeader title="Formas de pagamento" />
         <SemPermissao area="mudar as formas de pagamento" />
       </ScreenContainer>
     )
@@ -93,7 +93,7 @@ export default function PagamentosScreen() {
 
   return (
     <ScreenContainer>
-      <DetailHeader title="Formas de pagamentos aceitas" />
+      <DetailHeader title="Formas de pagamento" />
 
       {loading ? (
         <ActivityIndicator color={colors.primary600} />

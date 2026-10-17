@@ -27,7 +27,7 @@ export function CartaoConfig({ icone: Icone, titulo, descricao, antes, lateral, 
       <View style={styles.topo}>
         <View style={styles.cabecalho}>
           <View style={styles.icone}>
-            <Icone size={17} color={colors.textDim} />
+            <Icone size={18} color={colors.primary600} />
           </View>
           <View style={styles.textos}>
             <Text style={styles.titulo}>{titulo}</Text>
@@ -86,22 +86,21 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  topo: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  cabecalho: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  // `.dash-icon-btn`: a caixinha de 40 com o desenho de 17.
+  // Ícone e interruptor no alto do texto (`.cfg-area` do site no celular).
+  topo: { flexDirection: 'row', alignItems: 'flex-start', gap: 16 },
+  cabecalho: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  // `.cfg-area .dash-icon-btn`: o quadrado roxo-claro de 36 com o desenho de 18.
   icone: {
-    width: 40,
-    height: 40,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.primary50,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  textos: { flex: 1 },
-  titulo: { fontSize: 16, lineHeight: 25.6, fontWeight: '600', color: colors.text },
-  descricao: { fontSize: 14, lineHeight: 20, color: '#858d99' },
+  textos: { flex: 1, gap: 2 },
+  titulo: { fontSize: 15, lineHeight: 20, fontWeight: '600', color: colors.text },
+  descricao: { fontSize: 13, lineHeight: 19.5, color: colors.textMuted },
   corpo: { marginTop: 16 },
   erro: { marginBottom: 16 },
 })

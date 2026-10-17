@@ -79,7 +79,7 @@ export function TelaConfigAgendamentos() {
   if (!pode || !idLojista) {
     return (
       <ScreenContainer scroll={false}>
-        <DetailHeader title="Configurações de Agendamentos" />
+        <DetailHeader title="Agendamentos" />
         <SemPermissao area="mudar as configurações da loja" />
       </ScreenContainer>
     )
@@ -101,7 +101,7 @@ export function TelaConfigAgendamentos() {
 
   return (
     <ScreenContainer refreshing={carregando} onRefresh={carregar}>
-      <DetailHeader title="Configurações de Agendamentos" />
+      <DetailHeader title="Agendamentos" />
 
       {carregando ? null : erroCarga ? (
         <Aviso tipo="erro" texto="Não foi possível carregar as configurações agora. Execute a migration 020_configuracoes_loja.sql se ainda não rodou, e tente novamente." />

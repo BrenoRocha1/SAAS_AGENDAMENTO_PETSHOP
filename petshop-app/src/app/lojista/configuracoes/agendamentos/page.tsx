@@ -11,7 +11,7 @@ import JanelaAgendamentoForm from '@/components/lojista/JanelaAgendamentoForm'
 import SimultaneosForm from '@/components/lojista/SimultaneosForm'
 import { IconAlert, IconCalendar, IconChevronLeft, IconKanban, IconLock, IconMoney } from '@/components/icons'
 
-export const metadata: Metadata = { title: 'Configurações de Agendamentos — Lojista' }
+export const metadata: Metadata = { title: 'Agendamentos — Configurações' }
 
 export default async function ConfiguracoesAgendamentosPage() {
   const supabase = await createClient()
@@ -77,7 +77,7 @@ export default async function ConfiguracoesAgendamentosPage() {
       </Link>
 
       <div className="page-header">
-        <h1 className="page-title">Configurações de Agendamentos</h1>
+        <h1 className="page-title">Agendamentos</h1>
         <p className="page-subtitle">Controle o Kanban, quantos agendamentos a loja aceita ao mesmo tempo, o cancelamento pelos clientes e o agendamento feito por eles.</p>
       </div>
 
