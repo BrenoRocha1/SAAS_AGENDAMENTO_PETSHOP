@@ -1200,6 +1200,92 @@ O QUE FOI TESTADO E ESTA CORRETO (banco de teste com todas as migrations):
   encerrada), preco riscado, selo -X% e a regra do agendamento online dao o
   MESMO resultado que o banco nos mesmos cenarios.
 
+--- FUNCIONALIDADE | Data: 2026-10-17 | Painel interno: converter conta, backup e importacao ---
+
+O QUE FAZ:
+  Painel interno -> Contas (menu) ou "Converter / backup" em Clientes e na
+  pagina da Empresa. Para uma conta (login):
+    - Converter cliente em loja, ou loja em cliente (ou criar o perfil de
+      uma conta que so entrou com o Google e ainda nao tem perfil).
+    - Backups: gerar agora, baixar, restaurar na conta, apagar.
+    - Importar dados de um arquivo de backup para uma conta existente.
+
+MIGRATION NECESSARIA: 105_interno_converter_conta.sql
+  fn_interno_excluir_cliente(id) e fn_interno_excluir_loja(id), so para o
+  servidor (service_role). Sem ela, converter avisa para rodar a migration.
+
+COMO A CONVERSAO FUNCIONA (lib/actions-interno.ts -> converterContaAction):
+  1. Confere os dados do perfil novo ANTES de apagar qualquer coisa (nome,
+     telefone; para cliente, CPF valido e nao usado por outra conta; e-mail
+     nao usado por outra conta do mesmo tipo).
+  2. Se marcado (padrao), gera e guarda o backup. Se o backup falhar, nada
+     e apagado.
+  3. Apaga o perfil antigo:
+     - cliente: a mesma exclusao do "Excluir minha conta" (LGPD, migrations
+       072/073/086): cadastro, pets, avaliacoes, vinculos; agendamentos
+       marcados sao cancelados; o historico fica com as lojas sem o nome.
+       Mesmas travas: pet em atendimento ou com o TaxiDog agora.
+     - loja: a loja inteira (agendamentos, vendas, planos, assinaturas,
+       servicos, produtos, equipe - inclusive os logins -, horarios,
+       configuracoes, fotos e logo). Os clientes continuam com as contas.
+       Ordem do DELETE importa: avaliacao, agendamento, assinatura e plano
+       tem chaves RESTRICT que barrariam apagar a loja.
+  4. Cria o perfil novo (loja via fn_registrar_lojista; cliente com nome,
+     CPF, e-mail do login e telefone) e acerta o papel: user_metadata.role
+     e perfil_usuario.role (usado pelo auth_role() do banco).
+  5. Se a conta convertida for a do proprio administrador, renova a sessao.
+  Tudo fica no Registro de acoes (conta.converter, conta.backup,
+  conta.importar, conta.backup_apagar).
+
+BACKUP (lib/conta-backup.ts e lib/conta-backup-comum.ts):
+  - JSON com "formato": "saip-backup", "versao", "tipo" ("cliente" ou
+    "lojista"), origem, resumo e dados. As fotos vao dentro (base64), porque
+    converter apaga as pastas de fotos.
+  - Cliente: perfil (nome, CPF, telefone, foto), pets (com foto), lojas que
+    usa.
+  - Loja: perfil e configuracoes (com logo e endereco publico), horarios,
+    dias fechados futuros, formas de pagamento, categorias, produtos (foto,
+    custo, fiscal), servicos (precos por porte/raca, promocoes), servicos
+    adicionais, planos, TaxiDog (config, faixas, regioes), equipe.
+  - NAO entram: agendamentos, vendas, clientes e assinaturas da loja - sao
+    registros de outras pessoas, sem como voltar ligados a elas.
+  - Guardados no Storage, bucket PRIVADO "backups-contas" (criado sozinho
+    na primeira vez): <id da conta>/<tipo>-<data>.json. Arquivo enviado do
+    computador vai para envios/<conta destino>/<uuid>.json por link de uso
+    unico (direto do navegador, sem passar pelo limite de tamanho do
+    servidor).
+
+IMPORTACAO:
+  - So entra numa conta do MESMO tipo do backup (conferido na tela e no
+    servidor): backup de cliente -> conta de cliente; de loja -> loja.
+  - Pode ser de outra conta. Entra so o que falta (por nome): nada e
+    apagado nem duplicado - importar duas vezes nao muda nada.
+  - Opcoes: copiar os dados do perfil; (loja) recriar a equipe com logins
+    novos. O CPF do cliente so volta para a MESMA conta. O endereco publico
+    da loja so volta se estiver livre.
+
+SESSAO DE QUEM FOI CONVERTIDO (app/cliente/layout.tsx, app/lojista/layout.tsx,
+  app/auth/sair/route.ts):
+  O token de login guarda o papel (cliente/lojista) e so se atualiza em ate
+  1 hora. Os layouts agora conferem o cadastro no banco: se o token diz um
+  papel que nao bate mais, a sessao e encerrada e o login avisa "O perfil
+  da sua conta foi alterado. Entre de novo". Conta sem perfil vai para a
+  escolha de perfil. Corrigiu tambem um vai-e-volta entre /cliente e
+  /lojista de quem nao tinha perfil ou era funcionario desativado.
+
+TESTADO (banco de teste com todas as migrations + adaptador do supabase-js):
+  cliente com 2 pets -> backup -> loja; a loja trabalha (demonstracao,
+  plano, adicional, TaxiDog) -> backup -> volta a ser cliente (loja com 15
+  agendamentos e 12 vendas apagada; os 6 clientes dela continuam; logins da
+  equipe apagados) -> restaura o backup de cliente (pets com foto) -> vira
+  loja de novo -> restaura o backup da loja: catalogo IDENTICO ao de antes
+  (servicos, produtos, precos por porte, horarios, equipe, adicionais,
+  planos, faixas, custos). Importar de novo nao duplica. Backup de loja em
+  conta de cliente e recusado. CPF invalido ou ja usado e recusado antes de
+  apagar.
+  Bug achado no teste e corrigido: foto em "data:image/svg+xml;utf8,..."
+  ficava fora do backup.
+
 ================================================================================
   FIM DO REGISTRO DE BUGS
 ================================================================================

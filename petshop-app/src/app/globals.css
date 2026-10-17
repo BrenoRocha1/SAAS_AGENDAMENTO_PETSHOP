@@ -4648,3 +4648,21 @@ html[data-theme='dark'] { --logo-saip: #6366f1; --logo-texto: #eceff5; }
 .interno-demo-topo > div:first-child { flex: 1 1 320px; min-width: 0; }
 .interno-demo-titulo { margin: 0 0 4px; font-family: var(--font-heading); font-size: 1.0625rem; font-weight: 700; color: var(--gray-100); }
 .interno-demo-lista { margin: 0; padding-left: 1.1rem; font-size: 0.875rem; }
+
+/* Painel interno → Contas (converter cliente <-> loja, backups, importar). */
+.interno-secao { padding: var(--space-5); margin-bottom: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3); }
+.interno-secao > p { margin: 0; }
+.interno-secao-titulo { margin: 0; font-family: var(--font-heading); font-size: 1.0625rem; font-weight: 700; color: var(--gray-100); }
+.interno-secao-topo { display: flex; gap: var(--space-4); align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.interno-secao-topo > div:first-child { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.interno-secao-topo p { margin: 0; }
+.interno-campos { align-items: end; }
+.interno-campos .form-group { margin-bottom: 0; }
+.interno-perdas { display: block; }
+.interno-perdas ul { margin: 6px 0 0; padding-left: 1.1rem; font-size: 0.875rem; }
+.interno-check { display: flex; gap: 10px; align-items: flex-start; font-size: 0.875rem; color: var(--gray-300); cursor: pointer; }
+.interno-check input { width: 18px; height: 18px; margin-top: 1px; flex-shrink: 0; accent-color: var(--primary-500); }
+.interno-confirmar { display: flex; gap: var(--space-3); align-items: flex-end; flex-wrap: wrap; padding-top: var(--space-3); border-top: 1px solid var(--gray-800); }
+.interno-arquivo { padding: 8px; height: auto; }
+.interno-backup-resumo { display: flex; flex-direction: column; gap: 4px; padding: var(--space-3); border: 1px solid var(--gray-800); border-radius: var(--radius-md); background: var(--gray-950); }
+.interno-backup-resumo.is-erro { border-color: var(--danger-500); }

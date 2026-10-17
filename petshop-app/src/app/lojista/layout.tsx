@@ -31,8 +31,10 @@ export default async function LojistaLayout({
   const metaRole = user.user_metadata?.role
   let isLojista = metaRole === 'lojista'
 
-  if (!isLojista && metaRole !== 'cliente' && metaRole !== 'funcionario') {
-    // role indefinido — consulta o banco como fonte de verdade
+  // Também com o token dizendo "cliente": a conta pode ter virado loja pelo
+  // painel interno e o token ainda ter o papel antigo (até 1 hora).
+  if (!isLojista && metaRole !== 'funcionario') {
+    // role indefinido (ou desatualizado) — o banco é a fonte de verdade
     const { data: lojistaRow } = await supabase
       .from('lojista')
       .select('id_lojista')
@@ -49,7 +51,17 @@ export default async function LojistaLayout({
     ? await obterContextoLojista(supabase, user.id, 'lojista')
     : await obterContextoLojista(supabase, user.id, 'funcionario')
 
-  if (!contexto) redirect('/cliente/dashboard')
+  if (!contexto) {
+    // Não é loja nem funcionário ativo. Cliente vai para a área dele; conta
+    // sem perfil nenhum escolhe o perfil; token com papel que não bate mais
+    // com o banco (convertida pelo painel, funcionário desligado) sai e
+    // entra de novo. Antes ia sempre para /cliente — e quem não era cliente
+    // ficava indo e voltando entre as duas áreas.
+    const { data: clienteRow } = await supabase.from('cliente').select('id_cliente').eq('id_cliente', user.id).maybeSingle()
+    if (clienteRow) redirect('/cliente/dashboard')
+    if (metaRole === 'lojista' || metaRole === 'cliente' || metaRole === 'funcionario') redirect('/auth/sair')
+    redirect('/completar-cadastro')
+  }
 
   // kanban_ativo (migration 013) decide se o item "Kanban" aparece no menu.
   // Se a migration ainda não rodou, a coluna não existe e o select abaixo

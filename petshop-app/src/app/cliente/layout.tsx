@@ -17,29 +17,23 @@ export default async function ClienteLayout({
 
   if (!user) redirect('/login')
 
-  // Verifica role: user_metadata primeiro, depois tabela cliente como fallback
-  // Isso evita loop de redirect quando user_metadata.role não está definido
+  // O cadastro de cliente decide (não só o papel do token): a conta pode ter
+  // sido convertida pelo painel interno e o token ainda ter o papel antigo
+  // por até 1 hora. A foto da conta (migration 085) vem numa consulta à
+  // parte: sem a coluna, o menu segue com o nome e as iniciais.
   const metaRole = user.user_metadata?.role
-  let isCliente = metaRole === 'cliente'
-
-  if (!isCliente && metaRole !== 'lojista') {
-    // role indefinido — consulta o banco como fonte de verdade
-    const { data: clienteRow } = await supabase
-      .from('cliente')
-      .select('id_cliente')
-      .eq('id_cliente', user.id)
-      .maybeSingle()
-    isCliente = !!clienteRow
-  }
-
-  if (!isCliente) redirect('/lojista/dashboard')
-
-  // A foto da conta (migration 085) vem numa consulta à parte: enquanto a
-  // coluna não existir no banco, o menu segue com o nome e as iniciais.
   const [{ data: cliente }, { data: foto }] = await Promise.all([
-    supabase.from('cliente').select('nome, ativo').eq('id_cliente', user.id).single(),
+    supabase.from('cliente').select('nome, ativo').eq('id_cliente', user.id).maybeSingle(),
     supabase.from('cliente').select('foto_url').eq('id_cliente', user.id).maybeSingle(),
   ])
+
+  if (!cliente) {
+    // Token diz "cliente", mas o cadastro não existe mais (virou loja):
+    // sai e entra de novo, que o login leva para o lugar certo.
+    if (metaRole === 'cliente') redirect('/auth/sair')
+    // Loja, funcionário ou conta sem perfil: o layout da loja resolve.
+    redirect('/lojista/dashboard')
+  }
 
   // Conta desativada pela equipe do SAIP (painel interno).
   if (cliente && cliente.ativo === false) {

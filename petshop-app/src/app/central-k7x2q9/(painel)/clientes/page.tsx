@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ROTA_INTERNA } from '@/lib/rota-interna'
 import { TAMANHO_PAGINA, dataBRFmt, numeroPagina, termoSeguro, telefoneBR } from '@/lib/interno-util'
@@ -63,6 +64,7 @@ export default async function InternoClientes({ searchParams }: Props) {
                   <td className="text-sm text-muted">{dataBRFmt(c.created_at)}</td>
                   <td>
                     <div className="interno-acoes">
+                      <Link href={`${ROTA_INTERNA}/contas/${c.id_cliente}`} className="btn btn-secondary btn-sm">Converter / backup</Link>
                       <TrocarEmail tipo="cliente" id={c.id_cliente} emailAtual={c.email} />
                       <BotaoAcao
                         acao={alterarStatusClienteAction.bind(null, c.id_cliente, !c.ativo)}

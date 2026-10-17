@@ -73,6 +73,7 @@ export default async function InternoEmpresa({ params }: { params: Promise<{ id:
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
           <span className={`badge ${loja.ativo ? 'badge-ativo' : 'badge-inativo'}`}>{loja.ativo ? 'Ativa' : 'Inativa'}</span>
+          <Link href={`${ROTA_INTERNA}/contas/${id}`} className="btn btn-secondary btn-sm">Converter / backup</Link>
           <BotaoAcao
             acao={alterarStatusEmpresaAction.bind(null, id, !loja.ativo)}
             confirmar={loja.ativo ? `Desativar ${loja.nome_loja}? A loja deixa de aparecer para os clientes e o painel dela fica bloqueado até reativar.` : undefined}

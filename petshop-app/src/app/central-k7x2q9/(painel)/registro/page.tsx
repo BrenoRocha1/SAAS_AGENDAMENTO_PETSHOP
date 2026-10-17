@@ -13,6 +13,10 @@ const ROTULO: Record<string, string> = {
   'conta.entrar': 'Entrou na conta da loja',
   'conta.sair': 'Voltou da conta da loja',
   'conta.trocar_email': 'Trocou o e-mail da conta',
+  'conta.converter': 'Converteu a conta',
+  'conta.backup': 'Gerou backup da conta',
+  'conta.backup_apagar': 'Apagou um backup',
+  'conta.importar': 'Importou um backup na conta',
   'empresa.desativar': 'Desativou a empresa',
   'empresa.reativar': 'Reativou a empresa',
   'empresa.editar': 'Editou os dados da empresa',
@@ -46,6 +50,8 @@ function resumo(l: Linha): string {
   if (l.acao === 'acesso.definir' && typeof d.acesso_ate === 'string') return `até ${dataHoraBR(d.acesso_ate)}`
   if (l.acao === 'conta.trocar_email' && typeof d.para === 'string') return `${String(d.de ?? '')} → ${d.para}`
   if (l.acao === 'admin.adicionar' && typeof d.email === 'string') return d.email
+  if (l.acao === 'conta.converter' && typeof d.para === 'string') return `${d.de === 'sem' ? 'sem perfil' : d.de === 'lojista' ? 'loja' : 'cliente'} → ${d.para === 'lojista' ? 'loja' : 'cliente'}${d.erro ? ' (não terminou)' : ''}${d.backup ? ' · com backup' : ''}`
+  if (l.acao === 'conta.importar' && d.origem && typeof d.origem === 'object') return `de ${String((d.origem as { nome?: string }).nome ?? '')}`
   return ''
 }
 
@@ -63,6 +69,7 @@ export default async function InternoRegistro({ searchParams }: { searchParams: 
   const linhas = (data ?? []) as Linha[]
 
   // Nomes das lojas, clientes e administradores da página, numa consulta cada.
+  // Backup/conversão gravam o tipo do perfil (cliente/lojista) ou "conta".
   const ids = (tipo: string) => [...new Set(linhas.filter(l => l.alvo_tipo === tipo && l.alvo_id).map(l => l.alvo_id as string))]
   const [lojas, clientes, admins] = await Promise.all([
     ids('lojista').length ? db.from('lojista').select('id_lojista, nome_loja').in('id_lojista', ids('lojista')) : Promise.resolve({ data: [] }),
@@ -103,9 +110,12 @@ export default async function InternoRegistro({ searchParams }: { searchParams: 
                       {extra && <div className="text-sm text-muted">{extra}</div>}
                     </td>
                     <td>
-                      {l.alvo_tipo === 'lojista' && l.alvo_id
-                        ? <Link href={`${ROTA_INTERNA}/empresas/${l.alvo_id}`} className="font-semibold">{nome}</Link>
-                        : nome}
+                      {l.acao.startsWith('conta.') && l.alvo_id
+                        // Conversão e backup: a página da conta (a loja/o cliente de antes pode nem existir mais).
+                        ? <Link href={`${ROTA_INTERNA}/contas/${l.alvo_id}`} className="font-semibold">{nome === '—' ? 'Ver a conta' : nome}</Link>
+                        : l.alvo_tipo === 'lojista' && l.alvo_id
+                          ? <Link href={`${ROTA_INTERNA}/empresas/${l.alvo_id}`} className="font-semibold">{nome}</Link>
+                          : nome}
                     </td>
                   </tr>
                 )

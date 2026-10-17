@@ -189,6 +189,8 @@ function LoginFormPane() {
   const redirectTo = searchParams.get('redirectTo')
   // Vindo de "Excluir minha conta" (LGPD, migration 072).
   const contaExcluida = searchParams.get('conta') === 'excluida'
+  // A conta mudou de perfil (painel interno → Contas) com a sessão aberta.
+  const contaAlterada = searchParams.get('conta') === 'alterada'
   const oauthError = searchParams.get('error')
   const errorDetail = searchParams.get('error_detail')
     ? decodeURIComponent(searchParams.get('error_detail')!)
@@ -244,6 +246,11 @@ function LoginFormPane() {
       {contaExcluida && !message && (
         <div className="alert alert-success" role="status" style={{ marginBottom: 'var(--space-4)' }}>
           <span>Sua conta foi excluída e seus dados pessoais foram apagados.</span>
+        </div>
+      )}
+      {contaAlterada && !message && (
+        <div className="alert alert-info" role="status" style={{ marginBottom: 'var(--space-4)' }}>
+          <span>O perfil da sua conta foi alterado. Entre de novo para continuar.</span>
         </div>
       )}
       {message && <ErrorBanner message={message} />}

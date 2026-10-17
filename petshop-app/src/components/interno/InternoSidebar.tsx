@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import BarraLateral from '@/components/layout/BarraLateral'
-import { IconGrid, IconStore, IconUsers, IconCalendar, IconShield, IconList } from '@/components/icons'
+import { IconGrid, IconStore, IconUsers, IconCalendar, IconShield, IconList, IconIdCard } from '@/components/icons'
 import { ROTA_INTERNA } from '@/lib/rota-interna'
 import { sairDoPainelAction } from '@/lib/actions-interno'
 
@@ -11,6 +11,7 @@ const navItems = [
   { href: `${ROTA_INTERNA}/empresas`, icon: IconStore, label: 'Empresas' },
   { href: `${ROTA_INTERNA}/clientes`, icon: IconUsers, label: 'Clientes' },
   { href: `${ROTA_INTERNA}/agendamentos`, icon: IconCalendar, label: 'Agendamentos' },
+  { href: `${ROTA_INTERNA}/contas`, icon: IconIdCard, label: 'Contas' },
   { href: `${ROTA_INTERNA}/admins`, icon: IconShield, label: 'Administradores' },
   { href: `${ROTA_INTERNA}/registro`, icon: IconList, label: 'Registro de ações' },
 ]
