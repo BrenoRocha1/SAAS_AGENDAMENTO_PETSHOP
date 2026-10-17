@@ -3,16 +3,15 @@ import { useFocusEffect } from 'expo-router'
 import { Pressable, StyleSheet, View } from 'react-native'
 import { ScreenContainer } from '@/components/ScreenContainer'
 import { DetailHeader } from '@/components/DetailHeader'
-import { Card } from '@/components/Card'
 import { EmptyState } from '@/components/EmptyState'
 import { SemPermissao } from '@/components/SemPermissao'
 import { Aviso } from '@/components/Aviso'
-import { Botao } from '@/components/Botao'
+import { LinhaServico, ListaBranca, TopoSecao, estilosLista } from '@/components/ListaServicos'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { Campo } from '@/components/Campo'
 import { Folha, depoisDeFechar } from '@/components/Folha'
 import { FolhaConfirmar } from '@/components/FolhaConfirmar'
-import { IconPlus, IconSliders, IconTrash } from '@/components/IconesDoSite'
+import { IconPlus, IconScissors, IconSliders, IconTrash } from '@/components/IconesDoSite'
 import { Seletor } from '@/components/Seletor'
 import { Interruptor } from '@/components/Interruptor'
 import { ServicosAdicionais } from '@/components/ServicosAdicionais'
@@ -24,7 +23,7 @@ import { MSG_SEM_SITE, acoesDisponiveis, chamarAcao, form } from '@/lib/acoes'
 import { formatarMoeda } from '@/lib/format'
 import { numeroParaCampo, paraNumero, soDigitos } from '@/lib/mascaras'
 import { COLUNAS_PROMOCAO_SERVICO, precoPromocionalServico, seloDesconto, statusPromocaoServico, type PromocaoServico } from '@/lib/promocao'
-import { colors, spacing, typography } from '@/theme/theme'
+import { colors, spacing } from '@/theme/theme'
 
 // Com a promoção do serviço (migrations 095 e 096), quando o banco tem.
 interface Servico extends PromocaoServico {
@@ -285,36 +284,46 @@ export default function ServicosScreen() {
       {!acoesDisponiveis() && <Aviso tipo="alerta" texto={`Só consulta: ${MSG_SEM_SITE}`} style={{ marginBottom: spacing.md }} />}
       {erro && <Aviso tipo="erro" texto={erro} style={{ marginBottom: spacing.md }} />}
 
-      <Botao rotulo="Novo serviço" icone="add" onPress={() => abrir(null)} style={{ marginBottom: spacing.lg }} />
+      <TopoSecao
+        titulo="Principais"
+        total={servicos.length}
+        texto="O que a loja oferece, com o preço e a duração de cada um."
+        rotulo="Novo serviço"
+        onNovo={() => abrir(null)}
+      />
 
       {!loading && servicos.length === 0 && !erro ? (
         <EmptyState icon="cut-outline" ilustracao="servicos" title="Nenhum serviço cadastrado" subtitle="Cadastre o primeiro serviço para a loja poder receber agendamentos." />
       ) : (
-        <View style={{ gap: spacing.md }}>
-          {servicos.map(s => {
+        <ListaBranca>
+          {servicos.map((s, i) => {
             const statusPromo = statusPromocaoServico(s, agora)
             const precoPromo = precoPromocionalServico(s.preco, s.preco, s)
             return (
-            <Card key={s.id_servico} style={styles.item} onPress={() => abrir(s)}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={[styles.nome, s.status === 'Inativo' && styles.apagado]} numberOfLines={2}>{s.nome}</Text>
-                <Text style={styles.sub}>
+              <LinhaServico
+                key={s.id_servico}
+                icone={IconScissors}
+                nome={s.nome}
+                inativo={s.status === 'Inativo'}
+                primeira={i === 0}
+                onPress={() => abrir(s)}
+                resumo={<>
                   {statusPromo === 'ativa'
-                    ? <><Text style={styles.riscado}>{formatarMoeda(s.preco)}</Text> {formatarMoeda(precoPromo)}</>
-                    : formatarMoeda(s.preco)} · {s.duracao} min{s.status === 'Inativo' ? ' · Inativo' : ''}
-                </Text>
-              </View>
-              <BotaoPromocao status={statusPromo} selo={seloDesconto(s.preco, precoPromo)} nome={s.nome} onPress={() => setPromoAlvo(s)} />
-              <Interruptor
-                value={s.status === 'Ativo'}
-                disabled={alterando === s.id_servico}
-                onValueChange={v => alternar(s, v)}
-                accessibilityLabel={`${s.nome} ativo`}
-              />
-            </Card>
+                    ? <><Text style={estilosLista.riscado}>{formatarMoeda(s.preco)}</Text> {formatarMoeda(precoPromo)}</>
+                    : formatarMoeda(s.preco)} · {s.duracao}{'\u00a0'}min
+                </>}
+              >
+                <BotaoPromocao status={statusPromo} selo={seloDesconto(s.preco, precoPromo)} nome={s.nome} onPress={() => setPromoAlvo(s)} />
+                <Interruptor
+                  value={s.status === 'Ativo'}
+                  disabled={alterando === s.id_servico}
+                  onValueChange={v => alternar(s, v)}
+                  accessibilityLabel={`${s.nome} ativo`}
+                />
+              </LinhaServico>
             )
           })}
-        </View>
+        </ListaBranca>
       )}
 
       {/* Serviços adicionais (migration 095): seção própria, abaixo dos principais. */}
@@ -436,11 +445,6 @@ export default function ServicosScreen() {
 }
 
 const styles = StyleSheet.create({
-  item: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  nome: { ...typography.body.lg, fontWeight: '700', color: colors.text },
-  apagado: { color: colors.textMuted },
-  sub: { ...typography.body.md, color: colors.textMuted },
-  riscado: { textDecorationLine: 'line-through', opacity: 0.7 },
   // Medidas da janela do serviço no site, em 375 de largura.
   grupo: { gap: 4 },
   rotulo: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.textDim },

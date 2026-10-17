@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native'
 import { Aviso } from '@/components/Aviso'
 import { BotaoPequeno } from '@/components/BotaoPequeno'
 import { Campo } from '@/components/Campo'
-import { Card } from '@/components/Card'
+import { LinhaServico, ListaBranca, TopoSecao } from '@/components/ListaServicos'
 import { Folha } from '@/components/Folha'
 import { FolhaConfirmar } from '@/components/FolhaConfirmar'
 import { IconCalendar, IconPlus, IconScissors, IconTrash, type IconeProps } from '@/components/IconesDoSite'
@@ -14,8 +14,7 @@ import { chamarAcao } from '@/lib/acoes'
 import { carregarAdicionaisDaLoja, type ServicoAdicional } from '@/lib/adicionais'
 import { formatarMoeda } from '@/lib/format'
 import { numeroParaCampo, paraNumero } from '@/lib/mascaras'
-import { colors, spacing, typography } from '@/theme/theme'
-import { FONTE_TITULO } from '@/theme/fontes'
+import { colors, spacing } from '@/theme/theme'
 
 interface Props {
   idLojista: string
@@ -62,6 +61,13 @@ export function ServicosAdicionais({ idLojista, servicos, podeExcluir }: Props) 
     const nomes = a.servicos.map(id => nomeDoServico.get(id)).filter(Boolean) as string[]
     return nomes.length > 0 ? nomes.join(', ') : 'Serviços que não existem mais'
   }
+
+  // Onde o adicional aparece, em texto curto (o mesmo do site).
+  const onde = (a: ServicoAdicional) =>
+    a.disponivel_online && a.disponivel_atendimento ? 'online e no atendimento'
+      : a.disponivel_online ? 'só online'
+      : a.disponivel_atendimento ? 'só no atendimento'
+      : 'escondido'
 
   function abrir(a: ServicoAdicional | null) {
     setEditando(a)
@@ -120,39 +126,43 @@ export function ServicosAdicionais({ idLojista, servicos, podeExcluir }: Props) 
 
   return (
     <View style={styles.secao}>
-      <Text style={styles.titulo}>Serviços adicionais</Text>
-      <Text style={styles.sub}>
-        Cobranças extras para quando o pet precisa de atenção especial, como pelo embolado ou dificuldade de manejo.
-        O cliente pode escolher ao agendar e a equipe pode incluir durante o atendimento.
-      </Text>
-      <BotaoPequeno normal icone={IconPlus} rotulo="Novo adicional" onPress={() => abrir(null)} style={styles.novo} />
+      <TopoSecao
+        titulo="Adicionais"
+        total={adicionais.length}
+        texto="Cobranças extras, como pelo embolado ou pet agitado. O cliente escolhe ao agendar e a equipe inclui no atendimento."
+        rotulo="Novo adicional"
+        secundario
+        onNovo={() => abrir(null)}
+      />
 
       {erro && <Aviso tipo="erro" texto={erro} style={{ marginBottom: spacing.md }} />}
 
       {adicionais.length === 0 ? (
         <View style={styles.vazio}>
-          <Text style={styles.vazioTitulo}>Nenhum serviço adicional cadastrado</Text>
+          <Text style={styles.vazioTitulo}>Nenhum adicional cadastrado</Text>
           <Text style={styles.vazioTexto}>Cadastre taxas e extras que podem entrar num atendimento, cada um com o seu preço.</Text>
         </View>
       ) : (
-        <View style={{ gap: spacing.md }}>
-          {adicionais.map(a => (
-            <Card key={a.id_adicional} style={styles.item} onPress={() => abrir(a)}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={[styles.nome, a.status === 'Inativo' && styles.apagado]} numberOfLines={2}>{a.nome}</Text>
-                <Text style={styles.detalhe} numberOfLines={2}>
-                  {formatarMoeda(a.preco)} · {valePara(a)}{a.status === 'Inativo' ? ' · Inativo' : ''}
-                </Text>
-              </View>
+        <ListaBranca>
+          {adicionais.map((a, i) => (
+            <LinhaServico
+              key={a.id_adicional}
+              icone={IconPlus}
+              nome={a.nome}
+              inativo={a.status === 'Inativo'}
+              primeira={i === 0}
+              onPress={() => abrir(a)}
+              resumo={`+ ${formatarMoeda(a.preco)} · ${valePara(a)} · ${onde(a)}`}
+            >
               <Interruptor
                 value={a.status === 'Ativo'}
                 disabled={alterando === a.id_adicional}
                 onValueChange={v => alternar(a, v)}
                 accessibilityLabel={`${a.nome} ativo`}
               />
-            </Card>
+            </LinhaServico>
           ))}
-        </View>
+        </ListaBranca>
       )}
 
       <Folha visivel={painel} titulo={editando ? 'Editar serviço adicional' : 'Novo serviço adicional'} onFechar={() => setPainel(false)} ocupado={salvando}>
@@ -246,18 +256,11 @@ function LinhaChave({ icone: Icone, titulo, texto, ligado, onChange }: {
 }
 
 const styles = StyleSheet.create({
-  // `.adic-secao` do site em 375 de largura.
+  // `.srv-adicionais` do site em 375 de largura.
   secao: { marginTop: 24 },
-  titulo: { fontFamily: FONTE_TITULO, fontSize: 17, lineHeight: 22, fontWeight: '700', color: colors.text },
-  sub: { marginTop: 4, fontSize: 13, lineHeight: 18.85, color: '#858d99' },
-  novo: { marginTop: 12, marginBottom: 16 },
   vazio: { gap: 2, padding: 20, backgroundColor: colors.surface, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.borderStrong, borderRadius: 12 },
   vazioTitulo: { fontSize: 15, lineHeight: 21, fontWeight: '600', color: colors.textDim },
   vazioTexto: { fontSize: 14, lineHeight: 20, color: '#858d99' },
-  item: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  nome: { ...typography.body.lg, fontWeight: '700', color: colors.text },
-  apagado: { color: colors.textMuted },
-  detalhe: { ...typography.body.md, color: colors.textMuted },
   grupo: { gap: 6 },
   rotulo: { fontSize: 13, lineHeight: 20.8, fontWeight: '600', color: colors.textDim },
   // `.na-seg.is-cheio`

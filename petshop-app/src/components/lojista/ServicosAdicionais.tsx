@@ -12,6 +12,7 @@ import { IconAlert, IconCalendar, IconClose, IconPencil, IconPlus, IconScissors,
 import './novo-agendamento.css'
 import './equipe-membro.css'
 import './adicionais.css'
+import './servicos.css'
 
 interface Props {
   adicionais: ServicoAdicional[]
@@ -146,24 +147,22 @@ export default function ServicosAdicionais({ adicionais: inicial, servicos, pode
     </button>
   )
 
-  const onde = (a: ServicoAdicional) => (
-    <span className="adic-onde">
-      {a.disponivel_online && <span className="adic-selo"><IconCalendar /> Agendamento online</span>}
-      {a.disponivel_atendimento && <span className="adic-selo"><IconScissors /> Atendimento</span>}
-    </span>
-  )
+  // Onde o cliente/equipe vê o adicional, em texto curto para o resumo.
+  const onde = (a: ServicoAdicional) =>
+    a.disponivel_online && a.disponivel_atendimento ? 'online e no atendimento'
+      : a.disponivel_online ? 'só online'
+      : a.disponivel_atendimento ? 'só no atendimento'
+      : 'escondido'
+
 
   return (
-    <section className="adic-secao" aria-labelledby="adic-titulo">
-      <div className="adic-cabecalho">
+    <section className="srv-adicionais" aria-labelledby="adic-titulo">
+      <div className="srv-topo">
         <div>
-          <h2 id="adic-titulo" className="adic-titulo">Serviços adicionais</h2>
-          <p className="adic-sub">
-            Cobranças extras para quando o pet precisa de atenção especial, como pelo embolado ou dificuldade de manejo.
-            O cliente pode escolher ao agendar e a equipe pode incluir durante o atendimento.
-          </p>
+          <h2 id="adic-titulo" className="srv-secao">Adicionais <span>{adicionais.length}</span></h2>
+          <p>Cobranças extras, como pelo embolado ou pet agitado. O cliente escolhe ao agendar e a equipe inclui no atendimento.</p>
         </div>
-        <button type="button" className="btn btn-secondary adic-novo" onClick={abrirNovo} id="btn-novo-adicional">
+        <button type="button" className="btn btn-secondary" onClick={abrirNovo} id="btn-novo-adicional">
           <IconPlus style={{ width: 16, height: 16 }} /> Novo adicional
         </button>
       </div>
@@ -177,83 +176,54 @@ export default function ServicosAdicionais({ adicionais: inicial, servicos, pode
 
       {adicionais.length === 0 ? (
         <div className="adic-vazio">
-          <strong>Nenhum serviço adicional cadastrado</strong>
+          <strong>Nenhum adicional cadastrado</strong>
           <span>Cadastre taxas e extras que podem entrar num atendimento, cada um com o seu preço.</span>
         </div>
       ) : (
-        <>
-          {/* Celular (até 768px): a mesma lista do app. */}
-          <div className="so-celular">
-            <div className="dash-app-lista">
-              {adicionais.map(a => (
+        <ul className="srv-lista">
+          {adicionais.map(a => {
+            const ativo = a.status === 'Ativo'
+            return (
+              <li key={a.id_adicional}>
+                {/* Tocar na linha abre a edição (no celular, o excluir fica lá dentro). */}
                 <div
-                  key={a.id_adicional}
-                  className="dash-app-linha"
+                  className={`srv-item ${ativo ? '' : 'is-inativo'}`}
                   role="button"
                   tabIndex={0}
                   onClick={() => abrirEditar(a)}
                   onKeyDown={e => { if (e.key === 'Enter') abrirEditar(a) }}
                 >
-                  <span className="dash-app-linha-info">
-                    <span className={`dash-app-linha-pet ${a.status === 'Ativo' ? '' : 'is-apagado'}`}>{a.nome}</span>
-                    <span className="dash-app-linha-sub is-media">
-                      {formatarReais(a.preco)} · {valePara(a)}{a.status === 'Ativo' ? '' : ' · Inativo'}
+                  <span className="srv-icone" aria-hidden="true"><IconPlus /></span>
+                  <span className="srv-textos">
+                    <span className="srv-nome">{a.nome}{!ativo && <em>Inativo</em>}</span>
+                    <span className="srv-resumo">
+                      <span className="so-celular-inline">+ {formatarReais(a.preco)} · </span>
+                      {valePara(a)} · {onde(a)}
                     </span>
                   </span>
+                  <span className="srv-preco so-desktop"><strong>+ {formatarReais(a.preco)}</strong></span>
                   {chave(a, true)}
+                  <span className="srv-acoes so-desktop">
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={e => { e.stopPropagation(); abrirEditar(a) }}>
+                      <IconPencil style={{ width: 14, height: 14 }} /> Editar
+                    </button>
+                    {podeExcluir && (
+                      <button
+                        type="button"
+                        className="srv-excluir"
+                        onClick={e => { e.stopPropagation(); setErroLista(null); setExcluindo(a) }}
+                        title="Excluir adicional"
+                        aria-label={`Excluir ${a.nome}`}
+                      >
+                        <IconTrash />
+                      </button>
+                    )}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="so-desktop">
-            <div className="table-container">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Adicional</th>
-                    <th>Preço</th>
-                    <th>Vale para</th>
-                    <th>Onde aparece</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {adicionais.map(a => (
-                    <tr key={a.id_adicional}>
-                      <td>
-                        <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{a.nome}</div>
-                        {a.descricao && <div className="text-sm text-muted">{a.descricao}</div>}
-                      </td>
-                      <td className="text-success font-semibold" style={{ whiteSpace: 'nowrap' }}>+ {formatarReais(a.preco)}</td>
-                      <td className="text-sm">{valePara(a)}</td>
-                      <td>{onde(a)}</td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          {chave(a, false)}
-                          {alternandoId === a.id_adicional && <span className="text-xs text-muted">Salvando...</span>}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="flex gap-1">
-                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => abrirEditar(a)}>
-                            <IconPencil style={{ width: 14, height: 14 }} /> Editar
-                          </button>
-                          {podeExcluir && (
-                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setErroLista(null); setExcluindo(a) }} title="Excluir adicional">
-                              <IconTrash style={{ width: 14, height: 14 }} /> Excluir
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
+              </li>
+            )
+          })}
+        </ul>
       )}
 
       {rascunho && (

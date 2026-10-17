@@ -1,0 +1,49 @@
+/* Tela de Serviços (serviços e adicionais): o mesmo jeito das Configurações —
+   lista branca com divisórias recuadas, ícone em índigo, resumo curto. Tocar
+   na linha edita; no computador o preço e as ações ficam à direita. */
+.srv-topo { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-3); }
+.srv-topo p { margin: 2px 0 0; max-width: 640px; font-size: 0.875rem; line-height: 1.45; color: var(--gray-400); }
+.srv-topo .btn { flex-shrink: 0; }
+.srv-secao { display: flex; align-items: center; gap: 8px; margin: 0; font-family: var(--font-heading); font-size: 1.125rem; font-weight: 700; letter-spacing: -0.01em; color: var(--gray-100); }
+.srv-secao span { min-width: 24px; height: 22px; padding: 0 8px; display: inline-grid; place-items: center; border-radius: 999px; background: var(--primary-soft-bg, #eef2ff); font-size: 0.75rem; font-weight: 700; color: var(--primary-600); }
+
+.srv-lista { margin: 0; padding: 0; list-style: none; background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 14px; overflow: hidden; }
+.srv-lista li + li .srv-item::before { content: ''; position: absolute; top: 0; left: 64px; right: 0; border-top: 1px solid var(--gray-800); }
+.srv-item { position: relative; display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: 10px 16px; cursor: pointer; transition: background 0.15s ease; }
+.srv-item:hover { background: var(--gray-950); }
+.srv-item:focus-visible { outline: 2px solid var(--primary-400); outline-offset: -2px; }
+.srv-icone { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border-radius: 10px; background: var(--primary-soft-bg, #eef2ff); color: var(--primary-600); }
+.srv-icone svg { width: 18px; height: 18px; }
+.srv-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.srv-nome { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 0.9375rem; font-weight: 600; color: var(--gray-100); }
+.srv-nome em { flex-shrink: 0; padding: 1px 8px; border-radius: 999px; background: var(--gray-850); font-style: normal; font-size: 0.6875rem; font-weight: 700; color: var(--gray-500); }
+.srv-resumo { font-size: 0.8125rem; line-height: 1.4; color: var(--gray-400); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.srv-resumo s { opacity: 0.7; }
+.srv-pedaco { white-space: nowrap; }
+.srv-item.is-inativo .srv-icone { opacity: 0.55; }
+.srv-item.is-inativo .srv-nome { color: var(--gray-400); }
+
+.srv-preco { flex-shrink: 0; min-width: 96px; display: flex; flex-direction: column; align-items: flex-end; gap: 0; }
+.srv-preco s { font-size: 0.75rem; color: var(--gray-500); }
+.srv-preco strong { font-size: 0.9375rem; font-weight: 700; white-space: nowrap; color: var(--gray-100); }
+.srv-acoes { flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
+.srv-excluir { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--gray-500); cursor: pointer; transition: all 0.15s ease; }
+.srv-excluir:hover:not(:disabled) { background: rgba(239, 68, 68, 0.08); color: var(--danger-500, #ef4444); }
+.srv-excluir svg { width: 16px; height: 16px; }
+
+/* Adicionais: o mesmo, logo abaixo. */
+.srv-adicionais { margin-top: var(--space-8); }
+.srv-selos { display: inline-flex; gap: 4px; }
+
+.so-desktop-inline { display: inline; }
+
+@media (max-width: 768px) {
+  .so-desktop-inline { display: none; }
+  .srv-topo { flex-direction: column; align-items: stretch; gap: var(--space-3); }
+  .srv-topo p { font-size: 0.8125rem; }
+  .srv-topo .btn { width: 100%; height: 44px; justify-content: center; }
+  .srv-secao { font-size: 1.0625rem; }
+  .srv-item { min-height: 60px; padding: 10px 14px; gap: 10px; }
+  .srv-lista li + li .srv-item::before { left: 62px; }
+  .srv-adicionais { margin-top: var(--space-6); }
+}

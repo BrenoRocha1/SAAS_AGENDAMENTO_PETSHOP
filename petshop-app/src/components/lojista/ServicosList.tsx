@@ -10,7 +10,8 @@ import {
   removerVariacaoServicoAction,
 } from '@/lib/actions'
 import { createClient } from '@/lib/supabase/client'
-import { IconAlert, IconClose, IconPencil, IconPlus, IconSliders, IconTrash } from '@/components/icons'
+import { IconAlert, IconClose, IconPencil, IconPlus, IconScissors, IconSliders, IconTrash } from '@/components/icons'
+import './servicos.css'
 import { formatarReais } from '@/lib/taxidog'
 import Ilustracao from '@/components/Ilustracao'
 import PromocaoServicoModal, { FORM_PROMOCAO_VAZIO, PromocaoServicoCampos, agoraBrasilPromocao, dadosDoFormPromocao, formDaPromocao, type FormPromocao } from '@/components/lojista/PromocaoServico'
@@ -200,16 +201,13 @@ export default function ServicosList({ servicos: inicial, idLojista }: Props) {
 
   return (
     <>
-      {/* Celular (até 768px): a mesma tela Serviços do app. */}
-      <div className="so-celular">
-        <button type="button" className="dash-app-botao" onClick={abrirNovo}>
-          <IconPlus style={{ width: 18, height: 18 }} /> Novo serviço
-        </button>
-      </div>
-
-      <div className="flex justify-end so-desktop" style={{ marginBottom: 'var(--space-5)' }}>
+      <div className="srv-topo">
+        <div>
+          <h2 className="srv-secao">Principais <span>{servicos.length}</span></h2>
+          <p>O que a loja oferece, com o preço e a duração de cada um.</p>
+        </div>
         <button className="btn btn-primary" onClick={abrirNovo} id="btn-novo-servico">
-          <IconPlus style={{ width: 16, height: 16 }} /> Novo Serviço
+          <IconPlus style={{ width: 16, height: 16 }} /> Novo serviço
         </button>
       </div>
 
@@ -227,145 +225,87 @@ export default function ServicosList({ servicos: inicial, idLojista }: Props) {
         </div>
       )}
 
-      <div className="so-celular">
-        {servicos.length === 0 ? (
-          <div className="dash-app-vazio">
-            <Ilustracao nome="servicos" altura={110} style={{ marginBottom: 0 }} />
-            <strong>Nenhum serviço cadastrado</strong>
-            <span>Cadastre o primeiro serviço para a loja poder receber agendamentos.</span>
-          </div>
-        ) : (
-          <div className="dash-app-lista">
-            {servicos.map(s => (
-              <div
-                key={s.id_servico}
-                className="dash-app-linha"
-                role="button"
-                tabIndex={0}
-                onClick={() => abrirEditar(s)}
-                onKeyDown={e => { if (e.key === 'Enter') abrirEditar(s) }}
-              >
-                <span className="dash-app-linha-info">
-                  <span className={`dash-app-linha-pet ${s.status === 'Ativo' ? '' : 'is-apagado'}`}>{s.nome}</span>
-                  <span className="dash-app-linha-sub is-media">
-                    {statusPromo(s) === 'ativa'
-                      ? <><s>{formatarReais(s.preco)}</s> {formatarReais(precoComPromo(s))}</>
-                      : formatarReais(s.preco)} · {s.duracao} min{s.status === 'Ativo' ? '' : ' · Inativo'}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  className={`promo-chip ${CLASSE_BOTAO_PROMO[statusPromo(s)]}`}
-                  onClick={e => { e.stopPropagation(); setPromoAlvo(s) }}
-                  aria-label={`Promoção de ${s.nome}: ${ROTULO_STATUS_PROMOCAO[statusPromo(s)]}`}
-                >
-                  {statusPromo(s) === 'ativa' ? `-${seloDesconto(Number(s.preco), precoComPromo(s))}%` : ROTULO_CURTO_PROMO[statusPromo(s)]}
-                </button>
-                <button
-                  type="button"
-                  className={`switch ${s.status === 'Ativo' ? 'switch-on' : ''}`}
-                  onClick={e => { e.stopPropagation(); handleAlternarStatus(s) }}
-                  disabled={alternandoId === s.id_servico}
-                  role="switch"
-                  aria-checked={s.status === 'Ativo'}
-                  aria-label={`${s.nome} ativo`}
-                >
-                  <span className="switch-thumb" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="so-desktop">
       {servicos.length === 0 ? (
         <div className="empty-state card">
           <Ilustracao nome="servicos" />
           <div className="empty-state-title">Nenhum serviço cadastrado</div>
-          <p style={{ marginBottom: 'var(--space-4)' }}>Cadastre seus serviços para que os clientes possam agendar</p>
+          <p style={{ marginBottom: 'var(--space-4)' }}>Cadastre o primeiro serviço para a loja poder receber agendamentos.</p>
           <button className="btn btn-primary" onClick={abrirNovo}>Cadastrar primeiro serviço</button>
         </div>
       ) : (
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Serviço</th>
-                <th>Preço</th>
-                <th>Duração</th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {servicos.map(s => (
-                <tr key={s.id_servico}>
-                  <td>
-                    <div className="font-semibold" style={{ color: 'var(--gray-100)' }}>{s.nome}</div>
-                    {s.descricao && <div className="text-sm text-muted">{s.descricao}</div>}
-                  </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    {statusPromo(s) === 'ativa' ? (
-                      <>
-                        <div className="text-xs text-muted"><s>{formatarReais(s.preco)}</s></div>
-                        <div className="text-success font-semibold">{formatarReais(precoComPromo(s))}</div>
-                      </>
-                    ) : <span className="text-success font-semibold">{formatarReais(s.preco)}</span>}
-                  </td>
-                  <td>{s.duracao} min</td>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        className={`switch ${s.status === 'Ativo' ? 'switch-on' : ''}`}
-                        onClick={() => handleAlternarStatus(s)}
-                        disabled={alternandoId === s.id_servico}
-                        role="switch"
-                        aria-checked={s.status === 'Ativo'}
-                        title={s.status === 'Ativo' ? 'Desativar serviço' : 'Ativar serviço'}
-                      >
-                        <span className="switch-thumb" />
-                      </button>
-                      {alternandoId === s.id_servico && <span className="text-xs text-muted">Salvando...</span>}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="flex gap-1">
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => abrirEditar(s)}
-                      >
-                        <IconPencil style={{ width: 14, height: 14 }} /> Editar
-                      </button>
-                      <button
-                        type="button"
-                        className={`promo-chip ${CLASSE_BOTAO_PROMO[statusPromo(s)]}`}
-                        onClick={() => setPromoAlvo(s)}
-                        title={statusPromo(s) === 'sem' ? 'Colocar em promoção' : `${ROTULO_STATUS_PROMOCAO[statusPromo(s)]} · ${periodoPromoServico(s)}`}
-                      >
-                        {statusPromo(s) === 'sem' ? '% Promoção'
-                          : statusPromo(s) === 'ativa' ? `Em promoção -${seloDesconto(Number(s.preco), precoComPromo(s))}%`
-                          : ROTULO_STATUS_PROMOCAO[statusPromo(s)]}
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => handleExcluir(s)}
-                        disabled={excluindoId === s.id_servico}
-                        title="Excluir serviço"
-                      >
-                        <IconTrash style={{ width: 14, height: 14 }} />
-                        {excluindoId === s.id_servico ? 'Excluindo...' : 'Excluir'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="srv-lista">
+          {servicos.map(s => {
+            const st = statusPromo(s)
+            const ativo = s.status === 'Ativo'
+            return (
+              <li key={s.id_servico}>
+                {/* Tocar na linha abre a edição (no celular, o excluir fica lá dentro). */}
+                <div
+                  className={`srv-item ${ativo ? '' : 'is-inativo'}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => abrirEditar(s)}
+                  onKeyDown={e => { if (e.key === 'Enter') abrirEditar(s) }}
+                >
+                  <span className="srv-icone" aria-hidden="true"><IconScissors /></span>
+                  <span className="srv-textos">
+                    <span className="srv-nome">{s.nome}{!ativo && <em>Inativo</em>}</span>
+                    <span className="srv-resumo">
+                      <span className="so-celular-inline">
+                        <span className="srv-pedaco">
+                          {st === 'ativa' ? <><s>{formatarReais(s.preco)}</s> {formatarReais(precoComPromo(s))}</> : formatarReais(s.preco)}
+                        </span>
+                        {' · '}
+                      </span>
+                      <span className="srv-pedaco">{s.duracao} min</span>{s.descricao ? <span className="so-desktop-inline"> · {s.descricao}</span> : null}
+                    </span>
+                  </span>
+                  <span className="srv-preco so-desktop">
+                    {st === 'ativa' && <s>{formatarReais(s.preco)}</s>}
+                    <strong>{formatarReais(st === 'ativa' ? precoComPromo(s) : s.preco)}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    className={`promo-chip ${CLASSE_BOTAO_PROMO[st]}`}
+                    onClick={e => { e.stopPropagation(); setPromoAlvo(s) }}
+                    title={st === 'sem' ? 'Colocar em promoção' : `${ROTULO_STATUS_PROMOCAO[st]} · ${periodoPromoServico(s)}`}
+                    aria-label={`Promoção de ${s.nome}: ${ROTULO_STATUS_PROMOCAO[st]}`}
+                  >
+                    {st === 'ativa' ? `-${seloDesconto(Number(s.preco), precoComPromo(s))}%` : ROTULO_CURTO_PROMO[st]}
+                  </button>
+                  <button
+                    type="button"
+                    className={`switch ${ativo ? 'switch-on' : ''}`}
+                    onClick={e => { e.stopPropagation(); handleAlternarStatus(s) }}
+                    disabled={alternandoId === s.id_servico}
+                    role="switch"
+                    aria-checked={ativo}
+                    aria-label={`${s.nome} ativo`}
+                    title={ativo ? 'Desativar serviço' : 'Ativar serviço'}
+                  >
+                    <span className="switch-thumb" />
+                  </button>
+                  <span className="srv-acoes so-desktop">
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={e => { e.stopPropagation(); abrirEditar(s) }}>
+                      <IconPencil style={{ width: 14, height: 14 }} /> Editar
+                    </button>
+                    <button
+                      type="button"
+                      className="srv-excluir"
+                      onClick={e => { e.stopPropagation(); handleExcluir(s) }}
+                      disabled={excluindoId === s.id_servico}
+                      title="Excluir serviço"
+                      aria-label={`Excluir ${s.nome}`}
+                    >
+                      <IconTrash />
+                    </button>
+                  </span>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
       )}
-      </div>
 
       {promoAlvo && (
         <PromocaoServicoModal
