@@ -11,6 +11,10 @@ import { createClient } from '@/lib/supabase/server'
 import { COOKIE_IMPERSONANDO, COOKIE_VOLTA_INTERNO } from '@/lib/impersonar'
 import { acharContaDemo, criarContaDemo, popularLojaDemo, type ResultadoDemo } from '@/lib/demo-loja'
 import { acharLoginPorEmail } from '@/lib/interno-util'
+import {
+  BUCKET_BACKUPS, apagarPerfil, caminhoDeBackupValido, conferirNovoPerfil, criarPerfil, garantirBucket, guardarBackup,
+  importarBackup, lerBackup, montarBackup, rotuloTipoConta, tipoDaConta, type DadosNovoPerfil, type OpcoesImportar, type Relatorio, type TipoPerfil,
+} from '@/lib/conta-backup'
 import { getPlatformAdmin } from '@/lib/admin'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ROTA_INTERNA } from '@/lib/rota-interna'
@@ -359,4 +363,152 @@ export async function criarContaDemoAction(): Promise<Resultado & { id?: string;
   revalidarInterno()
   revalidatePath('/lojista', 'layout')
   return { success: true, id: conta.id, criada: conta.criada, demo }
+}
+
+// ── Contas: backup, importação e conversão cliente <-> loja (migration 105) ──
+// A lógica fica em lib/conta-backup; aqui, a checagem de administrador, o
+// registro em admin_auditoria e as mensagens para a tela.
+
+function revalidarConta(id: string) {
+  revalidatePath(`${ROTA_INTERNA}/contas/${id}`)
+  revalidarInterno()
+}
+
+const msg = (e: unknown) => (e instanceof Error ? e.message : String(e))
+
+// Endereço de download (vale 5 minutos) de um backup guardado.
+async function urlDeDownload(db: Db, caminho: string): Promise<string | null> {
+  const nome = caminho.split('/').pop() ?? 'backup.json'
+  const { data } = await db.storage.from(BUCKET_BACKUPS).createSignedUrl(caminho, 300, { download: nome })
+  return data?.signedUrl ?? null
+}
+
+// Gera o backup da conta e guarda no bucket privado. Devolve o link para baixar.
+export async function gerarBackupAction(id: string): Promise<Resultado & { caminho?: string; url?: string | null }> {
+  const ctx = await exigirAdmin()
+  if ('erro' in ctx) return { error: ctx.erro }
+  if (!UUID_RE.test(id)) return { error: 'Conta inválida.' }
+  try {
+    const backup = await montarBackup(ctx.db, id)
+    const caminho = await guardarBackup(ctx.db, backup)
+    await auditar(ctx.db, ctx.admin, 'conta.backup', backup.tipo, id, { caminho, resumo: backup.resumo })
+    revalidarConta(id)
+    return { success: true, caminho, url: await urlDeDownload(ctx.db, caminho) }
+  } catch (e) {
+    return { error: msg(e) }
+  }
+}
+
+export async function baixarBackupAction(caminho: string): Promise<Resultado & { url?: string }> {
+  const ctx = await exigirAdmin()
+  if ('erro' in ctx) return { error: ctx.erro }
+  if (!caminhoDeBackupValido(caminho)) return { error: 'Arquivo inválido.' }
+  const url = await urlDeDownload(ctx.db, caminho)
+  return url ? { success: true, url } : { error: 'Não foi possível gerar o link do arquivo.' }
+}
+
+export async function apagarBackupAction(caminho: string): Promise<Resultado> {
+  const ctx = await exigirAdmin()
+  if ('erro' in ctx) return { error: ctx.erro }
+  if (!caminhoDeBackupValido(caminho)) return { error: 'Arquivo inválido.' }
+  const { error } = await ctx.db.storage.from(BUCKET_BACKUPS).remove([caminho])
+  if (error) return { error: error.message }
+  const dono = caminho.split('/')[0]
+  await auditar(ctx.db, ctx.admin, 'conta.backup_apagar', 'conta', UUID_RE.test(dono) ? dono : ctx.admin.id, { caminho })
+  if (UUID_RE.test(dono)) revalidarConta(dono)
+  return { success: true }
+}
+
+// Arquivo enviado do computador: o navegador grava direto no bucket privado
+// por este link de uso único (o arquivo pode ser grande demais para passar
+// pelo servidor), e depois chama importarBackupAction com o caminho.
+export async function urlEnvioBackupAction(idDestino: string): Promise<Resultado & { caminho?: string; token?: string }> {
+  const ctx = await exigirAdmin()
+  if ('erro' in ctx) return { error: ctx.erro }
+  if (!UUID_RE.test(idDestino)) return { error: 'Conta inválida.' }
+  await garantirBucket(ctx.db)
+  const caminho = `envios/${idDestino}/${crypto.randomUUID()}.json`
+  const { data, error } = await ctx.db.storage.from(BUCKET_BACKUPS).createSignedUploadUrl(caminho)
+  if (error || !data) return { error: `Não foi possível preparar o envio: ${error?.message ?? 'erro desconhecido'}` }
+  return { success: true, caminho, token: data.token }
+}
+
+export async function importarBackupAction(idDestino: string, caminho: string, opcoes: OpcoesImportar): Promise<Resultado & { relatorio?: Relatorio }> {
+  const ctx = await exigirAdmin()
+  if ('erro' in ctx) return { error: ctx.erro }
+  if (!UUID_RE.test(idDestino)) return { error: 'Conta inválida.' }
+  try {
+    const backup = await lerBackup(ctx.db, caminho)
+    const relatorio = await importarBackup(ctx.db, idDestino, backup, { perfil: !!opcoes?.perfil, equipe: !!opcoes?.equipe })
+    await auditar(ctx.db, ctx.admin, 'conta.importar', backup.tipo, idDestino, {
+      caminho, origem: backup.origem, feito: relatorio.feito.length, avisos: relatorio.avisos.length,
+    })
+    revalidarConta(idDestino)
+    revalidatePath('/', 'layout')
+    return { success: true, relatorio }
+  } catch (e) {
+    return { error: msg(e) }
+  }
+}
+
+// Converte a conta para o outro perfil (ou cria o perfil, se ela não tem
+// nenhum). Ordem segura: confere os dados novos → guarda o backup (se
+// pedido) → apaga o perfil antigo → cria o novo. Se o backup falhar, nada
+// é apagado.
+export async function converterContaAction(
+  id: string,
+  para: TipoPerfil,
+  dados: DadosNovoPerfil,
+  opcoes: { backup: boolean },
+  confirmacao: string,
+): Promise<Resultado & { resumo?: string[]; backup?: string | null }> {
+  const ctx = await exigirAdmin()
+  if ('erro' in ctx) return { error: ctx.erro }
+  if (!UUID_RE.test(id) || (para !== 'cliente' && para !== 'lojista')) return { error: 'Conta inválida.' }
+  if ((confirmacao ?? '').trim().toUpperCase() !== 'CONVERTER') return { error: 'Digite CONVERTER para confirmar.' }
+
+  const { tipo } = await tipoDaConta(ctx.db, id)
+  if (tipo === 'funcionario') return { error: 'Conta de funcionário de loja não é convertida por aqui (ela pertence à loja).' }
+  if (tipo === para) return { error: `Esta conta já é ${rotuloTipoConta(para)}.` }
+
+  const { data: login } = await ctx.db.auth.admin.getUserById(id)
+  const email = login?.user?.email ?? null
+  const problema = await conferirNovoPerfil(ctx.db, id, para, dados, email)
+  if (problema) return { error: problema }
+
+  let caminho: string | null = null
+  if (tipo !== 'sem' && opcoes?.backup) {
+    try {
+      caminho = await guardarBackup(ctx.db, await montarBackup(ctx.db, id))
+    } catch (e) {
+      return { error: `O backup não foi gerado e nada foi apagado: ${msg(e)}` }
+    }
+  }
+
+  let resumo: string[] = []
+  if (tipo !== 'sem') {
+    try {
+      resumo = await apagarPerfil(ctx.db, id, tipo)
+    } catch (e) {
+      return { error: `Nada foi convertido: ${msg(e)}`, backup: caminho }
+    }
+  }
+
+  try {
+    await criarPerfil(ctx.db, id, para, dados, email as string)
+  } catch (e) {
+    await auditar(ctx.db, ctx.admin, 'conta.converter', para, id, { de: tipo, para, backup: caminho, resumo, erro: msg(e) })
+    revalidarConta(id)
+    return {
+      error: `Os dados antigos foram apagados${caminho ? ' (o backup ficou guardado)' : ''}, mas o perfil de ${rotuloTipoConta(para)} não foi criado: ${msg(e)}. A conta ficou sem perfil — tente de novo por esta página.`,
+      backup: caminho,
+    }
+  }
+
+  await auditar(ctx.db, ctx.admin, 'conta.converter', para, id, { de: tipo, para, backup: caminho, resumo })
+  // Convertendo a própria conta: o token da sessão ainda tem o papel antigo.
+  if (id === ctx.admin.id) await (await createClient()).auth.refreshSession()
+  revalidarConta(id)
+  revalidatePath('/', 'layout')
+  return { success: true, resumo: [...resumo, tipo === 'sem' ? `Perfil de ${rotuloTipoConta(para)} criado` : `Conta convertida em ${rotuloTipoConta(para)}`], backup: caminho }
 }
