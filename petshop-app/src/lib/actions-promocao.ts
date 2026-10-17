@@ -6,11 +6,22 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { obterContextoLojista } from '@/lib/lojista-context'
 import { colunasPromocaoServico, lerDadosPromocaoServico, validarPromocaoServico } from '@/lib/promocao'
 import { mensagemErroPromocaoServico } from '@/lib/promocao-servidor'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const SEM_CHAVE = 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.'
+
+// Quem grava: o lojista, com o client normal (RLS). Funcionário, com o client
+// de serviço — a policy de escrita de servico (migration 006) só aceita quem
+// tem a caixinha "serviços" marcada, e o administrador (acesso total) sem ela
+// via "Promoção salva" sem nada gravado. A permissão é conferida aqui no
+// código antes, e todo UPDATE filtra pela loja.
+function clienteDeEscrita(role: string, supabase: Awaited<ReturnType<typeof createClient>>) {
+  return role === 'lojista' ? supabase : createAdminClient()
+}
 const DATA_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export async function salvarPromocaoAction(
@@ -38,13 +49,16 @@ export async function salvarPromocaoAction(
     ? { promo_percentual: null, promo_inicio: null, promo_fim: null }
     : { promo_percentual: percentual, promo_inicio: inicio, promo_fim: fim }
 
+  const db = clienteDeEscrita(contexto.role, supabase)
+  if (!db) return { error: SEM_CHAVE }
   const tabela = tipo === 'servico' ? 'servico' : 'produto'
   const coluna = tipo === 'servico' ? 'id_servico' : 'id_produto'
-  const { error } = await supabase.from(tabela).update(valores).eq(coluna, id).eq('id_lojista', contexto.idLojista)
+  const { data: alterado, error } = await db.from(tabela).update(valores).eq(coluna, id).eq('id_lojista', contexto.idLojista).select(coluna)
   if (error) {
     if (/promo_percentual|column/i.test(error.message)) return { error: 'Execute a migration 096_promocoes.sql para usar promoções.' }
     return { error: 'Não foi possível salvar a promoção.' }
   }
+  if (!alterado || alterado.length === 0) return { error: 'Item não encontrado nesta loja. Recarregue a página.' }
 
   revalidatePath(tipo === 'servico' ? '/lojista/servicos' : '/lojista/produtos')
   revalidatePath('/lojista/pdv')
@@ -70,7 +84,10 @@ export async function salvarPromocaoServicoAction(
   if (!contexto) return { error: 'Acesso não autorizado' }
   if (!contexto.podeGerenciarServicos) return { error: 'Você não tem permissão para gerenciar serviços.' }
 
-  const { data: servico } = await supabase
+  const db = clienteDeEscrita(contexto.role, supabase)
+  if (!db) return { error: SEM_CHAVE }
+
+  const { data: servico } = await db
     .from('servico')
     .select('id_servico, preco')
     .eq('id_servico', id)
@@ -84,12 +101,14 @@ export async function salvarPromocaoServicoAction(
     if (problema) return { error: problema }
   }
 
-  const { error } = await supabase
+  const { data: alterado, error } = await db
     .from('servico')
     .update(colunasPromocaoServico(lido))
     .eq('id_servico', id)
     .eq('id_lojista', contexto.idLojista)
+    .select('id_servico')
   if (error) return { error: mensagemErroPromocaoServico(error.message) ?? 'Não foi possível salvar a promoção.' }
+  if (!alterado || alterado.length === 0) return { error: 'Serviço não encontrado nesta loja. Recarregue a página.' }
 
   revalidatePath('/lojista/servicos')
   return { success: true }

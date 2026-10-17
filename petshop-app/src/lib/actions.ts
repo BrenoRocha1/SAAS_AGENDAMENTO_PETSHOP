@@ -960,7 +960,13 @@ export async function criarServicoAction(formData: FormData) {
     if (problema) return { error: problema }
   }
 
-  const { data: novoServico, error } = await supabase
+  // Funcionário administrador (acesso total) sem a caixinha "serviços": a
+  // policy de escrita de servico (migration 006) exige a caixinha e recusava
+  // — grava com o client de escrita da loja (permissão já conferida acima).
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+
+  const { data: novoServico, error } = await db
     .from('servico')
     .insert({
       id_lojista: contexto.idLojista,
@@ -973,7 +979,7 @@ export async function criarServicoAction(formData: FormData) {
   if (error || !novoServico) return { error: mensagemErroPromocaoServico(error?.message) ?? 'Erro ao cadastrar serviço.' }
 
   if (variacoesParsed.length > 0) {
-    const { error: variacaoError } = await supabase.from('servico_variacao').insert(
+    const { error: variacaoError } = await db.from('servico_variacao').insert(
       variacoesParsed.map(v => ({ id_servico: novoServico.id_servico, ...v }))
     )
     if (variacaoError) {
@@ -1022,13 +1028,22 @@ export async function editarServicoAction(id_servico: string, formData: FormData
     if (problema) return { error: problema }
   }
 
-  const { error } = await supabase
+  // Mesmo motivo do criarServicoAction: o administrador sem a caixinha
+  // "serviços" não passava na policy e o UPDATE não mudava nada.
+  const db = clienteParaEscritaLojista(contexto, supabase)
+  if (!db) return { error: 'Serviço temporariamente indisponível. Configure a SUPABASE_SERVICE_ROLE_KEY.' }
+
+  // .select() devolve a linha alterada: sem ela, o serviço não é desta loja
+  // (ou foi excluído) e nada foi gravado — antes isso aparecia como "Salvo".
+  const { data: alterado, error } = await db
     .from('servico')
     .update({ ...parsed.data, ...(promocao.veio ? colunasPromocaoServico(promocao.dados) : {}) })
     .eq('id_servico', id_servico)
     .eq('id_lojista', contexto.idLojista)
+    .select('id_servico')
 
   if (error) return { error: mensagemErroPromocaoServico(error.message) ?? 'Erro ao atualizar serviço.' }
+  if (!alterado || alterado.length === 0) return { error: 'Serviço não encontrado nesta loja. Recarregue a página.' }
 
   revalidatePath('/lojista/servicos')
   return { success: true }

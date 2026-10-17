@@ -1090,6 +1090,116 @@ LICAO APRENDIDA:
     "Se NAO e cliente e esta em /cliente -> redireciona para /LOJISTA"
   O destino deve ser o OPOSTO da area que esta bloqueando.
 
+--- BUG #005 | Data: 2026-10-17 | Status: CORRIGIDO ---
+
+TITULO: Ao salvar uma promocao (ou um servico), a lista de Servicos passa a
+        mostrar os servicos de TODAS as lojas, varios com selo de promocao
+
+COMO APARECIA:
+  A loja tinha 3 servicos em promocao. Ao definir o valor da promocao e
+  salvar, a tela de Servicos (/lojista/servicos) passava a listar servicos
+  que nao eram da loja - inclusive com o selo/preco riscado de promocao das
+  outras lojas. Recarregando a pagina (F5) a lista voltava ao normal.
+
+ARQUIVO AFETADO: petshop-app/src/components/lojista/ServicosList.tsx
+  (funcao recarregar, chamada depois de salvar a promocao pela janela
+   "% Promocao" e depois de salvar o cadastro do servico)
+
+CAUSA RAIZ:
+  recarregar() lia a lista de novo pelo navegador SEM filtrar pela loja:
+    supabase.from('servico').select('*').is('excluido_em', null)
+  A tabela servico tem a policy "servico: usuarios veem servicos ativos"
+  (migration 002, USING status = 'Ativo'), que existe para o agendamento
+  online: qualquer usuario logado le os servicos ATIVOS de todas as lojas.
+  Sem o .eq('id_lojista', ...), a consulta trazia o banco inteiro: os
+  servicos da propria loja + os servicos ativos de todas as outras, com as
+  promocoes delas. A primeira carga da pagina (servidor) ja filtrava pela
+  loja - por isso o F5 "consertava".
+
+CORRECAO:
+  - ServicosList recebe a loja (prop idLojista, passada por
+    app/lojista/servicos/page.tsx) e recarregar() filtra
+    .eq('id_lojista', idLojista).
+  - Se a releitura falhar, a lista atual fica na tela (antes podia sumir).
+
+PROVA (banco de teste com todas as migrations e as policies valendo):
+  Loja A com 4 servicos (3 em promocao); loja B com 5 servicos (2 em
+  promocao). Lista lida como a loja A:
+    antes:  9 servicos, 5 da loja B, 5 com selo de promocao
+    depois: 4 servicos, 0 de outra loja, 3 com selo de promocao
+
+VARREDURA FEITA: todas as leituras de servico, servico_variacao,
+  servico_adicional, produto e categoria_produto do site e do app foram
+  conferidas - esta era a unica sem filtro de loja.
+
+LICAO:
+  servico, produto e categoria_produto tem policies de leitura PUBLICAS
+  (agendamento online e busca de produtos/marketplace). RLS nao basta para
+  "so os da minha loja": toda leitura de tela da loja tem que filtrar
+  .eq('id_lojista', ...) explicitamente.
+
+--- BUG #006 | Data: 2026-10-17 | Status: CORRIGIDO ---
+
+TITULO: Funcionario administrador (acesso total) salva promocao/servico, a
+        tela diz "Promocao salva"/"Salvo", mas nada e gravado
+
+COMO APARECIA:
+  Funcionario com "acesso total" mas SEM a caixinha "Gerenciar servicos"
+  marcada. O sistema deixa ele abrir e editar servicos (acesso total vale
+  como todas as permissoes), mas ao salvar uma promocao ou editar um servico
+  aparecia sucesso e a promocao nao mudava. Ao cadastrar um servico novo,
+  dava "Erro ao cadastrar servico".
+
+ARQUIVOS AFETADOS:
+  petshop-app/src/lib/actions-promocao.ts (salvarPromocaoServicoAction,
+    salvarPromocaoAction)
+  petshop-app/src/lib/actions.ts (criarServicoAction, editarServicoAction)
+
+CAUSA RAIZ:
+  No codigo, podeGerenciarServicos = pode_gerenciar_servicos OU acesso_total
+  (lib/lojista-context.ts). No banco, as policies de escrita de servico
+  (migration 006) exigem pode_gerenciar_servicos = TRUE e ignoram o acesso
+  total. O UPDATE passava pela policy de leitura, nao achava nenhuma linha
+  que pudesse alterar e terminava "sem erro" com 0 linhas - e a tela
+  mostrava sucesso. (Produtos nao tem o problema: a policy de produto ja
+  considera o acesso total.)
+
+PROVA (banco de teste):
+  funcionario com a caixinha marcada: promocao do servico grava 1 linha
+  administrador sem a caixinha:        promocao do servico grava 0 linhas
+
+CORRECAO:
+  - Mesmo padrao ja usado no resto do projeto (clienteParaEscritaLojista):
+    o lojista grava com o client normal; funcionario grava com o client de
+    servico DEPOIS de a permissao ser conferida no codigo, e todo UPDATE e
+    INSERT filtra pela loja (id_lojista do contexto).
+  - Os UPDATEs de promocao e de edicao do servico agora usam .select() e,
+    se nenhuma linha mudou, devolvem erro ("Servico nao encontrado nesta
+    loja. Recarregue a pagina.") em vez de sucesso falso.
+
+PENDENTE (fora da parte de promocao, mesmo padrao): ligar/desligar e
+  excluir servico, e as variacoes de preco, ainda gravam com o client
+  normal - o administrador sem a caixinha "servicos" tambem nao consegue.
+
+--- VERIFICACAO | Data: 2026-10-17 | Promocao de servicos e produtos ---
+
+O QUE FOI TESTADO E ESTA CORRETO (banco de teste com todas as migrations):
+  Preco cobrado pelo banco (fn_calcular_preco_servico), servico de R$ 100
+  com variacao de porte Grande a R$ 150:
+    - preco promocional R$ 80 -> loja 80, cliente 80, porte grande 120
+      (percentual calculado pelo banco: 20%)
+    - "Oferecer no agendamento online" desmarcado -> loja 80, cliente 100
+    - promocao desativada -> 100 para todos
+    - comeca amanha / terminou ontem / terminou hoje as 00:01 -> 100
+    - termina hoje sem hora -> vale o dia todo (80)
+    - baixar o preco do servico para R$ 70 com promocao de R$ 80 -> recusado
+      com mensagem clara
+    - promocao antiga so por % (10%) -> 90 / porte grande 135
+    - remover a promocao limpa datas, horas e opcoes
+  Tela (lib/promocao.ts): status (ativa, programada, desativada,
+  encerrada), preco riscado, selo -X% e a regra do agendamento online dao o
+  MESMO resultado que o banco nos mesmos cenarios.
+
 ================================================================================
   FIM DO REGISTRO DE BUGS
 ================================================================================

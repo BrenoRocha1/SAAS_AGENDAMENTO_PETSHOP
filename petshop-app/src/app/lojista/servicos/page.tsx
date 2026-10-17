@@ -55,7 +55,7 @@ export default async function ServicosPage() {
         <h1 className="page-title">Serviços</h1>
         <p className="page-subtitle">Gerencie os serviços do seu petshop</p>
       </div>
-      <ServicosList servicos={servicos ?? []} />
+      <ServicosList servicos={servicos ?? []} idLojista={contexto.idLojista} />
       {!adicionais.error && (
         <ServicosAdicionais
           adicionais={lerAdicionais(adicionais.data)}

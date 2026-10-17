@@ -66,9 +66,14 @@ interface VariacaoDraft {
 
 interface Props {
   servicos: Servico[]
+  // A loja da tela. A releitura da lista PRECISA filtrar por ela: a policy
+  // "servico: usuarios veem servicos ativos" deixa qualquer usuário logado
+  // ler os serviços ativos de todas as lojas (é o que o agendamento online
+  // usa) — sem o filtro, a lista trazia os serviços do banco inteiro.
+  idLojista: string
 }
 
-export default function ServicosList({ servicos: inicial }: Props) {
+export default function ServicosList({ servicos: inicial, idLojista }: Props) {
   const supabase = createClient()
   const [servicos, setServicos] = useState<Servico[]>(inicial)
   const [showModal, setShowModal] = useState(false)
@@ -94,9 +99,17 @@ export default function ServicosList({ servicos: inicial }: Props) {
   const statusPromo = (s: Servico) => statusPromocaoServico(s, agora)
   const precoComPromo = (s: Servico) => precoPromocionalServico(Number(s.preco), Number(s.preco), s)
 
+  // Lê de novo os serviços DESTA loja (ver idLojista acima). Se a leitura
+  // falhar, a lista atual fica na tela em vez de sumir.
   async function recarregar() {
-    const { data } = await supabase.from('servico').select('*').is('excluido_em', null).order('created_at', { ascending: false })
-    setServicos(data ?? [])
+    const { data, error } = await supabase
+      .from('servico')
+      .select('*')
+      .eq('id_lojista', idLojista)
+      .is('excluido_em', null)
+      .order('created_at', { ascending: false })
+    if (error || !data) return
+    setServicos(data)
   }
 
   function handleAlternarStatus(s: Servico) {
